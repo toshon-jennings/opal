@@ -437,7 +437,9 @@ export class GeminiClient extends BaseClient {
     async streamChat(messages, onChunk, modelId = 'gemini-1.5-flash') {
         if (!this.apiKey) throw new Error('Gemini API Key missing');
 
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:streamGenerateContent?key=${this.apiKey}`;
+        const url = new URL(`https://generativelanguage.googleapis.com/v1beta/models/${modelId}:streamGenerateContent`);
+        url.searchParams.set('key', this.apiKey);
+        url.searchParams.set('alt', 'sse');
         const config = THINKING_CONFIG.fields.google;
         const tagParser = new StreamingTagParser();
 
@@ -468,7 +470,7 @@ export class GeminiClient extends BaseClient {
             };
         });
 
-        const response = await fetch(url, {
+        const response = await fetch(url.toString(), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -498,33 +500,36 @@ export class GeminiClient extends BaseClient {
             buffer = lines.pop() || '';
 
             for (const line of lines) {
-                if (line.trim()) {
-                    try {
-                        const data = JSON.parse(line);
+                const trimmed = line.trim();
+                if (!trimmed.startsWith('data:')) continue;
+                const payload = trimmed.replace(/^data:\s*/, '');
+                if (!payload || payload === '[DONE]') continue;
 
-                        // Check for API-level thinking
-                        const extracted = extractThinking(data.candidates?.[0], config);
+                try {
+                    const data = JSON.parse(payload);
 
-                        if (extracted.thinking) {
-                            onChunk(extracted.thinking, { isThinking: true });
-                        }
+                    // Check for API-level thinking
+                    const extracted = extractThinking(data.candidates?.[0], config);
 
-                        if (extracted.content) {
-                            // Parse for tags
-                            const results = tagParser.processChunk(extracted.content);
-                            for (const result of results) {
-                                onChunk(result.content, { isThinking: result.isThinking });
-                            }
-                        }
-
-                        // Extract finish reason
-                        const finishReason = data.candidates?.[0]?.finishReason;
-                        if (finishReason) {
-                            onChunk('', { finishReason });
-                        }
-                    } catch (e) {
-                        console.error('Error parsing Gemini chunk', e);
+                    if (extracted.thinking) {
+                        onChunk(extracted.thinking, { isThinking: true });
                     }
+
+                    if (extracted.content) {
+                        // Parse for tags
+                        const results = tagParser.processChunk(extracted.content);
+                        for (const result of results) {
+                            onChunk(result.content, { isThinking: result.isThinking });
+                        }
+                    }
+
+                    // Extract finish reason
+                    const finishReason = data.candidates?.[0]?.finishReason;
+                    if (finishReason) {
+                        onChunk('', { finishReason });
+                    }
+                } catch (e) {
+                    console.error('Error parsing Gemini chunk', e);
                 }
             }
         }
@@ -532,17 +537,23 @@ export class GeminiClient extends BaseClient {
         // Process final buffer
         if (buffer.trim()) {
             try {
-                const data = JSON.parse(buffer);
-                const extracted = extractThinking(data.candidates?.[0], config);
+                const trimmed = buffer.trim();
+                if (trimmed.startsWith('data:')) {
+                    const payload = trimmed.replace(/^data:\s*/, '');
+                    if (payload && payload !== '[DONE]') {
+                        const data = JSON.parse(payload);
+                        const extracted = extractThinking(data.candidates?.[0], config);
 
-                if (extracted.thinking) {
-                    onChunk(extracted.thinking, { isThinking: true });
-                }
+                        if (extracted.thinking) {
+                            onChunk(extracted.thinking, { isThinking: true });
+                        }
 
-                if (extracted.content) {
-                    const results = tagParser.processChunk(extracted.content);
-                    for (const result of results) {
-                        onChunk(result.content, { isThinking: result.isThinking });
+                        if (extracted.content) {
+                            const results = tagParser.processChunk(extracted.content);
+                            for (const result of results) {
+                                onChunk(result.content, { isThinking: result.isThinking });
+                            }
+                        }
                     }
                 }
             } catch (e) {
