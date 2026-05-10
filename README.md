@@ -16,18 +16,21 @@
 
 ## 📖 Overview
 
-Opal is a powerful, open-source chat interface inspired by Anthropic's Claude. It provides a clean, intuitive UI for interacting with multiple Large Language Models (LLMs) including OpenAI GPT models, Google Gemini, Groq, and local models via Ollama or LM Studio.
+Opal is a powerful, open-source chat interface inspired by Anthropic's Claude. **This project is a fork of an earlier implementation that we found inadequate in terms of UX/UI polish and feature completeness.** 
+
+Our mission is to build a desktop experience that is truly on par with—and in some ways exceeds—Claude's native desktop application. We have focused heavily on refining the aesthetic, improving interactive feedback, and implementing robust features like a full-featured Electron wrapper, advanced research tools, and a superior developer experience.
 
 ### 🌟 Highlights
 
-- **🔬 Deep Research Scientist Mode**: Autonomous iterative research loop for professional multi-page reports
-- **🧠 Advanced Thinking UI**: Unique collapsible thinking/reasoning display showing AI's thought process
-- **🎨 Premium Design**: Modern, responsive interface with dark/light mode
-- **🔄 Multi-Provider**: Switch between OpenAI, Groq, Gemini, Ollama, and LM Studio
-- **🔍 Intelligent Web Search**: Integrated Tavily search with dynamic tool selection
-- **📦 Artifacts**: Preview HTML, React, SVG, and Research Papers in a dedicated panel
-- **💬 Chat History**: Multiple conversations with persistent local storage
-- **🎭 Markdown Support**: Full GitHub-flavored markdown with syntax highlighting and automatic citations
+- **🖥️ Native Electron Support**: A dedicated desktop application with system integration, tray icons, and polished window management.
+- **🔬 Deep Research Scientist Mode**: Autonomous iterative research loop for professional multi-page reports.
+- **🧠 Advanced Thinking UI**: Unique collapsible thinking/reasoning display showing AI's thought process.
+- **🎨 Premium Design**: A modern, highly-polished interface with meticulously tuned spacing and interactive states.
+- **🔄 Multi-Provider**: Switch between OpenAI, Groq, Gemini, Ollama, and LM Studio.
+- **🔍 Intelligent Web Search**: Integrated Tavily search with dynamic tool selection.
+- **📦 Artifacts**: Preview HTML, React, SVG, and Research Papers in a dedicated side-by-side panel.
+- **💬 Chat History**: Multiple conversations with persistent local storage.
+- **🎭 Markdown Support**: Full GitHub-flavored markdown with syntax highlighting and automatic citations.
 
 ---
 
@@ -84,8 +87,8 @@ Before you begin, ensure you have:
 1. **Clone the repository**
 
 ```bash
-git clone https://github.com/Damienchakma/Open-claude.git
-cd Open-claude
+git clone https://github.com/toshon-jennings/opal.git
+cd opal
 ```
 
 2. **Install dependencies**
