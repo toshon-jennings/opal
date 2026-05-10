@@ -226,7 +226,7 @@ export default function CodeMode() {
     };
 
     return (
-        <div className="code-mode h-full flex bg-[var(--bg-primary)] overflow-hidden text-[var(--text-primary)]">
+        <div className="code-mode h-full min-h-0 flex bg-[var(--bg-primary)] overflow-hidden text-[var(--text-primary)]">
             {/* Left Sidebar: Session History */}
             {showHistory && (
                 <aside 
@@ -273,7 +273,7 @@ export default function CodeMode() {
             )}
 
             <div 
-                className="border-r border-[var(--border)] flex flex-col bg-[var(--bg-primary)] shrink-0"
+                className="border-r border-[var(--border)] flex min-h-0 flex-col bg-[var(--bg-primary)] shrink-0"
                 style={{ width: `${chatWidth}px` }}
             >
                 <div className="h-12 border-b border-[var(--border)] flex items-center justify-between px-4 bg-[var(--bg-secondary)]/30 shrink-0">
@@ -284,7 +284,7 @@ export default function CodeMode() {
                         <h2 className="text-sm font-semibold">Code Assistant</h2>
                     </div>
                 </div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-6">
                     {!activeSession ? (
                         <div className="flex flex-col items-center justify-center h-full text-center p-8 space-y-4">
                             <div className="w-16 h-16 bg-[var(--bg-secondary)] rounded-3xl flex items-center justify-center text-[var(--accent)] shadow-inner"><Code size={32} /></div>
@@ -362,7 +362,7 @@ export default function CodeMode() {
                 }}
             />
 
-            <div className="flex-1 flex flex-col min-w-[300px] bg-[var(--bg-primary)] overflow-hidden">
+            <div className="flex-1 min-h-0 flex flex-col min-w-[300px] bg-[var(--bg-primary)] overflow-hidden">
                 <div className="h-12 border-b border-[var(--border)] flex items-center justify-between px-4 bg-[var(--bg-secondary)]/30 shrink-0">
                     <div className="flex items-center gap-4">
                         <button onClick={() => setShowSidebar(!showSidebar)} className={`p-1.5 rounded-md transition-colors ${showSidebar ? 'text-[var(--accent)]' : 'text-[var(--text-tertiary)]'}`}><Sidebar size={18} /></button>
@@ -376,7 +376,7 @@ export default function CodeMode() {
                         <button onClick={handleSave} disabled={!codeState.unsavedChanges} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${codeState.unsavedChanges ? 'bg-[var(--accent)] text-white shadow-md hover:bg-[var(--accent-hover)]' : 'bg-[var(--bg-tertiary)] text-[var(--text-tertiary)]'}`}><Save size={14} />{codeState.unsavedChanges ? 'Save Changes' : 'Saved'}</button>
                     </div>
                 </div>
-                <div className="flex-1 flex overflow-hidden">
+                <div className="flex-1 min-h-0 flex overflow-hidden">
                     {showSidebar && (
                         <div className="w-64 border-r border-[var(--border)]">
                             <FileExplorer files={codeState.files} activeFile={codeState.activeFile} onFileSelect={handleFileSelect} />

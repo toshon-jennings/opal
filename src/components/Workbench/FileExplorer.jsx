@@ -82,29 +82,37 @@ function FileTreeNode({ node, depth, expandedFolders, onToggleFolder, onFileSele
     const isExpanded = expandedFolders.has(node.path);
     const isSelected = selectedPath === node.path;
     const paddingLeft = `${depth * 12 + 12}px`;
+    const rowClass = `flex h-7 items-center gap-1.5 cursor-pointer transition-colors ${isSelected ? 'bg-[#37373d] text-white' : 'text-[#cccccc] hover:bg-[#2a2d2e]'}`;
+    const chevronClass = "flex h-4 w-4 shrink-0 items-center justify-center text-[#cccccc]";
+    const iconClass = "flex h-4 w-4 shrink-0 items-center justify-center";
 
     // Icon selection
     const getIcon = () => {
-        if (node.type === 'folder') return <Folder size={14} className="text-[#dcb67a]" />;
-        if (node.name.endsWith('.jsx') || node.name.endsWith('.js')) return <FileCode size={14} className="text-[#4ec9b0]" />;
-        if (node.name.endsWith('.json')) return <FileJson size={14} className="text-[#ce9178]" />;
-        if (node.name.endsWith('.css')) return <FileType size={14} className="text-[#569cd6]" />;
-        return <File size={14} className="text-[#cccccc]" />;
+        if (node.type === 'folder') return <Folder size={15} strokeWidth={1.8} className="block text-[#dcb67a]" />;
+        if (node.name.endsWith('.jsx') || node.name.endsWith('.js')) return <FileCode size={15} strokeWidth={1.8} className="block text-[#4ec9b0]" />;
+        if (node.name.endsWith('.json')) return <FileJson size={15} strokeWidth={1.8} className="block text-[#ce9178]" />;
+        if (node.name.endsWith('.css')) return <FileType size={15} strokeWidth={1.8} className="block text-[#569cd6]" />;
+        return <File size={15} strokeWidth={1.8} className="block text-[#cccccc]" />;
     };
 
     if (node.type === 'folder') {
         return (
             <div>
                 <div
-                    className={`flex items-center gap-1.5 py-1 cursor-pointer transition-colors ${isSelected ? 'bg-[#37373d] text-white' : 'text-[#cccccc] hover:bg-[#2a2d2e]'}`}
+                    className={rowClass}
                     style={{ paddingLeft }}
                     onClick={() => onToggleFolder(node.path)}
                 >
-                    <span className="text-[#cccccc]">
-                        {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    <span className={chevronClass}>
+                        {isExpanded
+                            ? <ChevronDown size={14} strokeWidth={1.9} className="block" />
+                            : <ChevronRight size={14} strokeWidth={1.9} className="block" />
+                        }
                     </span>
-                    {getIcon()}
-                    <span className="truncate">{node.name}</span>
+                    <span className={iconClass}>
+                        {getIcon()}
+                    </span>
+                    <span className="min-w-0 truncate leading-none">{node.name}</span>
                 </div>
                 {isExpanded && node.children.map(child => (
                     <FileTreeNode
@@ -123,13 +131,15 @@ function FileTreeNode({ node, depth, expandedFolders, onToggleFolder, onFileSele
 
     return (
         <div
-            className={`flex items-center gap-1.5 py-1 cursor-pointer transition-colors ${isSelected ? 'bg-[#37373d] text-white' : 'text-[#cccccc] hover:bg-[#2a2d2e]'}`}
+            className={rowClass}
             style={{ paddingLeft }}
             onClick={() => onFileSelect(node)}
         >
-            <span className="w-3.5"></span>
-            {getIcon()}
-            <span className="truncate">{node.name}</span>
+            <span className={chevronClass} aria-hidden="true" />
+            <span className={iconClass}>
+                {getIcon()}
+            </span>
+            <span className="min-w-0 truncate leading-none">{node.name}</span>
         </div>
     );
 }

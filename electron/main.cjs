@@ -1,7 +1,10 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, shell, safeStorage } = require('electron');
+const { installRedactedConsole } = require('./redact-console.cjs');
 const path = require('path');
 const { spawn } = require('child_process');
 const isDev = process.env.NODE_ENV === 'development';
+
+installRedactedConsole();
 
 let terminalServerProcess = null;
 let mainWindow = null;
@@ -311,16 +314,68 @@ ipcMain.handle('select-directory', async () => {
 
 const fs = require('fs').promises;
 const appDataFileName = 'opal-data.json';
+const encryptedValueMarker = '__opalEncryptedValue';
+const apiKeyStorageKeys = new Set([
+  'openai_key',
+  'groq_key',
+  'gemini_key',
+  'tavily_key',
+  'openrouter_key',
+  'anthropic_key',
+  'mistral_key'
+]);
 
 function getAppDataPath() {
   return path.join(app.getPath('userData'), appDataFileName);
+}
+
+function encryptAppDataValue(key, value) {
+  if (!apiKeyStorageKeys.has(key) || typeof value !== 'string' || value.length === 0) {
+    return value;
+  }
+
+  if (!safeStorage.isEncryptionAvailable()) {
+    console.warn(`OS encryption is unavailable; storing ${key} without safeStorage encryption.`);
+    return value;
+  }
+
+  return {
+    [encryptedValueMarker]: true,
+    value: safeStorage.encryptString(value).toString('base64')
+  };
+}
+
+function decryptAppDataValue(key, value) {
+  if (!apiKeyStorageKeys.has(key)) return value;
+  if (!value || typeof value !== 'object' || value[encryptedValueMarker] !== true || typeof value.value !== 'string') {
+    return value;
+  }
+
+  try {
+    return safeStorage.decryptString(Buffer.from(value.value, 'base64'));
+  } catch (err) {
+    console.error(`Error decrypting stored ${key}:`, err);
+    return '';
+  }
+}
+
+function encryptAppData(data) {
+  return Object.fromEntries(
+    Object.entries(data || {}).map(([key, value]) => [key, encryptAppDataValue(key, value)])
+  );
+}
+
+function decryptAppData(data) {
+  return Object.fromEntries(
+    Object.entries(data || {}).map(([key, value]) => [key, decryptAppDataValue(key, value)])
+  );
 }
 
 async function readAppData() {
   try {
     const raw = await fs.readFile(getAppDataPath(), 'utf-8');
     const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' ? parsed : {};
+    return parsed && typeof parsed === 'object' ? decryptAppData(parsed) : {};
   } catch (err) {
     if (err.code === 'ENOENT') return {};
     console.error('Error reading app data:', err);
@@ -332,13 +387,13 @@ async function writeAppData(data) {
   const filePath = getAppDataPath();
   const safeData = data && typeof data === 'object' ? data : {};
   const payload = {
-    ...safeData,
+    ...encryptAppData(safeData),
     schemaVersion: 1,
     updatedAt: Date.now()
   };
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, JSON.stringify(payload, null, 2), 'utf-8');
-  return payload;
+  return decryptAppData(payload);
 }
 
 // Toggle DevTools

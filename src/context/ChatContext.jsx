@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { ModelService, getModelCapabilities } from '../lib/llm/ModelService';
 import {
+    API_KEY_STORAGE_KEYS,
+    clearLocalApiKeys,
+    getLocalApiKeySnapshot,
     getLocalPersistenceSnapshot,
     hasElectronStore,
     hasPersistedUserData,
@@ -15,6 +18,31 @@ import { normalizeAssistantSpacing } from '../lib/textFormatting';
 
 const modelService = new ModelService();
 const ChatContext = createContext();
+const API_KEY_PROVIDERS = API_KEY_STORAGE_KEYS.reduce((providers, storageKey) => {
+    providers[storageKey.replace(/_key$/, '')] = storageKey;
+    return providers;
+}, {});
+
+function readApiKeysFromStorage() {
+    return Object.entries(API_KEY_PROVIDERS).reduce((keys, [provider, storageKey]) => {
+        keys[provider] = localStorage.getItem(storageKey) || '';
+        return keys;
+    }, {});
+}
+
+function readApiKeysFromSnapshot(snapshot = {}, fallbackSnapshot = {}) {
+    return Object.entries(API_KEY_PROVIDERS).reduce((keys, [provider, storageKey]) => {
+        keys[provider] = snapshot[storageKey] || fallbackSnapshot[storageKey] || '';
+        return keys;
+    }, {});
+}
+
+function apiKeysToStorageSnapshot(keys) {
+    return Object.entries(API_KEY_PROVIDERS).reduce((snapshot, [provider, storageKey]) => {
+        snapshot[storageKey] = keys?.[provider] || '';
+        return snapshot;
+    }, {});
+}
 
 export function ChatProvider({ children }) {
     const createDefaultProjects = () => {
@@ -117,9 +145,11 @@ export function ChatProvider({ children }) {
             try {
                 const electronData = await loadElectronPersistence();
                 if (!isMounted) return;
+                const localApiKeys = getLocalApiKeySnapshot();
 
                 if (hasPersistedUserData(electronData)) {
                     writeLocalPersistenceSnapshot(electronData);
+                    const nextApiKeys = readApiKeysFromSnapshot(electronData, localApiKeys);
 
                     const persistedChats = readJsonStorage('chat_history', null);
                     const nextChats = Array.isArray(persistedChats) && persistedChats.length > 0
@@ -136,9 +166,20 @@ export function ChatProvider({ children }) {
                     setProjects(Array.isArray(persistedProjects) ? persistedProjects : createDefaultProjects());
                     setUserNameState(readStringStorage('user_name'));
                     setCustomInstructionsState(readStringStorage('custom_instructions'));
+                    setSelectedProvider(readStringStorage('selected_provider', 'groq'));
+                    setSelectedModel(readStringStorage('selected_model'));
+                    setApiKeys(nextApiKeys);
+                    await saveElectronPersistence({
+                        ...getLocalPersistenceSnapshot(),
+                        ...apiKeysToStorageSnapshot(nextApiKeys)
+                    });
                 } else {
-                    await saveElectronPersistence(getLocalPersistenceSnapshot());
+                    await saveElectronPersistence({
+                        ...getLocalPersistenceSnapshot(),
+                        ...localApiKeys
+                    });
                 }
+                clearLocalApiKeys();
             } catch (err) {
                 console.error('Failed to hydrate Electron persistence:', err);
             } finally {
@@ -332,19 +373,17 @@ export function ChatProvider({ children }) {
     }, [artifacts]);
 
     // API Keys
-    const [apiKeys, setApiKeys] = useState({
-        openai: localStorage.getItem('openai_key') || '',
-        groq: localStorage.getItem('groq_key') || '',
-        gemini: localStorage.getItem('gemini_key') || '',
-        tavily: localStorage.getItem('tavily_key') || '',
-        openrouter: localStorage.getItem('openrouter_key') || '',
-        anthropic: localStorage.getItem('anthropic_key') || '',
-        mistral: localStorage.getItem('mistral_key') || '',
-    });
+    const [apiKeys, setApiKeys] = useState(readApiKeysFromStorage);
 
     const updateApiKey = (provider, key) => {
         setApiKeys(prev => ({ ...prev, [provider]: key }));
-        localStorage.setItem(`${provider}_key`, key);
+        const storageKey = API_KEY_PROVIDERS[provider] || `${provider}_key`;
+        if (hasElectronStore()) {
+            localStorage.removeItem(storageKey);
+            saveElectronPersistence({ [storageKey]: key }).catch(err => console.error(`Failed to persist ${provider} API key:`, err));
+        } else {
+            localStorage.setItem(storageKey, key);
+        }
     };
 
     const updateProvider = (provider) => {

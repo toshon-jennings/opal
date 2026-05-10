@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Terminal as TerminalIcon, Layout, Globe, Loader2, RefreshCw, Sidebar, Code, Download, Share2, PanelBottomClose, PanelBottomOpen, X, FolderOpen } from 'lucide-react';
+import { Layout, Globe, Loader2, RefreshCw, Sidebar, Code, Download, Share2, X, FolderOpen } from 'lucide-react';
 import { useBuildMode } from '../../context/BuildModeContext';
 import { useTheme } from '../../context/ThemeContext';
 import { BoltArtifactParser } from '../../lib/BoltArtifactParser';
 import { FileExplorer } from './FileExplorer';
-import TerminalPanel from '../Terminal';
 
-export function Workbench({ streamingMessage, workingDirectory, onChooseFolder }) {
+export function Workbench({ streamingMessage, workingDirectory, onChooseFolder, previewUrl: externalPreviewUrl }) {
     const { webcontainerInstance } = useBuildMode();
     const { isDarkMode } = useTheme();
     const [previewUrl, setPreviewUrl] = useState(null);
@@ -15,7 +14,6 @@ export function Workbench({ streamingMessage, workingDirectory, onChooseFolder }
     // Panel Visibility States
     const [showSidebar, setShowSidebar] = useState(true);
     const [showPreview, setShowPreview] = useState(true);
-    const [showTerminal, setShowTerminal] = useState(true);
 
     const [selectedFileContent, setSelectedFileContent] = useState('');
     const [selectedFilePath, setSelectedFilePath] = useState(null);
@@ -39,9 +37,7 @@ export function Workbench({ streamingMessage, workingDirectory, onChooseFolder }
     useEffect(() => {
         parserRef.current = new BoltArtifactParser({
             onActionStart: (action) => {
-                if (action.type === 'shell') {
-                    if (!showTerminal) setShowTerminal(true);
-                } else if (action.type === 'file') {
+                if (action.type === 'file') {
                     setSelectedFilePath(action.filePath);
                     setSelectedFileContent('');
                 }
@@ -78,7 +74,7 @@ export function Workbench({ streamingMessage, workingDirectory, onChooseFolder }
                 }
             }
         });
-    }, [hasLocalProject, webcontainerInstance, showTerminal, workingDirectory]);
+    }, [hasLocalProject, webcontainerInstance, workingDirectory]);
 
     useEffect(() => {
         if (hasLocalProject) {
@@ -91,6 +87,13 @@ export function Workbench({ streamingMessage, workingDirectory, onChooseFolder }
             setIsServerRunning(false);
         }
     }, [hasLocalProject, localPreviewUrl, workingDirectory]);
+
+    useEffect(() => {
+        if (externalPreviewUrl) {
+            setPreviewUrl(externalPreviewUrl);
+            setIsServerRunning(true);
+        }
+    }, [externalPreviewUrl]);
 
     // Process streaming message
     useEffect(() => {
@@ -210,7 +213,7 @@ export function Workbench({ streamingMessage, workingDirectory, onChooseFolder }
                 <div className={`flex-1 flex flex-col min-w-0 overflow-hidden ${isDarkMode ? 'bg-[#0C0C0D]' : 'bg-white'}`}>
 
                     {/* Upper Area: Editor + Preview */}
-                    <div className={`flex-1 flex min-w-0 overflow-hidden ${showTerminal ? 'h-[60%]' : 'h-full'}`}>
+                    <div className="flex-1 flex min-w-0 overflow-hidden h-full">
 
                         {/* Code Editor */}
                         <div className={`flex-[1_1_0] flex flex-col min-w-0 overflow-hidden ${showPreview ? 'border-r border-[var(--border)]' : ''}`}>
@@ -289,34 +292,6 @@ export function Workbench({ streamingMessage, workingDirectory, onChooseFolder }
                         )}
                     </div>
 
-                    {/* Terminal Pane (Bottom) */}
-                    {showTerminal ? (
-                        <div className={`h-[40%] min-h-[200px] border-t border-[var(--border)] flex flex-col ${isDarkMode ? 'bg-[#0C0C0D]' : 'bg-white'}`}>
-                            <div className="h-8 border-b border-[var(--border)] flex items-center justify-between px-3 bg-[var(--bg-secondary)] shrink-0">
-                                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)]">
-                                    <TerminalIcon size={12} />
-                                    <span>Interactive Terminal</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                    <button onClick={() => setShowTerminal(false)} className="p-1 hover:bg-[var(--bg-hover)] rounded text-[var(--text-tertiary)]" title="Close Terminal">
-                                        <PanelBottomClose size={14} />
-                                    </button>
-                                </div>
-                            </div>
-                            <div className="flex-1">
-                                <TerminalPanel sessionId="workbench" />
-                            </div>
-                        </div>
-                    ) : (
-                        // Collapsed Terminal Bar
-                        <div className="h-8 border-t border-[var(--border)] flex items-center justify-between px-3 bg-[var(--bg-secondary)] shrink-0 cursor-pointer hover:bg-[var(--bg-hover)]" onClick={() => setShowTerminal(true)}>
-                            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)]">
-                                <TerminalIcon size={12} />
-                                <span>Terminal</span>
-                            </div>
-                            <PanelBottomOpen size={14} className="text-[var(--text-tertiary)]" />
-                        </div>
-                    )}
                 </div>
             </div>
 

@@ -1451,9 +1451,15 @@ export default function CoworkMode() {
                                 streamingMessage={streamingMessage}
                                 workingDirectory={codeState.workingDirectory}
                                 onChooseFolder={handleChooseFolder}
+                                previewUrl={previewUrl}
                             />
                         </div>
                     </div>
+                    {showTerminal && (
+                        <div className="h-56 border-t border-[var(--border)] shrink-0">
+                            <TerminalPanel sessionId="cowork" />
+                        </div>
+                    )}
                 </div>
             </div>
         );

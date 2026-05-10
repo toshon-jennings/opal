@@ -103,8 +103,8 @@ function AppContent() {
             </header>
 
             {/* Mode-Specific UI */}
-            <main className="app-main flex-1 overflow-hidden flex flex-col">
-                <div className="flex-1 overflow-hidden relative">
+            <main className="app-main flex-1 min-h-0 overflow-hidden flex flex-col">
+                <div className="flex-1 min-h-0 overflow-hidden relative">
                     <div className="absolute inset-0 overflow-hidden">
                         {currentMode === MODES.CHAT && <ChatMode />}
                         {currentMode === MODES.COWORK && <CoworkMode />}
@@ -116,7 +116,7 @@ function AppContent() {
                 {/* Global Docked Terminal */}
                 {showGlobalTerminal && (
                     <div
-                        className="h-[34vh] min-h-[200px] z-[100] animate-slide-up border-t border-l border-[var(--border)] shadow-[0_-8px_32px_rgba(0,0,0,0.3)]"
+                        className="h-[34vh] min-h-[200px] shrink-0 z-[100] animate-slide-up border-t border-l border-[var(--border)] shadow-[0_-8px_32px_rgba(0,0,0,0.3)]"
                         style={{
                             marginLeft: 'var(--opal-terminal-left, 0px)',
                             width: 'calc(100% - var(--opal-terminal-left, 0px))',

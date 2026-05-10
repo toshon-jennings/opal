@@ -798,7 +798,12 @@ function ChatMode() {
             const projectSystemPrompt = isProjectComposer
                 ? `\n\nYou are working inside the project "${selectedProject.name}". Project goal: ${selectedProject.description || 'No explicit goal provided.'} Project memory: ${selectedProject.memory || 'No memory added yet.'} Project instructions: ${selectedProject.instructions || 'No custom instructions added yet.'}`
                 : '';
-            const systemPrompt = `${baseSystemPrompt}${customInstructionsPrompt}${projectSystemPrompt}`;
+            const permissionPrompt = permissionLevel === 'ask'
+                ? '\n\nPermission level: Ask first — always ask the user for confirmation before suggesting any action that modifies files, systems, or external services.'
+                : permissionLevel === 'read'
+                ? '\n\nPermission level: Read only — you may only read, summarize, or discuss information. Do not suggest or perform any actions that create, modify, or delete files or data.'
+                : '';
+            const systemPrompt = `${baseSystemPrompt}${customInstructionsPrompt}${projectSystemPrompt}${permissionPrompt}`;
 
             const messagesWithContext = [
                 { role: 'system', content: systemPrompt },
@@ -1178,7 +1183,7 @@ function ChatMode() {
     }, [isResizing]);
 
     return (
-        <div className="flex h-full w-full overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)]">
+        <div className="flex h-full min-h-0 w-full overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)]">
             {/* Sidebar */}
             <aside
                 ref={sidebarRef}
@@ -1347,9 +1352,9 @@ function ChatMode() {
                 )}
             </aside>
 
-            <div className="flex-1 flex min-w-0 overflow-hidden">
+            <div className="flex-1 min-h-0 flex min-w-0 overflow-hidden">
             {/* Main Chat Area */}
-            <main className="flex-1 flex flex-col relative min-w-0 transition-all duration-300">
+            <main className="flex-1 min-h-0 flex flex-col relative min-w-0 transition-all duration-300">
                 {/* Mobile/Toggle Header */}
                 <div className="md:hidden p-3 border-b border-[var(--border)] flex justify-between items-center bg-[var(--bg-primary)] text-[var(--text-primary)]">
                     <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 hover:bg-[var(--bg-hover)] rounded-md">
@@ -1419,7 +1424,7 @@ function ChatMode() {
                     />
                 ) : (
                     <>
-                        <div className="flex-1 overflow-y-auto px-4 md:px-6 py-6 md:py-8 flex flex-col gap-4 max-w-3xl mx-auto w-full">
+                        <div className="flex-1 min-h-0 overflow-y-auto px-4 md:px-6 py-6 md:py-8 flex flex-col gap-4 max-w-3xl mx-auto w-full">
                             {messages.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center h-full text-center space-y-6">
                                     <h2 className="flex items-center justify-center gap-3 text-3xl md:text-4xl font-light text-[var(--text-primary)]" style={{ fontFamily: "'Georgia', 'Tiempos Text', serif" }}>
@@ -1720,8 +1725,8 @@ function ChatMode() {
                                     availableModels={availableModels}
                                     updateProvider={updateProvider}
                                     updateModel={updateModel}
-                                    buttonClassName="flex items-center gap-1.5 px-3 py-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-lg transition-colors text-sm"
-                                    labelClassName="text-sm"
+                                    buttonClassName="flex items-center gap-1.5 px-3 py-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-lg transition-colors text-sm max-w-[160px]"
+                                    labelClassName="text-sm truncate"
                                     iconSize={14}
                                     title="Select model"
                                     dropdownWidthClassName="w-72"

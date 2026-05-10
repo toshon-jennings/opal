@@ -1,3 +1,13 @@
+export const API_KEY_STORAGE_KEYS = [
+    'openai_key',
+    'groq_key',
+    'gemini_key',
+    'tavily_key',
+    'openrouter_key',
+    'anthropic_key',
+    'mistral_key'
+];
+
 const PERSISTED_KEYS = [
     'chat_history',
     'current_chat_id',
@@ -8,7 +18,8 @@ const PERSISTED_KEYS = [
     'user_name',
     'custom_instructions',
     'selected_provider',
-    'selected_model'
+    'selected_model',
+    ...API_KEY_STORAGE_KEYS
 ];
 
 export function hasElectronStore() {
@@ -37,9 +48,22 @@ export function getLocalPersistenceSnapshot() {
     }, {});
 }
 
+export function getLocalApiKeySnapshot() {
+    return API_KEY_STORAGE_KEYS.reduce((snapshot, key) => {
+        const value = localStorage.getItem(key);
+        if (value !== null) snapshot[key] = value;
+        return snapshot;
+    }, {});
+}
+
+export function clearLocalApiKeys() {
+    API_KEY_STORAGE_KEYS.forEach((key) => localStorage.removeItem(key));
+}
+
 export function writeLocalPersistenceSnapshot(snapshot) {
     if (!snapshot || typeof snapshot !== 'object') return;
     PERSISTED_KEYS.forEach((key) => {
+        if (API_KEY_STORAGE_KEYS.includes(key)) return;
         const value = snapshot[key];
         if (typeof value === 'string') {
             localStorage.setItem(key, value);
