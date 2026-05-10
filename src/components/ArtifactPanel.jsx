@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Code, Eye, Maximize2, X, Copy, Check, Download, FileText } from 'lucide-react';
+import { Code, Eye, Maximize2, X, Copy, Check, Download, FileText, Pencil } from 'lucide-react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import ReactMarkdown from 'react-markdown';
@@ -8,10 +8,15 @@ import rehypeRaw from 'rehype-raw';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
-export function ArtifactPanel({ isOpen, onClose, artifact }) {
-    const [view, setView] = useState('preview'); // 'preview' or 'code'
+export function ArtifactPanel({ isOpen, onClose, artifact, onUpdateContent }) {
+    const [view, setView] = useState('preview'); // 'preview', 'code', or 'edit'
     const [copied, setCopied] = useState(false);
+    const [editContent, setEditContent] = useState('');
     const iframeRef = useRef(null);
+
+    useEffect(() => {
+        if (view === 'edit') setEditContent(artifact?.content || '');
+    }, [view, artifact?.id]);
 
     useEffect(() => {
         if (artifact && artifact.type === 'html' && view === 'preview' && iframeRef.current) {
@@ -125,6 +130,16 @@ export function ArtifactPanel({ isOpen, onClose, artifact }) {
                         </>
                     )}
                     <button
+                        onClick={() => setView('edit')}
+                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${view === 'edit'
+                            ? 'bg-[var(--accent)] text-white'
+                            : 'hover:bg-[var(--bg-hover)] text-[var(--text-secondary)]'
+                            }`}
+                    >
+                        <Pencil size={14} className="inline mr-1" />
+                        Edit
+                    </button>
+                    <button
                         onClick={copyCode}
                         className="p-1.5 hover:bg-[var(--bg-hover)] rounded-md transition-colors"
                         title="Copy code"
@@ -193,6 +208,29 @@ export function ArtifactPanel({ isOpen, onClose, artifact }) {
                                 </div>
                             </div>
                         )}
+                    </div>
+                ) : view === 'edit' ? (
+                    <div className="h-full flex flex-col">
+                        <textarea
+                            className="flex-1 w-full p-4 font-mono text-sm bg-[var(--bg-secondary)] text-[var(--text-primary)] resize-none outline-none leading-relaxed"
+                            value={editContent}
+                            onChange={e => setEditContent(e.target.value)}
+                            spellCheck={false}
+                        />
+                        <div className="flex justify-end gap-2 p-3 border-t border-[var(--border)] bg-[var(--bg-secondary)]">
+                            <button
+                                onClick={() => setView(canPreview ? 'preview' : 'code')}
+                                className="px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => { onUpdateContent?.(editContent); setView(canPreview ? 'preview' : 'code'); }}
+                                className="px-4 py-1.5 text-xs font-medium bg-[var(--accent)] text-white rounded-md hover:bg-[var(--accent-hover)] transition-colors"
+                            >
+                                Save
+                            </button>
+                        </div>
                     </div>
                 ) : (
                     <div className="h-full overflow-auto bg-[var(--bg-secondary)]">

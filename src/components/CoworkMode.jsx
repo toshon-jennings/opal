@@ -170,7 +170,7 @@ function CoworkModelSelector({ selectedProvider, selectedModel, availableModels,
             updateProvider={updateProvider}
             updateModel={updateModel}
             showIcon={true}
-            buttonClassName="flex items-center gap-1.5 px-2.5 py-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-lg transition-colors text-xs max-w-[190px]"
+            buttonClassName="flex items-center gap-1.5 px-2.5 py-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-lg transition-colors text-xs max-w-[160px] overflow-hidden"
             labelClassName="truncate text-xs"
             iconSize={13}
             title="Select model"

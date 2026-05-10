@@ -503,6 +503,7 @@ function ChatMode() {
         currentArtifactId,
         setCurrentArtifactId,
         getArtifact,
+        updateArtifactContent,
         // Chat history
         chats,
         currentChatId,
@@ -1761,6 +1762,7 @@ function ChatMode() {
                 isOpen={isArtifactOpen}
                 onClose={() => setIsArtifactOpen(false)}
                 artifact={getArtifact(currentArtifactId)}
+                onUpdateContent={(content) => updateArtifactContent(currentArtifactId, content)}
             />
 
             <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
