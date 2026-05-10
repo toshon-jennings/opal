@@ -41,3 +41,12 @@ Thumbs.db
 
 # Local storage
 *.local
+
+# Build artifacts
+dist_electron/
+.vite/
+build_output.log
+test_session.txt
+
+# Local tool settings
+.claude/

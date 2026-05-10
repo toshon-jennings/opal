@@ -4,10 +4,11 @@ import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { User, Bot, Copy, Check, Code, ExternalLink } from 'lucide-react';
+import { User, Copy, Check, Code, ExternalLink, FileText, Image as ImageIcon, Table } from 'lucide-react';
 import { useChat } from '../context/ChatContext';
 import { CitationDisplay } from './CitationDisplay';
 import { ThinkingDisplay } from './ThinkingDisplay';
+import opalLogo from '../assets/opal-logo.png';
 
 export function ChatMessage({ message }) {
     const isUser = message.role === 'user';
@@ -141,12 +142,12 @@ export function ChatMessage({ message }) {
                 ? 'bg-[var(--accent)] text-white'
                 : ''
                 }`}>
-                {isUser ? <User size={18} /> : <img src="/claude-logo.svg" alt="Claude" className="w-full h-full" />}
+                {isUser ? <User size={18} /> : <img src={opalLogo} alt="Opal" className="w-full h-full rounded-full" />}
             </div>
 
             <div className="flex-1 overflow-hidden">
-                <div className="font-medium text-sm mb-1.5 text-[var(--text-primary)]">
-                    {isUser ? 'You' : 'Open Claude'}
+                <div className="font-semibold text-sm mb-1.5 text-[var(--accent)]">
+                    {isUser ? 'You' : 'Opal'}
                 </div>
 
                 {/* Display uploaded images */}
@@ -160,6 +161,33 @@ export function ChatMessage({ message }) {
                                 className="max-w-[200px] max-h-[200px] rounded-lg border border-[var(--border)] object-cover"
                             />
                         ))}
+                    </div>
+                )}
+
+                {message.metadata?.attachments && message.metadata.attachments.length > 0 && (
+                    <div className="mb-3 flex gap-2 flex-wrap">
+                        {message.metadata.attachments.map((attachment, idx) => {
+                            const Icon = attachment.type === 'image'
+                                ? ImageIcon
+                                : attachment.type === 'table'
+                                    ? Table
+                                    : FileText;
+                            return (
+                                <div
+                                    key={`${attachment.name}-${idx}`}
+                                    className="inline-flex items-center gap-2 max-w-[260px] px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-tertiary)] text-xs text-[var(--text-secondary)]"
+                                    title={attachment.name}
+                                >
+                                    <Icon size={14} className="shrink-0 text-[var(--accent)]" />
+                                    <div className="min-w-0">
+                                        <div className="truncate text-[var(--text-primary)]">{attachment.name}</div>
+                                        {attachment.sizeLabel && (
+                                            <div className="text-[10px] text-[var(--text-tertiary)]">{attachment.sizeLabel}</div>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
 

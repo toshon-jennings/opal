@@ -230,6 +230,12 @@ export class LLMFactory {
                 return new OllamaClient();
             case 'lmstudio':
                 return new LMStudioClient();
+            case 'openrouter':
+                return new OpenRouterClient(apiKey);
+            case 'anthropic':
+                return new AnthropicClient(apiKey);
+            case 'mistral':
+                return new MistralClient(apiKey);
             default:
                 throw new Error(`Unknown provider: ${provider}`);
         }
@@ -243,6 +249,122 @@ class BaseClient {
 
     async streamChat(messages, onChunk, modelId) {
         throw new Error('Not implemented');
+    }
+
+    // ── Tool-use helpers ───────────────────────────────────────────────────
+
+    /** Convert the AGENT_TOOLS descriptor array into OpenAI function-calling schema. */
+    _formatToolsAsOpenAI(tools) {
+        return tools.map(t => ({
+            type: 'function',
+            function: {
+                name: t.name,
+                description: t.description,
+                parameters: {
+                    type: 'object',
+                    properties: Object.fromEntries(
+                        Object.entries(t.parameters || {}).map(([k, desc]) => [
+                            k, { type: 'string', description: String(desc) }
+                        ])
+                    ),
+                    required: Object.keys(t.parameters || {})
+                }
+            }
+        }));
+    }
+
+    /**
+     * Shared streaming-with-tools logic for all OpenAI-compatible endpoints.
+     * Accumulates streamed tool-call arguments (which arrive in chunks) and
+     * returns { content, toolCalls } when the stream is complete.
+     */
+    async _openAIStreamWithTools(url, headers, messages, tools, onChunk, modelId) {
+        const formattedMessages = messages.map(m => {
+            if (m.role === 'tool')      return { role: 'tool', tool_call_id: m.tool_call_id, content: m.content };
+            if (m.tool_calls)           return { role: 'assistant', content: m.content ?? null, tool_calls: m.tool_calls };
+            if (m.images?.length > 0) {
+                const parts = [{ type: 'text', text: m.content || '' }];
+                for (const img of m.images) {
+                    parts.push({ type: 'image_url', image_url: { url: img.dataUrl || `data:${img.type||'image/png'};base64,${img.base64}` } });
+                }
+                return { role: m.role, content: parts };
+            }
+            return { role: m.role, content: m.content };
+        });
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...headers },
+            body: JSON.stringify({
+                model: modelId,
+                messages: formattedMessages,
+                tools: this._formatToolsAsOpenAI(tools),
+                tool_choice: 'auto',
+                stream: true
+            })
+        });
+
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.error?.message || `API Error ${response.status}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let content = '';
+        // index → { id, name, argumentsStr }
+        const acc = {};
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            for (const line of decoder.decode(value).split('\n')) {
+                if (!line.startsWith('data: ') || line === 'data: [DONE]') continue;
+                try {
+                    const data = JSON.parse(line.slice(6));
+                    const delta = data.choices?.[0]?.delta;
+                    if (!delta) continue;
+
+                    if (delta.content) {
+                        content += delta.content;
+                        onChunk(delta.content);
+                    }
+
+                    for (const tc of (delta.tool_calls || [])) {
+                        const i = tc.index ?? 0;
+                        if (!acc[i]) acc[i] = { id: '', name: '', argumentsStr: '' };
+                        if (tc.id)                   acc[i].id = tc.id;
+                        if (tc.function?.name)       acc[i].name += tc.function.name;
+                        if (tc.function?.arguments)  acc[i].argumentsStr += tc.function.arguments;
+                    }
+                } catch { /* ignore malformed chunks */ }
+            }
+        }
+
+        const calls = Object.values(acc);
+        const toolCalls = calls.length > 0
+            ? calls.map(tc => ({
+                id:   tc.id,
+                name: tc.name,
+                args: (() => { try { return JSON.parse(tc.argumentsStr || '{}'); } catch { return {}; } })()
+              }))
+            : null;
+
+        return { content, toolCalls };
+    }
+
+    /**
+     * Default fallback: providers that don't support native tool calling
+     * fall back to regular streaming (Bolt-style action tags still work).
+     */
+    async streamChatWithTools(messages, tools, onChunk, modelId) {
+        let content = '';
+        await this.streamChat(messages, (chunk, meta) => {
+            if (!meta?.isThinking) content += chunk;
+            onChunk(chunk, meta);
+        }, modelId);
+        return { content, toolCalls: null };
     }
 }
 
@@ -345,6 +467,15 @@ export class OpenAIClient extends BaseClient {
             }
         }
     }
+
+    async streamChatWithTools(messages, tools, onChunk, modelId = 'gpt-4o') {
+        if (!this.apiKey) throw new Error('OpenAI API Key missing');
+        return this._openAIStreamWithTools(
+            'https://api.openai.com/v1/chat/completions',
+            { 'Authorization': `Bearer ${this.apiKey}` },
+            messages, tools, onChunk, modelId
+        );
+    }
 }
 
 // Groq Client with tag-based detection
@@ -429,6 +560,15 @@ export class GroqClient extends BaseClient {
                 }
             }
         }
+    }
+
+    async streamChatWithTools(messages, tools, onChunk, modelId = 'llama-3.3-70b-versatile') {
+        if (!this.apiKey) throw new Error('Groq API Key missing');
+        return this._openAIStreamWithTools(
+            'https://api.groq.com/openai/v1/chat/completions',
+            { 'Authorization': `Bearer ${this.apiKey}` },
+            messages, tools, onChunk, modelId
+        );
     }
 }
 
@@ -561,6 +701,86 @@ export class GeminiClient extends BaseClient {
             }
         }
     }
+
+    async streamChatWithTools(messages, tools, onChunk, modelId = 'gemini-1.5-flash') {
+        if (!this.apiKey) throw new Error('Gemini API Key missing');
+
+        // Gemini uses functionDeclarations format
+        const functionDeclarations = tools.map(t => ({
+            name: t.name,
+            description: t.description,
+            parameters: {
+                type: 'object',
+                properties: Object.fromEntries(
+                    Object.entries(t.parameters || {}).map(([k, desc]) => [k, { type: 'string', description: String(desc) }])
+                ),
+                required: Object.keys(t.parameters || {})
+            }
+        }));
+
+        // Build Gemini-format contents, handling tool results
+        const contents = [];
+        let systemInstruction = null;
+        for (const m of messages) {
+            if (m.role === 'system') { systemInstruction = m.content; continue; }
+            if (m.role === 'tool') {
+                contents.push({
+                    role: 'user',
+                    parts: [{ functionResponse: { name: m.name || 'tool', response: { result: m.content } } }]
+                });
+                continue;
+            }
+            if (m.tool_calls) {
+                contents.push({
+                    role: 'model',
+                    parts: m.tool_calls.map(tc => ({ functionCall: { name: tc.function.name, args: JSON.parse(tc.function.arguments || '{}') } }))
+                });
+                continue;
+            }
+            contents.push({
+                role: m.role === 'assistant' ? 'model' : 'user',
+                parts: [{ text: m.content || '' }]
+            });
+        }
+
+        const url = new URL(`https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent`);
+        url.searchParams.set('key', this.apiKey);
+
+        const body = { contents, tools: [{ functionDeclarations }] };
+        if (systemInstruction) body.systemInstruction = { parts: [{ text: systemInstruction }] };
+
+        const response = await fetch(url.toString(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.error?.message || `Gemini API Error ${response.status}`);
+        }
+
+        const data = await response.json();
+        const parts = data.candidates?.[0]?.content?.parts || [];
+        let content = '';
+        const toolCalls = [];
+
+        for (const part of parts) {
+            if (part.text) {
+                content += part.text;
+                onChunk(part.text);
+            }
+            if (part.functionCall) {
+                toolCalls.push({
+                    id:   `gemini-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                    name: part.functionCall.name,
+                    args: part.functionCall.args || {}
+                });
+            }
+        }
+
+        return { content, toolCalls: toolCalls.length > 0 ? toolCalls : null };
+    }
 }
 
 // Ollama Client with tag support
@@ -629,6 +849,42 @@ export class OllamaClient extends BaseClient {
                 }
             }
         }
+    }
+
+    async streamChatWithTools(messages, tools, onChunk, modelId = 'llama2') {
+        // Ollama supports tools via /api/chat with the OpenAI-compatible tools format
+        const formattedMessages = messages.map(m => {
+            if (m.role === 'tool') return { role: 'tool', tool_call_id: m.tool_call_id, content: m.content };
+            return { role: m.role, content: m.content };
+        });
+
+        const response = await fetch('http://localhost:11434/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: modelId,
+                messages: formattedMessages,
+                tools: this._formatToolsAsOpenAI(tools),
+                stream: false
+            })
+        });
+
+        if (!response.ok) throw new Error('Ollama API Error - is Ollama running?');
+
+        const data = await response.json();
+        const msg = data.message || {};
+        const content = msg.content || '';
+        if (content) onChunk(content);
+
+        const toolCalls = msg.tool_calls?.length > 0
+            ? msg.tool_calls.map((tc, i) => ({
+                id:   `ollama-${Date.now()}-${i}`,
+                name: tc.function?.name || '',
+                args: (() => { try { return typeof tc.function?.arguments === 'string' ? JSON.parse(tc.function.arguments) : (tc.function?.arguments || {}); } catch { return {}; } })()
+              }))
+            : null;
+
+        return { content, toolCalls };
     }
 }
 
@@ -708,5 +964,368 @@ export class LMStudioClient extends BaseClient {
                 }
             }
         }
+    }
+
+    async streamChatWithTools(messages, tools, onChunk, modelId) {
+        return this._openAIStreamWithTools(
+            'http://localhost:1234/v1/chat/completions',
+            {},
+            messages, tools, onChunk, modelId || 'local-model'
+        );
+    }
+}
+
+// ── OpenRouter Client ─────────────────────────────────────────────────────────
+// OpenRouter uses the OpenAI-compatible format with an extra Referer header.
+export class OpenRouterClient extends BaseClient {
+    async streamChat(messages, onChunk, modelId = 'openai/gpt-4o') {
+        if (!this.apiKey) throw new Error('OpenRouter API Key missing');
+
+        const tagParser = new StreamingTagParser();
+        const config = THINKING_CONFIG.fields.openai;
+
+        const formattedMessages = messages.map(m => {
+            if (m.images && m.images.length > 0) {
+                const content = [{ type: 'text', text: m.content || '' }];
+                for (const img of m.images) {
+                    content.push({
+                        type: 'image_url',
+                        image_url: { url: img.dataUrl || `data:${img.type || 'image/png'};base64,${img.base64}` }
+                    });
+                }
+                return { role: m.role, content };
+            }
+            return { role: m.role, content: m.content };
+        });
+
+        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${this.apiKey}`,
+                'HTTP-Referer': 'https://opal.app',
+                'X-Title': 'Opal'
+            },
+            body: JSON.stringify({ model: modelId, messages: formattedMessages, stream: true })
+        });
+
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.error?.message || 'OpenRouter API Error');
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value);
+            for (const line of chunk.split('\n')) {
+                if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+                    try {
+                        const data = JSON.parse(line.slice(6));
+                        const extracted = extractThinking(data.choices?.[0], config);
+
+                        if (extracted.thinking) onChunk(extracted.thinking, { isThinking: true });
+                        if (extracted.content) {
+                            for (const r of tagParser.processChunk(extracted.content)) {
+                                onChunk(r.content, { isThinking: r.isThinking });
+                            }
+                        }
+
+                        const finishReason = data.choices?.[0]?.finish_reason;
+                        if (finishReason) onChunk('', { finishReason });
+                    } catch (e) { /* ignore malformed chunks */ }
+                }
+            }
+        }
+    }
+
+    async streamChatWithTools(messages, tools, onChunk, modelId = 'openai/gpt-4o') {
+        if (!this.apiKey) throw new Error('OpenRouter API Key missing');
+        return this._openAIStreamWithTools(
+            'https://openrouter.ai/api/v1/chat/completions',
+            {
+                'Authorization': `Bearer ${this.apiKey}`,
+                'HTTP-Referer': window.location.origin,
+                'X-Title': 'Opal'
+            },
+            messages, tools, onChunk, modelId
+        );
+    }
+}
+
+// ── Anthropic Client ──────────────────────────────────────────────────────────
+// Uses Anthropic's Messages API with streaming. Handles extended thinking blocks.
+export class AnthropicClient extends BaseClient {
+    async streamChat(messages, onChunk, modelId = 'claude-sonnet-4-5') {
+        if (!this.apiKey) throw new Error('Anthropic API Key missing');
+
+        const tagParser = new StreamingTagParser();
+
+        // Separate system message from the conversation
+        let systemPrompt = '';
+        const conversation = [];
+        for (const m of messages) {
+            if (m.role === 'system') {
+                systemPrompt = m.content;
+            } else {
+                if (m.images && m.images.length > 0) {
+                    const content = [{ type: 'text', text: m.content || '' }];
+                    for (const img of m.images) {
+                        content.push({
+                            type: 'image',
+                            source: { type: 'base64', media_type: img.type || 'image/png', data: img.base64 }
+                        });
+                    }
+                    conversation.push({ role: m.role, content });
+                } else {
+                    conversation.push({ role: m.role, content: m.content });
+                }
+            }
+        }
+
+        const body = {
+            model: modelId,
+            max_tokens: 8192,
+            stream: true,
+            messages: conversation
+        };
+        if (systemPrompt) body.system = systemPrompt;
+
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': this.apiKey,
+                'anthropic-version': '2023-06-01',
+                'anthropic-dangerous-direct-browser-access': 'true'
+            },
+            body: JSON.stringify(body)
+        });
+
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.error?.message || 'Anthropic API Error');
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+                if (!line.startsWith('data:')) continue;
+                const payload = line.replace(/^data:\s*/, '');
+                if (!payload || payload === '[DONE]') continue;
+
+                try {
+                    const event = JSON.parse(payload);
+
+                    if (event.type === 'content_block_start') {
+                        if (event.content_block?.type === 'thinking') {
+                            // Anthropic extended thinking block start
+                        }
+                    } else if (event.type === 'content_block_delta') {
+                        const delta = event.delta || {};
+                        if (delta.type === 'thinking_delta') {
+                            onChunk(delta.thinking || '', { isThinking: true });
+                        } else if (delta.type === 'text_delta') {
+                            const text = delta.text || '';
+                            if (text) {
+                                for (const r of tagParser.processChunk(text)) {
+                                    onChunk(r.content, { isThinking: r.isThinking });
+                                }
+                            }
+                        }
+                    } else if (event.type === 'message_delta') {
+                        const stopReason = event.delta?.stop_reason;
+                        if (stopReason) onChunk('', { finishReason: stopReason });
+                    }
+                } catch (e) { /* ignore malformed events */ }
+            }
+        }
+    }
+
+    async streamChatWithTools(messages, tools, onChunk, modelId = 'claude-sonnet-4-5') {
+        if (!this.apiKey) throw new Error('Anthropic API Key missing');
+
+        let systemPrompt = '';
+        const conversation = [];
+        for (const m of messages) {
+            if (m.role === 'system') { systemPrompt = m.content; continue; }
+            if (m.role === 'tool') {
+                conversation.push({
+                    role: 'user',
+                    content: [{ type: 'tool_result', tool_use_id: m.tool_call_id, content: m.content }]
+                });
+                continue;
+            }
+            if (m.tool_calls) {
+                conversation.push({
+                    role: 'assistant',
+                    content: [
+                        ...(m.content ? [{ type: 'text', text: m.content }] : []),
+                        ...m.tool_calls.map(tc => ({
+                            type: 'tool_use',
+                            id:   tc.id,
+                            name: tc.function?.name || tc.name,
+                            input: (() => { try { return JSON.parse(tc.function?.arguments || '{}'); } catch { return {}; } })()
+                        }))
+                    ]
+                });
+                continue;
+            }
+            conversation.push({ role: m.role, content: m.content });
+        }
+
+        const anthropicTools = tools.map(t => ({
+            name: t.name,
+            description: t.description,
+            input_schema: {
+                type: 'object',
+                properties: Object.fromEntries(
+                    Object.entries(t.parameters || {}).map(([k, desc]) => [k, { type: 'string', description: String(desc) }])
+                ),
+                required: Object.keys(t.parameters || {})
+            }
+        }));
+
+        const body = { model: modelId, max_tokens: 8192, stream: true, messages: conversation, tools: anthropicTools };
+        if (systemPrompt) body.system = systemPrompt;
+
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': this.apiKey,
+                'anthropic-version': '2023-06-01',
+                'anthropic-dangerous-direct-browser-access': 'true'
+            },
+            body: JSON.stringify(body)
+        });
+
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.error?.message || `Anthropic API Error ${response.status}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let content = '';
+        // block_index → { id, name, inputStr }
+        const blockAcc = {};
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+                if (!line.startsWith('data:')) continue;
+                const payload = line.replace(/^data:\s*/, '');
+                if (!payload || payload === '[DONE]') continue;
+                try {
+                    const ev = JSON.parse(payload);
+                    if (ev.type === 'content_block_start' && ev.content_block?.type === 'tool_use') {
+                        const idx = ev.index ?? 0;
+                        blockAcc[idx] = { id: ev.content_block.id, name: ev.content_block.name, inputStr: '' };
+                    } else if (ev.type === 'content_block_delta') {
+                        const d = ev.delta || {};
+                        if (d.type === 'text_delta' && d.text) {
+                            content += d.text;
+                            onChunk(d.text);
+                        }
+                        if (d.type === 'input_json_delta' && d.partial_json) {
+                            const idx = ev.index ?? 0;
+                            if (blockAcc[idx]) blockAcc[idx].inputStr += d.partial_json;
+                        }
+                    }
+                } catch { /* ignore */ }
+            }
+        }
+
+        const calls = Object.values(blockAcc);
+        const toolCalls = calls.length > 0
+            ? calls.map(b => ({
+                id:   b.id,
+                name: b.name,
+                args: (() => { try { return JSON.parse(b.inputStr || '{}'); } catch { return {}; } })()
+              }))
+            : null;
+
+        return { content, toolCalls };
+    }
+}
+
+// ── Mistral Client ────────────────────────────────────────────────────────────
+// OpenAI-compatible endpoint.
+export class MistralClient extends BaseClient {
+    async streamChat(messages, onChunk, modelId = 'mistral-large-latest') {
+        if (!this.apiKey) throw new Error('Mistral API Key missing');
+
+        const tagParser = new StreamingTagParser();
+
+        const formattedMessages = messages.map(m => ({ role: m.role, content: m.content }));
+
+        const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${this.apiKey}`
+            },
+            body: JSON.stringify({ model: modelId, messages: formattedMessages, stream: true })
+        });
+
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.error?.message || err.message || 'Mistral API Error');
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            for (const line of decoder.decode(value).split('\n')) {
+                if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+                    try {
+                        const data = JSON.parse(line.slice(6));
+                        const content = data.choices?.[0]?.delta?.content || '';
+                        if (content) {
+                            for (const r of tagParser.processChunk(content)) {
+                                onChunk(r.content, { isThinking: r.isThinking });
+                            }
+                        }
+                        const finishReason = data.choices?.[0]?.finish_reason;
+                        if (finishReason) onChunk('', { finishReason });
+                    } catch (e) { /* ignore */ }
+                }
+            }
+        }
+    }
+
+    async streamChatWithTools(messages, tools, onChunk, modelId = 'mistral-large-latest') {
+        if (!this.apiKey) throw new Error('Mistral API Key missing');
+        return this._openAIStreamWithTools(
+            'https://api.mistral.ai/v1/chat/completions',
+            { 'Authorization': `Bearer ${this.apiKey}` },
+            messages, tools, onChunk, modelId
+        );
     }
 }

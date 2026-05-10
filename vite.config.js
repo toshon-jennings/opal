@@ -3,6 +3,11 @@ import react from '@vitejs/plugin-react'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  base: './',
+  server: {
+    port: 5173,
+    strictPort: true,
+  },
   plugins: [
     react(),
     // WebContainer API requires these headers for SharedArrayBuffer support

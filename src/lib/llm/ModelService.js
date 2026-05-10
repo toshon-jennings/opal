@@ -233,7 +233,10 @@ export class ModelService {
             ollama: { models: null, timestamp: null },
             lmstudio: { models: null, timestamp: null },
             openai: { models: null, timestamp: null },
-            gemini: { models: null, timestamp: null }
+            gemini: { models: null, timestamp: null },
+            openrouter: { models: null, timestamp: null },
+            anthropic: { models: null, timestamp: null },
+            mistral: { models: null, timestamp: null }
         };
         this.CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
     }
@@ -381,7 +384,7 @@ export class ModelService {
                 return this.cache.lmstudio.models;
             }
 
-            const response = await fetch('http://localhost:1234/v1/models');
+            const response = await fetch('http://192.168.1.192:1234/v1/models');
 
             if (!response.ok) {
                 throw new Error('LM Studio is not running or not accessible');
@@ -470,6 +473,103 @@ export class ModelService {
         }
     }
 
+    // Fetch models from OpenRouter
+    async fetchOpenRouterModels(apiKey) {
+        if (!apiKey) return [];
+
+        try {
+            if (this.cache.openrouter.models && (Date.now() - this.cache.openrouter.timestamp < this.CACHE_DURATION)) {
+                return this.cache.openrouter.models;
+            }
+
+            const response = await fetch('https://openrouter.ai/api/v1/models', {
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'HTTP-Referer': 'https://opal.app',
+                    'X-Title': 'Opal'
+                }
+            });
+
+            if (!response.ok) throw new Error('Failed to fetch OpenRouter models');
+
+            const data = await response.json();
+            const models = (data.data || [])
+                .filter(m => m.id && !m.id.includes('embed'))
+                .map(m => ({
+                    id: m.id,
+                    name: m.name || m.id,
+                    provider: 'openrouter',
+                    contextWindow: m.context_length,
+                    capabilities: getModelCapabilities(m.id)
+                }))
+                .sort((a, b) => a.id.localeCompare(b.id));
+
+            this.cache.openrouter = { models, timestamp: Date.now() };
+            return models;
+        } catch (error) {
+            console.error('Error fetching OpenRouter models:', error);
+            return [];
+        }
+    }
+
+    // Fetch Anthropic models (curated catalog - API doesn't expose a /models list)
+    async fetchAnthropicModels(apiKey) {
+        if (!apiKey) return [];
+
+        if (this.cache.anthropic.models && (Date.now() - this.cache.anthropic.timestamp < this.CACHE_DURATION)) {
+            return this.cache.anthropic.models;
+        }
+
+        const catalog = [
+            { id: 'claude-opus-4-5',       name: 'Claude Opus 4.5',       contextWindow: 200000 },
+            { id: 'claude-sonnet-4-5',      name: 'Claude Sonnet 4.5',     contextWindow: 200000 },
+            { id: 'claude-haiku-3-5',       name: 'Claude Haiku 3.5',      contextWindow: 200000 },
+            { id: 'claude-opus-4-0',        name: 'Claude Opus 4',         contextWindow: 200000 },
+            { id: 'claude-sonnet-4-0',      name: 'Claude Sonnet 4',       contextWindow: 200000 },
+            { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', contextWindow: 200000 },
+            { id: 'claude-3-5-haiku-20241022',  name: 'Claude 3.5 Haiku',  contextWindow: 200000 },
+            { id: 'claude-3-opus-20240229',     name: 'Claude 3 Opus',     contextWindow: 200000 },
+            { id: 'claude-3-haiku-20240307',    name: 'Claude 3 Haiku',    contextWindow: 200000 },
+        ].map(m => ({ ...m, provider: 'anthropic', capabilities: getModelCapabilities(m.id) }));
+
+        this.cache.anthropic = { models: catalog, timestamp: Date.now() };
+        return catalog;
+    }
+
+    // Fetch models from Mistral AI
+    async fetchMistralModels(apiKey) {
+        if (!apiKey) return [];
+
+        try {
+            if (this.cache.mistral.models && (Date.now() - this.cache.mistral.timestamp < this.CACHE_DURATION)) {
+                return this.cache.mistral.models;
+            }
+
+            const response = await fetch('https://api.mistral.ai/v1/models', {
+                headers: { 'Authorization': `Bearer ${apiKey}` }
+            });
+
+            if (!response.ok) throw new Error('Failed to fetch Mistral models');
+
+            const data = await response.json();
+            const models = (data.data || [])
+                .filter(m => m.id && !m.id.includes('embed'))
+                .map(m => ({
+                    id: m.id,
+                    name: m.id,
+                    provider: 'mistral',
+                    capabilities: getModelCapabilities(m.id)
+                }))
+                .sort((a, b) => a.id.localeCompare(b.id));
+
+            this.cache.mistral = { models, timestamp: Date.now() };
+            return models;
+        } catch (error) {
+            console.error('Error fetching Mistral models:', error);
+            return [];
+        }
+    }
+
     // Get all available models from all providers
     async getAllModels(apiKeys) {
         const allModels = {
@@ -477,7 +577,10 @@ export class ModelService {
             ollama: [],
             lmstudio: [],
             openai: [],
-            gemini: []
+            gemini: [],
+            openrouter: [],
+            anthropic: [],
+            mistral: []
         };
 
         // Fetch OpenAI models dynamically
@@ -499,6 +602,21 @@ export class ModelService {
         // Fetch Gemini models dynamically
         if (apiKeys.gemini) {
             allModels.gemini = await this.fetchGeminiModels(apiKeys.gemini);
+        }
+
+        // Fetch OpenRouter models
+        if (apiKeys.openrouter) {
+            allModels.openrouter = await this.fetchOpenRouterModels(apiKeys.openrouter);
+        }
+
+        // Fetch Anthropic models
+        if (apiKeys.anthropic) {
+            allModels.anthropic = await this.fetchAnthropicModels(apiKeys.anthropic);
+        }
+
+        // Fetch Mistral models
+        if (apiKeys.mistral) {
+            allModels.mistral = await this.fetchMistralModels(apiKeys.mistral);
         }
 
         return allModels;

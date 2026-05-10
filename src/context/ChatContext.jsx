@@ -1,38 +1,73 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { ModelService, getModelCapabilities } from '../lib/llm/ModelService';
+import {
+    getLocalPersistenceSnapshot,
+    hasElectronStore,
+    hasPersistedUserData,
+    loadElectronPersistence,
+    readJsonStorage,
+    readStringStorage,
+    saveElectronPersistence,
+    serializeJson,
+    writeLocalPersistenceSnapshot
+} from '../lib/persistentStore';
+import { normalizeAssistantSpacing } from '../lib/textFormatting';
 
 const modelService = new ModelService();
 const ChatContext = createContext();
 
 export function ChatProvider({ children }) {
+    const createDefaultProjects = () => {
+        const now = Date.now();
+        return [
+            {
+                id: 'sample-linkedin',
+                name: 'LinkedIn',
+                description: 'Redesign LinkedIn pages',
+                memory: 'Use this project to keep LinkedIn redesign notes, page references, and iteration goals together.',
+                instructions: '',
+                files: [],
+                createdAt: now - 4 * 24 * 60 * 60 * 1000,
+                updatedAt: now - 4 * 24 * 60 * 60 * 1000,
+                isPinned: true
+            },
+            {
+                id: 'sample-daily-assistant',
+                name: 'Daily Assistant',
+                description: 'Follow up on important tasks, reminders, and loose ends.',
+                memory: 'Keep a running sense of recurring tasks, preferred routines, and active priorities.',
+                instructions: '',
+                files: [],
+                createdAt: now - 30 * 24 * 60 * 60 * 1000,
+                updatedAt: now - 30 * 24 * 60 * 60 * 1000,
+                isPinned: false
+            }
+        ];
+    };
+
+    const createDefaultChat = () => ({
+        id: Date.now().toString(),
+        title: 'New Chat',
+        messages: [],
+        artifacts: [],
+        createdAt: Date.now()
+    });
+
+    const electronPersistenceReadyRef = useRef(!hasElectronStore());
+
+    const [projects, setProjects] = useState(() => {
+        const parsed = readJsonStorage('opal_projects', null);
+        return Array.isArray(parsed) ? parsed : createDefaultProjects();
+    });
+
     // Chat History
     const [chats, setChats] = useState(() => {
-        const saved = localStorage.getItem('chat_history');
-        if (saved) {
-            try {
-                return JSON.parse(saved);
-            } catch (e) {
-                return [{
-                    id: Date.now().toString(),
-                    title: 'New Chat',
-                    messages: [],
-                    artifacts: [],
-                    createdAt: Date.now()
-                }];
-            }
-        }
-        return [{
-            id: Date.now().toString(),
-            title: 'New Chat',
-            messages: [],
-            artifacts: [],
-            createdAt: Date.now()
-        }];
+        const parsed = readJsonStorage('chat_history', null);
+        return Array.isArray(parsed) && parsed.length > 0 ? parsed : [createDefaultChat()];
     });
 
     const [currentChatId, setCurrentChatId] = useState(() => {
-        const saved = localStorage.getItem('current_chat_id');
-        return saved || chats[0]?.id;
+        return readStringStorage('current_chat_id', chats[0]?.id);
     });
 
     // Current chat state
@@ -51,21 +86,96 @@ export function ChatProvider({ children }) {
 
     // User Name - persisted to localStorage
     const [userName, setUserNameState] = useState(() => {
-        return localStorage.getItem('user_name') || '';
+        return readStringStorage('user_name');
     });
 
     const setUserName = useCallback((name) => {
         setUserNameState(name);
         localStorage.setItem('user_name', name);
+        if (electronPersistenceReadyRef.current) {
+            saveElectronPersistence({ user_name: name }).catch(err => console.error('Failed to persist user name:', err));
+        }
+    }, []);
+
+    const [customInstructions, setCustomInstructionsState] = useState(() => {
+        return readStringStorage('custom_instructions');
+    });
+
+    const setCustomInstructions = useCallback((instructions) => {
+        setCustomInstructionsState(instructions);
+        localStorage.setItem('custom_instructions', instructions);
+        if (electronPersistenceReadyRef.current) {
+            saveElectronPersistence({ custom_instructions: instructions }).catch(err => console.error('Failed to persist custom instructions:', err));
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!hasElectronStore()) return;
+
+        let isMounted = true;
+        async function hydrateElectronPersistence() {
+            try {
+                const electronData = await loadElectronPersistence();
+                if (!isMounted) return;
+
+                if (hasPersistedUserData(electronData)) {
+                    writeLocalPersistenceSnapshot(electronData);
+
+                    const persistedChats = readJsonStorage('chat_history', null);
+                    const nextChats = Array.isArray(persistedChats) && persistedChats.length > 0
+                        ? persistedChats
+                        : [createDefaultChat()];
+                    const persistedProjects = readJsonStorage('opal_projects', null);
+                    const nextCurrentChatId = readStringStorage('current_chat_id', nextChats[0]?.id);
+                    const nextCurrentChat = nextChats.find(chat => chat.id === nextCurrentChatId) || nextChats[0];
+
+                    setChats(nextChats);
+                    setCurrentChatId(nextCurrentChat?.id);
+                    setMessages(nextCurrentChat?.messages || []);
+                    setArtifacts(nextCurrentChat?.artifacts || []);
+                    setProjects(Array.isArray(persistedProjects) ? persistedProjects : createDefaultProjects());
+                    setUserNameState(readStringStorage('user_name'));
+                    setCustomInstructionsState(readStringStorage('custom_instructions'));
+                } else {
+                    await saveElectronPersistence(getLocalPersistenceSnapshot());
+                }
+            } catch (err) {
+                console.error('Failed to hydrate Electron persistence:', err);
+            } finally {
+                if (isMounted) {
+                    electronPersistenceReadyRef.current = true;
+                }
+            }
+        }
+
+        hydrateElectronPersistence();
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     // Save chats to localStorage whenever they change (but not in incognito mode)
     useEffect(() => {
         if (!isIncognitoMode) {
-            localStorage.setItem('chat_history', JSON.stringify(chats));
+            const serializedChats = serializeJson(chats);
+            localStorage.setItem('chat_history', serializedChats);
             localStorage.setItem('current_chat_id', currentChatId);
+            if (electronPersistenceReadyRef.current) {
+                saveElectronPersistence({
+                    chat_history: serializedChats,
+                    current_chat_id: currentChatId || ''
+                }).catch(err => console.error('Failed to persist chat history:', err));
+            }
         }
     }, [chats, currentChatId, isIncognitoMode]);
+
+    useEffect(() => {
+        const serializedProjects = serializeJson(projects);
+        localStorage.setItem('opal_projects', serializedProjects);
+        if (electronPersistenceReadyRef.current) {
+            saveElectronPersistence({ opal_projects: serializedProjects }).catch(err => console.error('Failed to persist projects:', err));
+        }
+    }, [projects]);
 
     // Update current chat when messages or artifacts change
     useEffect(() => {
@@ -84,6 +194,14 @@ export function ChatProvider({ children }) {
                     : c
             );
         });
+        const chat = chats.find(c => c.id === currentChatId);
+        if (chat?.projectId && (messages.length > 0 || artifacts.length > 0)) {
+            setProjects(prev => prev.map(project =>
+                project.id === chat.projectId
+                    ? { ...project, updatedAt: Date.now() }
+                    : project
+            ));
+        }
     }, [messages, artifacts]);
 
     // Load chat when switching
@@ -96,16 +214,21 @@ export function ChatProvider({ children }) {
     }, [currentChatId]);
 
     // Chat history functions
-    const createNewChat = useCallback(() => {
+    const createNewChat = useCallback((options = {}) => {
         const newChat = {
             id: Date.now().toString(),
-            title: 'New Chat',
-            messages: [],
-            artifacts: [],
-            createdAt: Date.now()
+            title: options.title || 'New Chat',
+            messages: options.messages || [],
+            artifacts: options.artifacts || [],
+            projectId: options.projectId || null,
+            createdAt: Date.now(),
+            updatedAt: Date.now()
         };
         setChats(prev => [newChat, ...prev]);
         setCurrentChatId(newChat.id);
+        setMessages(newChat.messages);
+        setArtifacts(newChat.artifacts);
+        return newChat.id;
     }, []);
 
     const switchToChat = useCallback((chatId) => {
@@ -129,12 +252,39 @@ export function ChatProvider({ children }) {
         });
     }, [currentChatId]);
 
+    const createProject = useCallback(({ name, description }) => {
+        const trimmedName = name.trim();
+        const trimmedDescription = description.trim();
+        const now = Date.now();
+        const project = {
+            id: `project-${now}`,
+            name: trimmedName || 'Untitled project',
+            description: trimmedDescription,
+            memory: trimmedDescription ? `Project goal: ${trimmedDescription}` : '',
+            instructions: '',
+            files: [],
+            createdAt: now,
+            updatedAt: now,
+            isPinned: false
+        };
+        setProjects(prev => [project, ...prev]);
+        return project;
+    }, []);
+
+    const updateProject = useCallback((projectId, updates) => {
+        setProjects(prev => prev.map(project =>
+            project.id === projectId
+                ? { ...project, ...updates, updatedAt: Date.now() }
+                : project
+        ));
+    }, []);
+
     // Provider and Model Selection
     const [selectedProvider, setSelectedProvider] = useState(
-        localStorage.getItem('selected_provider') || 'groq'
+        readStringStorage('selected_provider', 'groq')
     );
     const [selectedModel, setSelectedModel] = useState(
-        localStorage.getItem('selected_model') || ''
+        readStringStorage('selected_model')
     );
 
     // Available models from all providers
@@ -143,7 +293,10 @@ export function ChatProvider({ children }) {
         ollama: [],
         lmstudio: [],
         openai: [],
-        gemini: []
+        gemini: [],
+        openrouter: [],
+        anthropic: [],
+        mistral: []
     });
 
     // Current model capabilities
@@ -184,6 +337,9 @@ export function ChatProvider({ children }) {
         groq: localStorage.getItem('groq_key') || '',
         gemini: localStorage.getItem('gemini_key') || '',
         tavily: localStorage.getItem('tavily_key') || '',
+        openrouter: localStorage.getItem('openrouter_key') || '',
+        anthropic: localStorage.getItem('anthropic_key') || '',
+        mistral: localStorage.getItem('mistral_key') || '',
     });
 
     const updateApiKey = (provider, key) => {
@@ -194,6 +350,9 @@ export function ChatProvider({ children }) {
     const updateProvider = (provider) => {
         setSelectedProvider(provider);
         localStorage.setItem('selected_provider', provider);
+        if (electronPersistenceReadyRef.current) {
+            saveElectronPersistence({ selected_provider: provider }).catch(err => console.error('Failed to persist selected provider:', err));
+        }
         // Auto-select first model if current selection is from different provider
         const modelsForProvider = availableModels[provider];
         if (modelsForProvider && modelsForProvider.length > 0) {
@@ -206,6 +365,9 @@ export function ChatProvider({ children }) {
     const updateModel = (modelId) => {
         setSelectedModel(modelId);
         localStorage.setItem('selected_model', modelId);
+        if (electronPersistenceReadyRef.current) {
+            saveElectronPersistence({ selected_model: modelId }).catch(err => console.error('Failed to persist selected model:', err));
+        }
     };
 
     const fetchModels = useCallback(async () => {
@@ -214,9 +376,12 @@ export function ChatProvider({ children }) {
             const models = await modelService.getAllModels(apiKeys);
             setAvailableModels(models);
 
-            // Auto-select first available model if none selected
-            if (!selectedModel) {
-                for (const provider of ['groq', 'openai', 'gemini', 'ollama', 'lmstudio']) {
+            // Auto-select a model if none is selected, or if the stored model
+            // is no longer present in the freshly-loaded list (e.g. after a refresh)
+            const allModelIds = Object.values(models).flat().map(m => m.id);
+            const storedModelStillValid = selectedModel && allModelIds.includes(selectedModel);
+            if (!storedModelStillValid) {
+                for (const provider of ['openrouter', 'groq', 'openai', 'anthropic', 'mistral', 'gemini', 'ollama', 'lmstudio']) {
                     if (models[provider] && models[provider].length > 0) {
                         setSelectedProvider(provider);
                         setSelectedModel(models[provider][0].id);
@@ -231,12 +396,10 @@ export function ChatProvider({ children }) {
         }
     }, [apiKeys, selectedModel]);
 
-    // Fetch models when API keys change
+    // Fetch models on mount and whenever API keys change
     useEffect(() => {
-        if (apiKeys.groq || apiKeys.openai || apiKeys.gemini) {
-            fetchModels();
-        }
-    }, [apiKeys.groq, apiKeys.openai, apiKeys.gemini]);
+        fetchModels();
+    }, [apiKeys.groq, apiKeys.openai, apiKeys.gemini, apiKeys.openrouter, apiKeys.anthropic, apiKeys.mistral]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Update capabilities when model changes
     useEffect(() => {
@@ -248,9 +411,10 @@ export function ChatProvider({ children }) {
 
     const addMessage = useCallback((role, content, metadata = {}, thinking = null, images = []) => {
         const safeMetadata = metadata || {};
+        const safeContent = role === 'assistant' ? normalizeAssistantSpacing(content) : content;
         const newMessage = {
             role,
-            content,
+            content: safeContent,
             id: Date.now().toString(),
             timestamp: Date.now(),
             metadata: safeMetadata, // Store full metadata object
@@ -319,12 +483,18 @@ export function ChatProvider({ children }) {
             createNewChat,
             switchToChat,
             deleteChat,
+            // Projects
+            projects,
+            createProject,
+            updateProject,
             // Incognito mode
             isIncognitoMode,
             toggleIncognitoMode,
             // User settings
             userName,
             setUserName,
+            customInstructions,
+            setCustomInstructions,
             // Model capabilities
             currentModelCapabilities,
             supportsImages: currentModelCapabilities.image,

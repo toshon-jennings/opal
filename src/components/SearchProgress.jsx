@@ -24,16 +24,11 @@ export function SearchProgress({
             {/* Main collapsible button */}
             <button
                 onClick={() => setIsExpanded(!isExpanded)}
-                className={`
-                    inline-flex items-center gap-2 px-4 py-2.5 rounded-full
-                    transition-all duration-300 ease-out
-                    ${isComplete
-                        ? 'bg-green-500/10 border border-green-500/30 text-green-600 dark:text-green-400'
-                        : 'bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-indigo-500/10 border border-blue-500/30 text-blue-600 dark:text-blue-400'
-                    }
-                    hover:shadow-md hover:scale-[1.02]
-                    cursor-pointer select-none
-                `}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full transition-all duration-300 ease-out hover:shadow-md hover:scale-[1.02] cursor-pointer select-none"
+                style={isComplete
+                    ? { background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)', color: '#16a34a' }
+                    : { background: 'var(--opal-gradient-subtle)', border: '1px solid rgba(var(--accent-rgb), 0.25)', color: 'var(--accent)' }
+                }
             >
                 {/* Icon */}
                 {isComplete ? (

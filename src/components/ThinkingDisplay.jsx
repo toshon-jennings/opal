@@ -1,53 +1,56 @@
-import React, { useState } from 'react';
-import { ChevronRight, ChevronDown, Brain, Sparkles } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ChevronRight, Brain, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 export function ThinkingDisplay({ thinking, tokens, duration, isStreaming = false }) {
-    const [isExpanded, setIsExpanded] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(Boolean(isStreaming));
 
-    // Don't render if no thinking content
+    useEffect(() => {
+        if (isStreaming && thinking) {
+            setIsExpanded(true);
+        }
+    }, [isStreaming, thinking]);
+
     if (!thinking && !isStreaming) return null;
 
-    // Calculate character count if tokens not provided
     const displayCount = tokens || thinking?.length || 0;
     const countLabel = tokens ? `${tokens} tokens` : `${displayCount} chars`;
 
-    // Format duration (milliseconds to seconds)
     const formatDuration = (ms) => {
         if (!ms) return null;
-        const seconds = (ms / 1000).toFixed(1);
-        return `${seconds}s`;
+        return `${(ms / 1000).toFixed(1)}s`;
     };
 
-    const handleToggle = () => {
-        setIsExpanded(!isExpanded);
-    };
-
+    const handleToggle = () => setIsExpanded(v => !v);
     const handleKeyDown = (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            handleToggle();
-        }
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleToggle(); }
     };
 
     return (
-        <div className="thinking-container mb-3 rounded-lg overflow-hidden border border-purple-200 dark:border-purple-900/30 bg-gradient-to-br from-indigo-50/50 via-purple-50/30 to-pink-50/20 dark:from-indigo-950/20 dark:via-purple-950/20 dark:to-pink-950/10">
+        <div className="thinking-container mb-3 rounded-xl overflow-hidden"
+            style={{
+                background: 'var(--opal-gradient-subtle)',
+                border: '1px solid rgba(var(--accent-rgb), 0.18)',
+            }}>
             <button
                 onClick={handleToggle}
                 onKeyDown={handleKeyDown}
-                className="thinking-header w-full flex items-center gap-2.5 p-3 hover:bg-purple-100/40 dark:hover:bg-purple-900/20 transition-all duration-200 text-left group"
+                className="thinking-header w-full flex items-center gap-2.5 p-3 text-left group transition-all duration-200"
+                style={{ background: 'transparent' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(var(--accent-rgb), 0.06)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 aria-expanded={isExpanded}
                 aria-label={isExpanded ? 'Hide thinking process' : 'Show thinking process'}
                 disabled={isStreaming && !thinking}
             >
                 <motion.div
                     animate={{ rotate: isExpanded ? 90 : 0 }}
-                    transition={{ duration: 0.2, ease: 'easeInOut' }}
+                    transition={{ duration: 0.18, ease: 'easeInOut' }}
                     className="shrink-0"
                 >
-                    <ChevronRight size={16} className="text-purple-600 dark:text-purple-400" />
+                    <ChevronRight size={15} style={{ color: 'var(--accent)' }} />
                 </motion.div>
 
                 {isStreaming && !thinking ? (
@@ -56,31 +59,37 @@ export function ThinkingDisplay({ thinking, tokens, duration, isStreaming = fals
                         transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
                         className="shrink-0"
                     >
-                        <Sparkles size={16} className="text-purple-500 dark:text-purple-400" />
+                        <Sparkles size={14} style={{ color: 'var(--accent)' }} />
                     </motion.div>
                 ) : (
-                    <Brain size={16} className="text-purple-500 dark:text-purple-400 shrink-0" />
+                    <Brain size={14} className="shrink-0" style={{ color: 'var(--accent)' }} />
                 )}
 
                 <div className="flex-1 min-w-0">
-                    <span className="text-sm font-medium text-purple-900 dark:text-purple-200">
-                        {isStreaming && !thinking ? 'Thinking...' : (isExpanded ? 'Hide reasoning' : 'Show reasoning')}
+                    <span className="text-sm font-medium" style={{ color: 'var(--text-primary)', fontFamily: 'DM Sans, sans-serif' }}>
+                        {isStreaming ? 'Reasoning live' : (isExpanded ? 'Hide reasoning' : 'Show reasoning')}
                     </span>
                     {!isExpanded && thinking && !isStreaming && (
-                        <div className="text-xs text-purple-600/70 dark:text-purple-400/70 truncate mt-0.5">
-                            Click to expand reasoning
+                        <div className="text-xs truncate mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+                            Click to expand
                         </div>
                     )}
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
                     {thinking && displayCount > 0 && (
-                        <span className="px-2 py-0.5 bg-purple-200/60 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 rounded-full text-xs font-medium">
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium"
+                            style={{
+                                background: 'rgba(var(--accent-rgb), 0.12)',
+                                color: 'var(--accent)',
+                                border: '1px solid rgba(var(--accent-rgb), 0.2)',
+                                fontFamily: 'JetBrains Mono, monospace',
+                            }}>
                             {countLabel}
                         </span>
                     )}
                     {duration && (
-                        <span className="text-xs text-purple-600/70 dark:text-purple-400/70">
+                        <span className="text-xs tabular-nums" style={{ color: 'var(--text-tertiary)', fontFamily: 'JetBrains Mono, monospace' }}>
                             {formatDuration(duration)}
                         </span>
                     )}
@@ -93,11 +102,15 @@ export function ThinkingDisplay({ thinking, tokens, duration, isStreaming = fals
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.3, ease: 'easeInOut' }}
+                        transition={{ duration: 0.25, ease: 'easeInOut' }}
                         className="overflow-hidden"
                     >
-                        <div className="thinking-content border-t border-purple-200/60 dark:border-purple-800/30 p-4 bg-white/40 dark:bg-gray-900/20">
-                            <div className="prose prose-sm max-w-none dark:prose-invert">
+                        <div className="p-4"
+                            style={{
+                                borderTop: '1px solid rgba(var(--accent-rgb), 0.12)',
+                                background: 'rgba(var(--accent-rgb), 0.02)',
+                            }}>
+                            <div className="prose prose-sm max-w-none" style={{ color: 'var(--text-secondary)', fontFamily: 'DM Sans, sans-serif' }}>
                                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                                     {thinking}
                                 </ReactMarkdown>

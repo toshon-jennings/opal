@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Terminal, Layout, Globe, Loader2, RefreshCw, Sidebar, Code, Play, Download, Share2, PanelBottomClose, PanelBottomOpen, Maximize2, Minimize2, X } from 'lucide-react';
+import { Terminal as TerminalIcon, Layout, Globe, Loader2, RefreshCw, Sidebar, Code, Download, Share2, PanelBottomClose, PanelBottomOpen, X, FolderOpen } from 'lucide-react';
 import { useBuildMode } from '../../context/BuildModeContext';
+import { useTheme } from '../../context/ThemeContext';
 import { BoltArtifactParser } from '../../lib/BoltArtifactParser';
 import { FileExplorer } from './FileExplorer';
+import TerminalPanel from '../Terminal';
 
-export function Workbench({ streamingMessage }) {
+export function Workbench({ streamingMessage, workingDirectory, onChooseFolder }) {
     const { webcontainerInstance } = useBuildMode();
-    const [terminalOutput, setTerminalOutput] = useState([]);
+    const { isDarkMode } = useTheme();
     const [previewUrl, setPreviewUrl] = useState(null);
     const [isServerRunning, setIsServerRunning] = useState(false);
 
@@ -21,66 +23,74 @@ export function Workbench({ streamingMessage }) {
 
     const parserRef = useRef(null);
     const processedLengthRef = useRef(0);
-    const terminalRef = useRef(null);
     const editorRef = useRef(null);
+    const hasLocalProject = Boolean(workingDirectory && window.electron?.readFile);
+    const localPreviewUrl = typeof window !== 'undefined' && window.location?.origin?.startsWith('http')
+        ? window.location.origin
+        : null;
+
+    const resolveLocalPath = (relativePath) => {
+        if (!relativePath) return workingDirectory;
+        if (relativePath.startsWith('/')) return relativePath;
+        return `${workingDirectory}/${relativePath}`;
+    };
 
     // Initialize parser
     useEffect(() => {
-        if (!parserRef.current) {
-            parserRef.current = new BoltArtifactParser({
-                onActionStart: (action) => {
-                    if (action.type === 'shell') {
-                        addTerminalLine(`> ${action.content || 'Running command...'}`);
-                        // Auto-show terminal on command
-                        if (!showTerminal) setShowTerminal(true);
-                    } else if (action.type === 'file') {
-                        addTerminalLine(`> Writing file: ${action.filePath}`);
-                        // Switch file selection to this file
-                        setSelectedFilePath(action.filePath);
-                        setSelectedFileContent('');
-                    }
-                },
-                onActionContent: (action, content) => {
-                    if (action.type === 'file') {
-                        setSelectedFileContent(prev => prev + content);
-                        // Auto-scroll editor
-                        if (editorRef.current) {
-                            editorRef.current.scrollTop = editorRef.current.scrollHeight;
-                        }
-                    }
-                },
-                onActionEnd: async (action) => {
-                    if (!webcontainerInstance) return;
-
-                    try {
-                        if (action.type === 'file') {
-                            await webcontainerInstance.fs.writeFile(action.filePath, action.content);
-                            addTerminalLine(`✓ Wrote ${action.filePath}`);
-                        } else if (action.type === 'shell') {
-                            const command = action.content.trim();
-                            addTerminalLine(`$ ${command}`);
-
-                            // Simple command parsing
-                            const [cmd, ...args] = command.split(' ');
-
-                            const process = await webcontainerInstance.spawn(cmd, args);
-
-                            process.output.pipeTo(new WritableStream({
-                                write(data) {
-                                    addTerminalLine(data);
-                                }
-                            }));
-
-                            await process.exit;
-                            addTerminalLine(`✓ Command finished`);
-                        }
-                    } catch (err) {
-                        addTerminalLine(`❌ Error: ${err.message}`);
+        parserRef.current = new BoltArtifactParser({
+            onActionStart: (action) => {
+                if (action.type === 'shell') {
+                    if (!showTerminal) setShowTerminal(true);
+                } else if (action.type === 'file') {
+                    setSelectedFilePath(action.filePath);
+                    setSelectedFileContent('');
+                }
+            },
+            onActionContent: (action, content) => {
+                if (action.type === 'file') {
+                    setSelectedFileContent(prev => prev + content);
+                    if (editorRef.current) {
+                        editorRef.current.scrollTop = editorRef.current.scrollHeight;
                     }
                 }
-            });
+            },
+            onActionEnd: async (action) => {
+                try {
+                    if (action.type === 'file') {
+                        if (hasLocalProject) {
+                            await window.electron.writeFile(resolveLocalPath(action.filePath), action.content);
+                        } else if (webcontainerInstance) {
+                            await webcontainerInstance.fs.writeFile(action.filePath, action.content);
+                        }
+                    } else if (action.type === 'shell') {
+                        const command = action.content.trim();
+                        // Note: In Cowork mode, we now have a real interactive terminal.
+                        // For autonomous shell actions, we might still want to use webcontainers
+                        // or provide a bridge to the real PTY if allowed.
+                        if (webcontainerInstance) {
+                            const [cmd, ...args] = command.split(' ');
+                            const process = await webcontainerInstance.spawn(cmd, args);
+                            await process.exit;
+                        }
+                    }
+                } catch (err) {
+                    console.error('Action failed:', err);
+                }
+            }
+        });
+    }, [hasLocalProject, webcontainerInstance, showTerminal, workingDirectory]);
+
+    useEffect(() => {
+        if (hasLocalProject) {
+            if (localPreviewUrl) {
+                setPreviewUrl(localPreviewUrl);
+                setIsServerRunning(true);
+            }
+        } else {
+            setPreviewUrl(null);
+            setIsServerRunning(false);
         }
-    }, [webcontainerInstance, showTerminal]);
+    }, [hasLocalProject, localPreviewUrl, workingDirectory]);
 
     // Process streaming message
     useEffect(() => {
@@ -99,27 +109,18 @@ export function Workbench({ streamingMessage }) {
     useEffect(() => {
         if (webcontainerInstance) {
             webcontainerInstance.on('server-ready', (port, url) => {
-                addTerminalLine(`🌐 Server ready at ${url}`);
                 setPreviewUrl(url);
                 setIsServerRunning(true);
-                // Auto-show preview on server ready
                 setShowPreview(true);
             });
         }
     }, [webcontainerInstance]);
 
-    const addTerminalLine = (text) => {
-        setTerminalOutput(prev => [...prev, text]);
-        // Auto-scroll
-        if (terminalRef.current) {
-            terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
-        }
-    };
-
     const handleFileSelect = async (file) => {
-        if (!webcontainerInstance) return;
         try {
-            const content = await webcontainerInstance.fs.readFile(file.path, 'utf-8');
+            const content = file.source === 'local' && window.electron?.readFile
+                ? await window.electron.readFile(file.absolutePath)
+                : await webcontainerInstance.fs.readFile(file.path, 'utf-8');
             setSelectedFileContent(content);
             setSelectedFilePath(file.path);
         } catch (e) {
@@ -129,114 +130,124 @@ export function Workbench({ streamingMessage }) {
 
     const handleDownload = async () => {
         setIsExporting(true);
-        addTerminalLine('> Preparing download...');
-        // Mock download for now - requires jszip
         setTimeout(() => {
-            addTerminalLine('ℹ️  Download feature coming soon (requires JSZip)');
             setIsExporting(false);
         }, 1000);
     };
 
     const handlePublish = () => {
-        addTerminalLine('> Deploying to cloud...');
         setTimeout(() => {
-            addTerminalLine('✓ Deployed successfully to https://project-xyz.bolt.host');
             alert('Deployment feature coming soon!');
         }, 1000);
     };
 
     return (
-        <div className="h-full flex flex-col bg-[#1e1e1e] text-[#d4d4d4] border-l border-[#2b2b2b]">
+        <div className={`relative h-full min-w-0 overflow-hidden flex flex-col ${isDarkMode ? 'bg-[#0C0C0D]' : 'bg-white'} text-[var(--text-primary)] border-l border-[var(--border)]`}>
             {/* Workbench Header */}
-            <div className="h-12 border-b border-[#2b2b2b] flex items-center px-4 gap-4 bg-[#252526] justify-between shrink-0">
+            <div className="h-12 border-b border-[var(--border)] flex items-center px-4 gap-4 bg-[var(--bg-secondary)] justify-between shrink-0">
                 <div className="flex items-center gap-3">
                     <button
                         onClick={() => setShowSidebar(!showSidebar)}
-                        className={`p-1.5 rounded-md transition-colors ${showSidebar ? 'bg-[#37373d] text-white' : 'text-[#969696] hover:text-white'}`}
+                        className={`p-1.5 rounded-md transition-colors ${showSidebar ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'}`}
                         title="Toggle File Explorer"
                     >
                         <Sidebar size={16} />
                     </button>
-                    <div className="w-px h-4 bg-[#3e3e42] mx-1"></div>
-                    <span className="text-xs font-medium text-[#cccccc]">Workbench</span>
+                    <div className="w-px h-4 bg-[var(--border)] mx-1"></div>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">Workbench</span>
                 </div>
 
                 <div className="flex items-center gap-2">
+                    {onChooseFolder && (
+                        <button
+                            onClick={onChooseFolder}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-[var(--bg-primary)] border border-[var(--border)] hover:border-[var(--accent)] text-[var(--text-primary)] rounded-md text-[10px] font-bold uppercase tracking-widest transition-all"
+                            title="Choose project folder"
+                        >
+                            <FolderOpen size={12} />
+                            Folder
+                        </button>
+                    )}
+
                     {isServerRunning && (
-                        <div className="flex items-center gap-2 text-xs text-[#4ec9b0] font-medium px-2 py-1 bg-[#1e1e1e] border border-[#2b2b2b] rounded-full mr-2">
-                            <div className="w-2 h-2 bg-[#4ec9b0] rounded-full animate-pulse"></div>
-                            Running
+                        <div className="flex items-center gap-2 text-xs text-green-500 font-bold uppercase tracking-widest px-3 py-1 bg-[var(--bg-primary)] border border-[var(--border)] rounded-full mr-2">
+                            <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                            Live
                         </div>
                     )}
 
                     <button
                         onClick={handleDownload}
                         disabled={isExporting}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-[#37373d] hover:bg-[#4a4a52] text-white rounded-md text-xs font-medium transition-colors"
+                        className="flex items-center gap-2 px-3 py-1.5 bg-[var(--bg-primary)] border border-[var(--border)] hover:border-[var(--accent)] text-[var(--text-primary)] rounded-md text-[10px] font-bold uppercase tracking-widest transition-all"
                     >
-                        {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                        {isExporting ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
                         Export
                     </button>
 
                     <button
                         onClick={handlePublish}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-[#007acc] hover:bg-[#0062a3] text-white rounded-md text-xs font-medium transition-colors"
+                        className="flex items-center gap-2 px-3 py-1.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-md text-[10px] font-bold uppercase tracking-widest transition-all shadow-lg"
                     >
-                        <Share2 size={14} />
+                        <Share2 size={12} />
                         Publish
                     </button>
                 </div>
             </div>
 
             {/* Main Content Area with Split Layout */}
-            <div className="flex-1 flex overflow-hidden">
+            <div className="flex-1 flex min-w-0 overflow-hidden">
                 {/* File Explorer Sidebar */}
                 {showSidebar && (
                     <FileExplorer
                         webcontainerInstance={webcontainerInstance}
+                        workingDirectory={workingDirectory}
                         onFileSelect={handleFileSelect}
                     />
                 )}
 
                 {/* Editor & Preview Split Area */}
-                <div className="flex-1 flex flex-col min-w-0 bg-[#1e1e1e]">
+                <div className={`flex-1 flex flex-col min-w-0 overflow-hidden ${isDarkMode ? 'bg-[#0C0C0D]' : 'bg-white'}`}>
 
                     {/* Upper Area: Editor + Preview */}
-                    <div className={`flex-1 flex overflow-hidden ${showTerminal ? 'h-[60%]' : 'h-full'}`}>
+                    <div className={`flex-1 flex min-w-0 overflow-hidden ${showTerminal ? 'h-[60%]' : 'h-full'}`}>
 
                         {/* Code Editor */}
-                        <div className={`flex-1 flex flex-col min-w-0 ${showPreview ? 'border-r border-[#2b2b2b]' : ''}`}>
+                        <div className={`flex-[1_1_0] flex flex-col min-w-0 overflow-hidden ${showPreview ? 'border-r border-[var(--border)]' : ''}`}>
                             {selectedFilePath ? (
                                 <>
                                     {/* Editor Tab Header */}
-                                    <div className="h-9 border-b border-[#2b2b2b] flex items-center px-3 bg-[#1e1e1e] text-xs text-[#969696] font-mono shrink-0">
-                                        <span className="text-[#569cd6] mr-2">JS</span>
+                                    <div className="h-9 border-b border-[var(--border)] flex items-center px-3 bg-[var(--bg-secondary)] text-[10px] uppercase font-bold tracking-widest text-[var(--text-tertiary)] shrink-0">
+                                        <span className="text-[var(--accent)] mr-2 font-black">JS</span>
                                         {selectedFilePath}
                                     </div>
                                     <textarea
                                         ref={editorRef}
-                                        className="flex-1 w-full h-full p-4 font-mono text-sm resize-none outline-none bg-[#1e1e1e] text-[#d4d4d4] leading-relaxed"
+                                        className={`flex-1 w-full h-full p-6 font-mono text-sm resize-none outline-none ${isDarkMode ? 'bg-[#0C0C0D] text-[#F5F5F7]' : 'bg-white text-[#1A1A1B]'} leading-relaxed selection:bg-[var(--accent-glow)]`}
                                         value={selectedFileContent}
                                         readOnly
                                         spellCheck={false}
                                     />
                                 </>
                             ) : (
-                                <div className="flex-1 flex flex-col items-center justify-center text-[#5a5a5a] bg-[#1e1e1e]">
-                                    <Code size={48} className="mb-4 opacity-20" />
-                                    <div className="text-sm">Select a file to view content</div>
+                                <div className={`flex-1 flex flex-col items-center justify-center text-[var(--text-tertiary)] ${isDarkMode ? 'bg-[#0C0C0D]' : 'bg-white'}`}>
+                                    <Code size={48} className="mb-4 opacity-10" />
+                                    <div className="text-[10px] font-bold uppercase tracking-widest">Select a file to begin</div>
                                 </div>
                             )}
                         </div>
 
                         {/* Live Preview Pane */}
                         {showPreview && (
-                            <div className="flex-1 flex flex-col min-w-0 bg-white border-l border-[#2b2b2b]">
+                            <div
+                                className="flex flex-col min-w-0 overflow-hidden bg-white border-l border-[var(--border)]"
+                                style={{ flex: '0 1 420px', width: '38%', minWidth: 'min(280px, 45%)', maxWidth: '45%' }}
+                            >
                                 {/* Preview Header */}
-                                <div className="h-9 border-b flex items-center justify-between px-3 bg-[#f0f0f0] shrink-0">
-                                    <div className="flex items-center gap-2 text-xs text-gray-500 overflow-hidden">
+                                <div className="h-9 border-b flex items-center justify-between px-3 bg-gray-50 shrink-0">
+                                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-500 overflow-hidden">
                                         <Globe size={12} />
-                                        <span className="truncate max-w-[200px]">{previewUrl || 'localhost:3000'}</span>
+                                        <span className="truncate max-w-[200px]">{previewUrl || 'No connection'}</span>
                                     </div>
                                     <div className="flex items-center gap-1">
                                         <button onClick={() => {
@@ -260,9 +271,18 @@ export function Workbench({ streamingMessage }) {
                                         title="App Preview"
                                     />
                                 ) : (
-                                    <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-3 bg-[#f9f9f9]">
-                                        <Loader2 size={24} className="animate-spin" />
-                                        <div className="text-sm">Starting dev server...</div>
+                                    <div className="flex-1 min-w-0 overflow-hidden flex flex-col items-center justify-center text-gray-400 gap-3 bg-gray-50">
+                                        <Loader2 size={24} className="animate-spin opacity-20" />
+                                        <div className="text-[10px] font-bold uppercase tracking-widest">Awaiting local server...</div>
+                                        {onChooseFolder && !workingDirectory && (
+                                            <button
+                                                onClick={onChooseFolder}
+                                                className="mt-2 flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-gray-600 hover:border-orange-400 hover:text-orange-500"
+                                            >
+                                                <FolderOpen size={12} />
+                                                Choose folder
+                                            </button>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -271,53 +291,44 @@ export function Workbench({ streamingMessage }) {
 
                     {/* Terminal Pane (Bottom) */}
                     {showTerminal ? (
-                        <div className="h-[40%] min-h-[150px] border-t border-[#2b2b2b] flex flex-col bg-[#1e1e1e]">
-                            <div className="h-8 border-b border-[#2b2b2b] flex items-center justify-between px-3 bg-[#252526] shrink-0">
-                                <div className="flex items-center gap-2 text-xs text-[#cccccc]">
-                                    <Terminal size={12} />
-                                    <span>Terminal</span>
+                        <div className={`h-[40%] min-h-[200px] border-t border-[var(--border)] flex flex-col ${isDarkMode ? 'bg-[#0C0C0D]' : 'bg-white'}`}>
+                            <div className="h-8 border-b border-[var(--border)] flex items-center justify-between px-3 bg-[var(--bg-secondary)] shrink-0">
+                                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)]">
+                                    <TerminalIcon size={12} />
+                                    <span>Interactive Terminal</span>
                                 </div>
                                 <div className="flex items-center gap-1">
-                                    <button onClick={() => setShowTerminal(false)} className="p-1 hover:bg-[#37373d] rounded text-[#cccccc]" title="Close Terminal">
+                                    <button onClick={() => setShowTerminal(false)} className="p-1 hover:bg-[var(--bg-hover)] rounded text-[var(--text-tertiary)]" title="Close Terminal">
                                         <PanelBottomClose size={14} />
                                     </button>
                                 </div>
                             </div>
-                            <div
-                                ref={terminalRef}
-                                className="flex-1 overflow-auto p-3 font-mono text-xs bg-[#1e1e1e] text-[#d4d4d4]"
-                            >
-                                {terminalOutput.length === 0 ? (
-                                    <div className="text-[#6a9955]">// Terminal ready. Waiting for commands...</div>
-                                ) : (
-                                    terminalOutput.map((line, i) => (
-                                        <div key={i} className="whitespace-pre-wrap break-all border-b border-[#2b2b2b]/30 py-0.5 min-h-[20px]">{line}</div>
-                                    ))
-                                )}
+                            <div className="flex-1">
+                                <TerminalPanel sessionId="workbench" />
                             </div>
                         </div>
                     ) : (
                         // Collapsed Terminal Bar
-                        <div className="h-8 border-t border-[#2b2b2b] flex items-center justify-between px-3 bg-[#252526] shrink-0 cursor-pointer hover:bg-[#2a2d2e]" onClick={() => setShowTerminal(true)}>
-                            <div className="flex items-center gap-2 text-xs text-[#969696]">
-                                <Terminal size={12} />
+                        <div className="h-8 border-t border-[var(--border)] flex items-center justify-between px-3 bg-[var(--bg-secondary)] shrink-0 cursor-pointer hover:bg-[var(--bg-hover)]" onClick={() => setShowTerminal(true)}>
+                            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)]">
+                                <TerminalIcon size={12} />
                                 <span>Terminal</span>
                             </div>
-                            <PanelBottomOpen size={14} className="text-[#969696]" />
+                            <PanelBottomOpen size={14} className="text-[var(--text-tertiary)]" />
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* View Controls (Bottom Right Floating or Integrated) */}
+            {/* View Controls */}
             {!showPreview && selectedFilePath && (
                 <div className="absolute top-14 right-4 z-10">
                     <button
                         onClick={() => setShowPreview(true)}
-                        className="flex items-center gap-2 px-3 py-2 bg-[#007acc] text-white rounded-md shadow-lg hover:bg-[#0062a3] transition-colors text-xs font-medium"
+                        className="flex items-center gap-2 px-3 py-2 bg-[var(--accent)] text-white rounded-md shadow-2xl hover:bg-[var(--accent-hover)] transition-all text-[10px] font-bold uppercase tracking-widest"
                     >
                         <Layout size={14} />
-                        Show Preview
+                        Open Preview
                     </button>
                 </div>
             )}

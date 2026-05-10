@@ -1,22 +1,63 @@
 {
-  "name": "claude-replica",
+  "name": "opal",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.1",
+  "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --no-open",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron:dev": "NODE_ENV=development concurrently \"npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:build": "npm run build && electron-builder",
+    "dist": "npm run build && electron-builder"
+  },
+  "build": {
+    "appId": "com.opal.ai",
+    "productName": "Opal",
+    "directories": {
+      "output": "dist_electron"
+    },
+    "icon": "public/opal-icon.png",
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "terminal-server.cjs"
+    ],
+    "asarUnpack": [
+      "node_modules/node-pty/**/*"
+    ],
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "opal.icns",
+      "category": "public.app-category.developer-tools"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ]
+    }
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
     "@webcontainer/api": "^1.6.1",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
     "clsx": "^2.1.0",
     "framer-motion": "^11.0.8",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.4",
     "lucide-react": "^0.344.0",
+    "node-pty": "^1.1.0",
+    "pdfjs-dist": "^5.7.284",
     "prismjs": "^1.30.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -25,7 +66,9 @@
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
     "streamdown": "^1.6.9",
-    "tailwind-merge": "^2.2.1"
+    "tailwind-merge": "^2.2.1",
+    "ws": "^8.20.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.17",
@@ -33,12 +76,16 @@
     "@types/react-dom": "^18.2.21",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.22",
+    "concurrently": "^9.2.1",
+    "electron": "^42.0.1",
+    "electron-builder": "^26.8.1",
     "eslint": "^8.57.0",
     "eslint-plugin-react": "^7.34.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.17",
-    "vite": "^5.1.4"
+    "vite": "^5.1.4",
+    "wait-on": "^9.0.5"
   }
 }

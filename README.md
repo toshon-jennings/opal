@@ -1,4 +1,4 @@
-# 🤖 Open Claude
+# 🤖 Opal
 
 <div align="center">
 
@@ -16,7 +16,7 @@
 
 ## 📖 Overview
 
-Open Claude is a powerful, open-source chat interface inspired by Anthropic's Claude. It provides a clean, intuitive UI for interacting with multiple Large Language Models (LLMs) including OpenAI GPT models, Google Gemini, Groq, and local models via Ollama or LM Studio.
+Opal is a powerful, open-source chat interface inspired by Anthropic's Claude. It provides a clean, intuitive UI for interacting with multiple Large Language Models (LLMs) including OpenAI GPT models, Google Gemini, Groq, and local models via Ollama or LM Studio.
 
 ### 🌟 Highlights
 
@@ -55,7 +55,7 @@ A groundbreaking feature that displays the AI's internal reasoning process:
 
 ### 🎨 User Interface
 
-- **Clean Design**: Inspired by Claude's minimalist aesthetic
+- **Clean Design**: A minimalist aesthetic
 - **Dark/Light Mode**: Automatic theme switching based on system preferences
 - **Responsive**: Works seamlessly on desktop and mobile
 - **Syntax Highlighting**: Beautiful code blocks with react-syntax-highlighter
@@ -112,7 +112,7 @@ That's it! 🎉 The application is now running.
 
 ### Getting API Keys
 
-Open Claude requires API keys for cloud providers. Here's how to get them:
+Opal requires API keys for cloud providers. Here's how to get them:
 
 #### OpenAI API Key
 1. Visit [OpenAI Platform](https://platform.openai.com/)
@@ -215,7 +215,7 @@ For models that support reasoning (like OpenAI o1):
 ### Project Structure
 
 ```
-Open-claude/
+Opal/
 ├── src/
 │   ├── components/          # React components
 │   │   ├── ArtifactPanel.jsx      # Code & Research preview panel
@@ -372,6 +372,6 @@ If you find this project useful, please consider giving it a star! ⭐
 
 Owner: [Damien Chakma](https://github.com/Damienchakma)
 
-**[⬆ back to top](#-open-claude)**
+**[⬆ back to top](#-opal)**
 
 </div>

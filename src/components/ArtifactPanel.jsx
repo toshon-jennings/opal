@@ -78,7 +78,7 @@ export function ArtifactPanel({ isOpen, onClose, artifact }) {
     };
 
     return (
-        <div className="w-full md:w-[500px] border-l border-[var(--border)] bg-[var(--bg-primary)] flex flex-col h-full fixed md:relative right-0 top-0 bottom-0 z-20">
+        <div className="w-full md:w-[560px] border-l border-[var(--border)] bg-[var(--bg-primary)] flex flex-col h-full fixed md:relative right-0 top-0 bottom-0 z-20">
             {/* Header */}
             <div className="p-3 md:pt-14 md:pb-4 md:px-4 border-b border-[var(--border)] flex justify-between items-center bg-[var(--bg-secondary)]">
                 <div className="flex items-center gap-2.5">
