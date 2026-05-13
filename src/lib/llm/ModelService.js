@@ -384,7 +384,7 @@ export class ModelService {
                 return this.cache.lmstudio.models;
             }
 
-            const response = await fetch('http://192.168.1.192:1234/v1/models');
+            const response = await fetch('http://172.20.10.10:1234/v1/models');
 
             if (!response.ok) {
                 throw new Error('LM Studio is not running or not accessible');

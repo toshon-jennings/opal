@@ -919,7 +919,7 @@ export class LMStudioClient extends BaseClient {
             return { role: m.role, content: m.content };
         });
 
-        const response = await fetch('http://localhost:1234/v1/chat/completions', {
+        const response = await fetch('http://172.20.10.10:1234/v1/chat/completions', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -968,7 +968,7 @@ export class LMStudioClient extends BaseClient {
 
     async streamChatWithTools(messages, tools, onChunk, modelId) {
         return this._openAIStreamWithTools(
-            'http://localhost:1234/v1/chat/completions',
+            'http://172.20.10.10:1234/v1/chat/completions',
             {},
             messages, tools, onChunk, modelId || 'local-model'
         );
