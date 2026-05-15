@@ -10,6 +10,11 @@ contextBridge.exposeInMainWorld('electron', {
   getAppData: () => ipcRenderer.invoke('app-data:get'),
   setAppData: (data) => ipcRenderer.invoke('app-data:set', data),
   getAppDataPath: () => ipcRenderer.invoke('app-data:path'),
+  openExternal: (url) => ipcRenderer.invoke('open-external', url),
+  getOpenClawLocalProfile: () => ipcRenderer.invoke('openclaw:get-local-profile'),
+  testOpenClawConnection: (profile) => ipcRenderer.invoke('openclaw:test-connection', profile),
+  restartOpenClawGateway: () => ipcRenderer.invoke('openclaw:restart-gateway'),
+  openHermesApp: (appPath) => ipcRenderer.invoke('hermes:open-app', appPath),
   openYouTubePlayer: (url) => ipcRenderer.invoke('youtube-player:open', url),
   closeYouTubePlayer: () => ipcRenderer.invoke('youtube-player:close'),
   onYouTubePlayerClosed: (callback) => {

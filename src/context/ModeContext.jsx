@@ -17,6 +17,50 @@ export const MODES = {
     BUILD: 'build'     // Advanced build/deploy interface (future)
 };
 
+const DEFAULT_OPENCLAW_CONFIG = {
+    activeProfileId: 'local',
+    profiles: [
+        {
+            id: 'local',
+            name: 'Local OpenClaw',
+            mode: 'local',
+            gatewayUrl: 'ws://127.0.0.1:18789',
+            controlUrl: 'http://127.0.0.1:18789/openclaw',
+            token: ''
+        },
+        {
+            id: 'appliance',
+            name: 'OpenClaw Appliance',
+            mode: 'appliance',
+            gatewayUrl: 'ws://clawbox.local:18789',
+            controlUrl: 'http://clawbox.local:18789/openclaw',
+            token: ''
+        }
+    ]
+};
+
+function normalizeOpenClawConfig(config) {
+    const parsed = config && typeof config === 'object' ? config : DEFAULT_OPENCLAW_CONFIG;
+    const profiles = Array.isArray(parsed.profiles) && parsed.profiles.length > 0
+        ? parsed.profiles
+        : DEFAULT_OPENCLAW_CONFIG.profiles;
+    const activeProfileId = profiles.some(profile => profile.id === parsed.activeProfileId)
+        ? parsed.activeProfileId
+        : profiles[0].id;
+
+    return {
+        activeProfileId,
+        profiles: profiles.map(profile => ({
+            id: profile.id || String(Date.now()),
+            name: profile.name || 'OpenClaw',
+            mode: profile.mode === 'appliance' ? 'appliance' : 'local',
+            gatewayUrl: profile.gatewayUrl || 'ws://127.0.0.1:18789',
+            controlUrl: profile.controlUrl || 'http://127.0.0.1:18789/openclaw',
+            token: profile.token || ''
+        }))
+    };
+}
+
 export function ModeProvider({ children }) {
     const [currentMode, setCurrentMode] = useState(MODES.CHAT);
     const electronPersistenceReadyRef = useRef(!hasElectronStore());
@@ -95,6 +139,92 @@ export function ModeProvider({ children }) {
     }, [codeState]);
 
     const [chatState, setChatState] = useState({});
+    const [showGlobalTerminal, setShowGlobalTerminal] = useState(false);
+    const [showOpenClawDashboard, setShowOpenClawDashboard] = useState(false);
+    const [openClawConfig, setOpenClawConfig] = useState(() => (
+        normalizeOpenClawConfig(readJsonStorage('openclaw_config', DEFAULT_OPENCLAW_CONFIG))
+    ));
+    const [hermesAppPath, setHermesAppPath] = useState(() =>
+        readStringStorage('hermes_app_path', '')
+    );
+
+    useEffect(() => {
+        if (!hasElectronStore()) return;
+
+        let isMounted = true;
+        async function hydrateAgentConfigs() {
+            try {
+                const electronData = await loadElectronPersistence();
+                if (!isMounted) return;
+                if (typeof electronData?.openclaw_config === 'string') {
+                    localStorage.setItem('openclaw_config', electronData.openclaw_config);
+                    setOpenClawConfig(normalizeOpenClawConfig(readJsonStorage('openclaw_config', DEFAULT_OPENCLAW_CONFIG)));
+                }
+                if (typeof electronData?.hermes_app_path === 'string') {
+                    localStorage.setItem('hermes_app_path', electronData.hermes_app_path);
+                    setHermesAppPath(electronData.hermes_app_path);
+                }
+            } catch (err) {
+                console.error('Failed to hydrate agent configs:', err);
+            }
+        }
+
+        hydrateAgentConfigs();
+        return () => {
+            isMounted = false;
+        };
+    }, []);
+
+    useEffect(() => {
+        const serializedOpenClawConfig = serializeJson(openClawConfig);
+        localStorage.setItem('openclaw_config', serializedOpenClawConfig);
+        if (electronPersistenceReadyRef.current) {
+            saveElectronPersistence({
+                openclaw_config: serializedOpenClawConfig
+            }).catch(err => console.error('Failed to persist OpenClaw config:', err));
+        }
+    }, [openClawConfig]);
+
+    useEffect(() => {
+        localStorage.setItem('hermes_app_path', hermesAppPath);
+        if (electronPersistenceReadyRef.current) {
+            saveElectronPersistence({
+                hermes_app_path: hermesAppPath
+            }).catch(err => console.error('Failed to persist Hermes app path:', err));
+        }
+    }, [hermesAppPath]);
+
+    useEffect(() => {
+        if (!window.electron?.getOpenClawLocalProfile) return;
+
+        let isMounted = true;
+        async function hydrateLocalOpenClawProfile() {
+            try {
+                const localProfile = await window.electron.getOpenClawLocalProfile();
+                if (!isMounted || !localProfile || localProfile.error) return;
+                setOpenClawConfig(prev => ({
+                    ...prev,
+                    profiles: prev.profiles.map(profile => (
+                        profile.id === 'local'
+                            ? {
+                                ...profile,
+                                gatewayUrl: localProfile.gatewayUrl || profile.gatewayUrl,
+                                controlUrl: localProfile.controlUrl || profile.controlUrl,
+                                token: localProfile.token || profile.token
+                            }
+                            : profile
+                    ))
+                }));
+            } catch (err) {
+                console.error('Failed to read local OpenClaw profile:', err);
+            }
+        }
+
+        hydrateLocalOpenClawProfile();
+        return () => {
+            isMounted = false;
+        };
+    }, []);
 
     return (
         <ModeContext.Provider value={{
@@ -103,7 +233,15 @@ export function ModeProvider({ children }) {
             chatState,
             setChatState,
             codeState,
-            setCodeState
+            setCodeState,
+            showGlobalTerminal,
+            setShowGlobalTerminal,
+            showOpenClawDashboard,
+            setShowOpenClawDashboard,
+            openClawConfig,
+            setOpenClawConfig,
+            hermesAppPath,
+            setHermesAppPath
         }}>
             {children}
         </ModeContext.Provider>

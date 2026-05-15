@@ -19,6 +19,9 @@ const PERSISTED_KEYS = [
     'custom_instructions',
     'selected_provider',
     'selected_model',
+    'openclaw_config',
+    'hermes_app_path',
+    'lm_studio_url',
     ...API_KEY_STORAGE_KEYS
 ];
 
@@ -43,6 +46,7 @@ export function readStringStorage(key, fallback = '') {
 export function getLocalPersistenceSnapshot() {
     return PERSISTED_KEYS.reduce((snapshot, key) => {
         const value = localStorage.getItem(key);
+        if (API_KEY_STORAGE_KEYS.includes(key) && !value) return snapshot;
         if (value !== null) snapshot[key] = value;
         return snapshot;
     }, {});
@@ -51,7 +55,7 @@ export function getLocalPersistenceSnapshot() {
 export function getLocalApiKeySnapshot() {
     return API_KEY_STORAGE_KEYS.reduce((snapshot, key) => {
         const value = localStorage.getItem(key);
-        if (value !== null) snapshot[key] = value;
+        if (value) snapshot[key] = value;
         return snapshot;
     }, {});
 }

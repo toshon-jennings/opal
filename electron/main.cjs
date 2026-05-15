@@ -2,13 +2,70 @@ const { app, BrowserWindow, ipcMain, dialog, Menu, shell, safeStorage } = requir
 const { installRedactedConsole } = require('./redact-console.cjs');
 const path = require('path');
 const { spawn } = require('child_process');
+const net = require('net');
 const isDev = process.env.NODE_ENV === 'development';
 
 installRedactedConsole();
 
 let terminalServerProcess = null;
 let mainWindow = null;
+let splashWindow = null;
 let youtubeWindow = null;
+
+// Track the two conditions required before revealing the main window
+const splashGate = { mainReady: false, splashDone: false };
+
+function tryRevealMain() {
+  if (!splashGate.mainReady || !splashGate.splashDone) return;
+
+  // Snap main window to the exact position of the splash so they perfectly overlap
+  if (mainWindow && !mainWindow.isDestroyed() && splashWindow && !splashWindow.isDestroyed()) {
+    mainWindow.setBounds(splashWindow.getBounds());
+  }
+
+  // Show main window underneath the still-visible splash
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.showInactive();
+  }
+
+  // Fade the splash out over ~350ms, then close it and focus main
+  if (splashWindow && !splashWindow.isDestroyed()) {
+    let opacity = 1.0;
+    const fade = setInterval(() => {
+      opacity -= 0.05; // 20 steps × ~17ms ≈ 340ms
+      if (!splashWindow || splashWindow.isDestroyed()) {
+        clearInterval(fade);
+        return;
+      }
+      if (opacity <= 0) {
+        clearInterval(fade);
+        splashWindow.close();
+        splashWindow = null;
+        if (mainWindow && !mainWindow.isDestroyed()) mainWindow.focus();
+      } else {
+        splashWindow.setOpacity(opacity);
+      }
+    }, 17);
+  }
+}
+
+function createSplashWindow() {
+  splashWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    frame: false,
+    resizable: false,
+    center: true,
+    alwaysOnTop: true,
+    backgroundColor: '#1c1c1c',
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+    },
+  });
+  splashWindow.loadFile(path.join(__dirname, 'splash.html'));
+  splashWindow.on('closed', () => { splashWindow = null; });
+}
 
 function startTerminalServer() {
   const isPackaged = app.isPackaged;
@@ -249,16 +306,22 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
+    show: false,
     titleBarStyle: 'hiddenInset',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
       contextIsolation: true,
       webSecurity: true,
+      webviewTag: true,
     },
   });
 
   mainWindow = win;
+  win.once('ready-to-show', () => {
+    splashGate.mainReady = true;
+    tryRevealMain();
+  });
   win.on('closed', () => {
     if (youtubeWindow && !youtubeWindow.isDestroyed()) {
       youtubeWindow.close();
@@ -282,6 +345,7 @@ function createWindow() {
 app.whenReady().then(() => {
   startTerminalServer();
   createMenu();
+  createSplashWindow();
   createWindow();
 
   app.on('activate', () => {
@@ -298,6 +362,12 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+// Splash screen gate — fires when the video finishes playing
+ipcMain.on('splash:done', () => {
+  splashGate.splashDone = true;
+  tryRevealMain();
 });
 
 // Native folder selection
@@ -322,7 +392,9 @@ const apiKeyStorageKeys = new Set([
   'tavily_key',
   'openrouter_key',
   'anthropic_key',
-  'mistral_key'
+  'mistral_key',
+  'openclaw_config',
+  'hermes_config'
 ]);
 
 function getAppDataPath() {
@@ -413,6 +485,155 @@ ipcMain.handle('app-data:set', async (event, data) => {
     console.error('Error writing app data:', err);
     throw err;
   }
+});
+
+ipcMain.handle('open-external', async (event, url) => {
+  if (!url || typeof url !== 'string') return false;
+  const parsed = new URL(url);
+  if (!['http:', 'https:'].includes(parsed.protocol)) return false;
+  await shell.openExternal(url);
+  return true;
+});
+
+function deriveOpenClawHttpUrl(profile = {}) {
+  if (profile.controlUrl) return profile.controlUrl;
+  const gatewayUrl = profile.gatewayUrl || 'ws://127.0.0.1:18789';
+  try {
+    const parsed = new URL(gatewayUrl);
+    parsed.protocol = parsed.protocol === 'wss:' ? 'https:' : 'http:';
+    parsed.pathname = profile.controlPath || '/openclaw';
+    parsed.search = '';
+    parsed.hash = '';
+    return parsed.toString();
+  } catch {
+    return 'http://127.0.0.1:18789/openclaw';
+  }
+}
+
+function deriveOpenClawSocketTarget(profile = {}) {
+  const gatewayUrl = profile.gatewayUrl || 'ws://127.0.0.1:18789';
+  try {
+    const parsed = new URL(gatewayUrl);
+    return {
+      host: parsed.hostname || '127.0.0.1',
+      port: Number(parsed.port || (parsed.protocol === 'wss:' ? 443 : 80))
+    };
+  } catch {
+    return { host: '127.0.0.1', port: 18789 };
+  }
+}
+
+ipcMain.handle('openclaw:get-local-profile', async () => {
+  try {
+    const configPath = path.join(app.getPath('home'), '.openclaw', 'openclaw.json');
+    const raw = await fs.readFile(configPath, 'utf-8');
+    const config = JSON.parse(raw);
+    const gateway = config?.gateway || {};
+    const port = Number(gateway.port || 18789);
+    const basePath = gateway.controlUi?.basePath || '/openclaw';
+    const host = gateway.bind === 'lan' ? '0.0.0.0' : '127.0.0.1';
+    return {
+      mode: gateway.mode || 'local',
+      gatewayUrl: `ws://${host === '0.0.0.0' ? '127.0.0.1' : host}:${port}`,
+      controlUrl: `http://127.0.0.1:${port}${basePath}`,
+      token: gateway.auth?.token || ''
+    };
+  } catch (err) {
+    return { error: err.message };
+  }
+});
+
+ipcMain.handle('openclaw:test-connection', async (event, profile = {}) => {
+  const startedAt = Date.now();
+  const target = deriveOpenClawSocketTarget(profile);
+
+  return new Promise((resolve) => {
+    const socket = net.createConnection(target);
+    const timeout = setTimeout(() => {
+      socket.destroy();
+      resolve({
+        ok: false,
+        status: null,
+        url: profile.gatewayUrl || 'ws://127.0.0.1:18789',
+        error: 'Connection timed out',
+        latencyMs: Date.now() - startedAt
+      });
+    }, 3000);
+
+    socket.once('connect', () => {
+      clearTimeout(timeout);
+      socket.end();
+      resolve({
+        ok: true,
+        status: 'listening',
+        url: profile.gatewayUrl || 'ws://127.0.0.1:18789',
+        latencyMs: Date.now() - startedAt
+      });
+    });
+
+    socket.once('error', (err) => {
+      clearTimeout(timeout);
+      resolve({
+        ok: false,
+        status: null,
+        url: profile.gatewayUrl || 'ws://127.0.0.1:18789',
+        error: err.message,
+        latencyMs: Date.now() - startedAt
+      });
+    });
+  });
+});
+
+ipcMain.handle('openclaw:restart-gateway', async () => {
+  return new Promise((resolve) => {
+    const child = spawn('openclaw', ['gateway', 'restart'], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: process.env
+    });
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', chunk => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on('data', chunk => {
+      stderr += chunk.toString();
+    });
+    child.on('error', err => {
+      resolve({ ok: false, error: err.message });
+    });
+    child.on('close', code => {
+      resolve({
+        ok: code === 0,
+        code,
+        output: stdout.trim(),
+        error: stderr.trim() || (code === 0 ? '' : stdout.trim())
+      });
+    });
+  });
+});
+
+ipcMain.handle('hermes:open-app', async (event, customPath) => {
+  const os = require('os');
+  const candidates = [
+    customPath,
+    '/Applications/Hermes Agent.app',
+    path.join(os.homedir(), 'hermes-desktop', 'build', 'Hermes Agent.app'),
+    path.join(os.homedir(), 'Applications', 'Hermes Agent.app'),
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    try {
+      const stat = await fs.stat(candidate);
+      if (stat) {
+        const err = await shell.openPath(candidate);
+        if (!err) return { ok: true, path: candidate };
+      }
+    } catch {
+      // not found at this path, try next
+    }
+  }
+  return { ok: false, error: 'Hermes app not found. Set the path in Settings > Hermes.' };
 });
 
 ipcMain.handle('youtube-player:open', async (event, url) => {

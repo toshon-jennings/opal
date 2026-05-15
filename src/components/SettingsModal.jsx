@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Key, Globe, RefreshCw, ChevronDown, Check, Wifi, WifiOff, User, ScrollText, Search } from 'lucide-react';
+import { X, Key, Globe, RefreshCw, ChevronDown, Check, Wifi, WifiOff, User, ScrollText, Search, Server, ExternalLink, Plus, Trash2, Bot } from 'lucide-react';
 import { useChat } from '../context/ChatContext';
+import { useMode } from '../context/ModeContext';
 
 // Collapsible section wrapper
 function Section({ title, icon: Icon, defaultOpen = true, children }) {
@@ -40,12 +41,23 @@ export function SettingsModal({ isOpen, onClose }) {
         userName,
         setUserName,
         customInstructions,
-        setCustomInstructions
+        setCustomInstructions,
+        lmStudioUrl,
+        setLmStudioUrl
     } = useChat();
+    const {
+        openClawConfig,
+        setOpenClawConfig,
+        setShowOpenClawDashboard,
+        hermesAppPath,
+        setHermesAppPath,
+    } = useMode();
 
     const [modelSearch, setModelSearch] = useState('');
     const [editingName, setEditingName] = useState('');
     const [editingInstructions, setEditingInstructions] = useState('');
+    const [testingProfileId, setTestingProfileId] = useState(null);
+    const [connectionResults, setConnectionResults] = useState({});
 
     useEffect(() => {
         if (isOpen) {
@@ -89,6 +101,64 @@ export function SettingsModal({ isOpen, onClose }) {
     const handleClose = () => {
         handleSaveName();
         handleSaveInstructions();
+        onClose();
+    };
+
+    const updateOpenClawProfile = (profileId, patch) => {
+        setOpenClawConfig(prev => ({
+            ...prev,
+            profiles: prev.profiles.map(profile => (
+                profile.id === profileId ? { ...profile, ...patch } : profile
+            ))
+        }));
+    };
+
+    const addOpenClawProfile = () => {
+        const id = `profile-${Date.now()}`;
+        setOpenClawConfig(prev => ({
+            activeProfileId: id,
+            profiles: [
+                ...prev.profiles,
+                {
+                    id,
+                    name: 'New OpenClaw Gateway',
+                    mode: 'appliance',
+                    gatewayUrl: 'ws://clawbox.local:18789',
+                    controlUrl: 'http://clawbox.local:18789/openclaw',
+                    token: ''
+                }
+            ]
+        }));
+    };
+
+    const removeOpenClawProfile = (profileId) => {
+        setOpenClawConfig(prev => {
+            if (prev.profiles.length <= 1) return prev;
+            const profiles = prev.profiles.filter(profile => profile.id !== profileId);
+            return {
+                activeProfileId: prev.activeProfileId === profileId ? profiles[0].id : prev.activeProfileId,
+                profiles
+            };
+        });
+    };
+
+    const testOpenClawProfile = async (profile) => {
+        setTestingProfileId(profile.id);
+        try {
+            const result = window.electron?.testOpenClawConnection
+                ? await window.electron.testOpenClawConnection(profile)
+                : await fetch(profile.controlUrl, { method: 'GET' }).then(response => ({ ok: response.ok, status: response.status, url: profile.controlUrl }));
+            setConnectionResults(prev => ({ ...prev, [profile.id]: result }));
+        } catch (err) {
+            setConnectionResults(prev => ({ ...prev, [profile.id]: { ok: false, error: err.message, url: profile.controlUrl } }));
+        } finally {
+            setTestingProfileId(null);
+        }
+    };
+
+    const openOpenClawDashboard = (profile) => {
+        setOpenClawConfig(prev => ({ ...prev, activeProfileId: profile.id }));
+        setShowOpenClawDashboard(true);
         onClose();
     };
 
@@ -206,6 +276,36 @@ export function SettingsModal({ isOpen, onClose }) {
                             })}
                         </div>
 
+                        {selectedProvider === 'lmstudio' && (
+                            <div className="mb-6 p-4 rounded-xl border border-pink-500/20 bg-pink-500/5 animate-in fade-in slide-in-from-top-2 duration-300">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <Server size={14} className="text-pink-500" />
+                                    <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">LM Studio Configuration</span>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="block text-xs text-[var(--text-tertiary)] mb-1">Base URL (Local API Server)</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={lmStudioUrl}
+                                            onChange={e => setLmStudioUrl(e.target.value)}
+                                            className="flex-1 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-sm font-mono text-[var(--text-primary)] outline-none focus:border-pink-500/50 transition-colors"
+                                            placeholder="http://172.20.10.10:1234"
+                                        />
+                                        <button
+                                            onClick={refreshModels}
+                                            className="px-3 py-2 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border border-[var(--border)] rounded-lg text-xs font-medium text-[var(--text-secondary)] transition-colors"
+                                        >
+                                            Connect
+                                        </button>
+                                    </div>
+                                    <p className="text-[10px] text-[var(--text-tertiary)] mt-1">
+                                        Ensure LM Studio's "Local Server" is started and "CORS" is enabled in its settings.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Expanded Model List */}
                         <div className={`transition-all duration-300 ${selectedProvider ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
                             {currentProviderModels.length > 0 ? (
@@ -308,6 +408,141 @@ export function SettingsModal({ isOpen, onClose }) {
                                 </div>
                             </div>
                         ))}
+                    </Section>
+
+                    <Section title="OpenClaw" icon={Server} defaultOpen={false}>
+                        <div className="flex items-start justify-between gap-3">
+                            <p className="text-xs text-[var(--text-tertiary)] leading-relaxed">
+                                Configure local and appliance Gateway profiles for OpenClaw client/controller mode.
+                            </p>
+                            <button
+                                type="button"
+                                onClick={addOpenClawProfile}
+                                className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[var(--border)] text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+                            >
+                                <Plus size={13} />
+                                Add
+                            </button>
+                        </div>
+
+                        <div className="space-y-3">
+                            {openClawConfig.profiles.map(profile => {
+                                const result = connectionResults[profile.id];
+                                const isActive = openClawConfig.activeProfileId === profile.id;
+                                return (
+                                    <div key={profile.id} className={`rounded-xl border p-3.5 space-y-3 ${isActive ? 'border-[var(--accent)]/50 bg-[var(--accent)]/5' : 'border-[var(--border)] bg-[var(--bg-tertiary)]/40'}`}>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setOpenClawConfig(prev => ({ ...prev, activeProfileId: profile.id }))}
+                                                className={`w-4 h-4 rounded-full border flex items-center justify-center ${isActive ? 'border-[var(--accent)] bg-[var(--accent)]' : 'border-[var(--border)]'}`}
+                                                title="Use this OpenClaw profile"
+                                            >
+                                                {isActive && <Check size={10} className="text-white" />}
+                                            </button>
+                                            <input
+                                                value={profile.name}
+                                                onChange={e => updateOpenClawProfile(profile.id, { name: e.target.value })}
+                                                className="flex-1 bg-transparent border-none outline-none text-sm font-semibold text-[var(--text-primary)]"
+                                            />
+                                            <select
+                                                value={profile.mode}
+                                                onChange={e => updateOpenClawProfile(profile.id, { mode: e.target.value })}
+                                                className="px-2 py-1 rounded-md border border-[var(--border)] bg-[var(--bg-primary)] text-xs text-[var(--text-secondary)] outline-none"
+                                            >
+                                                <option value="local">Local</option>
+                                                <option value="appliance">Appliance</option>
+                                            </select>
+                                            {openClawConfig.profiles.length > 1 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeOpenClawProfile(profile.id)}
+                                                    className="p-1.5 rounded-md text-[var(--text-tertiary)] hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                                                    title="Remove profile"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                                            <label className="space-y-1">
+                                                <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Gateway URL</span>
+                                                <input
+                                                    value={profile.gatewayUrl}
+                                                    onChange={e => updateOpenClawProfile(profile.id, { gatewayUrl: e.target.value })}
+                                                    className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-xs font-mono text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                                                />
+                                            </label>
+                                            <label className="space-y-1">
+                                                <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Dashboard URL</span>
+                                                <input
+                                                    value={profile.controlUrl}
+                                                    onChange={e => updateOpenClawProfile(profile.id, { controlUrl: e.target.value })}
+                                                    className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-xs font-mono text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                                                />
+                                            </label>
+                                        </div>
+
+                                        <label className="block space-y-1">
+                                            <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Gateway Token</span>
+                                            <input
+                                                type="password"
+                                                value={profile.token}
+                                                onChange={e => updateOpenClawProfile(profile.id, { token: e.target.value })}
+                                                placeholder="Optional token"
+                                                className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                                            />
+                                        </label>
+
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div className={`text-xs ${result?.ok ? 'text-emerald-500' : result ? 'text-red-400' : 'text-[var(--text-tertiary)]'}`}>
+                                                {result
+                                                    ? result.ok
+                                                        ? `Connected${result.status ? ` (${result.status})` : ''}${result.latencyMs ? ` in ${result.latencyMs}ms` : ''}`
+                                                        : `Unavailable${result.error ? `: ${result.error}` : result.status ? ` (${result.status})` : ''}`
+                                                    : 'Not tested'
+                                                }
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => testOpenClawProfile(profile)}
+                                                    disabled={testingProfileId === profile.id}
+                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[var(--border)] text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] disabled:opacity-50 transition-colors"
+                                                >
+                                                    <RefreshCw size={13} className={testingProfileId === profile.id ? 'animate-spin' : ''} />
+                                                    Test
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openOpenClawDashboard(profile)}
+                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[var(--accent)] text-white text-xs font-medium hover:bg-[var(--accent-hover)] transition-colors"
+                                                >
+                                                    <ExternalLink size={13} />
+                                                    Open
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </Section>
+
+                    <Section title="Hermes" icon={Bot} defaultOpen={false}>
+                        <p className="text-xs text-[var(--text-tertiary)] leading-relaxed">
+                            Path to the Hermes desktop app. Leave blank to use the default location.
+                        </p>
+                        <label className="block space-y-1">
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">App Path</span>
+                            <input
+                                value={hermesAppPath}
+                                onChange={e => setHermesAppPath(e.target.value)}
+                                placeholder="/Applications/Hermes Agent.app"
+                                className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-xs font-mono text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                            />
+                        </label>
                     </Section>
 
                     {/* Bottom padding */}
