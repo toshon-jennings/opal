@@ -29,6 +29,9 @@ export function SecondaryModeNav() {
                     </button>
                 ))}
             </div>
+            <div className="mt-1.5 text-center text-[10px] text-[var(--text-tertiary)] select-none">
+                v{__APP_VERSION__}
+            </div>
         </div>
     );
 }

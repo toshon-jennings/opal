@@ -7,8 +7,8 @@ import { LLMFactory } from '../lib/llm/clients';
 import { Workbench } from './Workbench/Workbench';
 import { AttachmentMenu, AttachmentPreview } from './AttachmentSystem';
 import { SecondaryModeNav } from './SecondaryModeNav';
-import TerminalPanel from './Terminal';
 import { EditableTitle } from './EditableTitle';
+import { SettingsModal } from './SettingsModal';
 import { PermissionsDropdown } from './PermissionsDropdown';
 import { useAgentTools } from '../hooks/useAgentTools';
 import opalLogo from '../assets/opal-logo.png';
@@ -801,7 +801,7 @@ function YouTubeFallbackPlayer({ url, onClose }) {
 // ── Main CoworkMode ─────────────────────────────────────────────────────────
 
 export default function CoworkMode() {
-    const { codeState, setCodeState } = useMode();
+    const { codeState, setCodeState, showGlobalTerminal, setShowGlobalTerminal } = useMode();
     const {
         userName,
         selectedProvider,
@@ -810,7 +810,8 @@ export default function CoworkMode() {
         availableModels,
         updateProvider,
         updateModel,
-        supportsImages
+        supportsImages,
+        lmStudioUrl
     } = useChat();
     const { webcontainerInstance } = useBuildMode();
     const { executeTool, toolLog, clearLog } = useAgentTools(codeState.workingDirectory, webcontainerInstance);
@@ -819,9 +820,9 @@ export default function CoworkMode() {
     const [isLoading, setIsLoading] = useState(false);
     const [streamingMessage, setStreamingMessage] = useState('');
     const [agentStatus, setAgentStatus] = useState(''); // shown between iterations
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [sidebarView, setSidebarView] = useState('sessions'); // 'sessions' | 'routines'
     const [attachments, setAttachments] = useState([]);
-    const [showTerminal, setShowTerminal] = useState(false);
     const [permissionLevel, setPermissionLevel] = useState('full');
     const [youtubeUrl, setYoutubeUrl] = useState(null);
     const [showYouTubeModal, setShowYouTubeModal] = useState(false);
@@ -1075,7 +1076,7 @@ export default function CoworkMode() {
         }));
 
         try {
-            const client = LLMFactory.getClient(selectedProvider, apiKeys[selectedProvider]);
+            const client = LLMFactory.getClient(selectedProvider, apiKeys[selectedProvider], { lmStudioUrl });
             const systemPrompt = [
                 `You are an expert software engineer assistant operating in Cowork Mode.`,
                 `The user's local project folder is: ${codeState.workingDirectory || '(not set — ask the user to choose a folder)'}`,
@@ -1270,8 +1271,8 @@ export default function CoworkMode() {
                                 <Youtube size={16} />
                             </button>
                             <button 
-                                onClick={() => setShowTerminal(v => !v)} 
-                                className={`p-1.5 rounded-md transition-colors ${showTerminal ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-hover)]'}`}
+                                onClick={() => setShowGlobalTerminal(v => !v)}
+                                className={`p-1.5 rounded-md transition-colors ${showGlobalTerminal ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-hover)]'}`}
                                 title="Toggle Terminal"
                             >
                                 <TerminalIcon size={16} />
@@ -1455,11 +1456,6 @@ export default function CoworkMode() {
                             />
                         </div>
                     </div>
-                    {showTerminal && (
-                        <div className="h-56 border-t border-[var(--border)] shrink-0">
-                            <TerminalPanel sessionId="cowork" />
-                        </div>
-                    )}
                 </div>
             </div>
         );
@@ -1517,8 +1513,8 @@ export default function CoworkMode() {
                     </button>
 
                     <button
-                        onClick={() => setShowTerminal(v => !v)}
-                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${showTerminal ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'}`}
+                        onClick={() => setShowGlobalTerminal(v => !v)}
+                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${showGlobalTerminal ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'}`}
                     >
                         <TerminalIcon size={16} />
                         Terminal
@@ -1570,7 +1566,22 @@ export default function CoworkMode() {
                         ))}
                     </div>
                 </div>
+                <div className="p-3 border-t border-[var(--border)]">
+                    <button
+                        onClick={() => setIsSettingsOpen(true)}
+                        className="flex items-center gap-2.5 p-2 hover:bg-[var(--bg-hover)] rounded-md cursor-pointer w-full transition-colors group"
+                    >
+                        <div className="w-8 h-8 bg-[var(--accent)] rounded-full flex items-center justify-center text-white text-sm font-medium">
+                            {userName ? userName.charAt(0).toUpperCase() : 'U'}
+                        </div>
+                        <div className="flex-1 text-sm text-left">
+                            <div className="text-[var(--text-primary)] font-medium">{userName || 'User'}</div>
+                        </div>
+                        <Settings size={16} className="text-[var(--text-tertiary)]" />
+                    </button>
+                </div>
             </aside>
+            <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
             <div
                 className="w-1 bg-transparent hover:bg-[var(--accent)]/30 cursor-col-resize z-50 transition-colors"
                 onMouseDown={(e) => {

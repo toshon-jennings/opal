@@ -44,6 +44,16 @@ function apiKeysToStorageSnapshot(keys) {
     }, {});
 }
 
+function nonEmptyApiKeysToStorageSnapshot(keys) {
+    return Object.entries(API_KEY_PROVIDERS).reduce((snapshot, [provider, storageKey]) => {
+        const value = keys?.[provider];
+        if (typeof value === 'string' && value.length > 0) {
+            snapshot[storageKey] = value;
+        }
+        return snapshot;
+    }, {});
+}
+
 export function ChatProvider({ children }) {
     const createDefaultProjects = () => {
         const now = Date.now();
@@ -137,6 +147,20 @@ export function ChatProvider({ children }) {
         }
     }, []);
 
+    const [lmStudioUrl, setLmStudioUrlState] = useState(() => {
+        return readStringStorage('lm_studio_url', 'http://172.20.10.10:1234');
+    });
+
+    const setLmStudioUrl = useCallback((url) => {
+        setLmStudioUrlState(url);
+        localStorage.setItem('lm_studio_url', url);
+        if (electronPersistenceReadyRef.current) {
+            saveElectronPersistence({ lm_studio_url: url }).catch(err => console.error('Failed to persist LM Studio URL:', err));
+        }
+        // Clear cache so it fetches from the new URL
+        modelService.clearCache('lmstudio');
+    }, []);
+
     useEffect(() => {
         if (!hasElectronStore()) return;
 
@@ -166,17 +190,18 @@ export function ChatProvider({ children }) {
                     setProjects(Array.isArray(persistedProjects) ? persistedProjects : createDefaultProjects());
                     setUserNameState(readStringStorage('user_name'));
                     setCustomInstructionsState(readStringStorage('custom_instructions'));
+                    setLmStudioUrlState(readStringStorage('lm_studio_url', 'http://172.20.10.10:1234'));
                     setSelectedProvider(readStringStorage('selected_provider', 'groq'));
                     setSelectedModel(readStringStorage('selected_model'));
                     setApiKeys(nextApiKeys);
                     await saveElectronPersistence({
                         ...getLocalPersistenceSnapshot(),
-                        ...apiKeysToStorageSnapshot(nextApiKeys)
+                        ...nonEmptyApiKeysToStorageSnapshot(nextApiKeys)
                     });
                 } else {
                     await saveElectronPersistence({
                         ...getLocalPersistenceSnapshot(),
-                        ...localApiKeys
+                        ...nonEmptyApiKeysToStorageSnapshot(readApiKeysFromSnapshot(localApiKeys))
                     });
                 }
                 clearLocalApiKeys();
@@ -412,7 +437,7 @@ export function ChatProvider({ children }) {
     const fetchModels = useCallback(async () => {
         setIsLoadingModels(true);
         try {
-            const models = await modelService.getAllModels(apiKeys);
+            const models = await modelService.getAllModels({ ...apiKeys, lmStudioUrl });
             setAvailableModels(models);
 
             // Auto-select a model if none is selected, or if the stored model
@@ -534,6 +559,8 @@ export function ChatProvider({ children }) {
             setUserName,
             customInstructions,
             setCustomInstructions,
+            lmStudioUrl,
+            setLmStudioUrl,
             // Model capabilities
             currentModelCapabilities,
             supportsImages: currentModelCapabilities.image,

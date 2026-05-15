@@ -5,10 +5,11 @@ import { TavilyClient } from './tavily';
 import { LLMFactory } from './llm/clients';
 
 export class IntelligentSearchTool {
-    constructor(apiKey, llmProvider = null, llmApiKey = null) {
+    constructor(apiKey, llmProvider = null, llmApiKey = null, lmStudioUrl = null) {
         this.tavily = new TavilyClient(apiKey);
         this.llmProvider = llmProvider;
         this.llmApiKey = llmApiKey;
+        this.lmStudioUrl = lmStudioUrl;
         this.searchHistory = [];
         this.logoCache = new Map(); // Cache logos to avoid repeated fetches
     }
@@ -179,7 +180,7 @@ export class IntelligentSearchTool {
         // If we have LLM access, use it for smart reformulation
         if (this.llmProvider && this.llmApiKey) {
             try {
-                const client = LLMFactory.getClient(this.llmProvider, this.llmApiKey);
+                const client = LLMFactory.getClient(this.llmProvider, this.llmApiKey, { lmStudioUrl: this.lmStudioUrl });
                 let reformulated = '';
 
                 const prompt = `You are a search query optimizer. Convert this natural language question into a concise, effective search query.
@@ -774,7 +775,7 @@ Optimized search query (2-6 words only):`;
         {"action": "finish", "reasoning": "why complete"} (ONLY if time > 180s and all sub-aspects verified)`;
 
         try {
-            const client = LLMFactory.getClient(this.llmProvider, this.llmApiKey);
+            const client = LLMFactory.getClient(this.llmProvider, this.llmApiKey, { lmStudioUrl: this.lmStudioUrl });
             let response = '';
             await client.streamChat(
                 [{ role: 'user', content: prompt }],
@@ -804,7 +805,7 @@ Optimized search query (2-6 words only):`;
         JSON array of strings only.`;
 
         try {
-            const client = LLMFactory.getClient(this.llmProvider, this.llmApiKey);
+            const client = LLMFactory.getClient(this.llmProvider, this.llmApiKey, { lmStudioUrl: this.lmStudioUrl });
             let response = '';
             await client.streamChat(
                 [{ role: 'user', content: prompt }],
@@ -939,7 +940,7 @@ You are not a chatbot. You are a **research scientist**. Deliver **flawless, pub
 
         // Pass to LLM for final paper generation
         try {
-            const client = LLMFactory.getClient(this.llmProvider, this.llmApiKey);
+            const client = LLMFactory.getClient(this.llmProvider, this.llmApiKey, { lmStudioUrl: this.lmStudioUrl });
             let paper = '';
 
             // Use a higher-intelligence model for the final paper if possible

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: #1c1c1c;
+      overflow: hidden;
+    }
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <video id="v" autoplay muted playsinline>
+    <source src="splash.mp4" type="video/mp4" />
+  </video>
+  <script>
+    const { ipcRenderer } = require('electron');
+    const video = document.getElementById('v');
+    let sent = false;
+    function done() {
+      if (sent) return;
+      sent = true;
+      ipcRenderer.send('splash:done');
+    }
+    video.addEventListener('ended', done);
+    video.addEventListener('error', done);
+    // Hard fallback in case the video stalls
+    setTimeout(done, 12000);
+  </script>
+</body>
+</html>

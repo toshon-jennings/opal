@@ -218,7 +218,7 @@ class StreamingTagParser {
 }
 
 export class LLMFactory {
-    static getClient(provider, apiKey) {
+    static getClient(provider, apiKey, options = {}) {
         switch (provider) {
             case 'openai':
                 return new OpenAIClient(apiKey);
@@ -229,7 +229,7 @@ export class LLMFactory {
             case 'ollama':
                 return new OllamaClient();
             case 'lmstudio':
-                return new LMStudioClient();
+                return new LMStudioClient(options.lmStudioUrl);
             case 'openrouter':
                 return new OpenRouterClient(apiKey);
             case 'anthropic':
@@ -890,8 +890,9 @@ export class OllamaClient extends BaseClient {
 
 // LM Studio Client with tag support
 export class LMStudioClient extends BaseClient {
-    constructor() {
+    constructor(baseUrl = 'http://localhost:1234') {
         super(null);
+        this.baseUrl = baseUrl.replace(/\/$/, '');
     }
 
     async streamChat(messages, onChunk, modelId) {
@@ -919,7 +920,7 @@ export class LMStudioClient extends BaseClient {
             return { role: m.role, content: m.content };
         });
 
-        const response = await fetch('http://172.20.10.10:1234/v1/chat/completions', {
+        const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -968,7 +969,7 @@ export class LMStudioClient extends BaseClient {
 
     async streamChatWithTools(messages, tools, onChunk, modelId) {
         return this._openAIStreamWithTools(
-            'http://172.20.10.10:1234/v1/chat/completions',
+            `${this.baseUrl}/v1/chat/completions`,
             {},
             messages, tools, onChunk, modelId || 'local-model'
         );

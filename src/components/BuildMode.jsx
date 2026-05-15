@@ -24,7 +24,8 @@ export default function BuildMode() {
     const {
         selectedProvider,
         selectedModel,
-        apiKeys
+        apiKeys,
+        lmStudioUrl
     } = useChat();
 
     const [input, setInput] = useState('');
@@ -53,10 +54,11 @@ export default function BuildMode() {
 
         try {
             // Get client
-            if (!apiKeys[selectedProvider]) {
-                throw new Error(`Please set your ${selectedProvider} API key in settings`);
+            if (!selectedProvider || (['openai', 'groq', 'gemini'].includes(selectedProvider) && !apiKeys[selectedProvider])) {
+                throw new Error(`Please check your ${selectedProvider} configuration in Settings.`);
             }
-            const client = LLMFactory.getClient(selectedProvider, apiKeys[selectedProvider]);
+            
+            const client = LLMFactory.getClient(selectedProvider, apiKeys[selectedProvider], { lmStudioUrl });
 
             // Construct System Prompt
             const systemPrompt = `You are a code generation AI. Generate React components based on user requests.

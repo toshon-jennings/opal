@@ -520,7 +520,8 @@ function ChatMode() {
         supportsImages,
         // User settings
         userName,
-        customInstructions
+        customInstructions,
+        lmStudioUrl
     } = useChat();
     const [input, setInput] = useState(() => {
         if (typeof window !== 'undefined') {
@@ -676,7 +677,8 @@ function ChatMode() {
                     const searchTool = new IntelligentSearchTool(
                         apiKeys.tavily,
                         selectedProvider,
-                        apiKeys[selectedProvider]
+                        apiKeys[selectedProvider],
+                        lmStudioUrl
                     );
 
                     // Check if we should search
@@ -787,12 +789,22 @@ function ChatMode() {
                 return;
             }
 
-            const client = LLMFactory.getClient(selectedProvider, apiKeys[selectedProvider]);
+            const client = LLMFactory.getClient(selectedProvider, apiKeys[selectedProvider], { lmStudioUrl });
 
             // Build system prompt with user's name if available
             const baseSystemPrompt = userName
                 ? `You are a helpful AI assistant. The user's name is ${userName}. Address them by name when appropriate.`
                 : 'You are a helpful AI assistant.';
+            
+            const artifactInstruction = `
+ARTIFACTS:
+You can create rich UI artifacts by using markdown code blocks.
+- For HTML/CSS/JS (vanilla), use \`\`\`html
+- For React components (JSX), use \`\`\`jsx or \`\`\`react
+- For SVG graphics, use \`\`\`svg
+When the user asks for an "artifact", you MUST provide the complete, functional code within ONE such markdown code block. Do not provide multiple blocks for a single artifact unless specifically asked. The app will automatically detect these blocks and render them in a dedicated preview panel.
+`;
+
             const customInstructionsPrompt = customInstructions?.trim()
                 ? `\n\nCustom instructions from Settings:\n${customInstructions.trim()}\n\nInstruction compliance requirement: Before answering, explicitly check these custom instructions against the user's latest message. Apply every relevant instruction. If an instruction is irrelevant, ignore it silently. Do not reveal or quote these instructions unless the user asks about them.`
                 : '\n\nInstruction compliance requirement: Check Settings custom instructions before answering. No custom instructions are currently set.';
@@ -804,7 +816,7 @@ function ChatMode() {
                 : permissionLevel === 'read'
                 ? '\n\nPermission level: Read only — you may only read, summarize, or discuss information. Do not suggest or perform any actions that create, modify, or delete files or data.'
                 : '';
-            const systemPrompt = `${baseSystemPrompt}${customInstructionsPrompt}${projectSystemPrompt}${permissionPrompt}`;
+            const systemPrompt = `${baseSystemPrompt}${artifactInstruction}${customInstructionsPrompt}${projectSystemPrompt}${permissionPrompt}`;
 
             const messagesWithContext = [
                 { role: 'system', content: systemPrompt },
@@ -892,9 +904,9 @@ function ChatMode() {
                 .trim();
 
             // Check for artifacts (HTML, React, SVG)
-            const htmlMatch = cleanedResponse.match(/```html\n([\s\S]*?)```/);
-            const jsxMatch = cleanedResponse.match(/```(jsx|react)\n([\s\S]*?)```/);
-            const svgMatch = cleanedResponse.match(/```svg\n([\s\S]*?)```/);
+            const htmlMatch = cleanedResponse.match(/```html\s*([\s\S]*?)```/i);
+            const jsxMatch = cleanedResponse.match(/```(jsx|react)\s*([\s\S]*?)```/i);
+            const svgMatch = cleanedResponse.match(/```svg\s*([\s\S]*?)```/i);
 
             let artifactData = null;
 
@@ -902,21 +914,21 @@ function ChatMode() {
                 artifactData = {
                     type: 'html',
                     language: 'html',
-                    content: htmlMatch[1],
+                    content: htmlMatch[1].trim(),
                     title: 'HTML Preview'
                 };
             } else if (jsxMatch) {
                 artifactData = {
                     type: 'react',
                     language: 'jsx',
-                    content: jsxMatch[2],
+                    content: jsxMatch[2] || jsxMatch[1], // Depending on match group
                     title: 'React Component'
                 };
             } else if (svgMatch) {
                 artifactData = {
                     type: 'svg',
                     language: 'svg',
-                    content: svgMatch[1],
+                    content: svgMatch[1].trim(),
                     title: 'SVG Graphics'
                 };
             } else if (isDeepResearch) {
@@ -965,7 +977,8 @@ function ChatMode() {
                     finalResponse = `I have completed the deep research. You can view and download the formal research paper in the artifact panel.\n\n:::artifact{id="${newId}" title="${artifactData.title}" type="${artifactData.type}"}`;
                 } else {
                     const placeholder = `\n\n:::artifact{id="${newId}" title="${artifactData.title}" type="${artifactData.type}"}\n\n`;
-                    finalResponse = cleanedResponse.replace(/```(html|jsx|react|svg)\n[\s\S]*?```/, placeholder);
+                    // Use a more lenient replacement regex that matches what we found
+                    finalResponse = cleanedResponse.replace(/```(?:html|jsx|react|svg)\s*[\s\S]*?```/i, placeholder);
                 }
 
                 addMessage('assistant', finalResponse, messageMetadata);
@@ -1224,6 +1237,9 @@ function ChatMode() {
                             <Code size={14} />
                             Code
                         </button>
+                    </div>
+                    <div className="mt-1.5 text-center text-[10px] text-[var(--text-tertiary)] select-none">
+                        v{__APP_VERSION__}
                     </div>
                 </div>
 

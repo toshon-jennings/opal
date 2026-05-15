@@ -5,6 +5,7 @@ import { useTheme } from '../context/ThemeContext';
 import { LLMFactory } from '../lib/llm/clients';
 import FileExplorer from './FileExplorer';
 import { SecondaryModeNav } from './SecondaryModeNav';
+import { SettingsModal } from './SettingsModal';
 import { Settings, Plus, Send, Code, Terminal, Play, Layout, Users, ChevronRight, Save, Sidebar, Globe, RefreshCw, X, FileCode, MessageSquare, History, Search, FolderOpen } from 'lucide-react';
 import { PermissionsDropdown } from './PermissionsDropdown';
 
@@ -23,7 +24,7 @@ const getDefaultSidebarWidth = () => {
 
 export default function CodeMode() {
     const { codeState, setCodeState } = useMode();
-    const { userName, selectedProvider, selectedModel, apiKeys } = useChat();
+    const { userName, selectedProvider, selectedModel, apiKeys, lmStudioUrl } = useChat();
     const { isDarkMode } = useTheme();
     
     const [input, setInput] = useState('');
@@ -34,6 +35,7 @@ export default function CodeMode() {
     const [showHistory, setShowHistory] = useState(true);
     const [previewKey, setPreviewKey] = useState(0);
     const [permissionLevel, setPermissionLevel] = useState('full');
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
     // Resizable widths
     const [historyWidth, setHistoryWidth] = useState(getDefaultSidebarWidth);
@@ -209,7 +211,7 @@ export default function CodeMode() {
         currentSession.messages = updatedMessages;
         setActiveSession({ ...currentSession });
         try {
-            const client = LLMFactory.getClient(selectedProvider, apiKeys[selectedProvider]);
+            const client = LLMFactory.getClient(selectedProvider, apiKeys[selectedProvider], { lmStudioUrl });
             const fileContext = Object.entries(codeState.files).slice(0, 20).map(([path, content]) => `File: ${path}\n\`\`\`\n${content}\n\`\`\``).join('\n\n');
             const systemPrompt = `Expert software engineer. Context: ${fileContext}`;
             const messagesForLLM = [{ role: 'system', content: systemPrompt }, ...updatedMessages];
@@ -256,8 +258,23 @@ export default function CodeMode() {
                             </button>
                         ))}
                     </div>
+                    <div className="p-3 border-t border-[var(--border)]">
+                        <button
+                            onClick={() => setIsSettingsOpen(true)}
+                            className="flex items-center gap-2.5 p-2 hover:bg-[var(--bg-hover)] rounded-md cursor-pointer w-full transition-colors group"
+                        >
+                            <div className="w-8 h-8 bg-[var(--accent)] rounded-full flex items-center justify-center text-white text-sm font-medium">
+                                {userName ? userName.charAt(0).toUpperCase() : 'U'}
+                            </div>
+                            <div className="flex-1 text-sm text-left">
+                                <div className="text-[var(--text-primary)] font-medium">{userName || 'User'}</div>
+                            </div>
+                            <Settings size={16} className="text-[var(--text-tertiary)]" />
+                        </button>
+                    </div>
                 </aside>
             )}
+            <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
 
             {/* History Resize Handle */}
             {showHistory && (

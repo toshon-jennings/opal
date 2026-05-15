@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Code, Eye, Maximize2, X, Copy, Check, Download, FileText, Pencil } from 'lucide-react';
+import { Code, Eye, Maximize2, X, Copy, Check, Download, FileText, Pencil, Sun, Moon } from 'lucide-react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import ReactMarkdown from 'react-markdown';
@@ -12,6 +12,8 @@ export function ArtifactPanel({ isOpen, onClose, artifact, onUpdateContent }) {
     const [view, setView] = useState('preview'); // 'preview', 'code', or 'edit'
     const [copied, setCopied] = useState(false);
     const [editContent, setEditContent] = useState('');
+    const [previewTheme, setPreviewTheme] = useState('light'); // 'light' or 'dark'
+    const [isMaximized, setIsMaximized] = useState(false);
     const iframeRef = useRef(null);
 
     useEffect(() => {
@@ -83,7 +85,11 @@ export function ArtifactPanel({ isOpen, onClose, artifact, onUpdateContent }) {
     };
 
     return (
-        <div className="w-full md:w-[560px] border-l border-[var(--border)] bg-[var(--bg-primary)] flex flex-col h-full fixed md:relative right-0 top-0 bottom-0 z-20">
+        <div className={`border-l border-[var(--border)] bg-[var(--bg-primary)] flex flex-col h-full z-40 transition-all duration-300 ${
+            isMaximized 
+                ? 'fixed inset-0 w-full' 
+                : 'w-full md:w-[560px] fixed md:relative right-0 top-0 bottom-0'
+        }`}>
             {/* Header */}
             <div className="p-3 md:pt-14 md:pb-4 md:px-4 border-b border-[var(--border)] flex justify-between items-center bg-[var(--bg-secondary)]">
                 <div className="flex items-center gap-2.5">
@@ -91,8 +97,8 @@ export function ArtifactPanel({ isOpen, onClose, artifact, onUpdateContent }) {
                         <Code size={16} className="text-white" />
                     </div>
                     <div>
-                        <span className="font-medium text-sm text-[var(--text-primary)]">{artifact.title}</span>
-                        <div className="text-xs text-[var(--text-tertiary)]">{artifact.language}</div>
+                        <span className="font-medium text-sm text-[var(--text-primary)] truncate max-w-[120px] md:max-w-[200px] block">{artifact.title}</span>
+                        <div className="text-xs text-[var(--text-tertiary)] uppercase tracking-wider font-semibold">{artifact.language}</div>
                     </div>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -129,16 +135,27 @@ export function ArtifactPanel({ isOpen, onClose, artifact, onUpdateContent }) {
                             </button>
                         </>
                     )}
+                    
+                    <div className="h-6 w-px bg-[var(--border)] mx-1 hidden sm:block" />
+
+                    {view === 'preview' && (
+                        <button
+                            onClick={() => setPreviewTheme(t => t === 'light' ? 'dark' : 'light')}
+                            className="p-1.5 hover:bg-[var(--bg-hover)] rounded-md transition-colors text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                            title={`Switch to ${previewTheme === 'light' ? 'dark' : 'light'} preview`}
+                        >
+                            {previewTheme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+                        </button>
+                    )}
+
                     <button
-                        onClick={() => setView('edit')}
-                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${view === 'edit'
-                            ? 'bg-[var(--accent)] text-white'
-                            : 'hover:bg-[var(--bg-hover)] text-[var(--text-secondary)]'
-                            }`}
+                        onClick={() => setIsMaximized(!isMaximized)}
+                        className={`p-1.5 hover:bg-[var(--bg-hover)] rounded-md transition-colors ${isMaximized ? 'text-[var(--accent)] bg-[var(--accent)]/10' : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'}`}
+                        title={isMaximized ? "Restore size" : "Maximize"}
                     >
-                        <Pencil size={14} className="inline mr-1" />
-                        Edit
+                        <Maximize2 size={16} />
                     </button>
+
                     <button
                         onClick={copyCode}
                         className="p-1.5 hover:bg-[var(--bg-hover)] rounded-md transition-colors"
@@ -162,22 +179,22 @@ export function ArtifactPanel({ isOpen, onClose, artifact, onUpdateContent }) {
             {/* Content */}
             <div className="flex-1 overflow-hidden">
                 {view === 'preview' && canPreview ? (
-                    <div className="w-full h-full bg-white overflow-auto relative">
+                    <div className={`w-full h-full overflow-auto relative transition-colors duration-300 ${previewTheme === 'light' ? 'bg-white' : 'bg-[#0a0a0a]'}`}>
                         {artifact.type === 'research_paper' && (
                             <div
                                 id="artifact-pdf-content"
-                                className="max-w-[800px] mx-auto p-12 bg-white min-h-full prose prose-sm md:prose-base prose-slate"
-                                style={{ fontFamily: 'Times New Roman, serif', color: '#000' }}
+                                className={`max-w-[800px] mx-auto p-12 min-h-full prose prose-sm md:prose-base transition-colors duration-300 ${previewTheme === 'light' ? 'prose-slate bg-white text-black' : 'prose-invert bg-[#0a0a0a] text-white'}`}
+                                style={{ fontFamily: 'Times New Roman, serif' }}
                             >
                                 <ReactMarkdown
                                     remarkPlugins={[remarkGfm]}
                                     rehypePlugins={[rehypeRaw]}
                                     components={{
-                                        h1: ({ node, ...props }) => <h1 style={{ fontSize: '28px', borderBottom: '2px solid #000', paddingBottom: '10px', marginTop: '0', marginBottom: '24px', fontWeight: 'bold', color: '#000' }} {...props} />,
-                                        h2: ({ node, ...props }) => <h2 style={{ fontSize: '20px', borderBottom: '1px solid #ddd', paddingBottom: '6px', marginTop: '24px', marginBottom: '16px', fontWeight: 'bold', color: '#000' }} {...props} />,
-                                        h3: ({ node, ...props }) => <h3 style={{ fontSize: '16px', marginTop: '18px', marginBottom: '12px', fontWeight: 'bold', color: '#000' }} {...props} />,
-                                        p: ({ node, ...props }) => <p style={{ lineHeight: '1.6', marginBottom: '16px', textAlign: 'justify', color: '#000' }} {...props} />,
-                                        li: ({ node, ...props }) => <li style={{ marginBottom: '4px', color: '#000' }} {...props} />,
+                                        h1: ({ node, ...props }) => <h1 style={{ fontSize: '28px', borderBottom: '2px solid currentColor', paddingBottom: '10px', marginTop: '0', marginBottom: '24px', fontWeight: 'bold' }} {...props} />,
+                                        h2: ({ node, ...props }) => <h2 style={{ fontSize: '20px', borderBottom: '1px solid currentColor', paddingBottom: '6px', marginTop: '24px', marginBottom: '16px', fontWeight: 'bold', opacity: 0.9 }} {...props} />,
+                                        h3: ({ node, ...props }) => <h3 style={{ fontSize: '16px', marginTop: '18px', marginBottom: '12px', fontWeight: 'bold', opacity: 0.85 }} {...props} />,
+                                        p: ({ node, ...props }) => <p style={{ lineHeight: '1.6', marginBottom: '16px', textAlign: 'justify' }} {...props} />,
+                                        li: ({ node, ...props }) => <li style={{ marginBottom: '4px' }} {...props} />,
                                         a: ({ node, ...props }) => <a style={{ color: '#2563eb', textDecoration: 'underline' }} {...props} />,
                                         img: ({ node, ...props }) => <img style={{ maxHeight: '20px', marginLeft: '4px', verticalAlign: 'middle' }} {...props} />
                                     }}
@@ -195,13 +212,13 @@ export function ArtifactPanel({ isOpen, onClose, artifact, onUpdateContent }) {
                             />
                         )}
                         {artifact.type === 'svg' && (
-                            <div className="w-full h-full flex items-center justify-center bg-gray-100 p-8">
+                            <div className={`w-full h-full flex items-center justify-center p-8 ${previewTheme === 'light' ? 'bg-gray-100' : 'bg-[#111]'}`}>
                                 <div dangerouslySetInnerHTML={{ __html: artifact.content }} />
                             </div>
                         )}
                         {artifact.type === 'react' && (
-                            <div className="w-full h-full flex items-center justify-center p-8 bg-gray-50">
-                                <div className="text-center text-gray-600">
+                            <div className={`w-full h-full flex items-center justify-center p-8 ${previewTheme === 'light' ? 'bg-gray-50' : 'bg-[#0d0d0d]'}`}>
+                                <div className="text-center text-[var(--text-secondary)]">
                                     <Code size={48} className="mx-auto mb-4 opacity-50" />
                                     <p>React component preview requires a build step.</p>
                                     <p className="text-sm mt-2">Switch to Code view to see the component.</p>
@@ -241,9 +258,11 @@ export function ArtifactPanel({ isOpen, onClose, artifact, onUpdateContent }) {
                                 margin: 0,
                                 height: '100%',
                                 fontSize: '0.875rem',
-                                background: 'var(--bg-secondary)'
+                                background: 'var(--bg-secondary)',
+                                padding: '1.5rem'
                             }}
                             showLineNumbers
+                            wrapLongLines={true}
                         >
                             {artifact.content}
                         </SyntaxHighlighter>

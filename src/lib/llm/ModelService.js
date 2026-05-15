@@ -378,13 +378,14 @@ export class ModelService {
     }
 
     // Fetch models from LM Studio (local)
-    async fetchLMStudioModels() {
+    async fetchLMStudioModels(baseUrl = 'http://localhost:1234') {
         try {
             if (this.cache.lmstudio.models && (Date.now() - this.cache.lmstudio.timestamp < this.CACHE_DURATION)) {
                 return this.cache.lmstudio.models;
             }
 
-            const response = await fetch('http://172.20.10.10:1234/v1/models');
+            const url = `${baseUrl.replace(/\/$/, '')}/v1/models`;
+            const response = await fetch(url);
 
             if (!response.ok) {
                 throw new Error('LM Studio is not running or not accessible');
@@ -597,7 +598,7 @@ export class ModelService {
         allModels.ollama = await this.fetchOllamaModels();
 
         // Fetch LM Studio models
-        allModels.lmstudio = await this.fetchLMStudioModels();
+        allModels.lmstudio = await this.fetchLMStudioModels(apiKeys.lmStudioUrl);
 
         // Fetch Gemini models dynamically
         if (apiKeys.gemini) {
