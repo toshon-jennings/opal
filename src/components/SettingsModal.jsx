@@ -530,9 +530,9 @@ export function SettingsModal({ isOpen, onClose }) {
                         </div>
                     </Section>
 
-                    <Section title="Hermes" icon={Bot} defaultOpen={false}>
+                    <Section title="Mercury" icon={Bot} defaultOpen={false}>
                         <p className="text-xs text-[var(--text-tertiary)] leading-relaxed">
-                            Path to the Hermes desktop app. Leave blank to use the default location.
+                            Path to the Mercury (Hermes Agent) desktop app. Leave blank to use the default location.
                         </p>
                         <label className="block space-y-1">
                             <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">App Path</span>

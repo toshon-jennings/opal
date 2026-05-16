@@ -111,7 +111,7 @@ function AppContent() {
         setHermesError(null);
         const result = await window.electron.openHermesApp(hermesAppPath || undefined);
         if (!result?.ok) {
-            setHermesError(result?.error || 'Could not open Hermes.');
+            setHermesError(result?.error || 'Could not open Mercury.');
             setTimeout(() => setHermesError(null), 6000);
         }
     };
@@ -245,10 +245,10 @@ function AppContent() {
                                     ? 'text-red-400 bg-red-500/10 hover:bg-red-500/15'
                                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
                             }`}
-                            title="Launch Hermes"
+                            title="MERCURY for Hermes Agent"
                         >
                             {hermesError ? <AlertCircle size={16} /> : <Bot size={16} />}
-                            <span className="hidden xl:inline max-w-24 truncate">Hermes</span>
+                            <span className="hidden xl:inline max-w-24 truncate">Mercury</span>
                         </button>
                         {hermesError && (
                             <div className="absolute right-0 top-full mt-2 z-50 w-72 rounded-lg border border-red-500/30 bg-[var(--bg-secondary)] shadow-lg p-3">
@@ -258,7 +258,7 @@ function AppContent() {
                                     onClick={e => { e.preventDefault(); window.electron?.openExternal?.('https://github.com/fathah/hermes-desktop'); }}
                                     className="mt-2 inline-flex items-center gap-1 text-xs text-[var(--accent)] hover:underline"
                                 >
-                                    Get Hermes <ExternalLink size={11} />
+                                    Get Mercury <ExternalLink size={11} />
                                 </a>
                             </div>
                         )}
