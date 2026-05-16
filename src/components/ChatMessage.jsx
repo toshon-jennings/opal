@@ -13,12 +13,19 @@ import opalLogo from '../assets/opal-logo.png';
 export function ChatMessage({ message }) {
     const isUser = message.role === 'user';
     const [copiedCode, setCopiedCode] = React.useState(null);
+    const [copiedMessage, setCopiedMessage] = React.useState(false);
     const { setCurrentArtifactId, setIsArtifactOpen } = useChat();
 
     const copyCode = (code, index) => {
         navigator.clipboard.writeText(code);
         setCopiedCode(index);
         setTimeout(() => setCopiedCode(null), 2000);
+    };
+
+    const copyMessage = () => {
+        navigator.clipboard.writeText(message.content || '');
+        setCopiedMessage(true);
+        setTimeout(() => setCopiedMessage(false), 2000);
     };
 
     const markdownComponents = {
@@ -136,7 +143,7 @@ export function ChatMessage({ message }) {
     };
 
     return (
-        <div className={`flex gap-3 md:gap-4 py-6 px-4 transition-colors ${isUser ? '' : 'bg-[var(--bg-secondary)]'
+        <div className={`chat-message flex gap-3 md:gap-4 py-6 px-4 transition-colors ${isUser ? '' : 'bg-[var(--bg-secondary)]'
             }`}>
             <div className={`w-7 h-7 md:w-8 md:h-8 rounded-lg flex items-center justify-center shrink-0 ${isUser
                 ? 'bg-[var(--accent)] text-white'
@@ -146,8 +153,19 @@ export function ChatMessage({ message }) {
             </div>
 
             <div className="flex-1 overflow-hidden">
-                <div className="font-semibold text-sm mb-1.5 text-[var(--accent)]">
-                    {isUser ? 'You' : 'Opal'}
+                <div className="flex items-center justify-between gap-3 mb-1.5">
+                    <div className="font-semibold text-sm text-[var(--accent)]">
+                        {isUser ? 'You' : 'Opal'}
+                    </div>
+                    <button
+                        type="button"
+                        onClick={copyMessage}
+                        className="message-copy-button inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+                        title="Copy message"
+                    >
+                        {copiedMessage ? <Check size={13} className="text-green-500" /> : <Copy size={13} />}
+                        <span className={copiedMessage ? 'text-green-500' : ''}>{copiedMessage ? 'Copied' : 'Copy'}</span>
+                    </button>
                 </div>
 
                 {/* Display uploaded images */}
@@ -201,7 +219,7 @@ export function ChatMessage({ message }) {
                     />
                 )}
 
-                <div className="prose prose-sm max-w-none text-[var(--text-primary)] leading-relaxed">
+                <div className="message-select-region prose prose-sm max-w-none text-[var(--text-primary)] leading-relaxed">
                     {(() => {
                         // Regex to match artifact placeholders
                         const artifactRegex = /:::artifact\{id="([^"]+)" title="([^"]+)" type="([^"]+)"\}/g;

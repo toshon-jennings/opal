@@ -617,8 +617,11 @@ ipcMain.handle('hermes:open-app', async (event, customPath) => {
   const os = require('os');
   const candidates = [
     customPath,
+    '/Applications/Mercury.app',
     '/Applications/Hermes Agent.app',
+    path.join(os.homedir(), 'Applications', 'Mercury.app'),
     path.join(os.homedir(), 'hermes-desktop', 'build', 'Hermes Agent.app'),
+    path.join(os.homedir(), 'hermes-desktop', 'build', 'Mercury.app'),
     path.join(os.homedir(), 'Applications', 'Hermes Agent.app'),
   ].filter(Boolean);
 
@@ -633,7 +636,7 @@ ipcMain.handle('hermes:open-app', async (event, customPath) => {
       // not found at this path, try next
     }
   }
-  return { ok: false, error: 'Hermes app not found. Set the path in Settings > Hermes.' };
+  return { ok: false, error: 'Mercury app not found. Set the path in Settings > Mercury.' };
 });
 
 ipcMain.handle('youtube-player:open', async (event, url) => {

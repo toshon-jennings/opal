@@ -193,7 +193,7 @@ function AppContent() {
     return (
         <div className={`app h-screen max-h-screen flex flex-col bg-[var(--bg-primary)] overflow-hidden ${window.electron ? 'pt-8' : ''}`}>
             {/* Top Navigation / Header */}
-            <header className="app-header glass-header sticky top-0 z-50 flex-shrink-0 flex items-center justify-between px-6 py-2.5">
+            <header className="app-header glass-header select-none sticky top-0 z-50 flex-shrink-0 flex items-center justify-between px-6 py-2.5">
                 <div className="flex items-center gap-2.5">
                     {/* Professional macOS-style Logo Container */}
                     <div 

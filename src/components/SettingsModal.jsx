@@ -532,14 +532,14 @@ export function SettingsModal({ isOpen, onClose }) {
 
                     <Section title="Mercury" icon={Bot} defaultOpen={false}>
                         <p className="text-xs text-[var(--text-tertiary)] leading-relaxed">
-                            Path to the Mercury (Hermes Agent) desktop app. Leave blank to use the default location.
+                            Path to the Mercury desktop app. Leave blank to use the default location.
                         </p>
                         <label className="block space-y-1">
                             <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">App Path</span>
                             <input
                                 value={hermesAppPath}
                                 onChange={e => setHermesAppPath(e.target.value)}
-                                placeholder="/Applications/Hermes Agent.app"
+                                placeholder="/Applications/Mercury.app"
                                 className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-xs font-mono text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
                             />
                         </label>

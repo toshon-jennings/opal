@@ -120,6 +120,15 @@ body::before {
     radial-gradient(ellipse 50% 50% at 85% 85%,  rgba(251, 146, 60, 0.04)  0%, transparent 60%);
   transition: opacity 0.5s ease;
 }
+
+.message-select-region,
+.message-select-region * {
+  user-select: text;
+}
+
+.message-copy-button {
+  user-select: none;
+}
 :root.dark body::before {
   background:
     radial-gradient(ellipse 60% 40% at 15% 15%,  rgba(var(--accent-rgb), 0.08) 0%, transparent 60%),

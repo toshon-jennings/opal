@@ -1201,7 +1201,7 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
             {/* Sidebar */}
             <aside
                 ref={sidebarRef}
-                className={`bg-[var(--bg-secondary)] border-r border-[var(--border)] flex flex-col hidden md:flex relative transition-all duration-300 ease-in-out ${isSidebarOpen ? '' : '-ml-[100%] w-0 border-none overflow-hidden'}`}
+                className={`select-none bg-[var(--bg-secondary)] border-r border-[var(--border)] flex flex-col hidden md:flex relative transition-all duration-300 ease-in-out ${isSidebarOpen ? '' : '-ml-[100%] w-0 border-none overflow-hidden'}`}
                 style={{
                     width: isSidebarOpen ? `${sidebarWidth}px` : '0px',
                     minWidth: isSidebarOpen ? '280px' : '0px',
