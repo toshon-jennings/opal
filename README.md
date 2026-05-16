@@ -159,7 +159,7 @@ Opal requires API keys for cloud providers. Here's how to get them:
 #### LM Studio Setup
 1. Install [LM Studio](https://lmstudio.ai/)
 2. Download and load a model
-3. Start the local server (port 1234)
+3. Start the local server (port 1234). Use `http://localhost:1234` when Opal and LM Studio run on the same Mac; LM Studio's LAN "Reachable @" address can change.
 4. Select LM Studio in the model dropdown
 
 ---

@@ -290,7 +290,7 @@ export function SettingsModal({ isOpen, onClose }) {
                                             value={lmStudioUrl}
                                             onChange={e => setLmStudioUrl(e.target.value)}
                                             className="flex-1 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-sm font-mono text-[var(--text-primary)] outline-none focus:border-pink-500/50 transition-colors"
-                                            placeholder="http://172.20.10.10:1234"
+                                            placeholder="http://localhost:1234"
                                         />
                                         <button
                                             onClick={refreshModels}
@@ -300,7 +300,7 @@ export function SettingsModal({ isOpen, onClose }) {
                                         </button>
                                     </div>
                                     <p className="text-[10px] text-[var(--text-tertiary)] mt-1">
-                                        Ensure LM Studio's "Local Server" is started and "CORS" is enabled in its settings.
+                                        Use http://localhost:1234 when LM Studio is running on this Mac; its LAN "Reachable @" address can change between networks.
                                     </p>
                                 </div>
                             </div>

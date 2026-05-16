@@ -18,10 +18,21 @@ import { normalizeAssistantSpacing } from '../lib/textFormatting';
 
 const modelService = new ModelService();
 const ChatContext = createContext();
+const DEFAULT_LM_STUDIO_URL = 'http://localhost:1234';
+const LEGACY_LM_STUDIO_URL = 'http://172.20.10.10:1234';
 const API_KEY_PROVIDERS = API_KEY_STORAGE_KEYS.reduce((providers, storageKey) => {
     providers[storageKey.replace(/_key$/, '')] = storageKey;
     return providers;
 }, {});
+
+function normalizeLocalServerUrl(url, fallback = DEFAULT_LM_STUDIO_URL) {
+    const trimmedUrl = typeof url === 'string' ? url.trim() : '';
+    if (!trimmedUrl || trimmedUrl === LEGACY_LM_STUDIO_URL) return fallback;
+    if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
+        return trimmedUrl.replace(/\/$/, '');
+    }
+    return `http://${trimmedUrl.replace(/\/$/, '')}`;
+}
 
 function readApiKeysFromStorage() {
     return Object.entries(API_KEY_PROVIDERS).reduce((keys, [provider, storageKey]) => {
@@ -148,18 +159,26 @@ export function ChatProvider({ children }) {
     }, []);
 
     const [lmStudioUrl, setLmStudioUrlState] = useState(() => {
-        return readStringStorage('lm_studio_url', 'http://172.20.10.10:1234');
+        return normalizeLocalServerUrl(readStringStorage('lm_studio_url', DEFAULT_LM_STUDIO_URL));
     });
 
     const setLmStudioUrl = useCallback((url) => {
-        setLmStudioUrlState(url);
-        localStorage.setItem('lm_studio_url', url);
+        const normalizedUrl = normalizeLocalServerUrl(url);
+        setLmStudioUrlState(normalizedUrl);
+        localStorage.setItem('lm_studio_url', normalizedUrl);
         if (electronPersistenceReadyRef.current) {
-            saveElectronPersistence({ lm_studio_url: url }).catch(err => console.error('Failed to persist LM Studio URL:', err));
+            saveElectronPersistence({ lm_studio_url: normalizedUrl }).catch(err => console.error('Failed to persist LM Studio URL:', err));
         }
         // Clear cache so it fetches from the new URL
         modelService.clearCache('lmstudio');
     }, []);
+
+    useEffect(() => {
+        localStorage.setItem('lm_studio_url', lmStudioUrl);
+        if (electronPersistenceReadyRef.current) {
+            saveElectronPersistence({ lm_studio_url: lmStudioUrl }).catch(err => console.error('Failed to persist LM Studio URL:', err));
+        }
+    }, [lmStudioUrl]);
 
     useEffect(() => {
         if (!hasElectronStore()) return;
@@ -190,7 +209,7 @@ export function ChatProvider({ children }) {
                     setProjects(Array.isArray(persistedProjects) ? persistedProjects : createDefaultProjects());
                     setUserNameState(readStringStorage('user_name'));
                     setCustomInstructionsState(readStringStorage('custom_instructions'));
-                    setLmStudioUrlState(readStringStorage('lm_studio_url', 'http://172.20.10.10:1234'));
+                    setLmStudioUrlState(normalizeLocalServerUrl(readStringStorage('lm_studio_url', DEFAULT_LM_STUDIO_URL)));
                     setSelectedProvider(readStringStorage('selected_provider', 'groq'));
                     setSelectedModel(readStringStorage('selected_model'));
                     setApiKeys(nextApiKeys);
@@ -458,7 +477,7 @@ export function ChatProvider({ children }) {
         } finally {
             setIsLoadingModels(false);
         }
-    }, [apiKeys, selectedModel]);
+    }, [apiKeys, selectedModel, lmStudioUrl]);
 
     // Fetch models on mount and whenever API keys change
     useEffect(() => {

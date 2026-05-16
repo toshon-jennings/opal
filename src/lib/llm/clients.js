@@ -193,10 +193,11 @@ class StreamingTagParser {
                     }
 
                     // Exit thinking mode
+                    const closingTagLength = this.currentTag.close.length;
                     this.inThinking = false;
                     this.thinkingBuffer = '';
                     this.currentTag = null;
-                    remaining = remaining.substring(closeIndex + this.currentTag.close.length);
+                    remaining = remaining.substring(closeIndex + closingTagLength);
                 } else {
                     // No closing tag yet, buffer it
                     this.thinkingBuffer += remaining;
@@ -251,6 +252,21 @@ class BaseClient {
         throw new Error('Not implemented');
     }
 
+    async _readErrorMessage(response, fallback) {
+        try {
+            const text = await response.text();
+            if (!text) return fallback;
+            try {
+                const data = JSON.parse(text);
+                return data.error?.message || data.error || data.message || text;
+            } catch {
+                return text;
+            }
+        } catch {
+            return fallback;
+        }
+    }
+
     // ── Tool-use helpers ───────────────────────────────────────────────────
 
     /** Convert the AGENT_TOOLS descriptor array into OpenAI function-calling schema. */
@@ -292,21 +308,26 @@ class BaseClient {
             return { role: m.role, content: m.content };
         });
 
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...headers },
-            body: JSON.stringify({
-                model: modelId,
-                messages: formattedMessages,
-                tools: this._formatToolsAsOpenAI(tools),
-                tool_choice: 'auto',
-                stream: true
-            })
-        });
+        let response;
+        try {
+            response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...headers },
+                body: JSON.stringify({
+                    model: modelId,
+                    messages: formattedMessages,
+                    tools: this._formatToolsAsOpenAI(tools),
+                    tool_choice: 'auto',
+                    stream: true
+                })
+            });
+        } catch {
+            throw new Error(`Could not reach model API at ${url}`);
+        }
 
         if (!response.ok) {
-            const err = await response.json().catch(() => ({}));
-            throw new Error(err.error?.message || `API Error ${response.status}`);
+            const message = await this._readErrorMessage(response, `API Error ${response.status}`);
+            throw new Error(message);
         }
 
         const reader = response.body.getReader();
@@ -804,20 +825,26 @@ export class OllamaClient extends BaseClient {
             return msg;
         });
 
-        const response = await fetch('http://localhost:11434/api/chat', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                model: modelId,
-                messages: formattedMessages,
-                stream: true
-            })
-        });
+        let response;
+        try {
+            response = await fetch('http://localhost:11434/api/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    model: modelId,
+                    messages: formattedMessages,
+                    stream: true
+                })
+            });
+        } catch {
+            throw new Error('Ollama is not reachable at http://localhost:11434. Start Ollama, then refresh models in Settings.');
+        }
 
         if (!response.ok) {
-            throw new Error('Ollama API Error - is Ollama running?');
+            const message = await this._readErrorMessage(response, 'Ollama API Error');
+            throw new Error(`Ollama API Error: ${message}`);
         }
 
         const reader = response.body.getReader();
@@ -858,18 +885,29 @@ export class OllamaClient extends BaseClient {
             return { role: m.role, content: m.content };
         });
 
-        const response = await fetch('http://localhost:11434/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: modelId,
-                messages: formattedMessages,
-                tools: this._formatToolsAsOpenAI(tools),
-                stream: false
-            })
-        });
+        let response;
+        try {
+            response = await fetch('http://localhost:11434/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: modelId,
+                    messages: formattedMessages,
+                    tools: this._formatToolsAsOpenAI(tools),
+                    stream: false
+                })
+            });
+        } catch {
+            throw new Error('Ollama is not reachable at http://localhost:11434. Start Ollama, then refresh models in Settings.');
+        }
 
-        if (!response.ok) throw new Error('Ollama API Error - is Ollama running?');
+        if (!response.ok) {
+            const message = await this._readErrorMessage(response, 'Ollama API Error');
+            const toolSupportHint = message.includes('does not support tools')
+                ? ' This model cannot run Cowork tools; choose a tool-capable Ollama model or switch to another provider.'
+                : '';
+            throw new Error(`Ollama API Error: ${message}.${toolSupportHint}`);
+        }
 
         const data = await response.json();
         const msg = data.message || {};
@@ -920,20 +958,26 @@ export class LMStudioClient extends BaseClient {
             return { role: m.role, content: m.content };
         });
 
-        const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                model: modelId || 'local-model',
-                messages: formattedMessages,
-                stream: true
-            })
-        });
+        let response;
+        try {
+            response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    model: modelId || 'local-model',
+                    messages: formattedMessages,
+                    stream: true
+                })
+            });
+        } catch {
+            throw new Error(`LM Studio is not reachable at ${this.baseUrl}. Use http://localhost:1234 when LM Studio is running on this Mac.`);
+        }
 
         if (!response.ok) {
-            throw new Error('LM Studio API Error - is LM Studio running with a model loaded?');
+            const message = await this._readErrorMessage(response, 'LM Studio API Error');
+            throw new Error(`LM Studio API Error: ${message}`);
         }
 
         const reader = response.body.getReader();
