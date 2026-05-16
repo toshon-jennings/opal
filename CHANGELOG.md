@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.9.2] - 2026-05-16
+### Changed
+- Renamed "Hermes" to "Mercury" in the UI header and Settings Modal.
+- Updated Mercury tooltip to "MERCURY for Hermes Agent".
+
+## [0.9.1] - 2026-05-15
+### Added
+- Added Settings access (user avatar + gear icon) to Cowork and Code mode sidebars.
+- Added version number display in sidebars.
+
 ## [0.9.0] - 2026-05-12
 ### Added
 - Added Hermes controller profiles for local, remote, and SSH-tunnel Agent API endpoints.
