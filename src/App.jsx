@@ -242,7 +242,7 @@ function AppContent() {
                             className={`flex items-center gap-2 px-4 py-2 transition-all text-[14px] font-semibold leading-none ${
                                 hermesError
                                     ? 'text-red-400 bg-red-500/10 border border-red-500/20 rounded-[10px]'
-                                    : `mercury-branded ${false ? 'active' : ''}` // placeholder for active logic if added later
+                                    : 'mercury-branded'
                             }`}
                             title="MERCURY for Hermes Agent"
                         >

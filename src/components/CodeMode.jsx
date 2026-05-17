@@ -13,9 +13,9 @@ import MonacoEditor from '@monaco-editor/react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus, prism } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { normalizeAssistantSpacing } from '../lib/textFormatting';
+import { SyntaxHighlighter } from '../lib/syntaxHighlighter';
 
 const getDefaultSidebarWidth = () => {
     if (typeof window === 'undefined') return 360;
