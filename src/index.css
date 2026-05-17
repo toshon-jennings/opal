@@ -457,3 +457,43 @@ details.thinking-block > :not(summary) {
   from { opacity: 0; }
   to { opacity: 1; }
 }
+/* ─── Branded Components ────────────────────────────────────────────────── */
+
+.openclaw-branded {
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.openclaw-branded:hover {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.openclaw-branded.active {
+  background: #ef4444;
+  color: white;
+  border-color: #ef4444;
+}
+
+.mercury-branded {
+  background: #2e2219;
+  color: #ede8e0;
+  border: 1px solid rgba(255, 240, 220, 0.12);
+  font-weight: 600;
+  border-radius: 10px;
+  transition: 150ms ease all;
+}
+
+.mercury-branded:hover {
+  background: #38291e;
+  border-color: rgba(255, 240, 220, 0.2);
+}
+
+.mercury-branded.active {
+  background: #66462c;
+  color: #ffffff;
+  border: none;
+}

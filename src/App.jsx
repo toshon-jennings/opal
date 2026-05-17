@@ -222,33 +222,32 @@ function AppContent() {
 
                     <button
                         onClick={openOpenClawDashboard}
-                        className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md transition-colors text-xs ${
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all text-[11px] uppercase tracking-wider ${
                             showOpenClawDashboard
-                                ? 'bg-[var(--accent)] text-white'
-                                : openClawStatus.state === 'online'
-                                ? 'text-emerald-500 bg-emerald-500/10 hover:bg-emerald-500/15'
-                                : openClawStatus.state === 'checking'
-                                    ? 'text-[var(--text-secondary)] bg-[var(--bg-hover)]'
-                                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
+                                ? 'openclaw-branded active'
+                                : 'openclaw-branded'
                         }`}
                         title={`OpenClaw: ${activeOpenClawProfile?.name || 'Not configured'}`}
                     >
-                        <Server size={16} />
-                        <span className="hidden lg:inline max-w-28 truncate">{activeOpenClawProfile?.mode === 'appliance' ? 'Appliance' : 'OpenClaw'}</span>
+                        <Server size={14} strokeWidth={2.5} className={openClawStatus.state === 'online' ? 'animate-pulse' : ''} />
+                        <span className="hidden lg:inline">{activeOpenClawProfile?.mode === 'appliance' ? 'Appliance' : 'OpenClaw'}</span>
+                        {openClawStatus.state === 'online' && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                        )}
                     </button>
 
                     <div className="relative">
                         <button
                             onClick={launchHermesApp}
-                            className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md transition-colors text-xs ${
+                            className={`flex items-center gap-2 px-4 py-2 transition-all text-[14px] font-semibold leading-none ${
                                 hermesError
-                                    ? 'text-red-400 bg-red-500/10 hover:bg-red-500/15'
-                                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
+                                    ? 'text-red-400 bg-red-500/10 border border-red-500/20 rounded-[10px]'
+                                    : `mercury-branded ${false ? 'active' : ''}` // placeholder for active logic if added later
                             }`}
                             title="MERCURY for Hermes Agent"
                         >
-                            {hermesError ? <AlertCircle size={16} /> : <Bot size={16} />}
-                            <span className="hidden xl:inline max-w-24 truncate">Mercury</span>
+                            {hermesError ? <AlertCircle size={14} /> : <Bot size={15} strokeWidth={2.5} />}
+                            <span className="hidden xl:inline">Mercury</span>
                         </button>
                         {hermesError && (
                             <div className="absolute right-0 top-full mt-2 z-50 w-72 rounded-lg border border-red-500/30 bg-[var(--bg-secondary)] shadow-lg p-3">

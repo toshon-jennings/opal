@@ -22,6 +22,8 @@ const getDefaultSidebarWidth = () => {
     return Math.min(360, Math.max(280, Math.floor(window.innerWidth * 0.45)));
 };
 
+const PROVIDERS_REQUIRING_API_KEYS = new Set(['openai', 'groq', 'gemini', 'openrouter', 'anthropic', 'mistral']);
+
 export default function CodeMode() {
     const { codeState, setCodeState } = useMode();
     const { userName, selectedProvider, selectedModel, apiKeys, lmStudioUrl } = useChat();
@@ -194,6 +196,17 @@ export default function CodeMode() {
         setActiveSession(newSession);
     };
 
+    const updateSessionMessages = useCallback((sessionId, messages) => {
+        setCodeState(prev => ({
+            ...prev,
+            codingSessions: (prev.codingSessions || []).map(session =>
+                session.id === sessionId
+                    ? { ...session, messages, updatedAt: Date.now() }
+                    : session
+            )
+        }));
+    }, [setCodeState]);
+
     const handleSendMessage = async (e) => {
         if (e) e.preventDefault();
         if (!input.trim() || isLoading) return;
@@ -210,7 +223,17 @@ export default function CodeMode() {
         const updatedMessages = [...(currentSession.messages || []), { role: 'user', content: userMessage }];
         currentSession.messages = updatedMessages;
         setActiveSession({ ...currentSession });
+        updateSessionMessages(currentSession.id, updatedMessages);
         try {
+            if (!selectedProvider || !selectedModel) {
+                throw new Error('Please select a provider and model in Settings to start chatting.');
+            }
+
+            if (PROVIDERS_REQUIRING_API_KEYS.has(selectedProvider) && !apiKeys[selectedProvider]) {
+                const providerName = selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1);
+                throw new Error(`Please set your ${providerName} API key in Settings.`);
+            }
+
             const client = LLMFactory.getClient(selectedProvider, apiKeys[selectedProvider], { lmStudioUrl });
             const fileContext = Object.entries(codeState.files).slice(0, 20).map(([path, content]) => `File: ${path}\n\`\`\`\n${content}\n\`\`\``).join('\n\n');
             const systemPrompt = `Expert software engineer. Context: ${fileContext}`;
@@ -222,9 +245,18 @@ export default function CodeMode() {
             }, selectedModel);
             const finalMessages = [...updatedMessages, { role: 'assistant', content: normalizeAssistantSpacing(fullResponse) }];
             setActiveSession(prev => ({ ...prev, messages: finalMessages }));
+            updateSessionMessages(currentSession.id, finalMessages);
             setStreamingMessage('');
-        } catch (error) { console.error(error); }
-        finally { setIsLoading(false); }
+        } catch (error) {
+            console.error(error);
+            const errorMessage = error?.message || 'Code chat failed. Check Settings and try again.';
+            const finalMessages = [...updatedMessages, { role: 'assistant', content: errorMessage }];
+            setActiveSession(prev => ({ ...(prev || currentSession), messages: finalMessages }));
+            updateSessionMessages(currentSession.id, finalMessages);
+            setStreamingMessage('');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
