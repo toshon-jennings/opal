@@ -36,9 +36,12 @@ export default defineConfig({
           if (id.includes('dompurify')) return 'sanitize';
           if (id.includes('d3')) return 'charts';
           if (id.includes('react-syntax-highlighter')) return 'syntax-ui';
-          if (id.includes('prismjs')) return 'prism';
-          if (id.includes('refractor')) return 'refractor';
-          if (id.includes('react-markdown') || id.includes('remark-') || id.includes('rehype-') || id.includes('micromark') || id.includes('unified') || id.includes('hast-') || id.includes('mdast-')) return 'markdown';
+          // Keep the markdown/syntax-highlighting graph together with vendor.
+          // Splitting react-markdown + remark/rehype/micromark/unified/hast/mdast
+          // away from refractor/prismjs introduces a cross-chunk circular import,
+          // which Rollup emits as `Cannot access 'X' before initialization` (TDZ)
+          // under file:// in the packaged build. Letting them share `vendor`
+          // eliminates the cycle.
           if (id.includes('react') || id.includes('react-dom')) return 'react';
           return 'vendor';
         },

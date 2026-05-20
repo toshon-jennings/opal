@@ -34,6 +34,9 @@
     }
     video.addEventListener('ended', done);
     video.addEventListener('error', done);
+    // Click or key press anywhere on the splash to skip the animation.
+    document.addEventListener('click', done);
+    document.addEventListener('keydown', done);
     // Hard fallback in case the video stalls
     setTimeout(done, 12000);
   </script>
