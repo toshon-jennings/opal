@@ -1,11 +1,50 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu, shell, safeStorage } = require('electron');
 const { installRedactedConsole } = require('./redact-console.cjs');
 const path = require('path');
+const fs = require('fs');
 const { spawn } = require('child_process');
 const net = require('net');
 const isDev = process.env.NODE_ENV === 'development';
 
 installRedactedConsole();
+
+// Renderer crash log — written to userData so it survives packaged builds.
+// Path is logged on startup so users can find it after a blank-screen failure.
+let rendererLogPath = null;
+function getRendererLogPath() {
+  if (rendererLogPath) return rendererLogPath;
+  try {
+    rendererLogPath = path.join(app.getPath('userData'), 'renderer.log');
+  } catch (_) {
+    rendererLogPath = path.join(require('os').tmpdir(), 'opal-renderer.log');
+  }
+  return rendererLogPath;
+}
+function appendRendererLog(line) {
+  const stamped = `[${new Date().toISOString()}] ${line}\n`;
+  try { fs.appendFileSync(getRendererLogPath(), stamped); } catch (_) {}
+  try { console.log(`[renderer] ${line}`); } catch (_) {}
+}
+function attachRendererDiagnostics(win) {
+  const wc = win.webContents;
+  wc.on('console-message', (_event, level, message, line, sourceId) => {
+    const levels = ['log', 'warn', 'error', 'info'];
+    const label = levels[level] || `lvl${level}`;
+    appendRendererLog(`console.${label} ${sourceId}:${line} — ${message}`);
+  });
+  wc.on('did-fail-load', (_e, errorCode, errorDescription, validatedURL) => {
+    appendRendererLog(`did-fail-load ${errorCode} ${errorDescription} url=${validatedURL}`);
+  });
+  wc.on('render-process-gone', (_e, details) => {
+    appendRendererLog(`render-process-gone reason=${details.reason} exitCode=${details.exitCode}`);
+  });
+  wc.on('preload-error', (_e, preloadPath, error) => {
+    appendRendererLog(`preload-error path=${preloadPath} error=${error && error.stack || error}`);
+  });
+  wc.on('did-finish-load', () => {
+    appendRendererLog(`did-finish-load url=${wc.getURL()}`);
+  });
+}
 
 let terminalServerProcess = null;
 let mainWindow = null;
@@ -318,6 +357,8 @@ function createWindow() {
   });
 
   mainWindow = win;
+  attachRendererDiagnostics(win);
+  appendRendererLog(`createWindow: renderer log at ${getRendererLogPath()}`);
   win.once('ready-to-show', () => {
     splashGate.mainReady = true;
     tryRevealMain();

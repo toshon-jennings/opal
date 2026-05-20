@@ -15,6 +15,9 @@ export default defineConfig({
     strictPort: true,
   },
   build: {
+    // Electron loads production assets over the file:// protocol.
+    // Disable modulepreload to avoid file-origin preload fetch quirks.
+    modulePreload: false,
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -63,6 +66,20 @@ export default defineConfig({
           next();
         });
       }
+    },
+    // Strip `crossorigin` attributes from the built HTML.
+    // When the Electron app loads `dist/index.html` via the `file://` protocol,
+    // Chromium treats each file as a unique origin and blocks the `crossorigin`
+    // module script, leaving the renderer blank after the splash.
+    {
+      name: 'strip-crossorigin-for-electron',
+      apply: 'build',
+      enforce: 'post',
+      transformIndexHtml(html) {
+        // Remove both boolean and valued forms (e.g. crossorigin or crossorigin="anonymous")
+        // so module scripts are not blocked under file:// in Electron.
+        return html.replace(/\s+crossorigin(?:=(?:"[^"]*"|'[^']*'|[^\s>]+))?(?=[\s>])/g, '');
+      },
     }
   ],
 })
