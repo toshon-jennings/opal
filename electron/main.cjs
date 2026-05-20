@@ -1,12 +1,16 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu, shell, safeStorage } = require('electron');
 const { installRedactedConsole } = require('./redact-console.cjs');
 const path = require('path');
-const fs = require('fs');
+const fsSync = require('fs');
 const { spawn } = require('child_process');
 const net = require('net');
 const isDev = process.env.NODE_ENV === 'development';
 
 installRedactedConsole();
+
+// macOS uses app.getName() for the "About <name>" menu item; package.json's
+// "name" is lowercase ("opal"), so override it to the product name.
+app.setName('Opal');
 
 // Renderer crash log — written to userData so it survives packaged builds.
 // Path is logged on startup so users can find it after a blank-screen failure.
@@ -22,7 +26,7 @@ function getRendererLogPath() {
 }
 function appendRendererLog(line) {
   const stamped = `[${new Date().toISOString()}] ${line}\n`;
-  try { fs.appendFileSync(getRendererLogPath(), stamped); } catch (_) {}
+  try { fsSync.appendFileSync(getRendererLogPath(), stamped); } catch (_) {}
   try { console.log(`[renderer] ${line}`); } catch (_) {}
 }
 function attachRendererDiagnostics(win) {
