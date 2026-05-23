@@ -14,6 +14,8 @@ contextBridge.exposeInMainWorld('electron', {
   getOpenClawLocalProfile: () => ipcRenderer.invoke('openclaw:get-local-profile'),
   testOpenClawConnection: (profile) => ipcRenderer.invoke('openclaw:test-connection', profile),
   restartOpenClawGateway: () => ipcRenderer.invoke('openclaw:restart-gateway'),
+  discoverModelProviders: () => ipcRenderer.invoke('models:discover-providers'),
+  startJanServer: (options) => ipcRenderer.invoke('models:start-jan-server', options),
   openHermesApp: (appPath) => ipcRenderer.invoke('hermes:open-app', appPath),
   openYouTubePlayer: (url) => ipcRenderer.invoke('youtube-player:open', url),
   closeYouTubePlayer: () => ipcRenderer.invoke('youtube-player:close'),

@@ -3,6 +3,36 @@ import { X, Key, Globe, RefreshCw, ChevronDown, Check, Wifi, WifiOff, User, Scro
 import { useChat } from '../context/ChatContext';
 import { useMode } from '../context/ModeContext';
 
+const LOCAL_PROVIDER_NAMES = {
+    ollama: 'Ollama',
+    lmstudio: 'LM Studio',
+    jan: 'Jan',
+    openclaw: 'OpenClaw'
+};
+
+function getProviderStatusLabel(status) {
+    switch (status) {
+        case 'ready':
+            return 'Ready';
+        case 'running-empty':
+            return 'Running';
+        case 'installed-stopped':
+            return 'Start required';
+        case 'installed-empty':
+            return 'No models';
+        case 'not-installed':
+            return 'Not installed';
+        default:
+            return 'Offline';
+    }
+}
+
+function getProviderStatusClass(status) {
+    if (status === 'ready') return 'text-emerald-500';
+    if (status === 'installed-stopped' || status === 'running-empty') return 'text-amber-500';
+    return 'text-[var(--text-tertiary)]';
+}
+
 // Collapsible section wrapper
 function Section({ title, icon: Icon, defaultOpen = true, children }) {
     const [open, setOpen] = useState(defaultOpen);
@@ -43,7 +73,9 @@ export function SettingsModal({ isOpen, onClose }) {
         customInstructions,
         setCustomInstructions,
         lmStudioUrl,
-        setLmStudioUrl
+        setLmStudioUrl,
+        janUrl,
+        setJanUrl
     } = useChat();
     const {
         openClawConfig,
@@ -58,6 +90,10 @@ export function SettingsModal({ isOpen, onClose }) {
     const [editingInstructions, setEditingInstructions] = useState('');
     const [testingProfileId, setTestingProfileId] = useState(null);
     const [connectionResults, setConnectionResults] = useState({});
+    const [providerDiscovery, setProviderDiscovery] = useState(null);
+    const [isDiscoveringProviders, setIsDiscoveringProviders] = useState(false);
+    const [startingJanModel, setStartingJanModel] = useState(null);
+    const [setupMessage, setSetupMessage] = useState('');
 
     useEffect(() => {
         if (isOpen) {
@@ -66,6 +102,40 @@ export function SettingsModal({ isOpen, onClose }) {
             setModelSearch('');
         }
     }, [isOpen, userName, customInstructions]);
+
+    const loadProviderDiscovery = async () => {
+        if (!window.electron?.discoverModelProviders) {
+            setProviderDiscovery({
+                generatedAt: Date.now(),
+                providers: [
+                    { id: 'ollama', name: 'Ollama', status: availableModels.ollama?.length ? 'ready' : 'offline', modelCount: availableModels.ollama?.length || 0, models: availableModels.ollama || [] },
+                    { id: 'lmstudio', name: 'LM Studio', status: availableModels.lmstudio?.length ? 'ready' : 'offline', modelCount: availableModels.lmstudio?.length || 0, models: availableModels.lmstudio || [] },
+                    { id: 'jan', name: 'Jan', status: availableModels.jan?.length ? 'ready' : 'offline', modelCount: availableModels.jan?.length || 0, models: availableModels.jan || [] },
+                ]
+            });
+            return;
+        }
+
+        setIsDiscoveringProviders(true);
+        try {
+            const discovery = await window.electron.discoverModelProviders();
+            setProviderDiscovery(discovery);
+            const readyJan = discovery?.providers?.find(provider => provider.id === 'jan' && provider.status === 'ready' && provider.endpoint);
+            if (readyJan?.endpoint) {
+                setJanUrl(readyJan.endpoint);
+            }
+        } catch (err) {
+            setSetupMessage(err.message || 'Could not check local providers.');
+        } finally {
+            setIsDiscoveringProviders(false);
+        }
+    };
+
+    useEffect(() => {
+        if (isOpen) {
+            loadProviderDiscovery();
+        }
+    }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
     if (!isOpen) return null;
 
@@ -78,6 +148,7 @@ export function SettingsModal({ isOpen, onClose }) {
         { id: 'gemini',     name: 'Gemini',     needsKey: true, color: 'blue'   },
         { id: 'ollama',     name: 'Ollama',     needsKey: false, color: 'purple', local: true },
         { id: 'lmstudio',  name: 'LM Studio',  needsKey: false, color: 'pink',   local: true },
+        { id: 'jan',        name: 'Jan',        needsKey: false, color: 'teal',   local: true },
     ];
 
     const currentProviderModels = availableModels[selectedProvider] || [];
@@ -102,6 +173,41 @@ export function SettingsModal({ isOpen, onClose }) {
         handleSaveName();
         handleSaveInstructions();
         onClose();
+    };
+
+    const handleRefreshModelSetup = async () => {
+        setSetupMessage('');
+        refreshModels();
+        await loadProviderDiscovery();
+    };
+
+    const handleUseProvider = async (providerId) => {
+        updateProvider(providerId);
+        refreshModels();
+    };
+
+    const handleStartJan = async (modelId) => {
+        if (!window.electron?.startJanServer) return;
+        setStartingJanModel(modelId || 'default');
+        setSetupMessage('');
+        try {
+            const result = await window.electron.startJanServer({ modelId, port: 6767 });
+            if (!result?.ok) {
+                setSetupMessage(result?.error || 'Jan did not start.');
+                return;
+            }
+            setSetupMessage(`Jan started ${result.modelId} on port ${result.port}.`);
+            if (result.endpoint) {
+                setJanUrl(result.endpoint);
+            }
+            await loadProviderDiscovery();
+            refreshModels();
+            updateProvider('jan');
+        } catch (err) {
+            setSetupMessage(err.message || 'Jan did not start.');
+        } finally {
+            setStartingJanModel(null);
+        }
     };
 
     const updateOpenClawProfile = (profileId, patch) => {
@@ -219,6 +325,124 @@ export function SettingsModal({ isOpen, onClose }) {
                         </p>
                     </Section>
 
+                    <Section title="Connect Models" icon={Server} defaultOpen={true}>
+                        <div className="flex items-start justify-between gap-3">
+                            <div>
+                                <p className="text-xs text-[var(--text-tertiary)] leading-relaxed">
+                                    Opal checks common local model servers and lets you connect hosted providers from one place.
+                                </p>
+                                {setupMessage && (
+                                    <p className="mt-1 text-xs text-[var(--accent)]">{setupMessage}</p>
+                                )}
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handleRefreshModelSetup}
+                                disabled={isDiscoveringProviders || isLoadingModels}
+                                className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[var(--border)] text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] disabled:opacity-50 transition-colors"
+                            >
+                                <RefreshCw size={13} className={isDiscoveringProviders || isLoadingModels ? 'animate-spin' : ''} />
+                                Check
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                            {(providerDiscovery?.providers || []).map(provider => {
+                                const canUse = provider.status === 'ready' && ['ollama', 'lmstudio', 'jan'].includes(provider.id);
+                                const canStartJan = provider.id === 'jan' && provider.status === 'installed-stopped' && provider.models?.length > 0;
+                                const firstJanModel = provider.models?.[0]?.id;
+                                return (
+                                    <div key={provider.id} className="rounded-xl border border-[var(--border)] bg-[var(--bg-tertiary)]/40 p-3.5 space-y-3">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <Server size={14} className={getProviderStatusClass(provider.status)} />
+                                                    <span className="text-sm font-semibold text-[var(--text-primary)]">
+                                                        {provider.name || LOCAL_PROVIDER_NAMES[provider.id] || provider.id}
+                                                    </span>
+                                                </div>
+                                                <div className="mt-1 text-xs text-[var(--text-tertiary)] truncate">
+                                                    {provider.endpoint || 'Local provider'}
+                                                </div>
+                                            </div>
+                                            <span className={`shrink-0 text-xs font-medium ${getProviderStatusClass(provider.status)}`}>
+                                                {getProviderStatusLabel(provider.status)}
+                                            </span>
+                                        </div>
+
+                                        <div className="text-xs text-[var(--text-secondary)]">
+                                            {provider.modelCount > 0
+                                                ? `${provider.modelCount} model${provider.modelCount === 1 ? '' : 's'} found`
+                                                : provider.error || 'No models found'}
+                                        </div>
+
+                                        {provider.models?.length > 0 && (
+                                            <div className="max-h-20 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--bg-primary)]">
+                                                {provider.models.slice(0, 6).map(model => (
+                                                    <div key={model.id} className="px-2.5 py-1.5 text-xs text-[var(--text-secondary)] border-b border-[var(--border)] last:border-b-0 truncate">
+                                                        {model.name || model.id}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        <div className="flex items-center justify-end gap-2">
+                                            {canStartJan && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleStartJan(firstJanModel)}
+                                                    disabled={Boolean(startingJanModel)}
+                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[var(--accent)] text-white text-xs font-medium hover:bg-[var(--accent-hover)] disabled:opacity-50 transition-colors"
+                                                >
+                                                    <RefreshCw size={13} className={startingJanModel ? 'animate-spin' : ''} />
+                                                    Start Jan
+                                                </button>
+                                            )}
+                                            {canUse && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleUseProvider(provider.id)}
+                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[var(--border)] text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+                                                >
+                                                    <Check size={13} />
+                                                    Use
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
+                            {[
+                                { id: 'openrouter', name: 'OpenRouter' },
+                                { id: 'anthropic', name: 'Anthropic' },
+                                { id: 'mistral', name: 'Mistral' },
+                                { id: 'openai', name: 'OpenAI' },
+                                { id: 'groq', name: 'Groq' },
+                                { id: 'gemini', name: 'Gemini' },
+                            ].map(provider => {
+                                const hasKey = Boolean(apiKeys[provider.id]);
+                                return (
+                                    <button
+                                        key={provider.id}
+                                        type="button"
+                                        onClick={() => hasKey && updateProvider(provider.id)}
+                                        className={`rounded-xl border p-3 text-left transition-colors ${hasKey ? 'border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10' : 'border-[var(--border)] bg-[var(--bg-tertiary)]/40 hover:bg-[var(--bg-hover)]'}`}
+                                    >
+                                        <div className="flex items-center justify-between gap-2">
+                                            <span className="text-sm font-medium text-[var(--text-primary)]">{provider.name}</span>
+                                            <span className={`text-xs ${hasKey ? 'text-emerald-500' : 'text-[var(--text-tertiary)]'}`}>
+                                                {hasKey ? 'Key set' : 'Needs key'}
+                                            </span>
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </Section>
+
                     {/* Provider & Model */}
                     <Section title="Model Selection" icon={Globe} defaultOpen={true}>
                         <div className="flex justify-end -mt-1 mb-1">
@@ -306,6 +530,33 @@ export function SettingsModal({ isOpen, onClose }) {
                             </div>
                         )}
 
+                        {selectedProvider === 'jan' && (
+                            <div className="mb-6 p-4 rounded-xl border border-teal-500/20 bg-teal-500/5 animate-in fade-in slide-in-from-top-2 duration-300">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <Server size={14} className="text-teal-500" />
+                                    <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">Jan Configuration</span>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="block text-xs text-[var(--text-tertiary)] mb-1">Base URL (Local API Server)</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={janUrl}
+                                            onChange={e => setJanUrl(e.target.value)}
+                                            className="flex-1 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-sm font-mono text-[var(--text-primary)] outline-none focus:border-teal-500/50 transition-colors"
+                                            placeholder="http://127.0.0.1:6767"
+                                        />
+                                        <button
+                                            onClick={handleRefreshModelSetup}
+                                            className="px-3 py-2 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border border-[var(--border)] rounded-lg text-xs font-medium text-[var(--text-secondary)] transition-colors"
+                                        >
+                                            Connect
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Expanded Model List */}
                         <div className={`transition-all duration-300 ${selectedProvider ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
                             {currentProviderModels.length > 0 ? (
@@ -366,8 +617,8 @@ export function SettingsModal({ isOpen, onClose }) {
                             ) : (
                                 <div className="px-4 py-8 rounded-xl border border-dashed border-[var(--border)] text-center">
                                     <p className="text-sm text-[var(--text-secondary)]">
-                                        {selectedProvider === 'ollama' || selectedProvider === 'lmstudio'
-                                            ? `Start ${selectedProvider === 'ollama' ? 'Ollama' : 'LM Studio'} to see available models`
+                                        {selectedProvider === 'ollama' || selectedProvider === 'lmstudio' || selectedProvider === 'jan'
+                                            ? `Start ${selectedProvider === 'ollama' ? 'Ollama' : selectedProvider === 'lmstudio' ? 'LM Studio' : 'Jan'} to see available models`
                                             : 'Add an API key to see available models'
                                         }
                                     </p>
@@ -376,7 +627,7 @@ export function SettingsModal({ isOpen, onClose }) {
                         </div>
                     </Section>
                     {/* API Keys */}
-                    <Section title="API Keys" icon={Key} defaultOpen={false}>
+                    <Section title="API Keys" icon={Key} defaultOpen={true}>
                         {[
                             { id: 'openrouter', label: 'OpenRouter' },
                             { id: 'anthropic',  label: 'Anthropic (Claude)' },

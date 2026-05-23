@@ -2,7 +2,9 @@ const { app, BrowserWindow, ipcMain, dialog, Menu, shell, safeStorage } = requir
 const { installRedactedConsole } = require('./redact-console.cjs');
 const path = require('path');
 const fsSync = require('fs');
-const { spawn } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
+const http = require('http');
+const https = require('https');
 const net = require('net');
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -48,12 +50,252 @@ function attachRendererDiagnostics(win) {
   wc.on('did-finish-load', () => {
     appendRendererLog(`did-finish-load url=${wc.getURL()}`);
   });
+  wc.on('will-navigate', (event, url) => {
+    appendRendererLog(`will-navigate url=${url}`);
+    if (!isDev && isBundledAssetDocumentUrl(url)) {
+      event.preventDefault();
+      appendRendererLog(`blocked-bundled-asset-navigation url=${url}`);
+    }
+  });
+  wc.on('did-navigate', (_event, url) => {
+    appendRendererLog(`did-navigate url=${url}`);
+  });
+  wc.on('did-create-window', (_window, details) => {
+    appendRendererLog(`did-create-window url=${details?.url || ''}`);
+  });
 }
 
 let terminalServerProcess = null;
 let mainWindow = null;
 let splashWindow = null;
 let youtubeWindow = null;
+
+function isBundledAssetDocumentUrl(url) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+
+  if (parsed.protocol !== 'file:') return false;
+  const pathname = decodeURIComponent(parsed.pathname);
+  return /\/dist\/assets\/[^/]+\.(?:js|css)$/.test(pathname)
+    || /\/node_modules\/@webcontainer\/api\/dist\/.+\.js$/.test(pathname);
+}
+
+function requestJson(url, timeoutMs = 2000) {
+  return new Promise((resolve) => {
+    let parsed;
+    try {
+      parsed = new URL(url);
+    } catch (err) {
+      resolve({ ok: false, url, error: err.message });
+      return;
+    }
+
+    const client = parsed.protocol === 'https:' ? https : http;
+    const startedAt = Date.now();
+    const req = client.get(parsed, { timeout: timeoutMs }, (res) => {
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', chunk => { body += chunk; });
+      res.on('end', () => {
+        let data = null;
+        try {
+          data = body ? JSON.parse(body) : null;
+        } catch (err) {
+          resolve({
+            ok: false,
+            url,
+            status: res.statusCode,
+            error: `Invalid JSON response: ${err.message}`,
+            latencyMs: Date.now() - startedAt
+          });
+          return;
+        }
+
+        resolve({
+          ok: res.statusCode >= 200 && res.statusCode < 300,
+          url,
+          status: res.statusCode,
+          data,
+          latencyMs: Date.now() - startedAt
+        });
+      });
+    });
+
+    req.on('timeout', () => {
+      req.destroy();
+      resolve({ ok: false, url, error: 'Connection timed out', latencyMs: Date.now() - startedAt });
+    });
+    req.on('error', err => {
+      resolve({ ok: false, url, error: err.message, latencyMs: Date.now() - startedAt });
+    });
+  });
+}
+
+function commandExists(command, extraPaths = []) {
+  const envPath = [process.env.PATH || '', ...extraPaths].filter(Boolean).join(path.delimiter);
+  const result = spawnSync('which', [command], {
+    env: { ...process.env, PATH: envPath },
+    encoding: 'utf8'
+  });
+  return result.status === 0 ? result.stdout.trim() : '';
+}
+
+function getJanCommandPath() {
+  const home = app.getPath('home');
+  return commandExists('jan', [
+    path.join(home, '.local', 'bin'),
+    '/opt/homebrew/bin',
+    '/usr/local/bin'
+  ]);
+}
+
+function findJanModelFiles() {
+  const home = app.getPath('home');
+  const modelsRoot = path.join(home, 'Library', 'Application Support', 'Jan', 'data', 'llamacpp', 'models');
+  const models = [];
+
+  function walk(dir) {
+    let entries = [];
+    try {
+      entries = fsSync.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(fullPath);
+        continue;
+      }
+      if (entry.name !== 'model.gguf') continue;
+
+      const modelDir = path.dirname(fullPath);
+      const id = path.relative(modelsRoot, modelDir).split(path.sep).join('/');
+      let size = null;
+      try {
+        size = fsSync.statSync(fullPath).size;
+      } catch {}
+      models.push({ id, name: id, path: fullPath, size });
+    }
+  }
+
+  walk(modelsRoot);
+  return models.sort((a, b) => a.id.localeCompare(b.id));
+}
+
+async function probeOpenAICompatibleProvider({ id, name, endpoints }) {
+  for (const endpoint of endpoints) {
+    const modelsUrl = `${endpoint.replace(/\/$/, '')}/v1/models`;
+    const result = await requestJson(modelsUrl);
+    if (result.ok) {
+      const models = Array.isArray(result.data?.data)
+        ? result.data.data
+            .filter(model => model.id && !String(model.id).toLowerCase().includes('embed'))
+            .map(model => ({ id: model.id, name: model.id, owned_by: model.owned_by }))
+        : [];
+      return {
+        id,
+        name,
+        status: models.length > 0 ? 'ready' : 'running-empty',
+        endpoint,
+        modelCount: models.length,
+        models,
+        latencyMs: result.latencyMs
+      };
+    }
+  }
+
+  return {
+    id,
+    name,
+    status: 'offline',
+    endpoint: endpoints[0],
+    modelCount: 0,
+    models: [],
+    error: 'Local API server is not reachable'
+  };
+}
+
+async function discoverModelProviders() {
+  const [ollamaTags, lmStudio, janApi6767, janApi1337, openClawHealth] = await Promise.all([
+    requestJson('http://localhost:11434/api/tags'),
+    probeOpenAICompatibleProvider({
+      id: 'lmstudio',
+      name: 'LM Studio',
+      endpoints: ['http://localhost:1234']
+    }),
+    probeOpenAICompatibleProvider({
+      id: 'jan',
+      name: 'Jan',
+      endpoints: ['http://127.0.0.1:6767']
+    }),
+    probeOpenAICompatibleProvider({
+      id: 'jan',
+      name: 'Jan',
+      endpoints: ['http://127.0.0.1:1337']
+    }),
+    requestJson('http://127.0.0.1:18789/health')
+  ]);
+
+  const janCommand = getJanCommandPath();
+  const janModelsOnDisk = findJanModelFiles();
+  const janApi = janApi6767.status === 'ready' || janApi6767.status === 'running-empty' ? janApi6767 : janApi1337;
+  const janStatus = janApi.status === 'ready'
+    ? 'ready'
+    : janModelsOnDisk.length > 0
+      ? 'installed-stopped'
+      : janCommand
+        ? 'installed-empty'
+        : 'not-installed';
+
+  const ollamaModels = Array.isArray(ollamaTags.data?.models)
+    ? ollamaTags.data.models.map(model => ({ id: model.name, name: model.name, size: model.size, modified: model.modified_at }))
+    : [];
+
+  return {
+    generatedAt: Date.now(),
+    providers: [
+      {
+        id: 'ollama',
+        name: 'Ollama',
+        status: ollamaTags.ok ? (ollamaModels.length > 0 ? 'ready' : 'running-empty') : 'offline',
+        endpoint: 'http://localhost:11434',
+        modelCount: ollamaModels.length,
+        models: ollamaModels,
+        latencyMs: ollamaTags.latencyMs,
+        error: ollamaTags.ok ? '' : ollamaTags.error
+      },
+      lmStudio,
+      {
+        id: 'jan',
+        name: 'Jan',
+        status: janStatus,
+        endpoint: janApi.endpoint || 'http://127.0.0.1:6767',
+        modelCount: janApi.modelCount || janModelsOnDisk.length,
+        models: janApi.models?.length ? janApi.models : janModelsOnDisk,
+        latencyMs: janApi.latencyMs,
+        installed: Boolean(janCommand || fsSync.existsSync('/Applications/Jan.app')),
+        cliPath: janCommand,
+        error: janStatus === 'installed-stopped' ? 'Jan models are installed, but the local API server is not running.' : janApi.error
+      },
+      {
+        id: 'openclaw',
+        name: 'OpenClaw',
+        status: openClawHealth.ok ? 'ready' : 'offline',
+        endpoint: 'http://127.0.0.1:18789',
+        modelCount: 0,
+        models: [],
+        latencyMs: openClawHealth.latencyMs,
+        error: openClawHealth.ok ? '' : openClawHealth.error
+      }
+    ]
+  };
+}
 
 // Track the two conditions required before revealing the main window
 const splashGate = { mainReady: false, splashDone: false };
@@ -363,6 +605,23 @@ function createWindow() {
   mainWindow = win;
   attachRendererDiagnostics(win);
   appendRendererLog(`createWindow: renderer log at ${getRendererLogPath()}`);
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (isBundledAssetDocumentUrl(url)) {
+      appendRendererLog(`blocked-bundled-asset-window url=${url}`);
+      return { action: 'deny' };
+    }
+
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+        shell.openExternal(url);
+      }
+    } catch (err) {
+      appendRendererLog(`blocked-window-open invalid-url=${url}`);
+    }
+    appendRendererLog(`blocked-window-open url=${url}`);
+    return { action: 'deny' };
+  });
   win.once('ready-to-show', () => {
     splashGate.mainReady = true;
     tryRevealMain();
@@ -388,6 +647,33 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  app.on('web-contents-created', (_event, contents) => {
+    contents.setWindowOpenHandler(({ url }) => {
+      if (isBundledAssetDocumentUrl(url)) {
+        appendRendererLog(`blocked-global-bundled-asset-window url=${url}`);
+        return { action: 'deny' };
+      }
+
+      try {
+        const parsed = new URL(url);
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+          shell.openExternal(url);
+        }
+      } catch (err) {
+        appendRendererLog(`blocked-global-window-open invalid-url=${url}`);
+      }
+      appendRendererLog(`blocked-global-window-open url=${url}`);
+      return { action: 'deny' };
+    });
+
+    contents.on('will-navigate', (event, url) => {
+      if (!isDev && isBundledAssetDocumentUrl(url)) {
+        event.preventDefault();
+        appendRendererLog(`blocked-global-bundled-asset-navigation url=${url}`);
+      }
+    });
+  });
+
   startTerminalServer();
   createMenu();
   createSplashWindow();
@@ -653,6 +939,65 @@ ipcMain.handle('openclaw:restart-gateway', async () => {
         code,
         output: stdout.trim(),
         error: stderr.trim() || (code === 0 ? '' : stdout.trim())
+      });
+    });
+  });
+});
+
+ipcMain.handle('models:discover-providers', async () => {
+  try {
+    return await discoverModelProviders();
+  } catch (err) {
+    return { generatedAt: Date.now(), providers: [], error: err.message };
+  }
+});
+
+ipcMain.handle('models:start-jan-server', async (event, options = {}) => {
+  const janCommand = getJanCommandPath();
+  if (!janCommand) {
+    return { ok: false, error: 'Jan CLI was not found. Install Jan or add jan to PATH.' };
+  }
+
+  const modelId = typeof options.modelId === 'string' && options.modelId.trim()
+    ? options.modelId.trim()
+    : findJanModelFiles()[0]?.id;
+
+  if (!modelId) {
+    return { ok: false, error: 'No Jan models were found on disk.' };
+  }
+
+  const port = Number(options.port || 6767);
+  const logPath = path.join(app.getPath('userData'), 'jan-serve.log');
+  const child = spawn(janCommand, ['serve', modelId, '--port', String(port), '--detach', '--log', logPath], {
+    env: {
+      ...process.env,
+      PATH: [path.dirname(janCommand), process.env.PATH || ''].filter(Boolean).join(path.delimiter)
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+    detached: false
+  });
+
+  let stdout = '';
+  let stderr = '';
+  child.stdout.on('data', chunk => { stdout += chunk.toString(); });
+  child.stderr.on('data', chunk => { stderr += chunk.toString(); });
+
+  return new Promise((resolve) => {
+    child.on('error', err => {
+      resolve({ ok: false, error: err.message, modelId, port, logPath });
+    });
+    child.on('close', async (code) => {
+      const endpoint = `http://127.0.0.1:${port}`;
+      const probe = await requestJson(`${endpoint}/v1/models`, 5000);
+      resolve({
+        ok: probe.ok,
+        code,
+        modelId,
+        port,
+        endpoint,
+        logPath,
+        output: stdout.trim(),
+        error: probe.ok ? '' : (stderr.trim() || probe.error || stdout.trim() || 'Jan server did not become reachable.')
       });
     });
   });

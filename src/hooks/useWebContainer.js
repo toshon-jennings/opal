@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
-import { WebContainer } from '@webcontainer/api';
+import { useCallback, useState, useRef } from 'react';
 
 /**
  * Custom hook to manage WebContainer instance.
@@ -7,49 +6,41 @@ import { WebContainer } from '@webcontainer/api';
  */
 export function useWebContainer() {
     const [webcontainerInstance, setWebcontainerInstance] = useState(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
     const bootPromiseRef = useRef(null);
 
-    useEffect(() => {
-        async function boot() {
-            // If already booted, just return the instance
-            if (webcontainerInstance) return;
+    const bootWebContainer = useCallback(async () => {
+        if (webcontainerInstance) return webcontainerInstance;
 
-            // If already booting, wait for it
-            if (bootPromiseRef.current) {
-                try {
-                    const instance = await bootPromiseRef.current;
-                    setWebcontainerInstance(instance);
-                    setIsLoading(false);
-                } catch (err) {
-                    setError(err);
-                    setIsLoading(false);
-                }
-                return;
-            }
-
-            // Start booting
-            try {
-                setIsLoading(true);
-                console.log('📦 Booting WebContainer...');
-
-                bootPromiseRef.current = WebContainer.boot();
-                const instance = await bootPromiseRef.current;
-
-                console.log('✅ WebContainer booted successfully!');
-                setWebcontainerInstance(instance);
-                setIsLoading(false);
-            } catch (err) {
-                console.error('❌ Failed to boot WebContainer:', err);
-                setError(err);
-                setIsLoading(false);
-                bootPromiseRef.current = null; // Reset promise on error so we can retry
-            }
+        if (!window.crossOriginIsolated) {
+            const err = new Error('WebContainer requires a cross-origin isolated browser context.');
+            setError(err);
+            return null;
         }
 
-        boot();
-    }, []);
+        if (!bootPromiseRef.current) {
+            setIsLoading(true);
+            setError(null);
+            console.log('Booting WebContainer...');
+            const { WebContainer } = await import('@webcontainer/api');
+            bootPromiseRef.current = WebContainer.boot();
+        }
 
-    return { webcontainerInstance, isLoading, error };
+        try {
+            const instance = await bootPromiseRef.current;
+            console.log('WebContainer booted successfully.');
+            setWebcontainerInstance(instance);
+            setIsLoading(false);
+            return instance;
+        } catch (err) {
+            console.error('Failed to boot WebContainer:', err);
+            setError(err);
+            setIsLoading(false);
+            bootPromiseRef.current = null;
+            return null;
+        }
+    }, [webcontainerInstance]);
+
+    return { webcontainerInstance, isLoading, error, bootWebContainer };
 }

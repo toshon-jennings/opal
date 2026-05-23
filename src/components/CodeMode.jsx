@@ -26,7 +26,7 @@ const PROVIDERS_REQUIRING_API_KEYS = new Set(['openai', 'groq', 'gemini', 'openr
 
 export default function CodeMode() {
     const { codeState, setCodeState } = useMode();
-    const { userName, selectedProvider, selectedModel, apiKeys, lmStudioUrl } = useChat();
+    const { userName, selectedProvider, selectedModel, apiKeys, lmStudioUrl, janUrl } = useChat();
     const { isDarkMode } = useTheme();
     
     const [input, setInput] = useState('');
@@ -234,7 +234,7 @@ export default function CodeMode() {
                 throw new Error(`Please set your ${providerName} API key in Settings.`);
             }
 
-            const client = LLMFactory.getClient(selectedProvider, apiKeys[selectedProvider], { lmStudioUrl });
+            const client = LLMFactory.getClient(selectedProvider, apiKeys[selectedProvider], { lmStudioUrl, janUrl });
             const fileContext = Object.entries(codeState.files).slice(0, 20).map(([path, content]) => `File: ${path}\n\`\`\`\n${content}\n\`\`\``).join('\n\n');
             const systemPrompt = `Expert software engineer. Context: ${fileContext}`;
             const messagesForLLM = [{ role: 'system', content: systemPrompt }, ...updatedMessages];

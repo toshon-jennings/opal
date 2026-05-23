@@ -9,7 +9,8 @@ const PROVIDER_LABELS = {
     openai: 'OpenAI',
     gemini: 'Gemini',
     ollama: 'Ollama',
-    lmstudio: 'LM Studio'
+    lmstudio: 'LM Studio',
+    jan: 'Jan'
 };
 
 function getProviderLabel(provider) {

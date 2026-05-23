@@ -1,12 +1,16 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { useWebContainer } from '../hooks/useWebContainer';
 
 const BuildModeContext = createContext();
 
 export function BuildModeProvider({ children }) {
     const [isBuildMode, setIsBuildMode] = useState(false);
-    // Use the hook to manage the WebContainer instance
-    const { webcontainerInstance, isLoading: isWebContainerLoading, error: webContainerError } = useWebContainer();
+    const {
+        webcontainerInstance,
+        isLoading: isWebContainerLoading,
+        error: webContainerError,
+        bootWebContainer
+    } = useWebContainer();
 
     const toggleBuildMode = useCallback(() => {
         setIsBuildMode(prev => {
@@ -16,13 +20,20 @@ export function BuildModeProvider({ children }) {
         });
     }, []);
 
+    useEffect(() => {
+        if (isBuildMode && !webcontainerInstance && !isWebContainerLoading) {
+            bootWebContainer();
+        }
+    }, [bootWebContainer, isBuildMode, isWebContainerLoading, webcontainerInstance]);
+
     const value = {
         isBuildMode,
         setIsBuildMode,
         toggleBuildMode,
         webcontainerInstance,
         isWebContainerLoading,
-        webContainerError
+        webContainerError,
+        bootWebContainer
     };
 
     return (

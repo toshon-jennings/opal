@@ -19,6 +19,7 @@ import { normalizeAssistantSpacing } from '../lib/textFormatting';
 const modelService = new ModelService();
 const ChatContext = createContext();
 const DEFAULT_LM_STUDIO_URL = 'http://localhost:1234';
+const DEFAULT_JAN_URL = 'http://127.0.0.1:6767';
 const LEGACY_LM_STUDIO_URL = 'http://172.20.10.10:1234';
 const API_KEY_PROVIDERS = API_KEY_STORAGE_KEYS.reduce((providers, storageKey) => {
     providers[storageKey.replace(/_key$/, '')] = storageKey;
@@ -180,6 +181,27 @@ export function ChatProvider({ children }) {
         }
     }, [lmStudioUrl]);
 
+    const [janUrl, setJanUrlState] = useState(() => {
+        return normalizeLocalServerUrl(readStringStorage('jan_url', DEFAULT_JAN_URL), DEFAULT_JAN_URL);
+    });
+
+    const setJanUrl = useCallback((url) => {
+        const normalizedUrl = normalizeLocalServerUrl(url, DEFAULT_JAN_URL);
+        setJanUrlState(normalizedUrl);
+        localStorage.setItem('jan_url', normalizedUrl);
+        if (electronPersistenceReadyRef.current) {
+            saveElectronPersistence({ jan_url: normalizedUrl }).catch(err => console.error('Failed to persist Jan URL:', err));
+        }
+        modelService.clearCache('jan');
+    }, []);
+
+    useEffect(() => {
+        localStorage.setItem('jan_url', janUrl);
+        if (electronPersistenceReadyRef.current) {
+            saveElectronPersistence({ jan_url: janUrl }).catch(err => console.error('Failed to persist Jan URL:', err));
+        }
+    }, [janUrl]);
+
     useEffect(() => {
         if (!hasElectronStore()) return;
 
@@ -210,6 +232,7 @@ export function ChatProvider({ children }) {
                     setUserNameState(readStringStorage('user_name'));
                     setCustomInstructionsState(readStringStorage('custom_instructions'));
                     setLmStudioUrlState(normalizeLocalServerUrl(readStringStorage('lm_studio_url', DEFAULT_LM_STUDIO_URL)));
+                    setJanUrlState(normalizeLocalServerUrl(readStringStorage('jan_url', DEFAULT_JAN_URL), DEFAULT_JAN_URL));
                     setSelectedProvider(readStringStorage('selected_provider', 'groq'));
                     setSelectedModel(readStringStorage('selected_model'));
                     setApiKeys(nextApiKeys);
@@ -377,6 +400,7 @@ export function ChatProvider({ children }) {
         groq: [],
         ollama: [],
         lmstudio: [],
+        jan: [],
         openai: [],
         gemini: [],
         openrouter: [],
@@ -456,7 +480,7 @@ export function ChatProvider({ children }) {
     const fetchModels = useCallback(async () => {
         setIsLoadingModels(true);
         try {
-            const models = await modelService.getAllModels({ ...apiKeys, lmStudioUrl });
+            const models = await modelService.getAllModels({ ...apiKeys, lmStudioUrl, janUrl });
             setAvailableModels(models);
 
             // Auto-select a model if none is selected, or if the stored model
@@ -464,7 +488,7 @@ export function ChatProvider({ children }) {
             const allModelIds = Object.values(models).flat().map(m => m.id);
             const storedModelStillValid = selectedModel && allModelIds.includes(selectedModel);
             if (!storedModelStillValid) {
-                for (const provider of ['openrouter', 'groq', 'openai', 'anthropic', 'mistral', 'gemini', 'ollama', 'lmstudio']) {
+                for (const provider of ['openrouter', 'groq', 'openai', 'anthropic', 'mistral', 'gemini', 'ollama', 'lmstudio', 'jan']) {
                     if (models[provider] && models[provider].length > 0) {
                         setSelectedProvider(provider);
                         setSelectedModel(models[provider][0].id);
@@ -477,12 +501,12 @@ export function ChatProvider({ children }) {
         } finally {
             setIsLoadingModels(false);
         }
-    }, [apiKeys, selectedModel, lmStudioUrl]);
+    }, [apiKeys, selectedModel, lmStudioUrl, janUrl]);
 
-    // Fetch models on mount and whenever API keys change
+    // Fetch models on mount and whenever API keys or local model endpoints change
     useEffect(() => {
         fetchModels();
-    }, [apiKeys.groq, apiKeys.openai, apiKeys.gemini, apiKeys.openrouter, apiKeys.anthropic, apiKeys.mistral]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [apiKeys.groq, apiKeys.openai, apiKeys.gemini, apiKeys.openrouter, apiKeys.anthropic, apiKeys.mistral, lmStudioUrl, janUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Update capabilities when model changes
     useEffect(() => {
@@ -580,6 +604,8 @@ export function ChatProvider({ children }) {
             setCustomInstructions,
             lmStudioUrl,
             setLmStudioUrl,
+            janUrl,
+            setJanUrl,
             // Model capabilities
             currentModelCapabilities,
             supportsImages: currentModelCapabilities.image,

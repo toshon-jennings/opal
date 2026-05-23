@@ -231,6 +231,8 @@ export class LLMFactory {
                 return new OllamaClient();
             case 'lmstudio':
                 return new LMStudioClient(options.lmStudioUrl);
+            case 'jan':
+                return new JanClient(options.janUrl);
             case 'openrouter':
                 return new OpenRouterClient(apiKey);
             case 'anthropic':
@@ -1017,6 +1019,23 @@ export class LMStudioClient extends BaseClient {
             {},
             messages, tools, onChunk, modelId || 'local-model'
         );
+    }
+}
+
+export class JanClient extends LMStudioClient {
+    constructor(baseUrl = 'http://127.0.0.1:6767') {
+        super(baseUrl);
+    }
+
+    async streamChat(messages, onChunk, modelId) {
+        try {
+            return await super.streamChat(messages, onChunk, modelId);
+        } catch (err) {
+            if (String(err.message || '').includes('LM Studio is not reachable')) {
+                throw new Error(`Jan is not reachable at ${this.baseUrl}. Start Jan from Settings > Connect Models, then refresh models.`);
+            }
+            throw err;
+        }
     }
 }
 

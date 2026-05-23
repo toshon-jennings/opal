@@ -7,6 +7,7 @@ import { LLMFactory } from '../lib/llm/clients';
 import { generatePreviewHTML } from '../utils/preview-generator';
 import MonacoEditor from '@monaco-editor/react';
 
+const PROVIDERS_REQUIRING_API_KEYS = new Set(['openai', 'groq', 'gemini', 'openrouter', 'anthropic', 'mistral']);
 
 export default function BuildMode() {
     const {
@@ -25,7 +26,8 @@ export default function BuildMode() {
         selectedProvider,
         selectedModel,
         apiKeys,
-        lmStudioUrl
+        lmStudioUrl,
+        janUrl
     } = useChat();
 
     const [input, setInput] = useState('');
@@ -54,11 +56,11 @@ export default function BuildMode() {
 
         try {
             // Get client
-            if (!selectedProvider || (['openai', 'groq', 'gemini'].includes(selectedProvider) && !apiKeys[selectedProvider])) {
+            if (!selectedProvider || (PROVIDERS_REQUIRING_API_KEYS.has(selectedProvider) && !apiKeys[selectedProvider])) {
                 throw new Error(`Please check your ${selectedProvider} configuration in Settings.`);
             }
             
-            const client = LLMFactory.getClient(selectedProvider, apiKeys[selectedProvider], { lmStudioUrl });
+            const client = LLMFactory.getClient(selectedProvider, apiKeys[selectedProvider], { lmStudioUrl, janUrl });
 
             // Construct System Prompt
             const systemPrompt = `You are a code generation AI. Generate React components based on user requests.

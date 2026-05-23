@@ -232,6 +232,7 @@ export class ModelService {
             groq: { models: null, timestamp: null },
             ollama: { models: null, timestamp: null },
             lmstudio: { models: null, timestamp: null },
+            jan: { models: null, timestamp: null },
             openai: { models: null, timestamp: null },
             gemini: { models: null, timestamp: null },
             openrouter: { models: null, timestamp: null },
@@ -392,14 +393,19 @@ export class ModelService {
             }
 
             const data = await response.json();
-            const models = data.data.map(model => ({
-                id: model.id,
-                name: model.id,
-                provider: 'lmstudio',
-                owned_by: model.owned_by,
-                // Dynamic capability detection!
-                capabilities: getModelCapabilities(model.id)
-            }));
+            const models = data.data
+                .filter(model => {
+                    const id = model.id?.toLowerCase() || '';
+                    return id && !id.includes('embed');
+                })
+                .map(model => ({
+                    id: model.id,
+                    name: model.id,
+                    provider: 'lmstudio',
+                    owned_by: model.owned_by,
+                    // Dynamic capability detection!
+                    capabilities: getModelCapabilities(model.id)
+                }));
 
             this.cache.lmstudio = {
                 models,
@@ -409,6 +415,42 @@ export class ModelService {
             return models;
         } catch (error) {
             console.error('Error fetching LM Studio models:', error);
+            return [];
+        }
+    }
+
+    // Fetch models from Jan (local OpenAI-compatible API)
+    async fetchJanModels(baseUrl = 'http://127.0.0.1:6767') {
+        try {
+            if (this.cache.jan.models && (Date.now() - this.cache.jan.timestamp < this.CACHE_DURATION)) {
+                return this.cache.jan.models;
+            }
+
+            const url = `${baseUrl.replace(/\/$/, '')}/v1/models`;
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                throw new Error('Jan local API server is not running or not accessible');
+            }
+
+            const data = await response.json();
+            const models = (data.data || [])
+                .filter(model => {
+                    const id = model.id?.toLowerCase() || '';
+                    return id && !id.includes('embed');
+                })
+                .map(model => ({
+                    id: model.id,
+                    name: model.id,
+                    provider: 'jan',
+                    owned_by: model.owned_by,
+                    capabilities: getModelCapabilities(model.id)
+                }));
+
+            this.cache.jan = { models, timestamp: Date.now() };
+            return models;
+        } catch (error) {
+            console.error('Error fetching Jan models:', error);
             return [];
         }
     }
@@ -577,6 +619,7 @@ export class ModelService {
             groq: [],
             ollama: [],
             lmstudio: [],
+            jan: [],
             openai: [],
             gemini: [],
             openrouter: [],
@@ -599,6 +642,9 @@ export class ModelService {
 
         // Fetch LM Studio models
         allModels.lmstudio = await this.fetchLMStudioModels(apiKeys.lmStudioUrl);
+
+        // Fetch Jan models
+        allModels.jan = await this.fetchJanModels(apiKeys.janUrl);
 
         // Fetch Gemini models dynamically
         if (apiKeys.gemini) {

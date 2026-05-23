@@ -23,6 +23,8 @@ import { PermissionsDropdown } from './PermissionsDropdown';
 import LivePreviewPanel from './LivePreviewPanel';
 import { ProviderModelPicker } from './ProviderModelPicker';
 
+const PROVIDERS_REQUIRING_API_KEYS = new Set(['openai', 'groq', 'gemini', 'openrouter', 'anthropic', 'mistral']);
+
 const getDefaultSidebarWidth = () => {
     if (typeof window === 'undefined') return 360;
     return Math.min(360, Math.max(280, Math.floor(window.innerWidth * 0.45)));
@@ -521,7 +523,8 @@ function ChatMode() {
         // User settings
         userName,
         customInstructions,
-        lmStudioUrl
+        lmStudioUrl,
+        janUrl
     } = useChat();
     const [input, setInput] = useState(() => {
         if (typeof window !== 'undefined') {
@@ -678,7 +681,8 @@ function ChatMode() {
                         apiKeys.tavily,
                         selectedProvider,
                         apiKeys[selectedProvider],
-                        lmStudioUrl
+                        lmStudioUrl,
+                        janUrl
                     );
 
                     // Check if we should search
@@ -783,13 +787,13 @@ function ChatMode() {
             }
 
             // Check if API key is required and provided
-            if (['openai', 'groq', 'gemini'].includes(selectedProvider) && !apiKeys[selectedProvider]) {
+            if (PROVIDERS_REQUIRING_API_KEYS.has(selectedProvider) && !apiKeys[selectedProvider]) {
                 addMessage('assistant', `Please set your ${selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1)} API Key in Settings.`);
                 setIsLoading(false);
                 return;
             }
 
-            const client = LLMFactory.getClient(selectedProvider, apiKeys[selectedProvider], { lmStudioUrl });
+            const client = LLMFactory.getClient(selectedProvider, apiKeys[selectedProvider], { lmStudioUrl, janUrl });
 
             // Build system prompt with user's name if available
             const baseSystemPrompt = userName

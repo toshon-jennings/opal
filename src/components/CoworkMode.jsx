@@ -811,7 +811,8 @@ export default function CoworkMode() {
         updateProvider,
         updateModel,
         supportsImages,
-        lmStudioUrl
+        lmStudioUrl,
+        janUrl
     } = useChat();
     const { webcontainerInstance } = useBuildMode();
     const { executeTool, toolLog, clearLog } = useAgentTools(codeState.workingDirectory, webcontainerInstance);
@@ -1076,7 +1077,7 @@ export default function CoworkMode() {
         }));
 
         try {
-            const client = LLMFactory.getClient(selectedProvider, apiKeys[selectedProvider], { lmStudioUrl });
+            const client = LLMFactory.getClient(selectedProvider, apiKeys[selectedProvider], { lmStudioUrl, janUrl });
             const systemPrompt = [
                 `You are an expert software engineer assistant operating in Cowork Mode.`,
                 `The user's local project folder is: ${codeState.workingDirectory || '(not set — ask the user to choose a folder)'}`,
