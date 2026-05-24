@@ -140,12 +140,22 @@ function AppContent() {
             return;
         }
 
-        setTimeout(async () => {
+        // Poll until the gateway is live (up to 12 s) then reload the webview.
+        // 1.5 s was often too short; the gateway needs 2-4 s to fully bind.
+        const maxWaitMs = 12000;
+        const pollMs = 800;
+        const started = Date.now();
+        const pollUntilLive = async () => {
             const status = await window.electron.testOpenClawConnection(activeOpenClawProfile);
-            setOpenClawStatus({ state: status.ok ? 'online' : 'offline', result: status });
-            setOpenClawFrameKey(key => key + 1);
-            setIsRestartingOpenClaw(false);
-        }, 1500);
+            if (status.ok || Date.now() - started >= maxWaitMs) {
+                setOpenClawStatus({ state: status.ok ? 'online' : 'offline', result: status });
+                setOpenClawFrameKey(key => key + 1);
+                setIsRestartingOpenClaw(false);
+            } else {
+                setTimeout(pollUntilLive, pollMs);
+            }
+        };
+        setTimeout(pollUntilLive, pollMs);
     };
 
     const inspectOpenClawDashboard = useCallback(async (webview) => {

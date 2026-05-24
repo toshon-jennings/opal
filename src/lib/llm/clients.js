@@ -996,7 +996,8 @@ export class LMStudioClient extends BaseClient {
                 if (line.startsWith('data: ') && line !== 'data: [DONE]') {
                     try {
                         const data = JSON.parse(line.slice(6));
-                        const content = data.choices[0]?.delta?.content || '';
+                        const choice = data.choices?.[0];
+                        const content = choice?.delta?.content || '';
 
                         if (content) {
                             // Parse for thinking tags
@@ -1004,6 +1005,12 @@ export class LMStudioClient extends BaseClient {
                             for (const result of results) {
                                 onChunk(result.content, { isThinking: result.isThinking });
                             }
+                        }
+
+                        // Surface finish_reason so callers can detect context overflow
+                        const finishReason = choice?.finish_reason;
+                        if (finishReason) {
+                            onChunk('', { finishReason });
                         }
                     } catch (e) {
                         console.error('Error parsing LM Studio chunk', e);

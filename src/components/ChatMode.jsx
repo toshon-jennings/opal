@@ -861,6 +861,7 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
             let fullResponse = "";
             let fullThinking = "";
             let thinkingTokens = null;
+            let stoppedByContextLimit = false;
 
             await client.streamChat(messagesWithContext, (chunk, metadata) => {
                 if (metadata?.isThinking) {
@@ -876,6 +877,11 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                 // Capture thinking tokens if provided
                 if (metadata?.thinkingTokens) {
                     thinkingTokens = metadata.thinkingTokens;
+                }
+
+                // Detect context-limit truncation from any provider
+                if (metadata?.finishReason === 'length') {
+                    stoppedByContextLimit = true;
                 }
             }, selectedModel);
 
@@ -906,6 +912,47 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                 .replace(/<think>[\s\S]*?<\/think>/gi, '')
                 .replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
                 .trim();
+
+            // ── finish_reason: "length" notice ───────────────────────────────
+            // The model generated some content but was cut off at the context limit.
+            if (stoppedByContextLimit && cleanedResponse) {
+                cleanedResponse += '\n\n---\n⚠️ *Response truncated — the model reached its context limit. Start a **New Chat** to continue with a fresh context window.*';
+            }
+
+            // ── Context-overflow guard ────────────────────────────────────────
+            // LM Studio (and some local servers) stream a status line like
+            // "100% Context Used 22.8k / 16.4k" instead of a real reply when
+            // the conversation exceeds the model's context window.
+            const contextOverflowMatch = cleanedResponse.match(
+                /^\s*\d+%\s+Context\s+Used\s+[\d.,]+\s*[kKmM]?\s*\/\s*[\d.,]+\s*[kKmM]?\s*$/i
+            );
+            if (contextOverflowMatch) {
+                addMessage(
+                    'assistant',
+                    '⚠️ **Context limit exceeded.** The conversation history is too long for this model\'s context window. ' +
+                    'To continue, start a **New Chat** (top-left) or reduce the amount of attached file content.',
+                    messageMetadata
+                );
+                setIsLoading(false);
+                return;
+            }
+
+            // ── Empty response guard ──────────────────────────────────────────
+            // Some providers complete the stream without emitting any content
+            // (e.g. silent rate-limit, content filter, or context overflow that
+            // produces no output). Show a useful message instead of a blank bubble.
+            if (!cleanedResponse && !combinedThinking) {
+                addMessage(
+                    'assistant',
+                    '⚠️ **No response received.** The model returned an empty reply. ' +
+                    'This can happen when the conversation is too long for the model\'s context window, ' +
+                    'a rate limit was hit, or the request was filtered. ' +
+                    'Try sending a shorter message, starting a new chat, or switching models.',
+                    messageMetadata
+                );
+                setIsLoading(false);
+                return;
+            }
 
             // Check for artifacts (HTML, React, SVG)
             const htmlMatch = cleanedResponse.match(/```html\s*([\s\S]*?)```/i);
