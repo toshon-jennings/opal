@@ -3,11 +3,19 @@ import { X, Key, Globe, RefreshCw, ChevronDown, Check, Wifi, WifiOff, User, Scro
 import { useChat } from '../context/ChatContext';
 import { useMode } from '../context/ModeContext';
 
+import hermesLogo from '../assets/hermes.png';
+import openclawLogo from '../assets/openclaw-color.png';
+
 const LOCAL_PROVIDER_NAMES = {
     ollama: 'Ollama',
     lmstudio: 'LM Studio',
     jan: 'Jan',
     openclaw: 'OpenClaw'
+};
+
+const LOCAL_IMAGE_PATHS = {
+    hermes: hermesLogo,
+    openclaw: openclawLogo,
 };
 
 function getProviderStatusLabel(status) {
@@ -770,7 +778,7 @@ export function SettingsModal({ isOpen, onClose }) {
                                                     onClick={() => openOpenClawDashboard(profile)}
                                                     className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[var(--accent)] text-white text-xs font-medium hover:bg-[var(--accent-hover)] transition-colors"
                                                 >
-                                                    <ExternalLink size={13} />
+                                                    <img src={LOCAL_IMAGE_PATHS.openclaw} alt="OpenClaw Logo" className="w-4 h-4" />
                                                     Open
                                                 </button>
                                             </div>
