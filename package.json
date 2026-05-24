@@ -1,7 +1,7 @@
 {
   "name": "opal",
   "private": true,
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "A desktop AI workspace for chat, coding, coworking, and agent tools.",
   "author": "Toshon Jennings",
   "main": "electron/main.cjs",
