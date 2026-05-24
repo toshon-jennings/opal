@@ -966,6 +966,29 @@ ipcMain.handle('openclaw:write-config', async (event, config) => {
   }
 });
 
+ipcMain.handle('openclaw:read-diary', async () => {
+  try {
+    const diaryPath = path.join(app.getPath('home'), '.openclaw', 'workspace', 'DIARY.md');
+    const content = await fs.readFile(diaryPath, 'utf-8');
+    return { ok: true, content };
+  } catch (err) {
+    if (err.code === 'ENOENT') return { ok: true, content: '' };
+    console.error('Error reading OpenClaw diary:', err);
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle('openclaw:write-diary', async (event, content) => {
+  try {
+    const diaryPath = path.join(app.getPath('home'), '.openclaw', 'workspace', 'DIARY.md');
+    await fs.writeFile(diaryPath, content, 'utf-8');
+    return { ok: true };
+  } catch (err) {
+    console.error('Error writing OpenClaw diary:', err);
+    return { ok: false, error: err.message };
+  }
+});
+
 ipcMain.handle('models:discover-providers', async () => {
   try {
     return await discoverModelProviders();

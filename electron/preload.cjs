@@ -16,6 +16,8 @@ contextBridge.exposeInMainWorld('electron', {
   restartOpenClawGateway: () => ipcRenderer.invoke('openclaw:restart-gateway'),
   readOpenClawConfig: () => ipcRenderer.invoke('openclaw:read-config'),
   writeOpenClawConfig: (config) => ipcRenderer.invoke('openclaw:write-config'),
+  readOpenClawDiary: () => ipcRenderer.invoke('openclaw:read-diary'),
+  writeOpenClawDiary: (content) => ipcRenderer.invoke('openclaw:write-diary', content),
   discoverModelProviders: () => ipcRenderer.invoke('models:discover-providers'),
   startJanServer: (options) => ipcRenderer.invoke('models:start-jan-server', options),
   openHermesApp: (appPath) => ipcRenderer.invoke('hermes:open-app', appPath),

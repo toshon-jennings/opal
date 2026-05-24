@@ -208,21 +208,41 @@ function AppContent() {
         }, { once: true });
     }, [inspectOpenClawDashboard]);
 
-    // Load diary from localStorage on mount
+    // Load diary — prefer ~/.openclaw/workspace/DIARY.md (Electron), fall back to localStorage
     useEffect(() => {
-        const saved = localStorage.getItem('openclaw-user-diary');
-        if (saved) setDiaryContent(saved);
-        const savedTime = localStorage.getItem('openclaw-user-diary-saved');
-        if (savedTime) setDiaryLastSaved(new Date(savedTime));
+        async function loadDiary() {
+            if (window.electron?.readOpenClawDiary) {
+                const result = await window.electron.readOpenClawDiary();
+                if (result?.ok) {
+                    setDiaryContent(result.content || '');
+                    // Sync timestamp from localStorage if available
+                    const savedTime = localStorage.getItem('openclaw-user-diary-saved');
+                    if (savedTime) setDiaryLastSaved(new Date(savedTime));
+                    return;
+                }
+            }
+            // Web fallback
+            const saved = localStorage.getItem('openclaw-user-diary');
+            if (saved) setDiaryContent(saved);
+            const savedTime = localStorage.getItem('openclaw-user-diary-saved');
+            if (savedTime) setDiaryLastSaved(new Date(savedTime));
+        }
+        loadDiary();
     }, []);
 
     const handleDiaryChange = useCallback((value) => {
         setDiaryContent(value);
         setDiarySaving(true);
         if (diaryAutoSaveRef.current) clearTimeout(diaryAutoSaveRef.current);
-        diaryAutoSaveRef.current = setTimeout(() => {
-            localStorage.setItem('openclaw-user-diary', value);
+        diaryAutoSaveRef.current = setTimeout(async () => {
             const now = new Date();
+            if (window.electron?.writeOpenClawDiary) {
+                // Primary: write to ~/.openclaw/workspace/DIARY.md so OpenClaw can read it
+                await window.electron.writeOpenClawDiary(value);
+            } else {
+                // Web fallback
+                localStorage.setItem('openclaw-user-diary', value);
+            }
             localStorage.setItem('openclaw-user-diary-saved', now.toISOString());
             setDiaryLastSaved(now);
             setDiarySaving(false);
