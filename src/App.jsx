@@ -10,6 +10,8 @@ import { BuildModeProvider } from './context/BuildModeContext'; // Keeping origi
 import { BuildProvider } from './context/BuildContext';
 import { ChatProvider } from './context/ChatContext';
 
+import hermesLogo from './assets/hermes.png';
+import openClawLogo from './assets/openclaw-color.png';
 import { Moon, Sun, Lock, Unlock, Plus, Terminal as TerminalIcon, Server, X, RefreshCw, ExternalLink, Bot, AlertCircle } from 'lucide-react';
 import { useTheme, ThemeProvider } from './context/ThemeContext';
 import { useChat } from './context/ChatContext';
@@ -239,7 +241,7 @@ function AppContent() {
                         }`}
                         title={`OpenClaw: ${activeOpenClawProfile?.name || 'Not configured'}`}
                     >
-                        <Server size={14} strokeWidth={2.5} className={openClawStatus.state === 'online' ? 'animate-pulse' : ''} />
+                        <img src={openClawLogo} alt="OpenClaw" className="h-4 w-4" />
                         <span className="hidden lg:inline">{activeOpenClawProfile?.mode === 'appliance' ? 'Appliance' : 'OpenClaw'}</span>
                         {openClawStatus.state === 'online' && (
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
@@ -249,14 +251,14 @@ function AppContent() {
                     <div className="relative">
                         <button
                             onClick={launchHermesApp}
-                            className={`flex items-center gap-2 px-4 py-2 transition-all text-[14px] font-semibold leading-none ${
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all text-[11px] uppercase tracking-wider mercury-branded ${
                                 hermesError
-                                    ? 'text-red-400 bg-red-500/10 border border-red-500/20 rounded-[10px]'
-                                    : 'mercury-branded'
+                                    ? 'mercury-branded-error'
+                                    : ''
                             }`}
-                            title="MERCURY for Hermes Agent"
+                            title="Mercury"
                         >
-                            {hermesError ? <AlertCircle size={14} /> : <Bot size={15} strokeWidth={2.5} />}
+                            {hermesError ? <AlertCircle size={14} /> : <img src={hermesLogo} alt="Mercury" className="h-4 w-4" />}
                             <span className="hidden xl:inline">Mercury</span>
                         </button>
                         {hermesError && (

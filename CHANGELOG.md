@@ -1,11 +1,11 @@
 # Changelog
 
-## [0.9.10] - 2026-05-23
-### Added
-- Configured OpenClaw model providers (OpenRouter, Ollama, LM Studio).
-- Integrated local custom skill directories for OpenClaw gateway routing.
+## [0.9.13] - 2026-05-23
+### Changed
+- Redesigned Mercury and OpenClaw header buttons with branding-accurate logos and adaptive themes.
+- Forced circular styling for the Mercury logo and buttons.
 
-## [0.9.2] - 2026-05-16
+## [0.9.12] - 2026-05-16
 ### Changed
 - Renamed "Hermes" to "Mercury" in the UI header and Settings Modal.
 - Updated Mercury tooltip to "MERCURY for Hermes Agent".

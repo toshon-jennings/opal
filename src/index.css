@@ -460,40 +460,70 @@ details.thinking-block > :not(summary) {
 /* ─── Branded Components ────────────────────────────────────────────────── */
 
 .openclaw-branded {
-  background: rgba(239, 68, 68, 0.08);
-  color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.15);
+  background-color: white;
+  color: var(--text-primary);
+  border: 1px solid rgba(var(--border-rgb), 0.2);
   font-weight: 600;
   letter-spacing: -0.01em;
+  transition: background-color 0.2s, border-color 0.2s;
+  border-radius: 9999px;
+}
+
+html.dark .openclaw-branded {
+  background-color: black;
 }
 
 .openclaw-branded:hover {
-  background: rgba(239, 68, 68, 0.14);
-  border-color: rgba(239, 68, 68, 0.3);
+  background-color: rgba(var(--border-rgb), 0.15);
+  border-color: rgba(var(--border-rgb), 0.4);
+}
+
+html.dark .openclaw-branded:hover {
+  background-color: #1a1a1a;
 }
 
 .openclaw-branded.active {
-  background: #ef4444;
-  color: white;
-  border-color: #ef4444;
+  background-color: rgba(var(--border-rgb), 0.2);
+  color: var(--text-primary);
+  border-color: rgba(var(--border-rgb), 0.6);
+}
+
+html.dark .openclaw-branded.active {
+  background-color: #2a2a2a;
 }
 
 .mercury-branded {
-  background: #2e2219;
-  color: #ede8e0;
-  border: 1px solid rgba(255, 240, 220, 0.12);
+  background-color: white;
+  color: var(--text-primary);
+  border: 1px solid rgba(var(--border-rgb), 0.12);
   font-weight: 600;
-  border-radius: 10px;
-  transition: 150ms ease all;
+  border-radius: 9999px;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+html.dark .mercury-branded {
+  background-color: black;
 }
 
 .mercury-branded:hover {
-  background: #38291e;
-  border-color: rgba(255, 240, 220, 0.2);
+  background-color: rgba(var(--border-rgb), 0.1);
+  border-color: rgba(var(--border-rgb), 0.25);
+}
+
+html.dark .mercury-branded:hover {
+  background-color: #1a1a1a;
 }
 
 .mercury-branded.active {
-  background: #66462c;
-  color: #ffffff;
+  background-color: rgba(var(--border-rgb), 0.15);
+  color: var(--text-primary);
   border: none;
+}
+
+html.dark .mercury-branded.active {
+  background-color: #2a2a2a;
+}
+
+.mercury-branded img {
+  border-radius: 50%;
 }
