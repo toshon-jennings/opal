@@ -103,13 +103,124 @@ export function SettingsModal({ isOpen, onClose }) {
     const [startingJanModel, setStartingJanModel] = useState(null);
     const [setupMessage, setSetupMessage] = useState('');
 
+    // Local OpenClaw Gateway Config & Sandbox/Dreaming States
+    const [localOpenClawConfig, setLocalOpenClawConfig] = useState(null);
+    const [sandboxMode, setSandboxMode] = useState('off');
+    const [dreamingEnabled, setDreamingEnabled] = useState(false);
+    const [configLoadError, setConfigLoadError] = useState(null);
+    const [configNeedsSave, setConfigNeedsSave] = useState(false);
+    const [isRestartingGateway, setIsRestartingGateway] = useState(false);
+    const [gatewayRestartStatus, setGatewayRestartStatus] = useState('');
+
     useEffect(() => {
         if (isOpen) {
             setEditingName(userName || '');
             setEditingInstructions(customInstructions || '');
             setModelSearch('');
+
+            // Load local openclaw config if in electron environment
+            if (window.electron?.readOpenClawConfig) {
+                const loadConfig = async () => {
+                    try {
+                        const config = await window.electron.readOpenClawConfig();
+                        if (config && !config.error) {
+                            setLocalOpenClawConfig(config);
+                            setSandboxMode(config.agents?.defaults?.sandbox?.mode || 'off');
+                            setDreamingEnabled(Boolean(config.plugins?.entries?.['memory-core']?.config?.dreaming?.enabled));
+                            setConfigLoadError(null);
+                        } else {
+                            setConfigLoadError(config?.error || 'Failed to load local config');
+                        }
+                    } catch (err) {
+                        setConfigLoadError(err.message);
+                    }
+                };
+                loadConfig();
+            }
         }
     }, [isOpen, userName, customInstructions]);
+
+    const saveLocalOpenClawConfig = async (config) => {
+        if (!window.electron?.writeOpenClawConfig) return;
+        try {
+            const res = await window.electron.writeOpenClawConfig(config);
+            if (res?.ok) {
+                setConfigNeedsSave(true);
+            }
+        } catch (err) {
+            console.error('Failed to write openclaw config:', err);
+        }
+    };
+
+    const handleSandboxModeChange = async (e) => {
+        const mode = e.target.value;
+        setSandboxMode(mode);
+        if (!localOpenClawConfig) return;
+
+        const updatedConfig = {
+            ...localOpenClawConfig,
+            agents: {
+                ...localOpenClawConfig.agents,
+                defaults: {
+                    ...localOpenClawConfig.agents?.defaults,
+                    sandbox: {
+                        ...localOpenClawConfig.agents?.defaults?.sandbox,
+                        mode: mode
+                    }
+                }
+            }
+        };
+        setLocalOpenClawConfig(updatedConfig);
+        await saveLocalOpenClawConfig(updatedConfig);
+    };
+
+    const handleToggleDreaming = async () => {
+        const enabled = !dreamingEnabled;
+        setDreamingEnabled(enabled);
+        if (!localOpenClawConfig) return;
+
+        const updatedConfig = {
+            ...localOpenClawConfig,
+            plugins: {
+                ...localOpenClawConfig.plugins,
+                entries: {
+                    ...localOpenClawConfig.plugins?.entries,
+                    'memory-core': {
+                        ...localOpenClawConfig.plugins?.entries?.['memory-core'],
+                        config: {
+                            ...localOpenClawConfig.plugins?.entries?.['memory-core']?.config,
+                            dreaming: {
+                                ...localOpenClawConfig.plugins?.entries?.['memory-core']?.config?.dreaming,
+                                enabled: enabled
+                            }
+                        }
+                    }
+                }
+            }
+        };
+        setLocalOpenClawConfig(updatedConfig);
+        await saveLocalOpenClawConfig(updatedConfig);
+    };
+
+    const handleRestartGateway = async () => {
+        if (isRestartingGateway) return;
+        setIsRestartingGateway(true);
+        setGatewayRestartStatus('Restarting...');
+        try {
+            const result = await window.electron.restartOpenClawGateway();
+            if (result?.ok) {
+                setGatewayRestartStatus('Gateway restarted!');
+                setConfigNeedsSave(false);
+                setTimeout(() => setGatewayRestartStatus(''), 3000);
+            } else {
+                setGatewayRestartStatus(`Failed: ${result?.error || 'Unknown error'}`);
+            }
+        } catch (err) {
+            setGatewayRestartStatus(`Failed: ${err.message}`);
+        } finally {
+            setIsRestartingGateway(false);
+        }
+    };
 
     const loadProviderDiscovery = async () => {
         if (!window.electron?.discoverModelProviders) {
@@ -787,6 +898,64 @@ export function SettingsModal({ isOpen, onClose }) {
                                 );
                             })}
                         </div>
+
+                        {/* Local Gateway Sandbox & Dreaming Toggles */}
+                        {localOpenClawConfig && (
+                            <div className="mt-4 p-4 rounded-xl border border-[var(--border)] bg-[var(--bg-tertiary)]/20 space-y-4 text-left">
+                                <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
+                                    <div>
+                                        <h4 className="text-sm font-semibold text-[var(--text-primary)]">Local Gateway Settings</h4>
+                                        <p className="text-[11px] text-[var(--text-tertiary)] mt-0.5">Configure Watson's sandbox and dreaming features.</p>
+                                    </div>
+                                    {configNeedsSave && (
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs text-[var(--accent)] font-medium">
+                                                {gatewayRestartStatus || 'Restart required'}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={handleRestartGateway}
+                                                disabled={isRestartingGateway}
+                                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[var(--accent)] text-white text-xs font-semibold hover:bg-[var(--accent-hover)] disabled:opacity-50 transition-colors"
+                                            >
+                                                <RefreshCw size={11} className={isRestartingGateway ? 'animate-spin' : ''} />
+                                                Restart
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="flex items-center justify-between gap-4">
+                                    <div>
+                                        <span className="text-xs font-semibold text-[var(--text-primary)]">OpenShell Sandbox</span>
+                                        <p className="text-[11px] text-[var(--text-tertiary)] mt-0.5">Wrap agent tools in a secure isolated environment.</p>
+                                    </div>
+                                    <select
+                                        value={sandboxMode}
+                                        onChange={handleSandboxModeChange}
+                                        className="px-2.5 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-xs text-[var(--text-secondary)] outline-none focus:border-[var(--accent)] transition-colors"
+                                    >
+                                        <option value="off">Disabled (Host Mode)</option>
+                                        <option value="non-main">Subagents Only</option>
+                                        <option value="all">Enabled (All Operations)</option>
+                                    </select>
+                                </div>
+
+                                <div className="flex items-center justify-between gap-4 pt-1">
+                                    <div>
+                                        <span className="text-xs font-semibold text-[var(--text-primary)]">Dreaming Mode</span>
+                                        <p className="text-[11px] text-[var(--text-tertiary)] mt-0.5">Let Watson preemptively research and draft tasks in the background.</p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={handleToggleDreaming}
+                                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${dreamingEnabled ? 'bg-[var(--accent)]' : 'bg-gray-200 dark:bg-gray-700'}`}
+                                    >
+                                        <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${dreamingEnabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </Section>
 
                     <Section title="Mercury" icon={Bot} defaultOpen={false}>

@@ -944,6 +944,28 @@ ipcMain.handle('openclaw:restart-gateway', async () => {
   });
 });
 
+ipcMain.handle('openclaw:read-config', async () => {
+  try {
+    const configPath = path.join(app.getPath('home'), '.openclaw', 'openclaw.json');
+    const raw = await fs.readFile(configPath, 'utf-8');
+    return JSON.parse(raw);
+  } catch (err) {
+    console.error('Error reading openclaw config:', err);
+    return { error: err.message };
+  }
+});
+
+ipcMain.handle('openclaw:write-config', async (event, config) => {
+  try {
+    const configPath = path.join(app.getPath('home'), '.openclaw', 'openclaw.json');
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
+    return { ok: true };
+  } catch (err) {
+    console.error('Error writing openclaw config:', err);
+    return { ok: false, error: err.message };
+  }
+});
+
 ipcMain.handle('models:discover-providers', async () => {
   try {
     return await discoverModelProviders();
