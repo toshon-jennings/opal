@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.10.0] - 2026-05-24
+### Added
+- Integrated a terminal command execution input bar directly inside the OpenClaw Dashboard title header.
+- Added UI toggles in Settings under the OpenClaw section to configure the local gateway's OpenShell Sandbox mode (`off`, `non-main`, `all`) and Dreaming mode.
+- Added a one-click Gateway restart control to Settings to apply configuration updates instantly.
+
 ## [0.9.13] - 2026-05-23
 ### Changed
 - Redesigned Mercury and OpenClaw header buttons with branding-accurate logos and adaptive themes.
