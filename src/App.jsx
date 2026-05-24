@@ -12,7 +12,7 @@ import { ChatProvider } from './context/ChatContext';
 
 import hermesLogo from './assets/hermes.png';
 import openClawLogo from './assets/openclaw-color.png';
-import { Moon, Sun, Lock, Unlock, Plus, Terminal as TerminalIcon, Server, X, RefreshCw, ExternalLink, Bot, AlertCircle } from 'lucide-react';
+import { Moon, Sun, Lock, Unlock, Plus, Terminal as TerminalIcon, Server, X, RefreshCw, ExternalLink, Bot, AlertCircle, BookOpen } from 'lucide-react';
 import { useTheme, ThemeProvider } from './context/ThemeContext';
 import { useChat } from './context/ChatContext';
 import TerminalPanel from './components/Terminal';
@@ -36,6 +36,11 @@ function AppContent() {
     const [isRestartingOpenClaw, setIsRestartingOpenClaw] = useState(false);
     const [hermesError, setHermesError] = useState(null);
     const [terminalCommand, setTerminalCommand] = useState('');
+    const [openClawDashboardTab, setOpenClawDashboardTab] = useState('gateway');
+    const [diaryContent, setDiaryContent] = useState('');
+    const [diaryLastSaved, setDiaryLastSaved] = useState(null);
+    const [diarySaving, setDiarySaving] = useState(false);
+    const diaryAutoSaveRef = useRef(null);
     const openClawWebviewRef = useRef(null);
     const activeOpenClawProfile = openClawConfig.profiles.find(profile => profile.id === openClawConfig.activeProfileId) || openClawConfig.profiles[0];
     const activeOpenClawDashboardUrl = getOpenClawDashboardUrl(activeOpenClawProfile);
@@ -203,6 +208,27 @@ function AppContent() {
         }, { once: true });
     }, [inspectOpenClawDashboard]);
 
+    // Load diary from localStorage on mount
+    useEffect(() => {
+        const saved = localStorage.getItem('openclaw-user-diary');
+        if (saved) setDiaryContent(saved);
+        const savedTime = localStorage.getItem('openclaw-user-diary-saved');
+        if (savedTime) setDiaryLastSaved(new Date(savedTime));
+    }, []);
+
+    const handleDiaryChange = useCallback((value) => {
+        setDiaryContent(value);
+        setDiarySaving(true);
+        if (diaryAutoSaveRef.current) clearTimeout(diaryAutoSaveRef.current);
+        diaryAutoSaveRef.current = setTimeout(() => {
+            localStorage.setItem('openclaw-user-diary', value);
+            const now = new Date();
+            localStorage.setItem('openclaw-user-diary-saved', now.toISOString());
+            setDiaryLastSaved(now);
+            setDiarySaving(false);
+        }, 800);
+    }, []);
+
     const handleTerminalSubmit = useCallback((e) => {
         e.preventDefault();
         const cmd = terminalCommand.trim();
@@ -341,24 +367,33 @@ function AppContent() {
                                     </div>
                                 </div>
 
-                                <form onSubmit={handleTerminalSubmit} className="flex-1 max-w-md mx-8 relative">
-                                    <div className="relative flex items-center">
-                                        <span className="absolute left-2.5 text-[var(--text-tertiary)] font-mono text-xs select-none">$</span>
-                                        <input
-                                            type="text"
-                                            value={terminalCommand}
-                                            onChange={(e) => setTerminalCommand(e.target.value)}
-                                            placeholder="Send command to terminal..."
-                                            className="w-full pl-6 pr-12 py-1 text-xs font-mono rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:outline-none focus:border-[var(--accent)] transition-all"
-                                        />
-                                        <button
-                                            type="submit"
-                                            className="absolute right-1 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] border border-[var(--border)] transition-colors"
-                                        >
-                                            Run
-                                        </button>
+                                {openClawDashboardTab === 'gateway' && (
+                                    <form onSubmit={handleTerminalSubmit} className="flex-1 max-w-md mx-8 relative">
+                                        <div className="relative flex items-center">
+                                            <span className="absolute left-2.5 text-[var(--text-tertiary)] font-mono text-xs select-none">$</span>
+                                            <input
+                                                type="text"
+                                                value={terminalCommand}
+                                                onChange={(e) => setTerminalCommand(e.target.value)}
+                                                placeholder="Send command to terminal..."
+                                                className="w-full pl-6 pr-12 py-1 text-xs font-mono rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:outline-none focus:border-[var(--accent)] transition-all"
+                                            />
+                                            <button
+                                                type="submit"
+                                                className="absolute right-1 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] border border-[var(--border)] transition-colors"
+                                            >
+                                                Run
+                                            </button>
+                                        </div>
+                                    </form>
+                                )}
+                                {openClawDashboardTab === 'diary' && (
+                                    <div className="flex-1 mx-8 flex items-center justify-center">
+                                        <span className="text-xs text-[var(--text-tertiary)] italic">
+                                            {diarySaving ? 'Saving…' : diaryLastSaved ? `Saved ${diaryLastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Not yet saved'}
+                                        </span>
                                     </div>
-                                </form>
+                                )}
 
                                 <div className="flex items-center gap-2">
                                     <span className={`hidden sm:inline text-xs ${openClawStatus.state === 'online' ? 'text-emerald-500' : openClawStatus.state === 'checking' ? 'text-[var(--text-secondary)]' : 'text-red-400'}`}>
@@ -404,7 +439,49 @@ function AppContent() {
                                     </button>
                                 </div>
                             </div>
-                            {openClawStatus.state === 'offline' ? (
+                            {/* Tab strip */}
+                            <div className="shrink-0 flex items-center border-b border-[var(--border)] bg-[var(--bg-secondary)] px-2">
+                                {[
+                                    { id: 'gateway', label: 'Gateway', icon: <Server size={12} /> },
+                                    { id: 'diary', label: "User's Diary", icon: <BookOpen size={12} /> },
+                                ].map(tab => (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setOpenClawDashboardTab(tab.id)}
+                                        className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors ${
+                                            openClawDashboardTab === tab.id
+                                                ? 'border-[var(--accent)] text-[var(--accent)]'
+                                                : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
+                                        }`}
+                                    >
+                                        {tab.icon}
+                                        {tab.label}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {openClawDashboardTab === 'diary' ? (
+                                <div className="flex-1 min-h-0 flex flex-col bg-[var(--bg-primary)]">
+                                    <div className="flex-1 min-h-0 relative">
+                                        <textarea
+                                            value={diaryContent}
+                                            onChange={e => handleDiaryChange(e.target.value)}
+                                            placeholder={`Write anything you'd like OpenClaw to know about you — your thoughts, goals, current projects, preferences, reflections…\n\nOpenClaw reads this daily to get deeper context about who you are and what matters to you.`}
+                                            className="absolute inset-0 w-full h-full resize-none p-6 bg-[var(--bg-primary)] text-[var(--text-primary)] text-sm leading-7 outline-none placeholder-[var(--text-tertiary)] font-[inherit]"
+                                            spellCheck
+                                            autoFocus
+                                        />
+                                    </div>
+                                    <div className="shrink-0 flex items-center justify-between px-6 py-2 border-t border-[var(--border)] bg-[var(--bg-secondary)]">
+                                        <span className="text-[11px] text-[var(--text-tertiary)]">
+                                            {diaryContent.trim() ? `${diaryContent.trim().split(/\s+/).filter(Boolean).length} words` : 'Empty'}
+                                        </span>
+                                        <span className="text-[11px] text-[var(--text-tertiary)]">
+                                            OpenClaw reads this for context
+                                        </span>
+                                    </div>
+                                </div>
+                            ) : openClawStatus.state === 'offline' ? (
                                 <div className="flex-1 min-h-0 flex items-center justify-center p-8">
                                     <div className="max-w-lg text-center">
                                         <div className="mx-auto mb-4 w-12 h-12 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] flex items-center justify-center">

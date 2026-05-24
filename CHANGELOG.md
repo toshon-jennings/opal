@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.11.0] - 2026-05-24
+### Added
+- Added a **User's Diary** tab to the OpenClaw Dashboard. Write thoughts, reflections, goals, and preferences that OpenClaw reads daily for deeper personal context.
+- Diary auto-saves to localStorage with a live save-status indicator in the header.
+- Word count footer and `BookOpen` icon tab indicator for the diary panel.
+
 ## [0.10.0] - 2026-05-24
 ### Added
 - Integrated a terminal command execution input bar directly inside the OpenClaw Dashboard title header.
