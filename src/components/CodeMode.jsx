@@ -20,6 +20,12 @@ import { buildMemoryPrompt } from '../lib/harnessMemory';
 import { chooseModelForTask, buildRoutingPrompt } from '../lib/modelRouter';
 import { buildBudgetPrompt, createBudgetRun, estimateCharsFromMessages, recordBudgetResponse } from '../lib/budgetGovernor';
 import {
+    buildIntegrationToolsPrompt,
+    executeIntegrationTool,
+    INTEGRATION_TOOLS,
+    runChatWithTools
+} from '../lib/integrationTools';
+import {
     appendMissionRunEvent,
     recordCodeFileSave,
     recordCodeSessionFinish,
@@ -266,7 +272,7 @@ export default function CodeMode() {
                 selectedModel,
                 availableModels,
                 apiKeys,
-                requiresTools: false
+                requiresTools: true
             });
             const routedProvider = route.provider || selectedProvider;
             const routedModel = route.model || selectedModel;
@@ -287,12 +293,13 @@ export default function CodeMode() {
                 files: [codeState.activeFile].filter(Boolean),
                 sourceTypes: ['code', 'cowork', 'build', 'terminal']
             });
-            const budgetRun = createBudgetRun('Code Mode', { maxIterations: 1, maxToolCalls: 0 });
+            const budgetRun = createBudgetRun('Code Mode', { maxIterations: 4, maxToolCalls: 8 });
             const systemPrompt = [
                 'Expert software engineer.',
                 buildRoutingPrompt(route),
                 buildBudgetPrompt(budgetRun),
                 memoryContext.prompt,
+                buildIntegrationToolsPrompt(apiKeys),
                 `Context: ${fileContext}`
             ].join('\n\n');
             const messagesForLLM = [{ role: 'system', content: systemPrompt }, ...updatedMessages];
@@ -302,10 +309,24 @@ export default function CodeMode() {
                 detail: `${memoryContext.memories.length} memory notes matched this request.`
             });
             let fullResponse = "";
-            await client.streamChat(messagesForLLM, (chunk) => {
-                fullResponse += chunk;
-                setStreamingMessage(normalizeAssistantSpacing(fullResponse));
-            }, routedModel, { signal: abortController.signal });
+            const toolRun = await runChatWithTools({
+                client,
+                messages: messagesForLLM,
+                tools: INTEGRATION_TOOLS,
+                modelId: routedModel,
+                signal: abortController.signal,
+                executeTool: (name, params) => executeIntegrationTool(name, params, apiKeys),
+                onToolCall: (toolCall) => {
+                    setStreamingMessage(`Using ${toolCall.name}...`);
+                },
+                onChunk: (chunk, metadata) => {
+                    if (!metadata?.isThinking) {
+                        fullResponse += chunk;
+                        setStreamingMessage(normalizeAssistantSpacing(fullResponse));
+                    }
+                }
+            });
+            fullResponse = toolRun.content || fullResponse;
             const budgetAfterResponse = recordBudgetResponse(budgetRun, estimateCharsFromMessages(messagesForLLM) + fullResponse.length);
             if (budgetAfterResponse.blocked) {
                 appendMissionRunEvent(missionRunId, {

@@ -18,6 +18,7 @@ import { ProviderModelPicker } from './ProviderModelPicker';
 import { buildBudgetPrompt, createBudgetRun, estimateCharsFromMessages, recordBudgetIteration, recordBudgetResponse, recordBudgetToolCalls } from '../lib/budgetGovernor';
 import { buildMemoryPrompt } from '../lib/harnessMemory';
 import { buildRoutingPrompt, chooseModelForTask } from '../lib/modelRouter';
+import { buildIntegrationToolsPrompt, INTEGRATION_TOOLS } from '../lib/integrationTools';
 import {
     appendMissionRunEvent,
     recordCoworkSessionFinish,
@@ -59,7 +60,7 @@ function getYouTubeEmbedUrl(url) {
     return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&rel=0&controls=1&origin=${origin}`;
 }
 // ── Agent tool definitions ──────────────────────────────────────────────────
-const AGENT_TOOLS = [
+const LOCAL_AGENT_TOOLS = [
     {
         name: 'read_file',
         description: 'Read the full contents of a file at the given path.',
@@ -84,6 +85,7 @@ const AGENT_TOOLS = [
         parameters: { command: 'Shell command to execute, e.g. "npm install" or "node src/index.js".' }
     }
 ];
+const AGENT_TOOLS = [...LOCAL_AGENT_TOOLS, ...INTEGRATION_TOOLS];
 
 // ── Path bar ────────────────────────────────────────────────────────────────
 
@@ -824,7 +826,7 @@ export default function CoworkMode() {
         janUrl
     } = useChat();
     const { webcontainerInstance } = useBuildMode();
-    const { executeTool, toolLog, clearLog } = useAgentTools(codeState.workingDirectory, webcontainerInstance);
+    const { executeTool, toolLog, clearLog } = useAgentTools(codeState.workingDirectory, webcontainerInstance, apiKeys);
     const [taskInput, setTaskInput] = useState('');
     const [activeSession, setActiveSession] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -1131,7 +1133,8 @@ export default function CoworkMode() {
                 buildBudgetPrompt(budgetRun),
                 memoryContext.prompt,
                 `The user's local project folder is: ${codeState.workingDirectory || '(not set — ask the user to choose a folder)'}`,
-                `You have access to the following tools: read_file, write_file, list_directory, run_command.`,
+                `You have access to local tools: read_file, write_file, list_directory, run_command.`,
+                buildIntegrationToolsPrompt(apiKeys),
                 `Use tools proactively to inspect the codebase, read files before editing them, and verify your changes.`,
                 `run_command is only available in WebContainer sandboxes, not local projects.`,
                 `Current session task: ${currentSession.title}`

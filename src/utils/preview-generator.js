@@ -1,5 +1,6 @@
 
-export function generatePreviewHTML(files) {
+export function generatePreviewHTML(files, options = {}) {
+    const isDarkMode = Boolean(options.isDarkMode);
     // Extract all component code
     const appCode = files['src/App.tsx'] || '';
 
@@ -32,23 +33,33 @@ export function generatePreviewHTML(files) {
         mainAppCode
     ].join('\n\n');
 
+    // Surface colors so the preview's default (unpainted) background matches
+    // Opal's active theme instead of always defaulting to white.
+    const surfaceBg = isDarkMode ? '#0f1115' : '#ffffff';
+    const surfaceText = isDarkMode ? '#e5e7eb' : '#111827';
+    const scrollbarTrack = isDarkMode ? '#1c1f26' : '#f1f1f1';
+    const scrollbarThumb = isDarkMode ? '#3a3f4b' : '#c1c1c1';
+    const scrollbarThumbHover = isDarkMode ? '#4a505e' : '#a8a8a8';
+
     // Create HTML with bundled code
     return `
 <!DOCTYPE html>
-<html>
+<html${isDarkMode ? ' class="dark"' : ''}>
 <head>
     <meta charset="UTF-8">
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script>tailwind = { config: { darkMode: 'class' } };</script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        html, body { background: ${surfaceBg}; color: ${surfaceText}; }
         body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
         /* Add some basic scrollbar styling */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: #f1f1f1; }
-        ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+        ::-webkit-scrollbar-track { background: ${scrollbarTrack}; }
+        ::-webkit-scrollbar-thumb { background: ${scrollbarThumb}; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: ${scrollbarThumbHover}; }
     </style>
 </head>
 <body>

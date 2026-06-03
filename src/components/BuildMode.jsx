@@ -80,9 +80,9 @@ export default function BuildMode() {
 
     // Regenerate preview when files change
     useEffect(() => {
-        const html = generatePreviewHTML(buildFiles);
+        const html = generatePreviewHTML(buildFiles, { isDarkMode });
         setPreviewHTML(html);
-    }, [buildFiles]);
+    }, [buildFiles, isDarkMode]);
 
     const handleSendMessage = async () => {
         if (!input.trim() || isGenerating) return;
@@ -209,7 +209,7 @@ User request: ${userMessage}`;
                     ...generatedFiles
                 };
                 try {
-                    const validationHTML = generatePreviewHTML(nextBuildFiles);
+                    const validationHTML = generatePreviewHTML(nextBuildFiles, { isDarkMode });
                     const hasRoot = validationHTML.includes('id="root"');
                     const hasAppRender = validationHTML.includes('ReactDOM.createRoot') && validationHTML.includes('<App />');
                     recordBuildPreviewValidation(missionRunId, {
@@ -476,7 +476,7 @@ User request: ${userMessage}`;
                                 </select>
                             )}
                             <button
-                                onClick={() => setPreviewHTML(generatePreviewHTML(buildFiles))}
+                                onClick={() => setPreviewHTML(generatePreviewHTML(buildFiles, { isDarkMode }))}
                                 className="rounded-md p-1.5 text-[var(--text-tertiary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
                                 title="Refresh preview"
                             >
@@ -488,9 +488,9 @@ User request: ${userMessage}`;
                     <div className="min-h-0 flex-1 overflow-hidden">
                         {viewMode === 'preview' ? (
                             <div className="h-full bg-[var(--bg-tertiary)] p-4">
-                                <div className="h-full overflow-hidden rounded-xl border border-[var(--border)] bg-white shadow-sm">
+                                <div className="h-full overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-primary)] shadow-sm">
                                     <iframe
-                                        className="h-full w-full border-none bg-white"
+                                        className="h-full w-full border-none bg-[var(--bg-primary)]"
                                         srcDoc={previewHTML}
                                         sandbox="allow-scripts allow-same-origin allow-forms"
                                         title="Preview"

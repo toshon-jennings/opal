@@ -755,6 +755,8 @@ export function SettingsModal({ isOpen, onClose }) {
                             { id: 'groq',       label: 'Groq' },
                             { id: 'gemini',     label: 'Gemini' },
                             { id: 'tavily',     label: 'Tavily (Web Search)' },
+                            { id: 'github',     label: 'GitHub Token' },
+                            { id: 'google',     label: 'Google OAuth Access Token' },
                         ].map(({ id, label }) => (
                             <div key={id} className="space-y-1.5">
                                 <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">

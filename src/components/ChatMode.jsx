@@ -22,6 +22,12 @@ import opalLogo from '../assets/opal-logo.png';
 import { PermissionsDropdown } from './PermissionsDropdown';
 import LivePreviewPanel from './LivePreviewPanel';
 import { ProviderModelPicker } from './ProviderModelPicker';
+import {
+    buildIntegrationToolsPrompt,
+    executeIntegrationTool,
+    INTEGRATION_TOOLS,
+    runChatWithTools
+} from '../lib/integrationTools';
 
 const PROVIDERS_REQUIRING_API_KEYS = new Set(['openai', 'groq', 'gemini', 'openrouter', 'anthropic', 'mistral']);
 
@@ -847,7 +853,8 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                 : permissionLevel === 'read'
                 ? '\n\nPermission level: Read only — you may only read, summarize, or discuss information. Do not suggest or perform any actions that create, modify, or delete files or data.'
                 : '';
-            const systemPrompt = `${baseSystemPrompt}${artifactInstruction}${customInstructionsPrompt}${projectSystemPrompt}${permissionPrompt}`;
+            const integrationPrompt = `\n\nTOOLS:\n${buildIntegrationToolsPrompt(apiKeys)}`;
+            const systemPrompt = `${baseSystemPrompt}${artifactInstruction}${customInstructionsPrompt}${projectSystemPrompt}${permissionPrompt}${integrationPrompt}`;
 
             const messagesWithContext = [
                 { role: 'system', content: systemPrompt },
@@ -890,7 +897,17 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
             let thinkingTokens = null;
             let stoppedByContextLimit = false;
 
-            await client.streamChat(messagesWithContext, (chunk, metadata) => {
+            const toolRun = await runChatWithTools({
+                client,
+                messages: messagesWithContext,
+                tools: INTEGRATION_TOOLS,
+                modelId: selectedModel,
+                signal: abortController.signal,
+                executeTool: (name, params) => executeIntegrationTool(name, params, apiKeys),
+                onToolCall: (toolCall) => {
+                    setStreamingMessage(`Using ${toolCall.name}...`);
+                },
+                onChunk: (chunk, metadata) => {
                 if (metadata?.isThinking) {
                     // This is thinking content
                     fullThinking += chunk;
@@ -910,7 +927,9 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                 if (metadata?.finishReason === 'length') {
                     stoppedByContextLimit = true;
                 }
-            }, selectedModel, { signal: abortController.signal });
+                }
+            });
+            fullResponse = toolRun.content || fullResponse;
 
             // Calculate duration
             const duration = thinkingStartTime.current ? Date.now() - thinkingStartTime.current : null;
@@ -944,6 +963,13 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                 const recovered = splitMisclassifiedThinking(combinedThinking);
                 cleanedResponse = recovered.response;
                 combinedThinking = recovered.thinking;
+            }
+
+            const messageMetadata = {};
+            if (combinedThinking) {
+                messageMetadata.thinking = combinedThinking;
+                messageMetadata.thinkingTokens = thinkingTokens || combinedThinking.length;
+                messageMetadata.duration = duration;
             }
 
             // ── finish_reason: "length" notice ───────────────────────────────
@@ -1023,14 +1049,6 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                     content: cleanedResponse,
                     title: 'Research: ' + userMessage.replace(/^deep research:/i, '').trim().substring(0, 40)
                 };
-            }
-
-            // Prepare message metadata with thinking content if available
-            const messageMetadata = {};
-            if (combinedThinking) {
-                messageMetadata.thinking = combinedThinking;
-                messageMetadata.thinkingTokens = thinkingTokens || combinedThinking.length;
-                messageMetadata.duration = duration;
             }
 
             // Add search sources to metadata - WAIT for logo enhancement if needed

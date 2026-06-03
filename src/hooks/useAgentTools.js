@@ -1,10 +1,11 @@
 import { useState, useCallback } from 'react';
+import { executeIntegrationTool } from '../lib/integrationTools';
 
 /**
  * Provides tool execution for the Cowork agentic loop.
  * Abstracts over local-disk (Electron) vs. WebContainer execution.
  */
-export function useAgentTools(workingDirectory, webcontainerInstance) {
+export function useAgentTools(workingDirectory, webcontainerInstance, apiKeys = {}) {
     const [toolLog, setToolLog] = useState([]);
 
     const log = useCallback((msg) => {
@@ -115,13 +116,13 @@ export function useAgentTools(workingDirectory, webcontainerInstance) {
                 }
 
                 default:
-                    return { error: `Unknown tool: "${name}"` };
+                    return await executeIntegrationTool(name, params, apiKeys);
             }
         } catch (err) {
             log(`❌ ${name} error: ${err.message}`);
             return { error: err.message };
         }
-    }, [webcontainerInstance, resolvePath, log]);
+    }, [webcontainerInstance, resolvePath, log, apiKeys]);
 
     return { executeTool, toolLog, clearLog };
 }
