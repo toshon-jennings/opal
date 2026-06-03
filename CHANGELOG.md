@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.13.1] - 2026-06-03
+### Changed
+- Updated Chat, Code, and Cowork mode components.
+- Refreshed Provider/Model picker and Settings modal.
+- Updated integration tools and persistent store.
+
 ## [0.11.0] - 2026-05-24
 ### Added
 - Added a **User's Diary** tab to the OpenClaw Dashboard. Write thoughts, reflections, goals, and preferences that OpenClaw reads daily for deeper personal context.

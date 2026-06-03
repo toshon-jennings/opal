@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import opalLogo from './assets/opal-logo.png';
 import { useMode, MODES } from './context/ModeContext';
 import ModeSwitcher from './components/ModeSwitcher';
@@ -52,8 +52,15 @@ function AppContent() {
     const [diarySaving, setDiarySaving] = useState(false);
     const diaryAutoSaveRef = useRef(null);
     const openClawWebviewRef = useRef(null);
-    const activeOpenClawProfile = openClawConfig.profiles.find(profile => profile.id === openClawConfig.activeProfileId) || openClawConfig.profiles[0];
-    const activeOpenClawDashboardUrl = getOpenClawDashboardUrl(activeOpenClawProfile);
+    const activeOpenClawProfile = useMemo(
+        () => openClawConfig.profiles.find(profile => profile.id === openClawConfig.activeProfileId) || openClawConfig.profiles[0],
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [openClawConfig.activeProfileId, openClawConfig.profiles]
+    );
+    const activeOpenClawDashboardUrl = useMemo(
+        () => getOpenClawDashboardUrl(activeOpenClawProfile),
+        [activeOpenClawProfile]
+    );
 
     // Listen for Electron Menu Actions
     useEffect(() => {
