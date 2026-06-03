@@ -1,0 +1,3 @@
+# Repo rules
+
+@AGENTS.md
