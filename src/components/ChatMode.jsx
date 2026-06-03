@@ -25,7 +25,7 @@ import { ProviderModelPicker } from './ProviderModelPicker';
 import {
     buildIntegrationToolsPrompt,
     executeIntegrationTool,
-    INTEGRATION_TOOLS,
+    getIntegrationTools,
     runChatWithTools
 } from '../lib/integrationTools';
 
@@ -900,7 +900,7 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
             const toolRun = await runChatWithTools({
                 client,
                 messages: messagesWithContext,
-                tools: INTEGRATION_TOOLS,
+                tools: getIntegrationTools({ allowWrites: permissionLevel !== 'read' }),
                 modelId: selectedModel,
                 signal: abortController.signal,
                 executeTool: (name, params) => executeIntegrationTool(name, params, apiKeys),

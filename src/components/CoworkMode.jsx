@@ -18,7 +18,7 @@ import { ProviderModelPicker } from './ProviderModelPicker';
 import { buildBudgetPrompt, createBudgetRun, estimateCharsFromMessages, recordBudgetIteration, recordBudgetResponse, recordBudgetToolCalls } from '../lib/budgetGovernor';
 import { buildMemoryPrompt } from '../lib/harnessMemory';
 import { buildRoutingPrompt, chooseModelForTask } from '../lib/modelRouter';
-import { buildIntegrationToolsPrompt, INTEGRATION_TOOLS } from '../lib/integrationTools';
+import { buildIntegrationToolsPrompt, getIntegrationTools } from '../lib/integrationTools';
 import {
     appendMissionRunEvent,
     recordCoworkSessionFinish,
@@ -85,7 +85,10 @@ const LOCAL_AGENT_TOOLS = [
         parameters: { command: 'Shell command to execute, e.g. "npm install" or "node src/index.js".' }
     }
 ];
-const AGENT_TOOLS = [...LOCAL_AGENT_TOOLS, ...INTEGRATION_TOOLS];
+const getAgentTools = ({ allowIntegrationWrites = true } = {}) => [
+    ...LOCAL_AGENT_TOOLS,
+    ...getIntegrationTools({ allowWrites: allowIntegrationWrites })
+];
 
 // ── Path bar ────────────────────────────────────────────────────────────────
 
@@ -219,7 +222,7 @@ const TRIGGERS = [
     { id: 'api',      icon: TerminalIcon, label: 'API', desc: 'Trigger from your own code by sending a POST request' },
 ];
 const CONNECTOR_TABS = ['Connectors', 'Behavior', 'Permissions'];
-const DEFAULT_CONNECTORS = ['Gmail', 'Google Calendar', 'Google Drive'];
+const DEFAULT_CONNECTORS = ['GitHub'];
 
 // ── Shared form field styles ────────────────────────────────────────────────
 const fieldClass = "w-full bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg px-3 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]";
@@ -1127,11 +1130,17 @@ export default function CoworkMode() {
                 sourceTypes: ['cowork', 'code', 'build', 'terminal']
             });
             const budgetRun = createBudgetRun('Cowork Mode');
+            const permissionPrompt = permissionLevel === 'ask'
+                ? 'Permission level: Ask first. Ask the user before recommending or performing external writes.'
+                : permissionLevel === 'read'
+                ? 'Permission level: Read only. Do not create, modify, or delete external data.'
+                : 'Permission level: Full access.';
             const systemPrompt = [
                 `You are an expert software engineer assistant operating in Cowork Mode.`,
                 buildRoutingPrompt(route),
                 buildBudgetPrompt(budgetRun),
                 memoryContext.prompt,
+                permissionPrompt,
                 `The user's local project folder is: ${codeState.workingDirectory || '(not set — ask the user to choose a folder)'}`,
                 `You have access to local tools: read_file, write_file, list_directory, run_command.`,
                 buildIntegrationToolsPrompt(apiKeys),
@@ -1199,7 +1208,7 @@ export default function CoworkMode() {
 
                 const { content, toolCalls } = await client.streamChatWithTools(
                     llmMessages,
-                    AGENT_TOOLS,
+                    getAgentTools({ allowIntegrationWrites: permissionLevel !== 'read' }),
                     (chunk, meta) => {
                         if (!meta?.isThinking) {
                             iterContent += chunk;

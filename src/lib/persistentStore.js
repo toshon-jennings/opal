@@ -6,8 +6,7 @@ export const API_KEY_STORAGE_KEYS = [
     'openrouter_key',
     'anthropic_key',
     'mistral_key',
-    'github_key',
-    'google_key'
+    'github_key'
 ];
 
 const PERSISTED_KEYS = [

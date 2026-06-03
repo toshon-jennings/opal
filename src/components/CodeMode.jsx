@@ -22,7 +22,7 @@ import { buildBudgetPrompt, createBudgetRun, estimateCharsFromMessages, recordBu
 import {
     buildIntegrationToolsPrompt,
     executeIntegrationTool,
-    INTEGRATION_TOOLS,
+    getIntegrationTools,
     runChatWithTools
 } from '../lib/integrationTools';
 import {
@@ -294,11 +294,17 @@ export default function CodeMode() {
                 sourceTypes: ['code', 'cowork', 'build', 'terminal']
             });
             const budgetRun = createBudgetRun('Code Mode', { maxIterations: 4, maxToolCalls: 8 });
+            const permissionPrompt = permissionLevel === 'ask'
+                ? 'Permission level: Ask first. Ask the user before recommending or performing external writes.'
+                : permissionLevel === 'read'
+                ? 'Permission level: Read only. Do not create, modify, or delete external data.'
+                : 'Permission level: Full access.';
             const systemPrompt = [
                 'Expert software engineer.',
                 buildRoutingPrompt(route),
                 buildBudgetPrompt(budgetRun),
                 memoryContext.prompt,
+                permissionPrompt,
                 buildIntegrationToolsPrompt(apiKeys),
                 `Context: ${fileContext}`
             ].join('\n\n');
@@ -312,7 +318,7 @@ export default function CodeMode() {
             const toolRun = await runChatWithTools({
                 client,
                 messages: messagesForLLM,
-                tools: INTEGRATION_TOOLS,
+                tools: getIntegrationTools({ allowWrites: permissionLevel !== 'read' }),
                 modelId: routedModel,
                 signal: abortController.signal,
                 executeTool: (name, params) => executeIntegrationTool(name, params, apiKeys),
