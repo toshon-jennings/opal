@@ -15,7 +15,11 @@ import opalLogo from '../assets/opal-logo.png';
 import { hasElectronStore, loadElectronPersistence, saveElectronPersistence } from '../lib/persistentStore';
 import { normalizeAssistantSpacing } from '../lib/textFormatting';
 import { ProviderModelPicker } from './ProviderModelPicker';
+import { buildBudgetPrompt, createBudgetRun, estimateCharsFromMessages, recordBudgetIteration, recordBudgetResponse, recordBudgetToolCalls } from '../lib/budgetGovernor';
+import { buildMemoryPrompt } from '../lib/harnessMemory';
+import { buildRoutingPrompt, chooseModelForTask } from '../lib/modelRouter';
 import {
+    appendMissionRunEvent,
     recordCoworkSessionFinish,
     recordCoworkSessionStart,
     recordCoworkToolCall
@@ -811,8 +815,8 @@ export default function CoworkMode() {
         userName,
         selectedProvider,
         selectedModel,
-        apiKeys,
         availableModels,
+        apiKeys,
         updateProvider,
         updateModel,
         supportsImages,
@@ -841,6 +845,15 @@ export default function CoworkMode() {
     const isResizingConversationRef = useRef(false);
     const imageInputRef = useRef(null);
     const fileInputRef = useRef(null);
+    const activeRequestRef = useRef(null);
+
+    useEffect(() => {
+        return () => activeRequestRef.current?.abort();
+    }, []);
+
+    const handleCancelRequest = () => {
+        activeRequestRef.current?.abort();
+    };
 
     useEffect(() => {
         document.documentElement.style.setProperty('--opal-terminal-left', `${sidebarWidth}px`);
@@ -1051,6 +1064,8 @@ export default function CoworkMode() {
         setStreamingMessage('');
         setAgentStatus('');
         clearLog();
+        const abortController = new AbortController();
+        activeRequestRef.current = abortController;
 
         let currentSession = activeSession;
         if (!currentSession) {
@@ -1086,15 +1101,46 @@ export default function CoworkMode() {
         }));
 
         try {
-            const client = LLMFactory.getClient(selectedProvider, apiKeys[selectedProvider], { lmStudioUrl, janUrl });
+            const imageAttachments = currentAttachments.filter(a => a.type === 'image');
+            const route = chooseModelForTask({
+                task: displayMessage,
+                selectedProvider,
+                selectedModel,
+                availableModels,
+                apiKeys,
+                requiresTools: true,
+                requiresImages: imageAttachments.length > 0 && supportsImages
+            });
+            const routedProvider = route.provider || selectedProvider;
+            const routedModel = route.model || selectedModel;
+            appendMissionRunEvent(missionRunId, {
+                type: 'info',
+                title: 'Model route selected',
+                detail: `${routedProvider}/${routedModel}: ${route.reason}`
+            });
+            const client = LLMFactory.getClient(routedProvider, apiKeys[routedProvider], { lmStudioUrl, janUrl });
+            const memoryContext = buildMemoryPrompt(displayMessage, {
+                scope: codeState.workingDirectory,
+                files: currentAttachments.map(attachment => attachment.name).filter(Boolean),
+                sourceTypes: ['cowork', 'code', 'build', 'terminal']
+            });
+            const budgetRun = createBudgetRun('Cowork Mode');
             const systemPrompt = [
                 `You are an expert software engineer assistant operating in Cowork Mode.`,
+                buildRoutingPrompt(route),
+                buildBudgetPrompt(budgetRun),
+                memoryContext.prompt,
                 `The user's local project folder is: ${codeState.workingDirectory || '(not set — ask the user to choose a folder)'}`,
                 `You have access to the following tools: read_file, write_file, list_directory, run_command.`,
                 `Use tools proactively to inspect the codebase, read files before editing them, and verify your changes.`,
                 `run_command is only available in WebContainer sandboxes, not local projects.`,
                 `Current session task: ${currentSession.title}`
             ].join('\n');
+            appendMissionRunEvent(missionRunId, {
+                type: 'info',
+                title: 'Durable memory loaded',
+                detail: `${memoryContext.memories.length} memory notes matched this task.`
+            });
 
             // Build attachments into the initial user message
             let fullTextContent = message;
@@ -1104,7 +1150,6 @@ export default function CoworkMode() {
                     `[File: ${a.name}]\n---\n${a.content}\n---`
                 ).join('\n\n');
             }
-            const imageAttachments = currentAttachments.filter(a => a.type === 'image');
             if (imageAttachments.length > 0 && !supportsImages) {
                 fullTextContent += '\n\n' + imageAttachments.map(a =>
                     `[Image: ${a.name}]\nThis model does not support image input.`
@@ -1118,7 +1163,7 @@ export default function CoworkMode() {
                 : (fullTextContent || attachmentSummary);
 
             // ── Agent loop ─────────────────────────────────────────────────
-            const MAX_ITERATIONS = 10;
+            const MAX_ITERATIONS = budgetRun.limits.maxIterations;
             // Running LLM message list (includes tool results fed back in)
             let llmMessages = [
                 { role: 'system', content: systemPrompt },
@@ -1127,10 +1172,27 @@ export default function CoworkMode() {
             ];
             // Human-readable messages we'll save to the session at the end
             let sessionMessages = [...userHistoryMessages];
+            let activeBudget = budgetRun;
+            let budgetStopped = false;
 
             for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
+                activeBudget = recordBudgetIteration(activeBudget, estimateCharsFromMessages(llmMessages));
+                if (activeBudget.blocked) {
+                    setAgentStatus('Budget limit reached');
+                    appendMissionRunEvent(missionRunId, {
+                        type: 'error',
+                        title: 'Budget limit reached',
+                        detail: activeBudget.warnings.join(' ')
+                    }, {
+                        status: 'blocked',
+                        next: 'Narrow the task, raise the budget, or continue in a new run.'
+                    });
+                    budgetStopped = true;
+                    break;
+                }
                 setStreamingMessage('');
                 let iterContent = '';
+                let iterThinking = '';
 
                 const { content, toolCalls } = await client.streamChatWithTools(
                     llmMessages,
@@ -1139,15 +1201,19 @@ export default function CoworkMode() {
                         if (!meta?.isThinking) {
                             iterContent += chunk;
                             setStreamingMessage(normalizeAssistantSpacing(iterContent));
+                        } else {
+                            iterThinking += chunk;
                         }
                     },
-                    selectedModel
+                    routedModel,
+                    { signal: abortController.signal }
                 );
 
                 if (!toolCalls || toolCalls.length === 0) {
                     // No tool calls — final response, we're done
-                    sessionMessages = [...sessionMessages, { role: 'assistant', content: normalizeAssistantSpacing(content) }];
-                    llmMessages = [...llmMessages, { role: 'assistant', content }];
+                    const finalContent = content || iterContent || iterThinking;
+                    sessionMessages = [...sessionMessages, { role: 'assistant', content: normalizeAssistantSpacing(finalContent) }];
+                    llmMessages = [...llmMessages, { role: 'assistant', content: finalContent }];
                     break;
                 }
 
@@ -1167,6 +1233,19 @@ export default function CoworkMode() {
 
                 // Execute each tool and collect results
                 const toolResults = [];
+                activeBudget = recordBudgetToolCalls(activeBudget, toolCalls.length);
+                if (activeBudget.blocked) {
+                    appendMissionRunEvent(missionRunId, {
+                        type: 'error',
+                        title: 'Tool-call budget reached',
+                        detail: activeBudget.warnings.join(' ')
+                    }, {
+                        status: 'blocked',
+                        next: 'Review completed tool calls before continuing.'
+                    });
+                    budgetStopped = true;
+                    break;
+                }
                 for (const tc of toolCalls) {
                     setAgentStatus(`Using tool: ${tc.name}${tc.args.path ? ` → ${tc.args.path}` : tc.args.command ? ` → ${tc.args.command}` : ''}`);
                     recordCoworkToolCall(missionRunId, tc.name, tc.args);
@@ -1180,6 +1259,7 @@ export default function CoworkMode() {
                 }
 
                 llmMessages = [...llmMessages, ...toolResults];
+                activeBudget = recordBudgetResponse(activeBudget, iterContent.length);
 
                 // If this was the last allowed iteration, force a final response
                 if (iteration === MAX_ITERATIONS - 1) {
@@ -1208,23 +1288,31 @@ export default function CoworkMode() {
             }));
             setActiveSession(prev => ({ ...prev, messages: finalMessages }));
             recordCoworkSessionFinish(missionRunId, {
-                ok: true,
-                detail: lastAssistant?.content ? 'Final assistant response was recorded.' : 'Agent completed without a final text response.'
+                ok: !budgetStopped,
+                detail: budgetStopped
+                    ? 'Cowork stopped because the budget governor reached a limit.'
+                    : lastAssistant?.content ? 'Final assistant response was recorded.' : 'Agent completed without a final text response.'
             });
 
         } catch (error) {
             console.error('Agent failed:', error);
+            const wasCancelled = error?.name === 'AbortError';
             setAgentStatus('');
             setStreamingMessage('');
             setActiveSession(prev => ({
                 ...prev,
-                messages: [...(prev.messages || []), { role: 'assistant', content: `Error: ${error.message}` }]
+                messages: [...(prev.messages || []), {
+                    role: 'assistant',
+                    content: wasCancelled ? 'Cancelled before the provider finished responding.' : `Error: ${error.message}`
+                }]
             }));
             recordCoworkSessionFinish(missionRunId, {
-                ok: false,
-                detail: error?.message || 'Cowork agent failed.'
+                ok: wasCancelled,
+                status: wasCancelled ? 'cancelled' : undefined,
+                detail: wasCancelled ? 'Provider request was aborted by the user.' : (error?.message || 'Cowork agent failed.')
             });
         } finally {
+            if (activeRequestRef.current === abortController) activeRequestRef.current = null;
             setIsLoading(false);
         }
     };
@@ -1447,11 +1535,13 @@ export default function CoworkMode() {
                                             />
                                         </div>
                                         <button
-                                            type="submit"
-                                            disabled={isLoading || (!taskInput.trim() && attachments.length === 0)}
+                                            type={isLoading ? 'button' : 'submit'}
+                                            onClick={isLoading ? handleCancelRequest : undefined}
+                                            disabled={!isLoading && (!taskInput.trim() && attachments.length === 0)}
                                             className="absolute bottom-3 right-3 p-1.5 bg-[var(--accent)] text-white rounded-lg hover:bg-[var(--accent-hover)] transition-colors disabled:opacity-50"
+                                            title={isLoading ? 'Cancel provider request' : 'Send'}
                                         >
-                                        <Send size={16} />
+                                        {isLoading ? <X size={16} /> : <Send size={16} />}
                                     </button>
                                 </form>
                             </div>

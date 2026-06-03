@@ -60,7 +60,11 @@ export function useAgentTools(workingDirectory, webcontainerInstance) {
                             ? params.path.slice(0, params.path.lastIndexOf('/'))
                             : null;
                         if (dir) {
-                            try { await webcontainerInstance.fs.mkdir(dir, { recursive: true }); } catch {}
+                            try {
+                                await webcontainerInstance.fs.mkdir(dir, { recursive: true });
+                            } catch (err) {
+                                log(`mkdir skipped for ${dir}: ${err.message}`);
+                            }
                         }
                         await webcontainerInstance.fs.writeFile(params.path, params.content ?? '');
                     } else {
@@ -117,7 +121,7 @@ export function useAgentTools(workingDirectory, webcontainerInstance) {
             log(`❌ ${name} error: ${err.message}`);
             return { error: err.message };
         }
-    }, [workingDirectory, webcontainerInstance, resolvePath, log]);
+    }, [webcontainerInstance, resolvePath, log]);
 
     return { executeTool, toolLog, clearLog };
 }

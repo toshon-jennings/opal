@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import { useMode } from '../context/ModeContext';
 import { readJsonStorage } from '../lib/persistentStore';
+import { readIntentReviews } from '../lib/diffReview';
+import { addHarnessMemory, readHarnessMemory } from '../lib/harnessMemory';
 import {
     MISSION_MEMORY_KEY,
     buildFinishReport,
@@ -34,6 +36,7 @@ import {
     saveMissionRuns,
     setMissionValidationTarget
 } from '../lib/missionControl';
+import { assignTransitLayout, buildMissionTransitGraph } from '../lib/transitMap';
 
 const STATUS_META = {
     running: { label: 'Running', color: 'text-sky-400', bg: 'bg-sky-500/10', border: 'border-sky-500/20', icon: PlayCircle },
@@ -73,6 +76,37 @@ function getCheckpointClass(state) {
     return 'text-[var(--text-tertiary)]';
 }
 
+function cancelTerminalRun(runId) {
+    return new Promise((resolve) => {
+        const port = localStorage.getItem('opal_terminal_port') || '3001';
+        const socket = new WebSocket(`ws://localhost:${port}/?sessionId=default&telemetry=1`);
+        const timeout = setTimeout(() => {
+            socket.close();
+            resolve({ ok: false, detail: 'Timed out while connecting to the local terminal server.' });
+        }, 1500);
+        socket.onopen = () => {
+            socket.send(JSON.stringify({ type: 'cancelCommand', runId }));
+        };
+        socket.onmessage = (event) => {
+            if (typeof event.data !== 'string') return;
+            try {
+                const message = JSON.parse(event.data);
+                if (message.type === 'commandCancelled' && message.runId === runId) {
+                    clearTimeout(timeout);
+                    socket.close();
+                    resolve({ ok: true, detail: 'Sent Ctrl-C to the terminal session for this Mission run.' });
+                }
+            } catch {
+                // Ignore non-protocol terminal data.
+            }
+        };
+        socket.onerror = () => {
+            clearTimeout(timeout);
+            resolve({ ok: false, detail: 'Could not reach the local terminal server.' });
+        };
+    });
+}
+
 export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRestartingOpenClaw }) {
     const { openClawConfig, setShowOpenClawDashboard } = useMode();
     const [runs, setRuns] = useState(() => readMissionRuns());
@@ -87,6 +121,8 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
     const [gatewayCheck, setGatewayCheck] = useState(null);
     const [activeFilter, setActiveFilter] = useState('all');
     const [validationDraft, setValidationDraft] = useState('');
+    const [harnessMemory, setHarnessMemory] = useState(() => readHarnessMemory());
+    const [intentReviews, setIntentReviews] = useState(() => readIntentReviews());
 
     const activeProfile = openClawConfig.profiles.find(profile => profile.id === openClawConfig.activeProfileId) || openClawConfig.profiles[0];
     const filteredRuns = useMemo(() => runs.filter(run => matchesRunFilter(run, activeFilter)), [runs, activeFilter]);
@@ -95,11 +131,17 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
     const gatewayDetails = gatewayRun?.gateway || null;
     const finishReport = useMemo(() => buildFinishReport(selectedRun), [selectedRun]);
     const pendingMemoryCandidates = memoryCandidates.filter(candidate => candidate.status === 'pending');
+    const latestIntentReview = selectedRun?.review || intentReviews.find(review => (
+        review.files?.some(file => selectedRun?.files?.includes(file))
+    ));
+    const transitGraph = useMemo(() => assignTransitLayout(buildMissionTransitGraph(runs, harnessMemory)), [runs, harnessMemory]);
 
     useEffect(() => {
         const handleMissionUpdate = (event) => {
             const nextRuns = Array.isArray(event.detail) ? event.detail : readMissionRuns();
             setRuns(nextRuns);
+            setHarnessMemory(readHarnessMemory());
+            setIntentReviews(readIntentReviews());
         };
 
         window.addEventListener(MISSION_UPDATED_EVENT, handleMissionUpdate);
@@ -162,6 +204,47 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
         setRuns(saveMissionRuns(nextRuns));
     }, [runs]);
 
+    const cancelRun = useCallback((run) => {
+        if (!run) return;
+        if (run.terminal && run.status === 'running') {
+            cancelTerminalRun(run.id).then(result => {
+                appendMissionRunEvent(run.id, {
+                    type: result.ok ? 'info' : 'error',
+                    title: result.ok ? 'Terminal interrupt sent' : 'Terminal interrupt unavailable',
+                    detail: result.detail
+                }, {
+                    status: 'cancelled',
+                    terminal: {
+                        ...(run.terminal || {}),
+                        cancelledAt: new Date().toISOString(),
+                        cancelSignalSent: result.ok
+                    },
+                    checkpoints: [
+                        ...(run.checkpoints || []).filter(checkpoint => !/cancel/i.test(checkpoint.label || '')),
+                        { label: result.ok ? 'Cancel signal sent' : 'Cancel recorded locally', state: result.ok ? 'done' : 'blocked' }
+                    ],
+                    next: result.ok
+                        ? 'Confirm the terminal has returned to a prompt before retrying.'
+                        : 'Open the terminal panel and interrupt the process manually if it is still running.'
+                });
+                setRuns(readMissionRuns());
+            });
+            return;
+        }
+        appendMissionRunEvent(run.id, {
+            type: 'info',
+            title: 'Run cancelled',
+            detail: 'Mission Control marked this run cancelled. Some provider calls cannot be interrupted after dispatch.'
+        }, {
+            status: 'cancelled',
+            checkpoints: [
+                ...(run.checkpoints || []).filter(checkpoint => checkpoint.state !== 'active'),
+                { label: 'Cancellation recorded', state: 'done' }
+            ],
+            next: 'Start a new run when the provider or local process is ready.'
+        });
+    }, []);
+
     const retryRun = useCallback((runId) => {
         const nextRuns = runs.map(run => (
             run.id === runId
@@ -206,7 +289,17 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
             },
             ...prev
         ].slice(0, 12));
+        addHarnessMemory({
+            scope: selectedRun?.workingDirectory || 'global',
+            sourceRunId: selectedRun?.id || null,
+            sourceType: 'manual',
+            title: 'Manual Mission memory',
+            status: 'saved',
+            tags: ['manual', selectedRun?.agent].filter(Boolean),
+            text
+        });
         setMemoryDraft('');
+        setHarnessMemory(readHarnessMemory());
     }, [memoryDraft, selectedRun]);
 
     const saveMemoryCandidate = useCallback((candidate) => {
@@ -220,12 +313,23 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
             },
             ...prev
         ].slice(0, 12));
+        addHarnessMemory({
+            scope: selectedRun?.workingDirectory || 'global',
+            sourceRunId: candidate.sourceRunId,
+            sourceType: candidate.sourceType,
+            title: `Mission memory: ${candidate.sourceType}`,
+            status: 'saved',
+            tags: ['mission', candidate.sourceType, candidate.quality?.verdict].filter(Boolean),
+            quality: candidate.quality,
+            text: candidate.text
+        });
         setMemoryCandidates(prev => saveMemoryCandidates(prev.map(item => (
             item.id === candidate.id
                 ? { ...item, status: 'saved', resolvedAt: new Date().toISOString() }
                 : item
         ))));
-    }, []);
+        setHarnessMemory(readHarnessMemory());
+    }, [selectedRun]);
 
     const discardMemoryCandidate = useCallback((candidate) => {
         setMemoryCandidates(prev => saveMemoryCandidates(prev.map(item => (
@@ -334,14 +438,15 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
                                         <ActionButton icon={PlayCircle} label="Resume" onClick={() => updateRunStatus(selectedRun.id, 'running')} />
                                     )}
                                     <ActionButton icon={RotateCcw} label="Retry" onClick={() => retryRun(selectedRun.id)} />
-                                    <ActionButton icon={Square} label="Cancel" onClick={() => updateRunStatus(selectedRun.id, 'cancelled')} />
+                                    <ActionButton icon={Square} label="Cancel" onClick={() => cancelRun(selectedRun)} />
                                 </div>
                             </div>
 
-                            <div className="mt-6 grid grid-cols-3 gap-3 max-md:grid-cols-1">
+                            <div className="mt-6 grid grid-cols-4 gap-3 max-md:grid-cols-1">
                                 <InfoTile icon={Bot} label="Agent" value={selectedRun.agent} />
                                 <InfoTile icon={Clock3} label="Updated" value={formatTime(selectedRun.updatedAt)} />
                                 <InfoTile icon={GitBranch} label="Workspace" value={selectedRun.workingDirectory} mono />
+                                <InfoTile icon={Sparkles} label="Memory" value={`${harnessMemory.length} notes`} />
                             </div>
 
                             <div className="mt-6 grid grid-cols-2 gap-4 max-lg:grid-cols-1">
@@ -407,6 +512,19 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
                                     </div>
                                 </Panel>
                             </div>
+
+                            {latestIntentReview && (
+                                <div className="mt-4">
+                                    <Panel title="Intent-First Review" icon={ShieldCheck}>
+                                        <div className="grid grid-cols-2 gap-3 max-lg:grid-cols-1">
+                                            <ReportField label="Summary" value={latestIntentReview.summary} />
+                                            <ReportField label="Validation" value={latestIntentReview.validation?.summary || 'No validation detected.'} />
+                                            <ReportList label="Files" values={latestIntentReview.files?.length ? latestIntentReview.files : ['No files detected.']} />
+                                            <ReportList label="Risks" values={latestIntentReview.risks?.length ? latestIntentReview.risks : ['No obvious risks detected.']} />
+                                        </div>
+                                    </Panel>
+                                </div>
+                            )}
 
                             {selectedRun.validation && (
                                 <div className="mt-4">
@@ -538,6 +656,16 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
                                         <span className="text-[11px] text-[var(--text-tertiary)]">{formatTime(candidate.createdAt)}</span>
                                     </div>
                                     <p className="mt-2 text-sm leading-5 text-[var(--text-secondary)]">{candidate.text}</p>
+                                    {candidate.quality && (
+                                        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-[var(--text-tertiary)]">
+                                            <span className="rounded-md border border-[var(--border)] bg-[var(--bg-secondary)] px-1.5 py-0.5 uppercase text-[var(--text-secondary)]">
+                                                {candidate.quality.verdict} {candidate.quality.score}/8
+                                            </span>
+                                            {(candidate.quality.reasons || []).map(reason => (
+                                                <span key={reason} className="rounded-md bg-[var(--bg-secondary)] px-1.5 py-0.5">{reason}</span>
+                                            ))}
+                                        </div>
+                                    )}
                                     <div className="mt-3 flex gap-2">
                                         <button
                                             type="button"
@@ -581,9 +709,16 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
                                 </div>
                             ))}
                         </div>
-                    </Panel>
-                    </div>
-                </aside>
+	                    </Panel>
+	                    </div>
+
+                        <Panel title="Transit Map" icon={GitBranch}>
+                            <TransitGraph graph={transitGraph} />
+                            <p className="mt-3 text-xs leading-5 text-[var(--text-secondary)]">
+                                Recent runs, touched files, validation, and memory are drawn as workflow lines.
+                            </p>
+                        </Panel>
+	                </aside>
             </div>
         </div>
     );
@@ -701,6 +836,81 @@ function Panel({ title, icon: Icon, children }) {
             {children}
         </div>
     );
+}
+
+function TransitGraph({ graph }) {
+    const nodes = graph?.nodes || [];
+    const edges = graph?.edges || [];
+    const byId = new Map(nodes.map(node => [node.id, node]));
+    if (nodes.length === 0) {
+        return <p className="text-sm leading-6 text-[var(--text-secondary)]">No run graph available yet.</p>;
+    }
+    return (
+        <div className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg-primary)]">
+            <svg viewBox={`0 0 ${graph.width} ${graph.height}`} className="h-[260px] w-full">
+                <defs>
+                    <filter id="nodeShadow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.18" />
+                    </filter>
+                </defs>
+                {edges.map((edge, index) => {
+                    const from = byId.get(edge.from);
+                    const to = byId.get(edge.to);
+                    if (!from || !to) return null;
+                    const midX = (from.x + to.x) / 2;
+                    const path = `M ${from.x} ${from.y} C ${midX} ${from.y}, ${midX} ${to.y}, ${to.x} ${to.y}`;
+                    return (
+                        <path
+                            key={`${edge.from}-${edge.to}-${index}`}
+                            d={path}
+                            fill="none"
+                            stroke={getLineColor(edge.label)}
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            opacity="0.75"
+                        />
+                    );
+                })}
+                {nodes.map(node => (
+                    <g key={node.id} transform={`translate(${node.x}, ${node.y})`}>
+                        <circle r={node.type === 'origin' ? 10 : 8} fill={getNodeColor(node)} filter="url(#nodeShadow)" />
+                        <circle r={node.type === 'origin' ? 4 : 3} fill="var(--bg-primary)" opacity="0.85" />
+                        <text
+                            x="0"
+                            y="22"
+                            textAnchor="middle"
+                            className="fill-[var(--text-secondary)]"
+                            style={{ fontSize: 10, fontWeight: 600 }}
+                        >
+                            {truncateLabel(node.label)}
+                        </text>
+                    </g>
+                ))}
+            </svg>
+        </div>
+    );
+}
+
+function getNodeColor(node) {
+    if (node.status === 'blocked') return '#f87171';
+    if (node.status === 'completed') return '#34d399';
+    if (node.status === 'running') return '#38bdf8';
+    if (node.type === 'memory') return '#a78bfa';
+    if (node.type === 'file') return '#fbbf24';
+    if (node.type === 'control') return '#60a5fa';
+    return 'var(--accent)';
+}
+
+function getLineColor(label) {
+    if (label === 'failed' || label === 'blocked') return '#f87171';
+    if (label === 'passed' || label === 'candidate') return '#34d399';
+    if (label === 'touches') return '#fbbf24';
+    return 'var(--accent)';
+}
+
+function truncateLabel(label = '') {
+    const value = String(label);
+    return value.length > 16 ? `${value.slice(0, 14)}..` : value;
 }
 
 function matchesRunFilter(run, filter) {

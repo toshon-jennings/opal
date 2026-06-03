@@ -1,5 +1,5 @@
 import { useMode, MODES } from '../context/ModeContext';
-import { MessageSquare, Code, Users, ActivitySquare } from 'lucide-react';
+import { MessageSquare, Code, Users, ActivitySquare, Hammer } from 'lucide-react';
 
 export default function ModeSwitcher() {
     const { currentMode, setCurrentMode } = useMode();
@@ -9,6 +9,7 @@ export default function ModeSwitcher() {
         { id: MODES.COWORK, icon: Users,         label: 'Cowork' },
         { id: MODES.CODE,   icon: Code,          label: 'Code' },
         { id: MODES.MISSION, icon: ActivitySquare, label: 'Mission' },
+        { id: MODES.BUILD,  icon: Hammer,        label: 'Build' },
     ];
 
     return (

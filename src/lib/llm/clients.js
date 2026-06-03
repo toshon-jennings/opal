@@ -216,6 +216,22 @@ class StreamingTagParser {
         }
         return null;
     }
+
+    flushAsContent() {
+        if (!this.thinkingBuffer || !this.inThinking) return null;
+        const content = this.thinkingBuffer;
+        this.reset();
+        return content.trim() ? { isThinking: false, content } : null;
+    }
+}
+
+function flushUnclosedThinking(tagParser, onChunk) {
+    const flushed = tagParser.flushAsContent();
+    if (flushed) onChunk(flushed.content, { isThinking: false, recoveredThinking: true });
+}
+
+function normalizeStreamOptions(options) {
+    return options && typeof options === 'object' ? options : {};
 }
 
 export class LLMFactory {
@@ -250,7 +266,7 @@ class BaseClient {
         this.apiKey = apiKey;
     }
 
-    async streamChat(messages, onChunk, modelId) {
+    async streamChat() {
         throw new Error('Not implemented');
     }
 
@@ -296,7 +312,8 @@ class BaseClient {
      * Accumulates streamed tool-call arguments (which arrive in chunks) and
      * returns { content, toolCalls } when the stream is complete.
      */
-    async _openAIStreamWithTools(url, headers, messages, tools, onChunk, modelId) {
+    async _openAIStreamWithTools(url, headers, messages, tools, onChunk, modelId, options = {}) {
+        const streamOptions = normalizeStreamOptions(options);
         const formattedMessages = messages.map(m => {
             if (m.role === 'tool')      return { role: 'tool', tool_call_id: m.tool_call_id, content: m.content };
             if (m.tool_calls)           return { role: 'assistant', content: m.content ?? null, tool_calls: m.tool_calls };
@@ -321,9 +338,11 @@ class BaseClient {
                     tools: this._formatToolsAsOpenAI(tools),
                     tool_choice: 'auto',
                     stream: true
-                })
+                }),
+                signal: streamOptions.signal
             });
-        } catch {
+        } catch (err) {
+            if (err?.name === 'AbortError') throw err;
             throw new Error(`Could not reach model API at ${url}`);
         }
 
@@ -381,21 +400,22 @@ class BaseClient {
      * Default fallback: providers that don't support native tool calling
      * fall back to regular streaming (Bolt-style action tags still work).
      */
-    async streamChatWithTools(messages, tools, onChunk, modelId) {
+    async streamChatWithTools(messages, tools, onChunk, modelId, options = {}) {
         let content = '';
         await this.streamChat(messages, (chunk, meta) => {
             if (!meta?.isThinking) content += chunk;
             onChunk(chunk, meta);
-        }, modelId);
+        }, modelId, options);
         return { content, toolCalls: null };
     }
 }
 
 // OpenAI Client with comprehensive detection
 export class OpenAIClient extends BaseClient {
-    async streamChat(messages, onChunk, modelId = 'gpt-4o') {
+    async streamChat(messages, onChunk, modelId = 'gpt-4o', options = {}) {
         if (!this.apiKey) throw new Error('OpenAI API Key missing');
 
+        const streamOptions = normalizeStreamOptions(options);
         const config = THINKING_CONFIG.fields.openai;
         const tagParser = new StreamingTagParser();
 
@@ -433,7 +453,8 @@ export class OpenAIClient extends BaseClient {
                 model: modelId,
                 messages: formattedMessages,
                 stream: true
-            })
+            }),
+            signal: streamOptions.signal
         });
 
         if (!response.ok) {
@@ -489,23 +510,25 @@ export class OpenAIClient extends BaseClient {
                 }
             }
         }
+        flushUnclosedThinking(tagParser, onChunk);
     }
 
-    async streamChatWithTools(messages, tools, onChunk, modelId = 'gpt-4o') {
+    async streamChatWithTools(messages, tools, onChunk, modelId = 'gpt-4o', options = {}) {
         if (!this.apiKey) throw new Error('OpenAI API Key missing');
         return this._openAIStreamWithTools(
             'https://api.openai.com/v1/chat/completions',
             { 'Authorization': `Bearer ${this.apiKey}` },
-            messages, tools, onChunk, modelId
+            messages, tools, onChunk, modelId, options
         );
     }
 }
 
 // Groq Client with tag-based detection
 export class GroqClient extends BaseClient {
-    async streamChat(messages, onChunk, modelId = 'llama-3.3-70b-versatile') {
+    async streamChat(messages, onChunk, modelId = 'llama-3.3-70b-versatile', options = {}) {
         if (!this.apiKey) throw new Error('Groq API Key missing');
 
+        const streamOptions = normalizeStreamOptions(options);
         const tagParser = new StreamingTagParser();
 
         // Format messages - handle images if present (Groq uses OpenAI-compatible format)
@@ -540,7 +563,8 @@ export class GroqClient extends BaseClient {
                 model: modelId,
                 messages: formattedMessages,
                 stream: true
-            })
+            }),
+            signal: streamOptions.signal
         });
 
         if (!response.ok) {
@@ -583,23 +607,25 @@ export class GroqClient extends BaseClient {
                 }
             }
         }
+        flushUnclosedThinking(tagParser, onChunk);
     }
 
-    async streamChatWithTools(messages, tools, onChunk, modelId = 'llama-3.3-70b-versatile') {
+    async streamChatWithTools(messages, tools, onChunk, modelId = 'llama-3.3-70b-versatile', options = {}) {
         if (!this.apiKey) throw new Error('Groq API Key missing');
         return this._openAIStreamWithTools(
             'https://api.groq.com/openai/v1/chat/completions',
             { 'Authorization': `Bearer ${this.apiKey}` },
-            messages, tools, onChunk, modelId
+            messages, tools, onChunk, modelId, options
         );
     }
 }
 
 // Gemini Client with universal detection
 export class GeminiClient extends BaseClient {
-    async streamChat(messages, onChunk, modelId = 'gemini-1.5-flash') {
+    async streamChat(messages, onChunk, modelId = 'gemini-1.5-flash', options = {}) {
         if (!this.apiKey) throw new Error('Gemini API Key missing');
 
+        const streamOptions = normalizeStreamOptions(options);
         const url = new URL(`https://generativelanguage.googleapis.com/v1beta/models/${modelId}:streamGenerateContent`);
         url.searchParams.set('key', this.apiKey);
         url.searchParams.set('alt', 'sse');
@@ -640,7 +666,8 @@ export class GeminiClient extends BaseClient {
             },
             body: JSON.stringify({
                 contents: contents
-            })
+            }),
+            signal: streamOptions.signal
         });
 
         if (!response.ok) {
@@ -723,11 +750,13 @@ export class GeminiClient extends BaseClient {
                 console.error('Error parsing final Gemini chunk', e);
             }
         }
+        flushUnclosedThinking(tagParser, onChunk);
     }
 
-    async streamChatWithTools(messages, tools, onChunk, modelId = 'gemini-1.5-flash') {
+    async streamChatWithTools(messages, tools, onChunk, modelId = 'gemini-1.5-flash', options = {}) {
         if (!this.apiKey) throw new Error('Gemini API Key missing');
 
+        const streamOptions = normalizeStreamOptions(options);
         // Gemini uses functionDeclarations format
         const functionDeclarations = tools.map(t => ({
             name: t.name,
@@ -775,7 +804,8 @@ export class GeminiClient extends BaseClient {
         const response = await fetch(url.toString(), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
+            body: JSON.stringify(body),
+            signal: streamOptions.signal
         });
 
         if (!response.ok) {
@@ -812,7 +842,8 @@ export class OllamaClient extends BaseClient {
         super(null);
     }
 
-    async streamChat(messages, onChunk, modelId = 'llama2') {
+    async streamChat(messages, onChunk, modelId = 'llama2', options = {}) {
+        const streamOptions = normalizeStreamOptions(options);
         const tagParser = new StreamingTagParser();
 
         // Format messages - Ollama uses 'images' array for multimodal
@@ -838,9 +869,11 @@ export class OllamaClient extends BaseClient {
                     model: modelId,
                     messages: formattedMessages,
                     stream: true
-                })
+                }),
+                signal: streamOptions.signal
             });
-        } catch {
+        } catch (err) {
+            if (err?.name === 'AbortError') throw err;
             throw new Error('Ollama is not reachable at http://localhost:11434. Start Ollama, then refresh models in Settings.');
         }
 
@@ -878,9 +911,11 @@ export class OllamaClient extends BaseClient {
                 }
             }
         }
+        flushUnclosedThinking(tagParser, onChunk);
     }
 
-    async streamChatWithTools(messages, tools, onChunk, modelId = 'llama2') {
+    async streamChatWithTools(messages, tools, onChunk, modelId = 'llama2', options = {}) {
+        const streamOptions = normalizeStreamOptions(options);
         // Ollama supports tools via /api/chat with the OpenAI-compatible tools format
         const formattedMessages = messages.map(m => {
             if (m.role === 'tool') return { role: 'tool', tool_call_id: m.tool_call_id, content: m.content };
@@ -897,9 +932,11 @@ export class OllamaClient extends BaseClient {
                     messages: formattedMessages,
                     tools: this._formatToolsAsOpenAI(tools),
                     stream: false
-                })
+                }),
+                signal: streamOptions.signal
             });
-        } catch {
+        } catch (err) {
+            if (err?.name === 'AbortError') throw err;
             throw new Error('Ollama is not reachable at http://localhost:11434. Start Ollama, then refresh models in Settings.');
         }
 
@@ -935,7 +972,8 @@ export class LMStudioClient extends BaseClient {
         this.baseUrl = baseUrl.replace(/\/$/, '');
     }
 
-    async streamChat(messages, onChunk, modelId) {
+    async streamChat(messages, onChunk, modelId, options = {}) {
+        const streamOptions = normalizeStreamOptions(options);
         const tagParser = new StreamingTagParser();
 
         // Format messages - LM Studio uses OpenAI-compatible format
@@ -971,9 +1009,11 @@ export class LMStudioClient extends BaseClient {
                     model: modelId || 'local-model',
                     messages: formattedMessages,
                     stream: true
-                })
+                }),
+                signal: streamOptions.signal
             });
-        } catch {
+        } catch (err) {
+            if (err?.name === 'AbortError') throw err;
             throw new Error(`LM Studio is not reachable at ${this.baseUrl}. Use http://localhost:1234 when LM Studio is running on this Mac.`);
         }
 
@@ -1018,13 +1058,14 @@ export class LMStudioClient extends BaseClient {
                 }
             }
         }
+        flushUnclosedThinking(tagParser, onChunk);
     }
 
-    async streamChatWithTools(messages, tools, onChunk, modelId) {
+    async streamChatWithTools(messages, tools, onChunk, modelId, options = {}) {
         return this._openAIStreamWithTools(
             `${this.baseUrl}/v1/chat/completions`,
             {},
-            messages, tools, onChunk, modelId || 'local-model'
+            messages, tools, onChunk, modelId || 'local-model', options
         );
     }
 }
@@ -1034,9 +1075,9 @@ export class JanClient extends LMStudioClient {
         super(baseUrl);
     }
 
-    async streamChat(messages, onChunk, modelId) {
+    async streamChat(messages, onChunk, modelId, options = {}) {
         try {
-            return await super.streamChat(messages, onChunk, modelId);
+            return await super.streamChat(messages, onChunk, modelId, options);
         } catch (err) {
             if (String(err.message || '').includes('LM Studio is not reachable')) {
                 throw new Error(`Jan is not reachable at ${this.baseUrl}. Start Jan from Settings > Connect Models, then refresh models.`);
@@ -1049,9 +1090,10 @@ export class JanClient extends LMStudioClient {
 // ── OpenRouter Client ─────────────────────────────────────────────────────────
 // OpenRouter uses the OpenAI-compatible format with an extra Referer header.
 export class OpenRouterClient extends BaseClient {
-    async streamChat(messages, onChunk, modelId = 'openai/gpt-4o') {
+    async streamChat(messages, onChunk, modelId = 'openai/gpt-4o', options = {}) {
         if (!this.apiKey) throw new Error('OpenRouter API Key missing');
 
+        const streamOptions = normalizeStreamOptions(options);
         const tagParser = new StreamingTagParser();
         const config = THINKING_CONFIG.fields.openai;
 
@@ -1077,7 +1119,8 @@ export class OpenRouterClient extends BaseClient {
                 'HTTP-Referer': 'https://opal.app',
                 'X-Title': 'Opal'
             },
-            body: JSON.stringify({ model: modelId, messages: formattedMessages, stream: true })
+            body: JSON.stringify({ model: modelId, messages: formattedMessages, stream: true }),
+            signal: streamOptions.signal
         });
 
         if (!response.ok) {
@@ -1112,9 +1155,10 @@ export class OpenRouterClient extends BaseClient {
                 }
             }
         }
+        flushUnclosedThinking(tagParser, onChunk);
     }
 
-    async streamChatWithTools(messages, tools, onChunk, modelId = 'openai/gpt-4o') {
+    async streamChatWithTools(messages, tools, onChunk, modelId = 'openai/gpt-4o', options = {}) {
         if (!this.apiKey) throw new Error('OpenRouter API Key missing');
         return this._openAIStreamWithTools(
             'https://openrouter.ai/api/v1/chat/completions',
@@ -1123,7 +1167,7 @@ export class OpenRouterClient extends BaseClient {
                 'HTTP-Referer': window.location.origin,
                 'X-Title': 'Opal'
             },
-            messages, tools, onChunk, modelId
+            messages, tools, onChunk, modelId, options
         );
     }
 }
@@ -1131,9 +1175,10 @@ export class OpenRouterClient extends BaseClient {
 // ── Anthropic Client ──────────────────────────────────────────────────────────
 // Uses Anthropic's Messages API with streaming. Handles extended thinking blocks.
 export class AnthropicClient extends BaseClient {
-    async streamChat(messages, onChunk, modelId = 'claude-sonnet-4-5') {
+    async streamChat(messages, onChunk, modelId = 'claude-sonnet-4-5', options = {}) {
         if (!this.apiKey) throw new Error('Anthropic API Key missing');
 
+        const streamOptions = normalizeStreamOptions(options);
         const tagParser = new StreamingTagParser();
 
         // Separate system message from the conversation
@@ -1174,7 +1219,8 @@ export class AnthropicClient extends BaseClient {
                 'anthropic-version': '2023-06-01',
                 'anthropic-dangerous-direct-browser-access': 'true'
             },
-            body: JSON.stringify(body)
+            body: JSON.stringify(body),
+            signal: streamOptions.signal
         });
 
         if (!response.ok) {
@@ -1225,11 +1271,13 @@ export class AnthropicClient extends BaseClient {
                 } catch (e) { /* ignore malformed events */ }
             }
         }
+        flushUnclosedThinking(tagParser, onChunk);
     }
 
-    async streamChatWithTools(messages, tools, onChunk, modelId = 'claude-sonnet-4-5') {
+    async streamChatWithTools(messages, tools, onChunk, modelId = 'claude-sonnet-4-5', options = {}) {
         if (!this.apiKey) throw new Error('Anthropic API Key missing');
 
+        const streamOptions = normalizeStreamOptions(options);
         let systemPrompt = '';
         const conversation = [];
         for (const m of messages) {
@@ -1282,7 +1330,8 @@ export class AnthropicClient extends BaseClient {
                 'anthropic-version': '2023-06-01',
                 'anthropic-dangerous-direct-browser-access': 'true'
             },
-            body: JSON.stringify(body)
+            body: JSON.stringify(body),
+            signal: streamOptions.signal
         });
 
         if (!response.ok) {
@@ -1345,9 +1394,10 @@ export class AnthropicClient extends BaseClient {
 // ── Mistral Client ────────────────────────────────────────────────────────────
 // OpenAI-compatible endpoint.
 export class MistralClient extends BaseClient {
-    async streamChat(messages, onChunk, modelId = 'mistral-large-latest') {
+    async streamChat(messages, onChunk, modelId = 'mistral-large-latest', options = {}) {
         if (!this.apiKey) throw new Error('Mistral API Key missing');
 
+        const streamOptions = normalizeStreamOptions(options);
         const tagParser = new StreamingTagParser();
 
         const formattedMessages = messages.map(m => ({ role: m.role, content: m.content }));
@@ -1358,7 +1408,8 @@ export class MistralClient extends BaseClient {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${this.apiKey}`
             },
-            body: JSON.stringify({ model: modelId, messages: formattedMessages, stream: true })
+            body: JSON.stringify({ model: modelId, messages: formattedMessages, stream: true }),
+            signal: streamOptions.signal
         });
 
         if (!response.ok) {
@@ -1389,14 +1440,15 @@ export class MistralClient extends BaseClient {
                 }
             }
         }
+        flushUnclosedThinking(tagParser, onChunk);
     }
 
-    async streamChatWithTools(messages, tools, onChunk, modelId = 'mistral-large-latest') {
+    async streamChatWithTools(messages, tools, onChunk, modelId = 'mistral-large-latest', options = {}) {
         if (!this.apiKey) throw new Error('Mistral API Key missing');
         return this._openAIStreamWithTools(
             'https://api.mistral.ai/v1/chat/completions',
             { 'Authorization': `Bearer ${this.apiKey}` },
-            messages, tools, onChunk, modelId
+            messages, tools, onChunk, modelId, options
         );
     }
 }

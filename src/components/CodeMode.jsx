@@ -16,7 +16,11 @@ import rehypeRaw from 'rehype-raw';
 import { vscDarkPlus, prism } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { normalizeAssistantSpacing } from '../lib/textFormatting';
 import { SyntaxHighlighter } from '../lib/syntaxHighlighter';
+import { buildMemoryPrompt } from '../lib/harnessMemory';
+import { chooseModelForTask, buildRoutingPrompt } from '../lib/modelRouter';
+import { buildBudgetPrompt, createBudgetRun, estimateCharsFromMessages, recordBudgetResponse } from '../lib/budgetGovernor';
 import {
+    appendMissionRunEvent,
     recordCodeFileSave,
     recordCodeSessionFinish,
     recordCodeSessionStart
@@ -31,7 +35,7 @@ const PROVIDERS_REQUIRING_API_KEYS = new Set(['openai', 'groq', 'gemini', 'openr
 
 export default function CodeMode() {
     const { codeState, setCodeState } = useMode();
-    const { userName, selectedProvider, selectedModel, apiKeys, lmStudioUrl, janUrl } = useChat();
+    const { userName, selectedProvider, selectedModel, availableModels, apiKeys, lmStudioUrl, janUrl } = useChat();
     const { isDarkMode } = useTheme();
     
     const [input, setInput] = useState('');
@@ -51,6 +55,15 @@ export default function CodeMode() {
     const isResizingHistoryRef = useRef(false);
     const isResizingChatRef = useRef(false);
     const messagesEndRef = useRef(null);
+    const activeRequestRef = useRef(null);
+
+    useEffect(() => {
+        return () => activeRequestRef.current?.abort();
+    }, []);
+
+    const handleCancelRequest = useCallback(() => {
+        activeRequestRef.current?.abort();
+    }, []);
 
     // Optimized Resize Logic
     useEffect(() => {
@@ -226,6 +239,8 @@ export default function CodeMode() {
         setInput('');
         setIsLoading(true);
         setStreamingMessage('');
+        const abortController = new AbortController();
+        activeRequestRef.current = abortController;
         let currentSession = activeSession;
         if (!currentSession) {
             currentSession = { id: Date.now().toString(), title: userMessage.substring(0, 40), messages: [], createdAt: Date.now() };
@@ -245,20 +260,60 @@ export default function CodeMode() {
                 throw new Error('Please select a provider and model in Settings to start chatting.');
             }
 
-            if (PROVIDERS_REQUIRING_API_KEYS.has(selectedProvider) && !apiKeys[selectedProvider]) {
-                const providerName = selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1);
+            const route = chooseModelForTask({
+                task: userMessage,
+                selectedProvider,
+                selectedModel,
+                availableModels,
+                apiKeys,
+                requiresTools: false
+            });
+            const routedProvider = route.provider || selectedProvider;
+            const routedModel = route.model || selectedModel;
+            if (PROVIDERS_REQUIRING_API_KEYS.has(routedProvider) && !apiKeys[routedProvider]) {
+                const providerName = routedProvider.charAt(0).toUpperCase() + routedProvider.slice(1);
                 throw new Error(`Please set your ${providerName} API key in Settings.`);
             }
+            appendMissionRunEvent(missionRunId, {
+                type: 'info',
+                title: 'Model route selected',
+                detail: `${routedProvider}/${routedModel}: ${route.reason}`
+            });
 
-            const client = LLMFactory.getClient(selectedProvider, apiKeys[selectedProvider], { lmStudioUrl, janUrl });
+            const client = LLMFactory.getClient(routedProvider, apiKeys[routedProvider], { lmStudioUrl, janUrl });
             const fileContext = Object.entries(codeState.files).slice(0, 20).map(([path, content]) => `File: ${path}\n\`\`\`\n${content}\n\`\`\``).join('\n\n');
-            const systemPrompt = `Expert software engineer. Context: ${fileContext}`;
+            const memoryContext = buildMemoryPrompt(userMessage, {
+                scope: codeState.workingDirectory,
+                files: [codeState.activeFile].filter(Boolean),
+                sourceTypes: ['code', 'cowork', 'build', 'terminal']
+            });
+            const budgetRun = createBudgetRun('Code Mode', { maxIterations: 1, maxToolCalls: 0 });
+            const systemPrompt = [
+                'Expert software engineer.',
+                buildRoutingPrompt(route),
+                buildBudgetPrompt(budgetRun),
+                memoryContext.prompt,
+                `Context: ${fileContext}`
+            ].join('\n\n');
             const messagesForLLM = [{ role: 'system', content: systemPrompt }, ...updatedMessages];
+            appendMissionRunEvent(missionRunId, {
+                type: 'info',
+                title: 'Durable memory loaded',
+                detail: `${memoryContext.memories.length} memory notes matched this request.`
+            });
             let fullResponse = "";
             await client.streamChat(messagesForLLM, (chunk) => {
                 fullResponse += chunk;
                 setStreamingMessage(normalizeAssistantSpacing(fullResponse));
-            }, selectedModel);
+            }, routedModel, { signal: abortController.signal });
+            const budgetAfterResponse = recordBudgetResponse(budgetRun, estimateCharsFromMessages(messagesForLLM) + fullResponse.length);
+            if (budgetAfterResponse.blocked) {
+                appendMissionRunEvent(missionRunId, {
+                    type: 'error',
+                    title: 'Budget warning',
+                    detail: budgetAfterResponse.warnings.join(' ')
+                });
+            }
             const finalMessages = [...updatedMessages, { role: 'assistant', content: normalizeAssistantSpacing(fullResponse) }];
             setActiveSession(prev => ({ ...prev, messages: finalMessages }));
             updateSessionMessages(currentSession.id, finalMessages);
@@ -269,16 +324,22 @@ export default function CodeMode() {
             });
         } catch (error) {
             console.error(error);
+            const wasCancelled = error?.name === 'AbortError';
             const errorMessage = error?.message || 'Code chat failed. Check Settings and try again.';
-            const finalMessages = [...updatedMessages, { role: 'assistant', content: errorMessage }];
+            const finalMessages = [...updatedMessages, {
+                role: 'assistant',
+                content: wasCancelled ? 'Cancelled before the provider finished responding.' : errorMessage
+            }];
             setActiveSession(prev => ({ ...(prev || currentSession), messages: finalMessages }));
             updateSessionMessages(currentSession.id, finalMessages);
             setStreamingMessage('');
             recordCodeSessionFinish(missionRunId, {
-                ok: false,
-                detail: errorMessage
+                ok: wasCancelled,
+                status: wasCancelled ? 'cancelled' : undefined,
+                detail: wasCancelled ? 'Provider request was aborted by the user.' : errorMessage
             });
         } finally {
+            if (activeRequestRef.current === abortController) activeRequestRef.current = null;
             setIsLoading(false);
         }
     };
@@ -419,7 +480,15 @@ export default function CodeMode() {
                         <div className="mt-2 flex items-center gap-1">
                             <PermissionsDropdown value={permissionLevel} onChange={setPermissionLevel} />
                         </div>
-                        <button type="submit" disabled={isLoading || !input.trim()} className="absolute bottom-3.5 right-3.5 p-2 bg-[var(--accent)] text-white rounded-xl hover:bg-[var(--accent-hover)] transition-all shadow-md disabled:opacity-40"><Send size={18} /></button>
+                        <button
+                            type={isLoading ? 'button' : 'submit'}
+                            onClick={isLoading ? handleCancelRequest : undefined}
+                            disabled={!isLoading && !input.trim()}
+                            className="absolute bottom-3.5 right-3.5 p-2 bg-[var(--accent)] text-white rounded-xl hover:bg-[var(--accent-hover)] transition-all shadow-md disabled:opacity-40"
+                            title={isLoading ? 'Cancel provider request' : 'Send'}
+                        >
+                            {isLoading ? <X size={18} /> : <Send size={18} />}
+                        </button>
                     </form>
                 </div>
             </div>

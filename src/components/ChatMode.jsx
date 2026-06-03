@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Settings, Plus, MessageSquare, Code, Globe, ChevronDown, Trash2, ArrowUp, ArrowDown, Clock, Sparkles, Folder, SlidersHorizontal, FileText, Layers3, Search, ListFilter, MoreVertical, Pin, Lock, Upload, ArrowLeft, ExternalLink } from 'lucide-react';
+import { Settings, Plus, MessageSquare, Code, Globe, ChevronDown, Trash2, ArrowUp, ArrowDown, Clock, Sparkles, Folder, SlidersHorizontal, FileText, Layers3, Search, ListFilter, MoreVertical, Pin, Lock, Upload, ArrowLeft, ExternalLink, X } from 'lucide-react';
 import { ChatProvider, useChat } from '../context/ChatContext';
 import { SettingsModal } from './SettingsModal';
 import { ChangelogModal } from './ChangelogModal';
@@ -67,6 +67,22 @@ function formatRelativeDate(timestamp) {
     if (diff < month) return `${Math.floor(diff / day)} days ago`;
     if (diff < year) return `${Math.floor(diff / month)} months ago`;
     return `${Math.floor(diff / year)} years ago`;
+}
+
+function splitMisclassifiedThinking(value) {
+    const text = String(value || '').trim();
+    const markerPattern = /(?:^|\n)\s*(?:final answer|answer|response)\s*:\s*/i;
+    const markerMatch = markerPattern.exec(text);
+    if (!markerMatch) {
+        return { thinking: '', response: text };
+    }
+
+    const responseStart = markerMatch.index + markerMatch[0].length;
+    const thinking = text.slice(0, markerMatch.index).trim();
+    const response = text.slice(responseStart).trim();
+    return response
+        ? { thinking, response }
+        : { thinking: '', response: text };
 }
 
 function getArtifactExcerpt(artifact) {
@@ -554,6 +570,7 @@ function ChatMode() {
     const messagesEndRef = useRef(null);
     const sidebarRef = useRef(null);
     const thinkingStartTime = useRef(null);
+    const activeRequestRef = useRef(null);
     const [sidebarWidth, setSidebarWidth] = useState(getDefaultSidebarWidth);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isResizing, setIsResizing] = useState(false);
@@ -571,6 +588,14 @@ function ChatMode() {
         document.body.classList.toggle('artifacts-page-active', ['artifacts', 'projects', 'project-create', 'project-detail'].includes(activeTab));
         return () => document.body.classList.remove('artifacts-page-active');
     }, [activeTab]);
+
+    useEffect(() => {
+        return () => activeRequestRef.current?.abort();
+    }, []);
+
+    const handleCancelRequest = () => {
+        activeRequestRef.current?.abort();
+    };
     const handleImageUpload = (e) => {
         const file = e.target.files?.[0];
         if (file && file.type.startsWith('image/')) {
@@ -661,6 +686,8 @@ function ChatMode() {
         addMessage('user', userMessage || attachmentSummary, { attachments: attachmentMetadata, llmContent: fullTextContent }, null, displayImages);
         setIsLoading(true);
         thinkingStartTime.current = Date.now();
+        const abortController = new AbortController();
+        activeRequestRef.current = abortController;
 
         try {
             let context = "";
@@ -883,7 +910,7 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                 if (metadata?.finishReason === 'length') {
                     stoppedByContextLimit = true;
                 }
-            }, selectedModel);
+            }, selectedModel, { signal: abortController.signal });
 
             // Calculate duration
             const duration = thinkingStartTime.current ? Date.now() - thinkingStartTime.current : null;
@@ -905,13 +932,19 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
             }
 
             // Combine stream-based thinking with tag-based thinking
-            const combinedThinking = fullThinking || extractedThinking;
+            let combinedThinking = fullThinking || extractedThinking;
 
             // Clean the response - remove thinking tags (we'll show them in ThinkingDisplay)
             let cleanedResponse = fullResponse
                 .replace(/<think>[\s\S]*?<\/think>/gi, '')
                 .replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
                 .trim();
+
+            if (!cleanedResponse && combinedThinking) {
+                const recovered = splitMisclassifiedThinking(combinedThinking);
+                cleanedResponse = recovered.response;
+                combinedThinking = recovered.thinking;
+            }
 
             // ── finish_reason: "length" notice ───────────────────────────────
             // The model generated some content but was cut off at the context limit.
@@ -1039,11 +1072,13 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
 
         } catch (error) {
             console.error(error);
+            const wasCancelled = error?.name === 'AbortError';
             setIsStreaming(false);
             setStreamingMessage('');
             setStreamingThinking('');
-            addMessage('assistant', `Error: ${error.message}`);
+            addMessage('assistant', wasCancelled ? 'Cancelled before the provider finished responding.' : `Error: ${error.message}`);
         } finally {
+            if (activeRequestRef.current === abortController) activeRequestRef.current = null;
             setIsLoading(false);
         }
     };
@@ -1206,12 +1241,13 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                         overlayClassName="fixed inset-0 z-10"
                     />
                     <button
-                        onClick={handleSendMessage}
-                        disabled={isLoading || (!input.trim() && attachments.length === 0)}
+                        onClick={isLoading ? handleCancelRequest : handleSendMessage}
+                        disabled={!isLoading && (!input.trim() && attachments.length === 0)}
                         className="w-8 h-8 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-full flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         type="button"
+                        title={isLoading ? 'Cancel provider request' : 'Send'}
                     >
-                        <ArrowUp size={18} />
+                        {isLoading ? <X size={18} /> : <ArrowUp size={18} />}
                     </button>
                 </div>
             </div>
@@ -1802,11 +1838,12 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                                     overlayClassName="fixed inset-0 z-10"
                                 />
 	                                <button
-	                                    onClick={handleSendMessage}
-	                                    disabled={isLoading || (!input.trim() && attachments.length === 0)}
+	                                    onClick={isLoading ? handleCancelRequest : handleSendMessage}
+	                                    disabled={!isLoading && (!input.trim() && attachments.length === 0)}
                                     className="w-8 h-8 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-full flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                    title={isLoading ? 'Cancel provider request' : 'Send'}
                                 >
-                                    <ArrowUp size={18} />
+                                    {isLoading ? <X size={18} /> : <ArrowUp size={18} />}
                                 </button>
                             </div>
                         </div>

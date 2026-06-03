@@ -10,6 +10,11 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(version),
   },
+  test: {
+    environment: 'node',
+    setupFiles: ['./test/setup.js'],
+    include: ['test/**/*.test.js'],
+  },
   server: {
     port: 5173,
     strictPort: true,

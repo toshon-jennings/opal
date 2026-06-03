@@ -10,6 +10,8 @@
     "dev": "vite --no-open",
     "build": "vite build",
     "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "preview": "vite preview",
     "electron:dev": "NODE_ENV=development concurrently \"npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
     "electron:build": "npm run build && electron-builder",
@@ -88,6 +90,7 @@
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.17",
     "vite": "^5.1.4",
+    "vitest": "^1.6.1",
     "wait-on": "^9.0.5"
   }
 }

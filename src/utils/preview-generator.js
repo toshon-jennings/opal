@@ -12,7 +12,7 @@ export function generatePreviewHTML(files) {
 
     const componentFiles = Object.entries(files)
         .filter(([path]) => (path.endsWith('.tsx') || path.endsWith('.jsx')) && path !== 'src/App.tsx' && path !== 'src/index.tsx')
-        .map(([path, code]) => {
+        .map(([, code]) => {
             // Remove imports
             let cleanCode = code.replace(/import\s+.*?from\s+['"].*?['"];?/g, '');
             // Remove default export

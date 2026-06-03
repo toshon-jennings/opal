@@ -1,3 +1,6 @@
+import { createIntentReview } from './diffReview';
+import { evaluateMemoryQuality, ingestRunMemory, readHarnessMemory } from './harnessMemory';
+
 export const MISSION_RUNS_KEY = 'opal_mission_runs';
 export const MISSION_MEMORY_KEY = 'opal_mission_memory';
 export const MISSION_MEMORY_CANDIDATES_KEY = 'opal_mission_memory_candidates';
@@ -104,7 +107,9 @@ export function updateMissionRun(runId, patch) {
             ? normalizeRun({ ...run, ...patch, updatedAt: patch.updatedAt || now })
             : run
     ));
-    return saveMissionRuns(sortRuns(nextRuns));
+    const saved = saveMissionRuns(sortRuns(nextRuns));
+    maybeIngestRunMemory(saved.find(run => run.id === runId));
+    return saved;
 }
 
 export function upsertMissionRun(run) {
@@ -143,7 +148,10 @@ export function appendMissionRunEvent(runId, event, patch = {}) {
             events: [nextEvent, ...(run.events || [])].slice(0, MAX_EVENTS_PER_RUN)
         });
     });
-    return saveMissionRuns(sortRuns(nextRuns));
+    const saved = saveMissionRuns(sortRuns(nextRuns));
+    const updatedRun = saved.find(run => run.id === runId);
+    maybeIngestRunMemory(updatedRun);
+    return saved;
 }
 
 export function recordGatewayCheck(profile, result, source = 'automatic check') {
@@ -288,6 +296,28 @@ export function recordTerminalCommandResult(runId, result = {}) {
     const ok = hasExitCode && exitCode === 0;
     const outputSnippet = compactTerminalOutput(result.output || result.outputSnippet || '');
     const currentRun = readMissionRuns().find(run => run.id === runId);
+    if (currentRun?.status === 'cancelled' && exitCode === 130) {
+        appendMissionRunEvent(runId, {
+            type: 'info',
+            title: 'Cancelled terminal result ignored',
+            detail: outputSnippet || 'The terminal reported interrupt exit code 130 after Mission cancellation.'
+        }, {
+            status: 'cancelled',
+            terminal: {
+                ...(currentRun?.terminal || {}),
+                exitCode: 130,
+                outputSnippet,
+                completedAt: new Date().toISOString(),
+                cancelledAt: currentRun?.terminal?.cancelledAt || new Date().toISOString()
+            },
+            checkpoints: [
+                ...(currentRun?.checkpoints || []).filter(checkpoint => checkpoint.state !== 'active'),
+                { label: 'Terminal interrupted', state: 'done' }
+            ],
+            next: 'Confirm the terminal prompt is ready before retrying this command.'
+        });
+        return;
+    }
     const validationTargetId = currentRun?.terminal?.validatesRunId;
     const command = currentRun?.commands?.[0] || 'terminal command';
     appendMissionRunEvent(runId, {
@@ -316,6 +346,23 @@ export function recordTerminalCommandResult(runId, result = {}) {
             : 'Inspect the terminal output, fix the failure, then retry the command.'
     });
 
+    if (isDiffReviewCommand(command) || looksLikeDiffOutput(outputSnippet)) {
+        const review = createIntentReview({
+            title: `Intent review: ${command}`,
+            command,
+            output: result.output || result.outputSnippet || outputSnippet,
+            files: currentRun?.files || [],
+            validation: currentRun?.validation || null
+        });
+        appendMissionRunEvent(runId, {
+            type: 'info',
+            title: 'Intent review generated',
+            detail: review.summary
+        }, {
+            review
+        });
+    }
+
     if (validationTargetId && hasExitCode) {
         recordMissionRunValidation(
             validationTargetId,
@@ -331,6 +378,7 @@ export function recordTerminalCommandOutput(runId, output = '') {
     const outputSnippet = compactTerminalOutput(output);
     if (!outputSnippet) return;
     const currentRun = readMissionRuns().find(run => run.id === runId);
+    if (currentRun?.status === 'cancelled') return;
     updateMissionRun(runId, {
         terminal: {
             ...(currentRun?.terminal || {}),
@@ -412,6 +460,22 @@ export function recordCoworkToolCall(runId, toolName, args = {}) {
 }
 
 export function recordCoworkSessionFinish(runId, outcome = {}) {
+    if (outcome.status === 'cancelled') {
+        appendMissionRunEvent(runId, {
+            type: 'info',
+            title: 'Cowork session cancelled',
+            detail: outcome.detail || 'Provider request was aborted before completion.'
+        }, {
+            status: 'cancelled',
+            checkpoints: [
+                { label: 'Prompt captured', state: 'done' },
+                { label: 'Provider request cancelled', state: 'done' },
+                { label: 'Final response recorded', state: 'pending' }
+            ],
+            next: 'Start a new Cowork run when ready.'
+        });
+        return;
+    }
     const ok = outcome.ok !== false;
     const currentRun = readMissionRuns().find(run => run.id === runId);
     const validationNeeded = currentRun?.validation?.status === 'needed';
@@ -474,6 +538,22 @@ export function recordCodeSessionStart(session, prompt, patch = {}) {
 }
 
 export function recordCodeSessionFinish(runId, outcome = {}) {
+    if (outcome.status === 'cancelled') {
+        appendMissionRunEvent(runId, {
+            type: 'info',
+            title: 'Code assistant cancelled',
+            detail: outcome.detail || 'Provider request was aborted before completion.'
+        }, {
+            status: 'cancelled',
+            checkpoints: [
+                { label: 'Prompt captured', state: 'done' },
+                { label: 'Provider request cancelled', state: 'done' },
+                { label: 'Assistant response recorded', state: 'pending' }
+            ],
+            next: 'Start a new Code request when ready.'
+        });
+        return;
+    }
     const ok = outcome.ok !== false;
     appendMissionRunEvent(runId, {
         type: ok ? 'success' : 'error',
@@ -569,6 +649,26 @@ export function recordBuildGenerationStart(prompt, patch = {}) {
 }
 
 export function recordBuildGenerationFinish(runId, outcome = {}) {
+    if (outcome.status === 'cancelled') {
+        appendMissionRunEvent(runId, {
+            type: 'info',
+            title: 'Build generation cancelled',
+            detail: outcome.detail || 'Provider request was aborted before completion.'
+        }, {
+            status: 'cancelled',
+            checkpoints: [
+                { label: 'Prompt captured', state: 'done' },
+                { label: 'Provider request cancelled', state: 'done' },
+                { label: 'Preview validation pending', state: 'pending' }
+            ],
+            validation: {
+                status: 'failed',
+                summary: 'Build generation was cancelled before files were applied.'
+            },
+            next: 'Retry generation with the same prompt or revise it before starting again.'
+        });
+        return;
+    }
     const ok = outcome.ok !== false;
     const files = Array.isArray(outcome.files) ? outcome.files : [];
     const parseFallback = outcome.parseFallback === true;
@@ -789,12 +889,19 @@ export function buildMemoryCandidate(run) {
         : sourceType === 'build'
             ? `Build run "${run.title}" was ${run.status}; touched ${(run.files || []).length} files. Next: ${report.nextAction}`
             : `Terminal dispatch for "${run.commands?.[0] || run.title}" was ${run.status}; ${report.remainingRisk}. Next: ${report.nextAction}`;
+    const quality = evaluateMemoryQuality(text, {
+        scope: run.workingDirectory,
+        sourceType,
+        existing: readHarnessMemory()
+    });
+    if (quality.score < 4) return null;
 
     return {
         id: `candidate-${run.id}`,
         sourceRunId: run.id,
         sourceType,
         status: 'pending',
+        quality,
         text,
         createdAt: new Date().toISOString()
     };
@@ -818,6 +925,7 @@ function normalizeRun(run) {
         next: run.next || '',
         gateway: run.gateway || null,
         terminal: run.terminal || null,
+        review: run.review || null,
         validation: normalizeValidation(run.validation),
         events: Array.isArray(run.events) ? run.events.slice(0, MAX_EVENTS_PER_RUN) : []
     };
@@ -840,6 +948,28 @@ function normalizeRun(run) {
         };
     }
     return normalized;
+}
+
+function maybeIngestRunMemory(run) {
+    if (!run || !['completed', 'blocked', 'cancelled'].includes(run.status)) return;
+    try {
+        ingestRunMemory(run);
+    } catch (err) {
+        console.error('Failed to ingest run memory:', err);
+    }
+}
+
+function isDiffReviewCommand(command = '') {
+    const normalized = String(command).trim().toLowerCase();
+    return /^git\s+(diff|show|status)(\s|$)/.test(normalized)
+        || /^git\s+log\s+.*--stat/.test(normalized);
+}
+
+function looksLikeDiffOutput(output = '') {
+    const value = String(output);
+    return value.includes('diff --git')
+        || /\d+\s+files?\s+changed/.test(value)
+        || /^\s*[^|]+\s+\|\s+\d+/m.test(value);
 }
 
 function normalizeValidation(validation) {

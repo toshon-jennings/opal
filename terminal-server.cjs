@@ -253,6 +253,22 @@ wss.on('connection', (ws, req) => {
             session.ptyProcess.write(buildMissionCommandScript(runId, command));
             return;
         }
+        if (parsed.type === 'cancelCommand') {
+            const runId = String(parsed.runId || '');
+            const watcher = session.missionWatchers.get(runId);
+            session.ptyProcess.write('\x03');
+            if (watcher?.client?.readyState === WebSocket.OPEN) {
+              watcher.client.send(JSON.stringify({
+                type: 'commandResult',
+                runId,
+                exitCode: 130,
+                output: cleanMissionOutput(watcher.output, runId, watcher.command)
+              }));
+            }
+            if (runId) session.missionWatchers.delete(runId);
+            ws.send(JSON.stringify({ type: 'commandCancelled', runId }));
+            return;
+        }
       } catch { }
       
       const input = stripTerminalGeneratedInput(str);
