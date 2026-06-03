@@ -121,7 +121,6 @@ export function ModeProvider({ children }) {
 
     // Save state to localStorage whenever it changes
     useEffect(() => {
-        console.log('Saving codeState to localStorage:', codeState.sessions.length, 'sessions');
         const stateToSave = {
             ...codeState,
             expandedFolders: Array.from(codeState.expandedFolders || [])
