@@ -5,6 +5,7 @@ import ModeSwitcher from './components/ModeSwitcher';
 import ChatMode from './components/ChatMode';
 import CodeMode from './components/CodeMode';
 import CoworkMode from './components/CoworkMode';
+import MissionControl from './components/MissionControl';
 import BuildMode from './components/BuildMode';
 import { BuildModeProvider } from './context/BuildModeContext'; // Keeping original context for now, but primary logic will be in BuildContext
 import { BuildProvider } from './context/BuildContext';
@@ -16,6 +17,15 @@ import { Moon, Sun, Lock, Unlock, Plus, Terminal as TerminalIcon, Server, X, Ref
 import { useTheme, ThemeProvider } from './context/ThemeContext';
 import { useChat } from './context/ChatContext';
 import TerminalPanel from './components/Terminal';
+import {
+    appendMissionRunEvent,
+    recordGatewayCheck,
+    recordGatewayRestart,
+    recordTerminalCommand,
+    recordTerminalCommandOutput,
+    recordTerminalCommandResult
+} from './lib/missionControl';
+import { buildTerminalWsUrl, getTerminalPortCandidates, rememberTerminalPort } from './lib/terminalBridge';
 
 function AppContent() {
     const {
@@ -61,6 +71,9 @@ function AppContent() {
                     case 'switch-mode-cowork':
                         setCurrentMode(MODES.COWORK);
                         break;
+                    case 'switch-mode-mission':
+                        setCurrentMode(MODES.MISSION);
+                        break;
                     case 'switch-mode-code':
                         setCurrentMode(MODES.CODE);
                         break;
@@ -82,20 +95,26 @@ function AppContent() {
 
         async function testOpenClaw() {
             if (!window.electron?.testOpenClawConnection) {
-                setOpenClawStatus({ state: 'unsupported' });
+                const checkedAt = new Date().toISOString();
+                const result = { ok: false, error: 'OpenClaw Gateway checks require the desktop app.' };
+                setOpenClawStatus({ state: 'unsupported', result, checkedAt });
+                recordGatewayCheck(activeOpenClawProfile, result, 'web fallback');
                 return;
             }
 
             const result = await window.electron.testOpenClawConnection(activeOpenClawProfile);
             if (!cancelled) {
+                const checkedAt = new Date().toISOString();
                 setOpenClawStatus({
                     state: result.ok ? 'online' : 'offline',
-                    result
+                    result,
+                    checkedAt
                 });
+                recordGatewayCheck(activeOpenClawProfile, result, 'automatic check');
             }
         }
 
-        setOpenClawStatus({ state: 'checking' });
+        setOpenClawStatus({ state: 'checking', checkedAt: new Date().toISOString() });
         testOpenClaw();
         const interval = setInterval(testOpenClaw, 30000);
         return () => {
@@ -137,16 +156,21 @@ function AppContent() {
         if (!window.electron?.restartOpenClawGateway || isRestartingOpenClaw) return;
         setIsRestartingOpenClaw(true);
         setOpenClawDashboardIssue(null);
-        setOpenClawStatus({ state: 'checking' });
+        setOpenClawStatus({ state: 'checking', checkedAt: new Date().toISOString() });
+        recordGatewayRestart(activeOpenClawProfile, { ok: true }, 'started');
         const result = await window.electron.restartOpenClawGateway();
         if (!result?.ok) {
+            const checkedAt = new Date().toISOString();
             setOpenClawStatus({
                 state: 'offline',
-                result: { ok: false, error: result?.error || 'Failed to restart OpenClaw Gateway.' }
+                result: { ok: false, error: result?.error || 'Failed to restart OpenClaw Gateway.' },
+                checkedAt
             });
+            recordGatewayRestart(activeOpenClawProfile, result, 'completed');
             setIsRestartingOpenClaw(false);
             return;
         }
+        recordGatewayRestart(activeOpenClawProfile, result, 'completed');
 
         // Poll until the gateway is live (up to 12 s) then reload the webview.
         // 1.5 s was often too short; the gateway needs 2-4 s to fully bind.
@@ -156,7 +180,9 @@ function AppContent() {
         const pollUntilLive = async () => {
             const status = await window.electron.testOpenClawConnection(activeOpenClawProfile);
             if (status.ok || Date.now() - started >= maxWaitMs) {
-                setOpenClawStatus({ state: status.ok ? 'online' : 'offline', result: status });
+                const checkedAt = new Date().toISOString();
+                setOpenClawStatus({ state: status.ok ? 'online' : 'offline', result: status, checkedAt });
+                recordGatewayCheck(activeOpenClawProfile, status, 'post-restart poll');
                 setOpenClawFrameKey(key => key + 1);
                 setIsRestartingOpenClaw(false);
             } else {
@@ -253,18 +279,223 @@ function AppContent() {
         e.preventDefault();
         const cmd = terminalCommand.trim();
         if (!cmd) return;
+        const missionRunId = recordTerminalCommand(cmd);
 
         try {
-            const ws = new WebSocket('ws://localhost:3001?sessionId=default');
-            ws.onopen = () => {
+            const ports = getTerminalPortCandidates();
+            let activePortIndex = 0;
+            let ws = null;
+            let sentToTerminal = false;
+            let dispatchTimeout = null;
+            let resultTimeout = null;
+            let protocolTimeout = null;
+            let lastOutput = '';
+            let resultReceived = false;
+            let commandSent = false;
+            let legacyTerminalBridge = false;
+
+            const clearTimers = () => {
+                clearTimeout(dispatchTimeout);
+                clearTimeout(resultTimeout);
+                clearTimeout(protocolTimeout);
+            };
+
+            const blockRun = (title, detail, patch = {}) => {
+                resultReceived = true;
+                clearTimers();
+                appendMissionRunEvent(missionRunId, {
+                    type: 'error',
+                    title,
+                    detail
+                }, {
+                    status: 'blocked',
+                    ...patch
+                });
+            };
+
+            const startDispatchTimeout = () => {
+                clearTimeout(dispatchTimeout);
+                dispatchTimeout = setTimeout(() => {
+                if (sentToTerminal) return;
+                blockRun('Terminal socket timed out', 'Opal did not receive confirmation that the command reached the local terminal server.', {
+                    checkpoints: [
+                        { label: 'Command captured', state: 'done' },
+                        { label: 'Socket send timed out', state: 'blocked' },
+                        { label: 'Terminal output review', state: 'pending' }
+                    ],
+                    next: 'Reconnect the local terminal server, then retry the command.'
+                });
+                ws?.close();
+            }, 1200);
+            };
+
+            const startResultTimeout = () => {
+                clearTimeout(resultTimeout);
+                resultTimeout = setTimeout(() => {
+                if (resultReceived) return;
+                resultReceived = true;
+                appendMissionRunEvent(missionRunId, {
+                    type: 'error',
+                    title: 'Terminal command still running',
+                    detail: 'Opal sent the command but did not receive an exit marker before the Mission timeout.'
+                }, {
+                    status: 'waiting',
+                    terminal: {
+                        outputSnippet: lastOutput,
+                        exitCode: null,
+                        updatedAt: new Date().toISOString()
+                    },
+                    checkpoints: [
+                        { label: 'Command captured', state: 'done' },
+                        { label: 'Command sent', state: 'done' },
+                        { label: 'Exit status pending', state: 'active' }
+                    ],
+                    next: 'Open the terminal panel to inspect the still-running command.'
+                });
+                ws?.close();
+            }, 120000);
+            };
+
+            const sendLegacyCommand = () => {
+                if (commandSent || ws.readyState !== WebSocket.OPEN) return;
+                if (activePortIndex < ports.length - 1) {
+                    ws.close();
+                    activePortIndex += 1;
+                    sentToTerminal = false;
+                    connectToPort();
+                    return;
+                }
+                legacyTerminalBridge = true;
+                commandSent = true;
                 ws.send(JSON.stringify({ type: 'clearLine' }));
                 ws.send(cmd + '\r');
-                setTimeout(() => {
-                    ws.close();
-                }, 100);
+                appendMissionRunEvent(missionRunId, {
+                    type: 'info',
+                    title: 'Command sent with legacy terminal bridge',
+                    detail: 'The local terminal bridge does not expose structured exit telemetry yet.'
+                }, {
+                    status: 'waiting',
+                    checkpoints: [
+                        { label: 'Command captured', state: 'done' },
+                        { label: 'Command sent', state: 'done' },
+                        { label: 'Exit status unavailable', state: 'active' }
+                    ],
+                    next: 'Open the terminal panel to inspect output; restart the updated terminal bridge for structured exit results.'
+                });
+                setTimeout(() => ws.close(), 100);
             };
+            const sendStructuredCommand = () => {
+                if (commandSent || ws.readyState !== WebSocket.OPEN) return;
+                commandSent = true;
+                ws.send(JSON.stringify({ type: 'runCommand', runId: missionRunId, command: cmd }));
+            };
+
+            const connectToPort = () => {
+                const port = ports[activePortIndex];
+                ws = new WebSocket(buildTerminalWsUrl(port, 'default', true));
+                startDispatchTimeout();
+
+                ws.onopen = () => {
+                sentToTerminal = true;
+                clearTimeout(dispatchTimeout);
+                protocolTimeout = setTimeout(sendLegacyCommand, 500);
+                appendMissionRunEvent(missionRunId, {
+                    type: 'success',
+                    title: 'Command sent to terminal',
+                    detail: cmd
+                }, {
+                    status: 'running',
+                    checkpoints: [
+                        { label: 'Command captured', state: 'done' },
+                        { label: 'Command sent', state: 'done' },
+                        { label: 'Exit status pending', state: 'active' }
+                    ],
+                    next: 'Waiting for terminal output and exit status.'
+                });
+            };
+                ws.onmessage = (event) => {
+                if (typeof event.data !== 'string') return;
+                try {
+                    const message = JSON.parse(event.data);
+                    if (message.type === 'terminalProtocol' && message.missionCommands) {
+                        clearTimeout(protocolTimeout);
+                        rememberTerminalPort(port);
+                        startResultTimeout();
+                        sendStructuredCommand();
+                    }
+                    if (message.type === 'commandOutput' && message.runId === missionRunId) {
+                        lastOutput += message.chunk || '';
+                        recordTerminalCommandOutput(missionRunId, lastOutput);
+                    }
+                    if (message.type === 'commandResult' && message.runId === missionRunId) {
+                        resultReceived = true;
+                        clearTimeout(resultTimeout);
+                        recordTerminalCommandResult(missionRunId, {
+                            exitCode: message.exitCode,
+                            output: message.output || lastOutput
+                        });
+                        ws.close();
+                    }
+                    if (message.type === 'commandError' && message.runId === missionRunId) {
+                        resultReceived = true;
+                        clearTimeout(resultTimeout);
+                        recordTerminalCommandResult(missionRunId, {
+                            exitCode: null,
+                            output: message.error || 'Terminal command failed before execution.'
+                        });
+                        ws.close();
+                    }
+                } catch {
+                    lastOutput += event.data;
+                    recordTerminalCommandOutput(missionRunId, lastOutput);
+                }
+            };
+                ws.onerror = () => {
+                clearTimers();
+                if (!commandSent && activePortIndex < ports.length - 1) {
+                    activePortIndex += 1;
+                    sentToTerminal = false;
+                    connectToPort();
+                    return;
+                }
+                blockRun('Terminal socket failed', 'Opal could not send the command to the local terminal server.', {
+                    checkpoints: [
+                        { label: 'Command captured', state: 'done' },
+                        { label: 'Socket send failed', state: 'blocked' },
+                        { label: 'Terminal output review', state: 'pending' }
+                    ],
+                    next: 'Start or reconnect the local terminal server, then retry the command.'
+                });
+            };
+                ws.onclose = () => {
+                clearTimers();
+                if (legacyTerminalBridge) return;
+                if (sentToTerminal && !resultReceived) {
+                    blockRun('Terminal socket closed before result', 'The terminal connection closed before Opal received a command exit marker.', {
+                        terminal: {
+                            outputSnippet: lastOutput,
+                            exitCode: null,
+                            updatedAt: new Date().toISOString()
+                        },
+                        checkpoints: [
+                            { label: 'Command captured', state: 'done' },
+                            { label: 'Command sent', state: 'done' },
+                            { label: 'Exit status missing', state: 'blocked' }
+                        ],
+                        next: 'Reconnect the terminal server, inspect the terminal output, then retry the command.'
+                    });
+                }
+            };
+            };
+
+            connectToPort();
         } catch (err) {
             console.error('Failed to send terminal command:', err);
+            appendMissionRunEvent(missionRunId, {
+                type: 'error',
+                title: 'Terminal command dispatch failed',
+                detail: err?.message || 'Unknown terminal dispatch error.'
+            }, { status: 'blocked' });
         }
 
         setTerminalCommand('');
@@ -369,6 +600,7 @@ function AppContent() {
                 <div className="flex-1 min-h-0 overflow-hidden relative">
                     {currentMode === MODES.CHAT && <ChatMode />}
                     {currentMode === MODES.COWORK && <CoworkMode />}
+                    {currentMode === MODES.MISSION && <MissionControl openClawStatus={openClawStatus} onRestartOpenClaw={restartOpenClawGateway} isRestartingOpenClaw={isRestartingOpenClaw} />}
                     {currentMode === MODES.CODE && <CodeMode />}
                     {currentMode === MODES.BUILD && <BuildMode />}
 

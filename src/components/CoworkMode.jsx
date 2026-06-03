@@ -15,6 +15,11 @@ import opalLogo from '../assets/opal-logo.png';
 import { hasElectronStore, loadElectronPersistence, saveElectronPersistence } from '../lib/persistentStore';
 import { normalizeAssistantSpacing } from '../lib/textFormatting';
 import { ProviderModelPicker } from './ProviderModelPicker';
+import {
+    recordCoworkSessionFinish,
+    recordCoworkSessionStart,
+    recordCoworkToolCall
+} from '../lib/missionControl';
 
 const getDefaultSidebarWidth = () => {
     if (typeof window === 'undefined') return 360;
@@ -1066,6 +1071,10 @@ export default function CoworkMode() {
             : '';
         const displayMessage = message || attachmentSummary;
         const userHistoryMessages = [...(currentSession.messages || []), { role: 'user', content: displayMessage }];
+        const missionRunId = recordCoworkSessionStart(currentSession, displayMessage, {
+            workingDirectory: codeState.workingDirectory,
+            files: currentAttachments.map(attachment => attachment.name).filter(Boolean)
+        });
         
         // Update both active session and the global sessions list immediately
         setActiveSession({ ...currentSession, messages: userHistoryMessages });
@@ -1160,6 +1169,7 @@ export default function CoworkMode() {
                 const toolResults = [];
                 for (const tc of toolCalls) {
                     setAgentStatus(`Using tool: ${tc.name}${tc.args.path ? ` → ${tc.args.path}` : tc.args.command ? ` → ${tc.args.command}` : ''}`);
+                    recordCoworkToolCall(missionRunId, tc.name, tc.args);
                     const result = await executeTool(tc.name, tc.args);
                     toolResults.push({
                         role: 'tool',
@@ -1197,6 +1207,10 @@ export default function CoworkMode() {
                 ),
             }));
             setActiveSession(prev => ({ ...prev, messages: finalMessages }));
+            recordCoworkSessionFinish(missionRunId, {
+                ok: true,
+                detail: lastAssistant?.content ? 'Final assistant response was recorded.' : 'Agent completed without a final text response.'
+            });
 
         } catch (error) {
             console.error('Agent failed:', error);
@@ -1206,6 +1220,10 @@ export default function CoworkMode() {
                 ...prev,
                 messages: [...(prev.messages || []), { role: 'assistant', content: `Error: ${error.message}` }]
             }));
+            recordCoworkSessionFinish(missionRunId, {
+                ok: false,
+                detail: error?.message || 'Cowork agent failed.'
+            });
         } finally {
             setIsLoading(false);
         }

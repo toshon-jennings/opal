@@ -6,6 +6,12 @@ import { useChat } from '../context/ChatContext';
 import { LLMFactory } from '../lib/llm/clients';
 import { generatePreviewHTML } from '../utils/preview-generator';
 import MonacoEditor from '@monaco-editor/react';
+import {
+    recordBuildGenerationFinish,
+    recordBuildPreviewValidation,
+    recordBuildGenerationStart,
+    recordBuildReset
+} from '../lib/missionControl';
 
 const PROVIDERS_REQUIRING_API_KEYS = new Set(['openai', 'groq', 'gemini', 'openrouter', 'anthropic', 'mistral']);
 
@@ -53,6 +59,9 @@ export default function BuildMode() {
         setInput('');
         addBuildMessage({ role: 'user', content: userMessage });
         setIsGenerating(true);
+        const missionRunId = recordBuildGenerationStart(userMessage, {
+            files: Object.keys(buildFiles)
+        });
 
         try {
             // Get client
@@ -110,6 +119,7 @@ User request: ${userMessage}`;
             // Parse JSON
             try {
                 const generatedFiles = JSON.parse(jsonStr);
+                const generatedFilePaths = Object.keys(generatedFiles);
 
                 // Update files
                 updateBuildFiles(generatedFiles);
@@ -117,9 +127,34 @@ User request: ${userMessage}`;
                 // Add Assistant Message
                 addBuildMessage({
                     role: 'assistant',
-                    content: `Generated ${Object.keys(generatedFiles).length} files.`,
+                    content: `Generated ${generatedFilePaths.length} files.`,
                     files: generatedFiles
                 });
+                recordBuildGenerationFinish(missionRunId, {
+                    ok: true,
+                    files: generatedFilePaths,
+                    detail: `Generated ${generatedFilePaths.length} files.`
+                });
+                const nextBuildFiles = {
+                    ...buildFiles,
+                    ...generatedFiles
+                };
+                try {
+                    const validationHTML = generatePreviewHTML(nextBuildFiles);
+                    const hasRoot = validationHTML.includes('id="root"');
+                    const hasAppRender = validationHTML.includes('ReactDOM.createRoot') && validationHTML.includes('<App />');
+                    recordBuildPreviewValidation(missionRunId, {
+                        ok: hasRoot && hasAppRender,
+                        detail: hasRoot && hasAppRender
+                            ? 'Preview HTML was generated and includes the React root render path.'
+                            : 'Preview HTML was generated but the expected React root render path was missing.'
+                    });
+                } catch (validationError) {
+                    recordBuildPreviewValidation(missionRunId, {
+                        ok: false,
+                        detail: validationError?.message || 'Preview generation failed.'
+                    });
+                }
 
                 // If App.tsx was modified, ensure it's active or we stay on current
                 if (generatedFiles['src/App.tsx']) {
@@ -134,10 +169,21 @@ User request: ${userMessage}`;
                     role: 'assistant',
                     content: "I created some code but couldn't apply it automatically. Here is the response:\n\n" + fullResponse
                 });
+                recordBuildGenerationFinish(missionRunId, {
+                    ok: true,
+                    parseFallback: true,
+                    files: [],
+                    detail: "The model response was captured, but Build mode could not parse it as file JSON."
+                });
             }
 
         } catch (error) {
             addBuildMessage({ role: 'assistant', content: `Error: ${error.message}` });
+            recordBuildGenerationFinish(missionRunId, {
+                ok: false,
+                files: [],
+                detail: error?.message || 'Build generation failed.'
+            });
         } finally {
             setIsGenerating(false);
         }
@@ -160,7 +206,10 @@ User request: ${userMessage}`;
                         Build Assistant
                     </h2>
                     <button
-                        onClick={clearBuild}
+                        onClick={() => {
+                            recordBuildReset({ files: Object.keys(buildFiles) });
+                            clearBuild();
+                        }}
                         className="p-1.5 hover:bg-gray-200 rounded-md transition-colors text-[var(--text-secondary)]"
                         title="New Chat (Reset Build)"
                     >

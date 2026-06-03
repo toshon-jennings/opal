@@ -1,5 +1,5 @@
 import { useMode, MODES } from '../context/ModeContext';
-import { MessageSquare, Code, Users } from 'lucide-react';
+import { MessageSquare, Code, Users, ActivitySquare } from 'lucide-react';
 
 export default function ModeSwitcher() {
     const { currentMode, setCurrentMode } = useMode();
@@ -8,6 +8,7 @@ export default function ModeSwitcher() {
         { id: MODES.CHAT,   icon: MessageSquare, label: 'Chat' },
         { id: MODES.COWORK, icon: Users,         label: 'Cowork' },
         { id: MODES.CODE,   icon: Code,          label: 'Code' },
+        { id: MODES.MISSION, icon: ActivitySquare, label: 'Mission' },
     ];
 
     return (
@@ -18,6 +19,8 @@ export default function ModeSwitcher() {
                     <button
                         key={mode.id}
                         onClick={() => setCurrentMode(mode.id)}
+                        aria-label={mode.label}
+                        title={mode.label}
                         className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200"
                         style={{ fontFamily: 'DM Sans, sans-serif' }}
                     >
@@ -37,7 +40,7 @@ export default function ModeSwitcher() {
                             style={{ color: active ? 'white' : 'var(--text-tertiary)' }}
                         />
                         <span
-                            className="relative z-10 transition-colors duration-200"
+                            className="relative z-10 hidden lg:inline transition-colors duration-200"
                             style={{ color: active ? 'white' : 'var(--text-secondary)' }}
                         >
                             {mode.label}

@@ -3,6 +3,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal as TerminalIcon, X, Copy, RefreshCw } from 'lucide-react';
 import { useTheme } from "../context/ThemeContext";
+import { buildTerminalWsUrl, getTerminalPortCandidates, rememberTerminalPort } from "../lib/terminalBridge";
 import "@xterm/xterm/css/xterm.css";
 
 const DEVICE_ATTRIBUTE_RESPONSE_PATTERN = /\x1b\[\??[\d;]*c/g;
@@ -21,6 +22,7 @@ export default function TerminalPanel({ sessionId = 'default', onClose }) {
   const termInstanceRef = useRef(null);
   const wsRef = useRef(null);
   const outputBufferRef = useRef("");
+  const activePortIndexRef = useRef(0);
   const [status, setStatus] = useState("connecting");
   const [isFocused, setIsFocused] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
@@ -31,17 +33,20 @@ export default function TerminalPanel({ sessionId = 'default', onClose }) {
 
     setStatus("connecting");
     
-    const wsUrl = `ws://localhost:3001?sessionId=${sessionId}`;
+    const ports = getTerminalPortCandidates();
+    const port = ports[activePortIndexRef.current] || ports[0];
+    const wsUrl = buildTerminalWsUrl(port, sessionId);
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     const term = termInstanceRef.current;
 
     ws.onopen = () => {
+      rememberTerminalPort(port);
       ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
       setStatus("connected");
       setRetryCount(0);
-      term.writeln("\x1b[33m[Opal]\x1b[0m PTY-Bridge authorized. Prompting shell...");
+      term.writeln(`\x1b[33m[Opal]\x1b[0m PTY-Bridge authorized on port ${port}. Prompting shell...`);
     };
 
     ws.onclose = () => {
@@ -51,6 +56,13 @@ export default function TerminalPanel({ sessionId = 'default', onClose }) {
 
     ws.onerror = (err) => {
       console.error('Terminal WebSocket error:', err);
+      if (activePortIndexRef.current < ports.length - 1) {
+        activePortIndexRef.current += 1;
+        setRetryCount(count => count + 1);
+        ws.close();
+        setTimeout(connect, 100);
+        return;
+      }
       setStatus("error");
       term.writeln("\r\n\x1b[31m[Error]\x1b[0m Could not connect to local terminal server.");
     };
@@ -150,6 +162,7 @@ export default function TerminalPanel({ sessionId = 'default', onClose }) {
 
   const handleReconnect = () => {
     wsRef.current?.close();
+    activePortIndexRef.current = 0;
     connect();
   };
 

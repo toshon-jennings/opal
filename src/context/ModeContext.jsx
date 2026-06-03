@@ -13,6 +13,7 @@ const ModeContext = createContext();
 export const MODES = {
     CHAT: 'chat',      // Normal conversation interface
     COWORK: 'cowork',  // Session-based task interface (Claude style)
+    MISSION: 'mission', // Agent run supervision and inspection
     CODE: 'code',      // Code editor interface (Legacy/Direct)
     BUILD: 'build'     // Advanced build/deploy interface (future)
 };

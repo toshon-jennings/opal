@@ -16,6 +16,11 @@ import rehypeRaw from 'rehype-raw';
 import { vscDarkPlus, prism } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { normalizeAssistantSpacing } from '../lib/textFormatting';
 import { SyntaxHighlighter } from '../lib/syntaxHighlighter';
+import {
+    recordCodeFileSave,
+    recordCodeSessionFinish,
+    recordCodeSessionStart
+} from '../lib/missionControl';
 
 const getDefaultSidebarWidth = () => {
     if (typeof window === 'undefined') return 360;
@@ -176,7 +181,14 @@ export default function CodeMode() {
         if (window.electron && codeState.workingDirectory && codeState.activeFile) {
             try {
                 await window.electron.writeFile(`${codeState.workingDirectory}/${codeState.activeFile}`, codeState.files[codeState.activeFile]);
+                recordCodeFileSave(codeState.activeFile, {
+                    workingDirectory: codeState.workingDirectory
+                });
             } catch (err) { console.error("Failed to save file:", err); }
+        } else if (codeState.activeFile) {
+            recordCodeFileSave(codeState.activeFile, {
+                workingDirectory: codeState.workingDirectory
+            });
         }
         setCodeState(prev => ({ ...prev, unsavedChanges: false }));
         setPreviewKey(prev => prev + 1);
@@ -221,6 +233,10 @@ export default function CodeMode() {
             setActiveSession(currentSession);
         }
         const updatedMessages = [...(currentSession.messages || []), { role: 'user', content: userMessage }];
+        const missionRunId = recordCodeSessionStart(currentSession, userMessage, {
+            workingDirectory: codeState.workingDirectory,
+            activeFile: codeState.activeFile
+        });
         currentSession.messages = updatedMessages;
         setActiveSession({ ...currentSession });
         updateSessionMessages(currentSession.id, updatedMessages);
@@ -247,6 +263,10 @@ export default function CodeMode() {
             setActiveSession(prev => ({ ...prev, messages: finalMessages }));
             updateSessionMessages(currentSession.id, finalMessages);
             setStreamingMessage('');
+            recordCodeSessionFinish(missionRunId, {
+                ok: true,
+                detail: fullResponse ? 'Assistant response was recorded.' : 'Assistant returned an empty response.'
+            });
         } catch (error) {
             console.error(error);
             const errorMessage = error?.message || 'Code chat failed. Check Settings and try again.';
@@ -254,6 +274,10 @@ export default function CodeMode() {
             setActiveSession(prev => ({ ...(prev || currentSession), messages: finalMessages }));
             updateSessionMessages(currentSession.id, finalMessages);
             setStreamingMessage('');
+            recordCodeSessionFinish(missionRunId, {
+                ok: false,
+                detail: errorMessage
+            });
         } finally {
             setIsLoading(false);
         }

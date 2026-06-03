@@ -3,18 +3,78 @@ const os = require('os');
 const pty = require('node-pty');
 const fs = require('fs');
 
-const PORT = 3001;
+const PORT = Number(process.env.OPAL_TERMINAL_PORT) || 3001;
 const sessions = new Map();
 const MAX_BUFFER_LENGTH = 200000;
 const SESSION_IDLE_TIMEOUT_MS = 15 * 60 * 1000;
 const DEVICE_ATTRIBUTE_RESPONSE_PATTERN = /\x1b\[\??[\d;]*c/g;
 const PLAIN_DEVICE_ATTRIBUTE_RESPONSE_PATTERN = /^(?:\?1;2c|1;2c)+$/;
+const MISSION_START_PREFIX = '__OPAL_MISSION_START__';
+const MISSION_END_PREFIX = '__OPAL_MISSION_END__';
 
 function stripTerminalGeneratedInput(input) {
   const withoutEscapedResponse = input.replace(DEVICE_ATTRIBUTE_RESPONSE_PATTERN, '');
   return PLAIN_DEVICE_ATTRIBUTE_RESPONSE_PATTERN.test(withoutEscapedResponse)
     ? ''
     : withoutEscapedResponse;
+}
+
+function sanitizeTerminalDisplay(output) {
+  return output
+    .replace(new RegExp(`\\r?\\n?${MISSION_START_PREFIX}:[^\\r\\n]*\\r?\\n?`, 'g'), '')
+    .replace(new RegExp(`\\r?\\n?${MISSION_END_PREFIX}:[^\\r\\n]*\\r?\\n?`, 'g'), '');
+}
+
+function buildMissionCommandScript(runId, command) {
+  return [
+    `printf '\\n${MISSION_START_PREFIX}:${runId}\\n'`,
+    command,
+    '__opal_mission_status=$?',
+    `printf '\\n${MISSION_END_PREFIX}:${runId}:%s\\n' "$__opal_mission_status"`
+  ].join('\n') + '\n';
+}
+
+function cleanMissionOutput(rawOutput, runId, command = '') {
+    const startPattern = new RegExp(`${MISSION_START_PREFIX}:${escapeRegExp(runId)}\\r?\\n?`);
+    const endPattern = new RegExp(`${MISSION_END_PREFIX}:${escapeRegExp(runId)}:\\d+\\r?\\n?`);
+    const runIdTail = String(runId).slice(Math.max(0, String(runId).indexOf('-') + 1));
+  return stripTerminalControl(rawOutput
+    .replace(startPattern, '')
+    .replace(endPattern, '')
+  )
+    .split('\n')
+    .map(line => line.trimEnd())
+    .filter(line => {
+      const trimmed = line.trim();
+      return trimmed
+        && !trimmed.includes(MISSION_START_PREFIX)
+        && !trimmed.includes(MISSION_END_PREFIX)
+        && !trimmed.includes(runId)
+        && !(runIdTail && trimmed.includes(runIdTail))
+        && !trimmed.includes('__opal_mission_status')
+        && !trimmed.startsWith('printf ')
+        && trimmed !== '%'
+        && trimmed !== '-'
+        && !/^[a-z]$/.test(trimmed)
+        && !trimmed.endsWith(' %')
+        && !(command && trimmed.includes(command));
+    })
+    .join('\n')
+    .trim();
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function stripTerminalControl(output) {
+  let cleaned = String(output || '')
+    .replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '')
+    .replace(/\r/g, '\n');
+  while (/.\x08/.test(cleaned)) {
+    cleaned = cleaned.replace(/.\x08/g, '');
+  }
+  return cleaned;
 }
 
 process.on('uncaughtException', (err) => {
@@ -67,6 +127,7 @@ function createSession(sessionId) {
     id: sessionId,
     ptyProcess,
     clients: new Set(),
+    missionWatchers: new Map(),
     buffer: '',
     idleTimer: null,
   };
@@ -76,9 +137,31 @@ function createSession(sessionId) {
     if (session.buffer.length > MAX_BUFFER_LENGTH) {
       session.buffer = session.buffer.slice(session.buffer.length - MAX_BUFFER_LENGTH);
     }
+    for (const [runId, watcher] of session.missionWatchers.entries()) {
+      watcher.output += str;
+      const endMatch = watcher.output.match(new RegExp(`${MISSION_END_PREFIX}:${escapeRegExp(runId)}:(\\d+)`));
+      if (endMatch) {
+        const exitCode = Number(endMatch[1]);
+        if (watcher.client.readyState === WebSocket.OPEN) {
+          watcher.client.send(JSON.stringify({
+            type: 'commandResult',
+            runId,
+            exitCode,
+            output: cleanMissionOutput(watcher.output, runId, watcher.command)
+          }));
+        }
+        session.missionWatchers.delete(runId);
+      } else if (watcher.client.readyState === WebSocket.OPEN) {
+        watcher.client.send(JSON.stringify({
+          type: 'commandOutput',
+          runId,
+          chunk: str
+        }));
+      }
+    }
     for (const client of session.clients) {
       if (client.readyState === WebSocket.OPEN) {
-        client.send(str);
+        client.send(sanitizeTerminalDisplay(str));
       }
     }
   });
@@ -122,18 +205,24 @@ function scheduleSessionCleanup(session) {
 }
 
 wss.on('connection', (ws, req) => {
-  const url = new URL(req.url || '/', 'ws://localhost:3001');
+  const url = new URL(req.url || '/', `ws://localhost:${PORT}`);
   const sessionId = url.searchParams.get('sessionId') || 'default';
+  const telemetryOnly = url.searchParams.get('telemetry') === '1';
   
   try {
     const session = getOrCreateSession(sessionId);
-    session.clients.add(ws);
+    if (!telemetryOnly) {
+      session.clients.add(ws);
+    }
     
     console.log(`[WS] Client connected to session: ${sessionId}`);
+    if (telemetryOnly && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'terminalProtocol', missionCommands: true }));
+    }
 
     // Send history buffer
-    if (session.buffer) {
-      ws.send(session.buffer);
+    if (!telemetryOnly && session.buffer) {
+      ws.send(sanitizeTerminalDisplay(session.buffer));
     }
 
     ws.on('message', (message) => {
@@ -152,6 +241,18 @@ wss.on('connection', (ws, req) => {
             session.ptyProcess.write('\x15');
             return;
         }
+        if (parsed.type === 'runCommand') {
+            const runId = String(parsed.runId || Date.now());
+            const command = String(parsed.command || '').trim();
+            if (!command) {
+              ws.send(JSON.stringify({ type: 'commandError', runId, error: 'No command provided.' }));
+              return;
+            }
+            session.missionWatchers.set(runId, { client: ws, command, output: '' });
+            session.ptyProcess.write('\x15');
+            session.ptyProcess.write(buildMissionCommandScript(runId, command));
+            return;
+        }
       } catch { }
       
       const input = stripTerminalGeneratedInput(str);
@@ -164,7 +265,14 @@ wss.on('connection', (ws, req) => {
 
     ws.on('close', () => {
       console.log(`[WS] Client disconnected from session: ${sessionId}`);
-      session.clients.delete(ws);
+      if (!telemetryOnly) {
+        session.clients.delete(ws);
+      }
+      for (const [runId, watcher] of session.missionWatchers.entries()) {
+        if (watcher.client === ws) {
+          session.missionWatchers.delete(runId);
+        }
+      }
       scheduleSessionCleanup(session);
     });
   } catch (err) {

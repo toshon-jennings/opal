@@ -12,6 +12,7 @@ let youtubeWindow = null;
 
 function startTerminalServer() {
   const isPackaged = app.isPackaged;
+  const terminalPort = process.env.OPAL_TERMINAL_PORT || (isDev ? '3002' : '3001');
   const serverPath = isPackaged 
     ? path.join(process.resourcesPath, 'app.asar', 'terminal-server.cjs')
     : path.join(__dirname, '..', 'terminal-server.cjs');
@@ -23,7 +24,8 @@ function startTerminalServer() {
     env: { 
       ...process.env, 
       ELECTRON_RUN_AS_NODE: '1',
-      OPAL_STRIP_ANSI: 'false' 
+      OPAL_STRIP_ANSI: 'false',
+      OPAL_TERMINAL_PORT: terminalPort
     },
     stdio: 'inherit'
   });
