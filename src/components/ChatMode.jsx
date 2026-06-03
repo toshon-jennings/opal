@@ -449,7 +449,7 @@ function ProjectDetailPage({
                                 <Plus size={18} />
                             </button>
                         </div>
-                        <p className="mt-2 text-sm text-[var(--text-tertiary)]">{project.instructions || 'Add instructions to tailor Opal responses'}</p>
+                        <p className="mt-2 text-sm text-[var(--text-tertiary)]">{project.instructions || 'Add instructions to tailor Perci responses'}</p>
                     </div>
 
                     <div className="p-5">
@@ -546,7 +546,9 @@ function ChatMode() {
         userName,
         customInstructions,
         lmStudioUrl,
-        janUrl
+        janUrl,
+        activeRequestRef,
+        abortGeneration
     } = useChat();
     const [input, setInput] = useState(() => {
         if (typeof window !== 'undefined') {
@@ -576,7 +578,6 @@ function ChatMode() {
     const messagesEndRef = useRef(null);
     const sidebarRef = useRef(null);
     const thinkingStartTime = useRef(null);
-    const activeRequestRef = useRef(null);
     const [sidebarWidth, setSidebarWidth] = useState(getDefaultSidebarWidth);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isResizing, setIsResizing] = useState(false);
@@ -595,12 +596,8 @@ function ChatMode() {
         return () => document.body.classList.remove('artifacts-page-active');
     }, [activeTab]);
 
-    useEffect(() => {
-        return () => activeRequestRef.current?.abort();
-    }, []);
-
     const handleCancelRequest = () => {
-        activeRequestRef.current?.abort();
+        abortGeneration();
     };
     const handleImageUpload = (e) => {
         const file = e.target.files?.[0];
@@ -1562,10 +1559,10 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                             {isStreaming && (streamingMessage || streamingThinking) && (
                                 <div className="flex gap-3 md:gap-4 py-6 px-4 bg-[var(--bg-secondary)] rounded-lg">
                                     <div className="w-6 h-6 md:w-7 md:h-7 rounded-lg flex items-center justify-center shrink-0">
-                                        <img src={opalLogo} alt="Opal" className="w-full h-full rounded-full" />
+                                        <img src={opalLogo} alt="Perci" className="w-full h-full rounded-full" />
                                     </div>
                                     <div className="flex-1 overflow-hidden">
-                                        <div className="font-medium text-sm mb-1.5 text-[var(--text-primary)]">Opal</div>
+                                        <div className="font-medium text-sm mb-1.5 text-[var(--text-primary)]">Perci</div>
 
                                         {streamingThinking && streamingThinking.trim() !== '' && (
                                             <ThinkingDisplay
@@ -1688,11 +1685,11 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                             {isLoading && (!isStreaming || (!streamingMessage && !streamingThinking)) && (
                                 <div className="flex gap-3 md:gap-4 py-6 px-4 bg-[var(--bg-secondary)] rounded-lg animate-fade-in">
                                     <div className="w-6 h-6 md:w-7 md:h-7 rounded-lg flex items-center justify-center shrink-0 relative">
-                                        <img src={opalLogo} alt="Opal" className="w-full h-full rounded-full" />
+                                        <img src={opalLogo} alt="Perci" className="w-full h-full rounded-full" />
                                         <div className="absolute inset-0 rounded-lg bg-[var(--accent)]/20 animate-ping-slow" />
                                     </div>
                                     <div className="flex-1">
-                                        <div className="font-medium text-sm mb-2 text-[var(--text-primary)]">Opal</div>
+                                        <div className="font-medium text-sm mb-2 text-[var(--text-primary)]">Perci</div>
 
                                         {isSearching && (
                                             <SearchProgress
@@ -1935,7 +1932,7 @@ function OpalThinkingIndicator({ startTime }) {
 
             <div className="flex items-center gap-2">
                 <span className="text-sm font-medium" style={{ color: 'var(--accent)' }}>
-                    Opal is thinking
+                    Perci is thinking
                 </span>
                 <div className="flex gap-1 items-center" aria-hidden="true">
                     <span className="w-1.5 h-1.5 rounded-full animate-thinking-dot-1" style={{ background: 'var(--accent)' }} />

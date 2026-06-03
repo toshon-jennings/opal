@@ -324,7 +324,7 @@ function AppContent() {
                 clearTimeout(dispatchTimeout);
                 dispatchTimeout = setTimeout(() => {
                 if (sentToTerminal) return;
-                blockRun('Terminal socket timed out', 'Opal did not receive confirmation that the command reached the local terminal server.', {
+                blockRun('Terminal socket timed out', 'Perci did not receive confirmation that the command reached the local terminal server.', {
                     checkpoints: [
                         { label: 'Command captured', state: 'done' },
                         { label: 'Socket send timed out', state: 'blocked' },
@@ -344,7 +344,7 @@ function AppContent() {
                 appendMissionRunEvent(missionRunId, {
                     type: 'error',
                     title: 'Terminal command still running',
-                    detail: 'Opal sent the command but did not receive an exit marker before the Mission timeout.'
+                    detail: 'Perci sent the command but did not receive an exit marker before the Mission timeout.'
                 }, {
                     status: 'waiting',
                     terminal: {
@@ -465,7 +465,7 @@ function AppContent() {
                     connectToPort();
                     return;
                 }
-                blockRun('Terminal socket failed', 'Opal could not send the command to the local terminal server.', {
+                blockRun('Terminal socket failed', 'Perci could not send the command to the local terminal server.', {
                     checkpoints: [
                         { label: 'Command captured', state: 'done' },
                         { label: 'Socket send failed', state: 'blocked' },
@@ -478,7 +478,7 @@ function AppContent() {
                 clearTimers();
                 if (legacyTerminalBridge) return;
                 if (sentToTerminal && !resultReceived) {
-                    blockRun('Terminal socket closed before result', 'The terminal connection closed before Opal received a command exit marker.', {
+                    blockRun('Terminal socket closed before result', 'The terminal connection closed before Perci received a command exit marker.', {
                         terminal: {
                             outputSnippet: lastOutput,
                             exitCode: null,
@@ -518,10 +518,10 @@ function AppContent() {
                     <div 
                         className={`w-9 h-9 rounded-[8px] flex items-center justify-center relative shadow-sm overflow-hidden ${isDarkMode ? 'bg-gradient-to-b from-[#2a2a2e] to-[#0c0c0d]' : 'bg-gradient-to-b from-white to-[#f5f5f7] border border-[#e5e7eb]'}`}
                     >
-                        <img src={opalLogo} alt="Opal" className="w-[70%] h-[70%] object-contain relative z-10" />
+                        <img src={opalLogo} alt="Perci" className="w-[70%] h-[70%] object-contain relative z-10" />
                     </div>
                     <div className="flex flex-col">
-                        <h1 className="opal-text text-base font-semibold leading-none" style={{fontFamily: 'Outfit, sans-serif', letterSpacing: '-0.02em'}}>Opal</h1>
+                        <h1 className="opal-text text-base font-semibold leading-none" style={{fontFamily: 'Outfit, sans-serif', letterSpacing: '-0.02em'}}>Perci</h1>
                         <span className={`text-[9px] font-bold uppercase tracking-tighter mt-0.5 ${window.electron ? 'text-green-500' : 'text-amber-500'}`}>
                             {window.electron ? 'Desktop' : 'Web Fallback'}
                         </span>
@@ -748,7 +748,7 @@ function AppContent() {
                                         </div>
                                         <h2 className="text-lg font-semibold text-[var(--text-primary)]">OpenClaw Gateway is unreachable</h2>
                                         <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                                            Opal is trying to reach {activeOpenClawProfile.gatewayUrl}. Start the local Gateway or switch to an appliance profile in Settings.
+                                            Perci is trying to reach {activeOpenClawProfile.gatewayUrl}. Start the local Gateway or switch to an appliance profile in Settings.
                                         </p>
                                         {openClawStatus.result?.error && (
                                             <p className="mt-3 text-xs font-mono text-red-400">{openClawStatus.result.error}</p>
@@ -820,7 +820,7 @@ function AppContent() {
                                         </div>
                                         <h2 className="text-lg font-semibold text-[var(--text-primary)]">OpenClaw requires the desktop app</h2>
                                         <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                                            OpenClaw blocks iframe embedding. Opal uses an Electron webview in desktop mode to render it safely.
+                                            OpenClaw blocks iframe embedding. Perci uses an Electron webview in desktop mode to render it safely.
                                         </p>
                                     </div>
                                 </div>

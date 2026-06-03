@@ -437,7 +437,7 @@ export function SettingsModal({ isOpen, onClose }) {
                             onChange={e => setEditingInstructions(e.target.value)}
                             onBlur={handleSaveInstructions}
                             className="min-h-[120px] w-full resize-y px-4 py-3 rounded-xl border border-[var(--border)] bg-[var(--bg-tertiary)] focus:ring-2 ring-[var(--accent)] outline-none transition-all text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] leading-relaxed text-sm"
-                            placeholder="Tell Opal how to respond, what to prioritize, what to avoid..."
+                            placeholder="Tell Perci how to respond, what to prioritize, what to avoid..."
                         />
                         <p className="text-xs text-[var(--text-tertiary)]">
                             Reviewed before every response. Saved locally.
@@ -448,7 +448,7 @@ export function SettingsModal({ isOpen, onClose }) {
                         <div className="flex items-start justify-between gap-3">
                             <div>
                                 <p className="text-xs text-[var(--text-tertiary)] leading-relaxed">
-                                    Opal checks common local model servers and lets you connect hosted providers from one place.
+                                    Perci checks common local model servers and lets you connect hosted providers from one place.
                                 </p>
                                 {setupMessage && (
                                     <p className="mt-1 text-xs text-[var(--accent)]">{setupMessage}</p>

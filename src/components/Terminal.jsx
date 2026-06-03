@@ -46,7 +46,7 @@ export default function TerminalPanel({ sessionId = 'default', onClose }) {
       ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
       setStatus("connected");
       setRetryCount(0);
-      term.writeln(`\x1b[33m[Opal]\x1b[0m PTY-Bridge authorized on port ${port}. Prompting shell...`);
+      term.writeln(`\x1b[33m[Perci]\x1b[0m PTY-Bridge authorized on port ${port}. Prompting shell...`);
     };
 
     ws.onclose = () => {

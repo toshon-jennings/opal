@@ -46,7 +46,9 @@ export default function BuildMode() {
         setActiveFile,
         isGenerating,
         setIsGenerating,
-        clearBuild
+        clearBuild,
+        activeRequestRef,
+        abortGeneration
     } = useBuild();
 
     const {
@@ -62,15 +64,10 @@ export default function BuildMode() {
     const [input, setInput] = useState('');
     const [previewHTML, setPreviewHTML] = useState('');
     const messagesEndRef = useRef(null);
-    const activeRequestRef = useRef(null);
     const [viewMode, setViewMode] = useState('preview'); // 'preview' or 'code'
 
-    useEffect(() => {
-        return () => activeRequestRef.current?.abort();
-    }, []);
-
     const handleCancelGeneration = () => {
-        activeRequestRef.current?.abort();
+        abortGeneration();
     };
 
     // Scroll to bottom on new messages

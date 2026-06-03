@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 
 const BuildContext = createContext();
 
@@ -40,6 +40,11 @@ export function BuildProvider({ children }) {
     const [buildFiles, setBuildFiles] = useState(defaultFiles);
     const [activeFile, setActiveFile] = useState('src/App.tsx');
     const [isGenerating, setIsGenerating] = useState(false);
+    const activeRequestRef = useRef(null);
+
+    const abortGeneration = useCallback(() => {
+        activeRequestRef.current?.abort();
+    }, []);
 
     const addBuildMessage = useCallback((message) => {
         setBuildMessages(prev => [...prev, {
@@ -71,7 +76,9 @@ export function BuildProvider({ children }) {
         setActiveFile,
         isGenerating,
         setIsGenerating,
-        clearBuild
+        clearBuild,
+        activeRequestRef,
+        abortGeneration
     };
 
     return (

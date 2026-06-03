@@ -1729,7 +1729,7 @@ export default function CoworkMode() {
                 ) : (
                 <main className="flex-1 overflow-y-auto p-12 max-w-5xl mx-auto w-full">
                     <div className="flex items-center gap-3 mb-12">
-                        <img src={opalLogo} alt="Opal" className="h-8 w-auto" />
+                        <img src={opalLogo} alt="Perci" className="h-8 w-auto" />
                         <h1 className="text-2xl font-semibold text-[var(--text-primary)]">
                             {userName ? `Welcome back, ${userName}` : 'Welcome back'}
                         </h1>

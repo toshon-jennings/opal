@@ -63,10 +63,6 @@ export default function CodeMode() {
     const messagesEndRef = useRef(null);
     const activeRequestRef = useRef(null);
 
-    useEffect(() => {
-        return () => activeRequestRef.current?.abort();
-    }, []);
-
     const handleCancelRequest = useCallback(() => {
         activeRequestRef.current?.abort();
     }, []);

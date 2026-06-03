@@ -126,6 +126,10 @@ export function ChatProvider({ children }) {
     const [artifacts, setArtifacts] = useState(currentChat?.artifacts || []);
 
     const [isLoading, setIsLoading] = useState(false);
+    const activeRequestRef = useRef(null);
+    const abortGeneration = useCallback(() => {
+        activeRequestRef.current?.abort();
+    }, []);
 
     // Incognito Mode - chats won't be saved when enabled
     const [isIncognitoMode, setIsIncognitoMode] = useState(false);
@@ -610,7 +614,10 @@ export function ChatProvider({ children }) {
             currentModelCapabilities,
             supportsImages: currentModelCapabilities.image,
             supportsAudio: currentModelCapabilities.audio,
-            supportsVideo: currentModelCapabilities.video
+            supportsVideo: currentModelCapabilities.video,
+            // Abort control
+            activeRequestRef,
+            abortGeneration
         }}>
             {children}
         </ChatContext.Provider>

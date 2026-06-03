@@ -74,7 +74,7 @@ export function ChangelogModal({ isOpen, onClose }) {
                 
                 <div className="p-4 bg-[var(--bg-secondary)] border-t border-[var(--border)] text-center">
                     <p className="text-[11px] text-[var(--text-tertiary)] uppercase tracking-widest">
-                        Opal OS v{logs[index]?.version}
+                        Perci v{logs[index]?.version}
                     </p>
                 </div>
             </div>

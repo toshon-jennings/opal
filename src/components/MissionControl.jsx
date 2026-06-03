@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     AlertTriangle,
     Bot,
     CheckCircle2,
     ClipboardCheck,
     Clock3,
+    FileCode,
     GitBranch,
     History,
+    Maximize2,
     PauseCircle,
     PlayCircle,
     RefreshCw,
@@ -16,6 +18,7 @@ import {
     Sparkles,
     Square,
     TerminalSquare,
+    X,
     XOctagon
 } from 'lucide-react';
 import { useMode } from '../context/ModeContext';
@@ -123,6 +126,7 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
     const [validationDraft, setValidationDraft] = useState('');
     const [harnessMemory, setHarnessMemory] = useState(() => readHarnessMemory());
     const [intentReviews, setIntentReviews] = useState(() => readIntentReviews());
+    const [transitModalOpen, setTransitModalOpen] = useState(false);
 
     const activeProfile = openClawConfig.profiles.find(profile => profile.id === openClawConfig.activeProfileId) || openClawConfig.profiles[0];
     const filteredRuns = useMemo(() => runs.filter(run => matchesRunFilter(run, activeFilter)), [runs, activeFilter]);
@@ -712,12 +716,23 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
 	                    </Panel>
 	                    </div>
 
-                        <Panel title="Transit Map" icon={GitBranch}>
-                            <TransitGraph graph={transitGraph} />
+                        <Panel
+                            title="Transit Map"
+                            icon={GitBranch}
+                            action={<button type="button" onClick={() => setTransitModalOpen(true)} className="inline-flex items-center gap-1 rounded border border-[var(--border)] bg-[var(--bg-primary)] px-2 py-1 text-[11px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"><Maximize2 size={11} />Expand</button>}
+                        >
+                            <TransitGraph graph={transitGraph} runs={runs} />
                             <p className="mt-3 text-xs leading-5 text-[var(--text-secondary)]">
-                                Recent runs, touched files, validation, and memory are drawn as workflow lines.
+                                Click a node to inspect it, or expand for a full view.
                             </p>
                         </Panel>
+                        {transitModalOpen && (
+                            <TransitMapModal
+                                graph={transitGraph}
+                                runs={runs}
+                                onClose={() => setTransitModalOpen(false)}
+                            />
+                        )}
 	                </aside>
             </div>
         </div>
@@ -826,67 +841,252 @@ function ReportList({ label, values }) {
     );
 }
 
-function Panel({ title, icon: Icon, children }) {
+function Panel({ title, icon: Icon, children, action }) {
     return (
         <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-4">
             <div className="mb-3 flex items-center gap-2">
                 <Icon size={15} className="text-[var(--accent)]" />
                 <h3 className="text-sm font-semibold text-[var(--text-primary)]">{title}</h3>
+                {action && <div className="ml-auto">{action}</div>}
             </div>
             {children}
         </div>
     );
 }
 
-function TransitGraph({ graph }) {
+function TransitGraph({ graph, runs = [], onNodeClick, selectedNodeId, compact = false }) {
+    const [hoveredId, setHoveredId] = useState(null);
+    const [inlineSelected, setInlineSelected] = useState(null);
     const nodes = graph?.nodes || [];
     const edges = graph?.edges || [];
     const byId = new Map(nodes.map(node => [node.id, node]));
+    const activeSelected = selectedNodeId !== undefined ? selectedNodeId : inlineSelected;
+
     if (nodes.length === 0) {
         return <p className="text-sm leading-6 text-[var(--text-secondary)]">No run graph available yet.</p>;
     }
+
+    const handleNodeClick = (node) => {
+        if (onNodeClick) {
+            onNodeClick(node);
+        } else {
+            setInlineSelected(prev => prev === node.id ? null : node.id);
+        }
+    };
+
+    const selectedNode = nodes.find(n => n.id === activeSelected);
+    const selectedRun = selectedNode?.id?.startsWith('run-')
+        ? runs.find(r => `run-${r.id}` === selectedNode.id)
+        : null;
+
     return (
-        <div className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg-primary)]">
-            <svg viewBox={`0 0 ${graph.width} ${graph.height}`} className="h-[260px] w-full">
-                <defs>
-                    <filter id="nodeShadow" x="-20%" y="-20%" width="140%" height="140%">
-                        <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.18" />
-                    </filter>
-                </defs>
-                {edges.map((edge, index) => {
-                    const from = byId.get(edge.from);
-                    const to = byId.get(edge.to);
-                    if (!from || !to) return null;
-                    const midX = (from.x + to.x) / 2;
-                    const path = `M ${from.x} ${from.y} C ${midX} ${from.y}, ${midX} ${to.y}, ${to.x} ${to.y}`;
-                    return (
-                        <path
-                            key={`${edge.from}-${edge.to}-${index}`}
-                            d={path}
-                            fill="none"
-                            stroke={getLineColor(edge.label)}
-                            strokeWidth="3"
-                            strokeLinecap="round"
-                            opacity="0.75"
+        <div>
+            <div className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg-primary)]">
+                <svg
+                    viewBox={`0 0 ${graph.width} ${graph.height}`}
+                    className={compact ? 'h-[420px] w-full' : 'h-[260px] w-full'}
+                >
+                    <defs>
+                        <filter id="nodeShadow" x="-20%" y="-20%" width="140%" height="140%">
+                            <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.18" />
+                        </filter>
+                    </defs>
+                    {edges.map((edge, index) => {
+                        const from = byId.get(edge.from);
+                        const to = byId.get(edge.to);
+                        if (!from || !to) return null;
+                        const midX = (from.x + to.x) / 2;
+                        const path = `M ${from.x} ${from.y} C ${midX} ${from.y}, ${midX} ${to.y}, ${to.x} ${to.y}`;
+                        const isRelated = activeSelected && (edge.from === activeSelected || edge.to === activeSelected);
+                        return (
+                            <path
+                                key={`${edge.from}-${edge.to}-${index}`}
+                                d={path}
+                                fill="none"
+                                stroke={getLineColor(edge.label)}
+                                strokeWidth={isRelated ? 4 : 3}
+                                strokeLinecap="round"
+                                opacity={activeSelected && !isRelated ? 0.2 : 0.75}
+                            />
+                        );
+                    })}
+                    {nodes.map(node => {
+                        const isSelected = node.id === activeSelected;
+                        const isHovered = node.id === hoveredId;
+                        const isDimmed = activeSelected && !isSelected;
+                        const r = node.type === 'origin' ? 10 : 8;
+                        return (
+                            <g
+                                key={node.id}
+                                transform={`translate(${node.x}, ${node.y})`}
+                                style={{ cursor: 'pointer' }}
+                                onClick={() => handleNodeClick(node)}
+                                onMouseEnter={() => setHoveredId(node.id)}
+                                onMouseLeave={() => setHoveredId(null)}
+                                opacity={isDimmed ? 0.3 : 1}
+                            >
+                                {(isSelected || isHovered) && (
+                                    <circle r={r + 6} fill={getNodeColor(node)} opacity="0.2" />
+                                )}
+                                <circle r={r} fill={getNodeColor(node)} filter="url(#nodeShadow)" />
+                                <circle r={node.type === 'origin' ? 4 : 3} fill="var(--bg-primary)" opacity="0.85" />
+                                <text
+                                    x="0"
+                                    y="22"
+                                    textAnchor="middle"
+                                    className="fill-[var(--text-secondary)]"
+                                    style={{ fontSize: 10, fontWeight: isSelected ? 700 : 600, pointerEvents: 'none' }}
+                                >
+                                    {truncateLabel(node.label)}
+                                </text>
+                            </g>
+                        );
+                    })}
+                </svg>
+            </div>
+            {!onNodeClick && selectedNode && (
+                <div className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] p-3">
+                    <NodeDetail node={selectedNode} run={selectedRun} />
+                </div>
+            )}
+        </div>
+    );
+}
+
+function NodeDetail({ node, run }) {
+    if (!node) return null;
+    const meta = run ? (STATUS_META[run.status] || STATUS_META.waiting) : null;
+    const StatusIcon = meta?.icon;
+    return (
+        <div className="space-y-2">
+            <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-[var(--text-primary)]">{node.label}</span>
+                {meta && (
+                    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${meta.color} ${meta.bg} ${meta.border}`}>
+                        <StatusIcon size={10} />
+                        {meta.label}
+                    </span>
+                )}
+                <span className="ml-auto text-[11px] uppercase tracking-wide text-[var(--text-tertiary)]">{node.type}</span>
+            </div>
+            {run?.objective && (
+                <p className="text-xs leading-5 text-[var(--text-secondary)]">{run.objective}</p>
+            )}
+            {node.type === 'file' && node.path && (
+                <code className="block text-xs text-[var(--text-secondary)] font-mono">{node.path}</code>
+            )}
+            {node.type === 'memory' && node.count !== undefined && (
+                <p className="text-xs text-[var(--text-secondary)]">{node.count} memory entries loaded</p>
+            )}
+            {run?.files?.length > 0 && (
+                <div className="flex flex-wrap gap-1 pt-1">
+                    {run.files.slice(0, 6).map(f => (
+                        <span key={f} className="inline-flex items-center gap-1 rounded border border-[var(--border)] bg-[var(--bg-secondary)] px-1.5 py-0.5 text-[10px] font-mono text-[var(--text-tertiary)]">
+                            <FileCode size={9} />
+                            {f.split('/').pop()}
+                        </span>
+                    ))}
+                    {run.files.length > 6 && <span className="text-[10px] text-[var(--text-tertiary)]">+{run.files.length - 6} more</span>}
+                </div>
+            )}
+            {node.updatedAt && (
+                <p className="text-[11px] text-[var(--text-tertiary)]">{formatTime(node.updatedAt)}</p>
+            )}
+        </div>
+    );
+}
+
+function TransitMapModal({ graph, runs, onClose }) {
+    const [selectedNode, setSelectedNode] = useState(null);
+    const overlayRef = useRef(null);
+
+    useEffect(() => {
+        const handleKey = (e) => { if (e.key === 'Escape') onClose(); };
+        window.addEventListener('keydown', handleKey);
+        return () => window.removeEventListener('keydown', handleKey);
+    }, [onClose]);
+
+    const selectedRun = selectedNode?.id?.startsWith('run-')
+        ? runs.find(r => `run-${r.id}` === selectedNode.id)
+        : null;
+
+    const LEGEND = [
+        { color: '#34d399', label: 'Completed' },
+        { color: '#38bdf8', label: 'Running' },
+        { color: '#f87171', label: 'Blocked' },
+        { color: '#fbbf24', label: 'File' },
+        { color: '#a78bfa', label: 'Memory' },
+        { color: '#60a5fa', label: 'Control' },
+        { color: 'var(--accent)', label: 'General' },
+    ];
+
+    return (
+        <div
+            ref={overlayRef}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
+        >
+            <div className="relative flex h-[90vh] w-[95vw] max-w-6xl flex-col rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] shadow-2xl overflow-hidden">
+                <div className="flex items-center gap-3 border-b border-[var(--border)] px-5 py-3">
+                    <GitBranch size={16} className="text-[var(--accent)]" />
+                    <h2 className="text-sm font-semibold text-[var(--text-primary)]">Transit Map</h2>
+                    <p className="text-xs text-[var(--text-tertiary)]">Click any node to inspect it</p>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="ml-auto rounded border border-[var(--border)] bg-[var(--bg-primary)] p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+                    >
+                        <X size={14} />
+                    </button>
+                </div>
+
+                <div className="flex flex-1 overflow-hidden">
+                    <div className="flex-1 overflow-auto p-4">
+                        <TransitGraph
+                            graph={graph}
+                            runs={runs}
+                            onNodeClick={setSelectedNode}
+                            selectedNodeId={selectedNode?.id}
+                            compact
                         />
-                    );
-                })}
-                {nodes.map(node => (
-                    <g key={node.id} transform={`translate(${node.x}, ${node.y})`}>
-                        <circle r={node.type === 'origin' ? 10 : 8} fill={getNodeColor(node)} filter="url(#nodeShadow)" />
-                        <circle r={node.type === 'origin' ? 4 : 3} fill="var(--bg-primary)" opacity="0.85" />
-                        <text
-                            x="0"
-                            y="22"
-                            textAnchor="middle"
-                            className="fill-[var(--text-secondary)]"
-                            style={{ fontSize: 10, fontWeight: 600 }}
-                        >
-                            {truncateLabel(node.label)}
-                        </text>
-                    </g>
-                ))}
-            </svg>
+                        <div className="mt-3 flex flex-wrap gap-3">
+                            {LEGEND.map(item => (
+                                <div key={item.label} className="flex items-center gap-1.5">
+                                    <span className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ background: item.color }} />
+                                    <span className="text-[11px] text-[var(--text-tertiary)]">{item.label}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="w-72 flex-shrink-0 border-l border-[var(--border)] overflow-y-auto">
+                        {selectedNode ? (
+                            <div className="p-4 space-y-4">
+                                <NodeDetail node={selectedNode} run={selectedRun} />
+                                {selectedRun && (
+                                    <div className="space-y-2">
+                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Edges from this run</p>
+                                        {(graph.edges || [])
+                                            .filter(e => e.from === selectedNode.id || e.to === selectedNode.id)
+                                            .map((e, i) => (
+                                                <div key={i} className="flex items-center gap-1.5 text-[11px] text-[var(--text-secondary)]">
+                                                    <span className="font-mono text-[10px] text-[var(--text-tertiary)]">{e.from === selectedNode.id ? '→' : '←'}</span>
+                                                    <span>{e.from === selectedNode.id ? e.to : e.from}</span>
+                                                    <span className="ml-auto rounded border border-[var(--border)] px-1 py-0.5 text-[10px]">{e.label}</span>
+                                                </div>
+                                            ))}
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
+                                <GitBranch size={28} className="text-[var(--text-tertiary)] opacity-40" />
+                                <p className="text-xs text-[var(--text-tertiary)]">Select a node to see its details</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }

@@ -149,13 +149,13 @@ export function ChatMessage({ message }) {
                 ? 'bg-[var(--accent)] text-white'
                 : ''
                 }`}>
-                {isUser ? <User size={18} /> : <img src={opalLogo} alt="Opal" className="w-full h-full rounded-full" />}
+                {isUser ? <User size={18} /> : <img src={opalLogo} alt="Perci" className="w-full h-full rounded-full" />}
             </div>
 
             <div className="flex-1 overflow-hidden">
                 <div className="flex items-center justify-between gap-3 mb-1.5">
                     <div className="font-semibold text-sm text-[var(--accent)]">
-                        {isUser ? 'You' : 'Opal'}
+                        {isUser ? 'You' : 'Perci'}
                     </div>
                     <button
                         type="button"
