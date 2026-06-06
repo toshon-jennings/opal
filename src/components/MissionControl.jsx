@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     AlertTriangle,
+    BookOpen,
     Bot,
     CheckCircle2,
     ClipboardCheck,
@@ -22,6 +23,7 @@ import {
     XOctagon
 } from 'lucide-react';
 import { useMode } from '../context/ModeContext';
+import { MissionControlGuideModal } from './MissionControlGuideModal';
 import { readJsonStorage } from '../lib/persistentStore';
 import { readIntentReviews } from '../lib/diffReview';
 import { addHarnessMemory, readHarnessMemory } from '../lib/harnessMemory';
@@ -127,6 +129,7 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
     const [harnessMemory, setHarnessMemory] = useState(() => readHarnessMemory());
     const [intentReviews, setIntentReviews] = useState(() => readIntentReviews());
     const [transitModalOpen, setTransitModalOpen] = useState(false);
+    const [guideModalOpen, setGuideModalOpen] = useState(false);
 
     const activeProfile = openClawConfig.profiles.find(profile => profile.id === openClawConfig.activeProfileId) || openClawConfig.profiles[0];
     const filteredRuns = useMemo(() => runs.filter(run => matchesRunFilter(run, activeFilter)), [runs, activeFilter]);
@@ -365,8 +368,19 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
                             <div className="h-9 w-9 rounded-lg bg-[var(--bg-tertiary)] border border-[var(--border)] flex items-center justify-center">
                                 <TerminalSquare size={18} className="text-[var(--accent)]" />
                             </div>
-                            <div>
-                                <h2 className="text-base font-semibold text-[var(--text-primary)]">Mission Control</h2>
+                            <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                    <h2 className="text-base font-semibold text-[var(--text-primary)]">Mission Control</h2>
+                                    <button
+                                        type="button"
+                                        onClick={() => setGuideModalOpen(true)}
+                                        className="inline-flex items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--bg-primary)] px-2 py-1 text-[11px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+                                        title="Open Mission Control guide"
+                                    >
+                                        <BookOpen size={12} />
+                                        Guide
+                                    </button>
+                                </div>
                                 <p className="text-xs text-[var(--text-tertiary)]">Runs, results, and memories your AI should keep</p>
                             </div>
                         </div>
@@ -446,10 +460,10 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
                                 </div>
                             </div>
 
-                            <div className="mt-6 grid grid-cols-4 gap-3 max-md:grid-cols-1">
+                            <div className="mt-6 grid grid-cols-5 gap-3 max-md:grid-cols-1">
                                 <InfoTile icon={Bot} label="Agent" value={selectedRun.agent} />
                                 <InfoTile icon={Clock3} label="Updated" value={formatTime(selectedRun.updatedAt)} />
-                                <InfoTile icon={GitBranch} label="Workspace" value={selectedRun.workingDirectory} mono />
+                                <InfoTile icon={GitBranch} label="Workspace" value={selectedRun.workingDirectory} mono wide wrap />
                                 <InfoTile icon={Sparkles} label="Memory" value={`${harnessMemory.length} notes`} />
                             </div>
 
@@ -733,7 +747,11 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
                                 onClose={() => setTransitModalOpen(false)}
                             />
                         )}
-	                </aside>
+                        <MissionControlGuideModal
+                            isOpen={guideModalOpen}
+                            onClose={() => setGuideModalOpen(false)}
+                        />
+                    </aside>
             </div>
         </div>
     );
@@ -807,14 +825,19 @@ function ActionButton({ icon: Icon, label, onClick, disabled }) {
     );
 }
 
-function InfoTile({ icon: Icon, label, value, mono }) {
+function InfoTile({ icon: Icon, label, value, mono, wide, wrap }) {
     return (
-        <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-3">
+        <div className={`rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-3 ${wide ? 'md:col-span-2' : ''}`}>
             <div className="flex items-center gap-2 text-xs uppercase text-[var(--text-tertiary)]">
                 <Icon size={13} />
                 {label}
             </div>
-            <div className={`mt-2 truncate text-sm text-[var(--text-primary)] ${mono ? 'font-mono' : ''}`}>{value}</div>
+            <div
+                className={`mt-2 text-sm text-[var(--text-primary)] ${wrap ? 'break-all leading-5' : 'truncate'} ${mono ? 'font-mono' : ''}`}
+                title={typeof value === 'string' ? value : undefined}
+            >
+                {value}
+            </div>
         </div>
     );
 }
@@ -1057,6 +1080,7 @@ function TransitMapModal({ graph, runs, onClose }) {
                                 </div>
                             ))}
                         </div>
+                        <MissionPulsePanel runs={runs} selectedNode={selectedNode} selectedRun={selectedRun} />
                     </div>
 
                     <div className="w-72 flex-shrink-0 border-l border-[var(--border)] overflow-y-auto">
@@ -1087,6 +1111,105 @@ function TransitMapModal({ graph, runs, onClose }) {
                     </div>
                 </div>
             </div>
+        </div>
+    );
+}
+
+function MissionPulsePanel({ runs = [], selectedNode, selectedRun }) {
+    const recentRuns = runs.slice(0, 8);
+    const activeRuns = runs.filter(run => ['running', 'waiting'].includes(run.status)).length;
+    const validationCount = runs.filter(needsValidation).length;
+    const fileTouchCount = new Set(runs.flatMap(run => run.files || [])).size;
+    const completedCount = runs.filter(run => run.status === 'completed').length;
+    const laneSummary = ['terminal', 'cowork', 'code', 'build', 'gateway', 'general']
+        .map(type => ({
+            type,
+            label: type === 'gateway' ? 'OpenClaw' : type[0].toUpperCase() + type.slice(1),
+            runs: runs.filter(run => getRunSourceType(run) === type)
+        }))
+        .filter(lane => lane.runs.length > 0);
+    const selectedLabel = selectedRun?.title || selectedNode?.label || 'No node selected';
+    const selectedStatus = selectedRun?.status || selectedNode?.type || 'overview';
+
+    return (
+        <div className="mission-pulse-panel delight-field layout-transition mt-4 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-primary)]">
+            <div className="mission-pulse-grid" aria-hidden="true" />
+            <div className="relative z-10 grid gap-4 p-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(260px,0.8fr)]">
+                <div className="min-w-0">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <Sparkles size={14} className="text-[var(--accent)]" />
+                                <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-primary)]">Mission Pulse</h3>
+                            </div>
+                            <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">Live orchestration flow across active run lanes</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-[11px] font-medium text-emerald-400">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse-subtle" />
+                            {activeRuns} active
+                        </div>
+                    </div>
+
+                    <div className="space-y-3">
+                        {(laneSummary.length > 0 ? laneSummary : [{ type: 'general', label: 'General', runs: recentRuns }]).map((lane, laneIndex) => {
+                            const latest = lane.runs[0];
+                            return (
+                                <div key={lane.type} className="grid grid-cols-[76px_minmax(0,1fr)_72px] items-center gap-3">
+                                    <span className="truncate text-[11px] font-medium text-[var(--text-secondary)]">{lane.label}</span>
+                                    <div className="mission-pulse-track">
+                                        <span
+                                            className="mission-pulse-packet"
+                                            style={{
+                                                animationDelay: `${laneIndex * -1.1}s`,
+                                                background: getNodeColor({ type: lane.type, status: latest?.status })
+                                            }}
+                                        />
+                                        {lane.runs.slice(0, 5).map((run, index) => (
+                                            <span
+                                                key={run.id}
+                                                className="mission-pulse-stop"
+                                                style={{
+                                                    left: `${Math.min(92, 8 + index * 20)}%`,
+                                                    background: getNodeColor({ type: lane.type, status: run.status })
+                                                }}
+                                                title={run.title}
+                                            />
+                                        ))}
+                                    </div>
+                                    <span className="text-right text-[11px] text-[var(--text-tertiary)]">{lane.runs.length} runs</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                <div className="grid min-w-0 grid-cols-2 gap-2">
+                    <PulseMetric icon={Clock3} label="Active" value={activeRuns} />
+                    <PulseMetric icon={ShieldCheck} label="Validate" value={validationCount} />
+                    <PulseMetric icon={FileCode} label="Files" value={fileTouchCount} />
+                    <PulseMetric icon={CheckCircle2} label="Done" value={completedCount} />
+                    <div className="col-span-2 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)]/70 p-3">
+                        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
+                            <History size={12} />
+                            Selected signal
+                        </div>
+                        <p className="mt-2 truncate text-sm font-medium text-[var(--text-primary)]">{selectedLabel}</p>
+                        <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">{selectedStatus}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function PulseMetric({ icon: Icon, label, value }) {
+    return (
+        <div className="micro-interaction rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)]/70 p-3">
+            <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-[var(--text-tertiary)]">
+                <Icon size={12} />
+                {label}
+            </div>
+            <div className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{value}</div>
         </div>
     );
 }

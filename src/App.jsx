@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, Component } from 'react';
 import opalLogo from './assets/opal-logo.png';
 import { useMode, MODES } from './context/ModeContext';
 import ModeSwitcher from './components/ModeSwitcher';
@@ -7,6 +7,8 @@ import CodeMode from './components/CodeMode';
 import CoworkMode from './components/CoworkMode';
 import MissionControl from './components/MissionControl';
 import BuildMode from './components/BuildMode';
+import AgentsPanel from './components/AgentsPanel';
+import { ModeGuideModal } from './components/ModeGuideModal';
 import { BuildModeProvider } from './context/BuildModeContext'; // Keeping original context for now, but primary logic will be in BuildContext
 import { BuildProvider } from './context/BuildContext';
 import { ChatProvider } from './context/ChatContext';
@@ -27,6 +29,45 @@ import {
 } from './lib/missionControl';
 import { buildTerminalWsUrl, getTerminalPortCandidates, rememberTerminalPort } from './lib/terminalBridge';
 
+class ModeErrorBoundary extends Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false, error: null };
+    }
+    static getDerivedStateFromError(error) {
+        return { hasError: true, error };
+    }
+    componentDidCatch(error, info) {
+        console.error('[ModeErrorBoundary] Mode render error:', error, info);
+    }
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center">
+                    <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-6 max-w-lg w-full">
+                        <p className="text-sm font-semibold text-red-400 mb-2">Page failed to render</p>
+                        <p className="font-mono text-xs text-red-300/80 break-all leading-5">
+                            {this.state.error?.message || 'An unexpected error occurred.'}
+                        </p>
+                        {this.state.error?.stack && (
+                            <pre className="mt-3 text-left text-[10px] text-red-300/60 overflow-auto max-h-48 leading-4">
+                                {this.state.error.stack}
+                            </pre>
+                        )}
+                        <button
+                            onClick={() => this.setState({ hasError: false, error: null })}
+                            className="mt-4 rounded-lg border border-red-500/40 px-4 py-1.5 text-xs text-red-300 hover:bg-red-500/10 transition-colors"
+                        >
+                            Retry
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
+
 function AppContent() {
     const {
         currentMode,
@@ -44,6 +85,7 @@ function AppContent() {
     const [openClawFrameKey, setOpenClawFrameKey] = useState(0);
     const [openClawDashboardIssue, setOpenClawDashboardIssue] = useState(null);
     const [isRestartingOpenClaw, setIsRestartingOpenClaw] = useState(false);
+    const [showModeGuide, setShowModeGuide] = useState(false);
     const [hermesError, setHermesError] = useState(null);
     const [terminalCommand, setTerminalCommand] = useState('');
     const [openClawDashboardTab, setOpenClawDashboardTab] = useState('gateway');
@@ -537,6 +579,15 @@ function AppContent() {
 
                     <ModeSwitcher />
 
+                    <button
+                        onClick={() => setShowModeGuide(true)}
+                        className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+                        title="Open mode guide"
+                    >
+                        <BookOpen size={16} />
+                        <span className="hidden lg:inline text-sm font-medium">Guide</span>
+                    </button>
+
                     <div className="h-6 w-px bg-[var(--border)] mx-2" />
 
                     <button
@@ -563,7 +614,7 @@ function AppContent() {
                                     ? 'mercury-branded-error'
                                     : ''
                             }`}
-                            title="Mercury"
+                            title="MERCURY for Hermes Agent"
                         >
                             {hermesError ? <AlertCircle size={14} /> : <img src={hermesLogo} alt="Mercury" className="h-4 w-4" />}
                             <span className="hidden xl:inline">Mercury</span>
@@ -605,11 +656,16 @@ function AppContent() {
             {/* Mode-Specific UI */}
             <main className="app-main relative flex-1 min-h-0 overflow-hidden flex flex-col">
                 <div className="flex-1 min-h-0 overflow-hidden relative">
-                    {currentMode === MODES.CHAT && <ChatMode />}
-                    {currentMode === MODES.COWORK && <CoworkMode />}
-                    {currentMode === MODES.MISSION && <MissionControl openClawStatus={openClawStatus} onRestartOpenClaw={restartOpenClawGateway} isRestartingOpenClaw={isRestartingOpenClaw} />}
-                    {currentMode === MODES.CODE && <CodeMode />}
-                    {currentMode === MODES.BUILD && <BuildMode />}
+                    <ModeErrorBoundary key={currentMode}>
+                        {currentMode === MODES.CHAT && <ChatMode />}
+                        {currentMode === MODES.COWORK && <CoworkMode />}
+                        {currentMode === MODES.MISSION && <MissionControl openClawStatus={openClawStatus} onRestartOpenClaw={restartOpenClawGateway} isRestartingOpenClaw={isRestartingOpenClaw} />}
+                        {currentMode === MODES.CODE && <CodeMode />}
+                        {currentMode === MODES.AGENTS && <AgentsPanel />}
+                        {currentMode === MODES.BUILD && <BuildMode />}
+                    </ModeErrorBoundary>
+
+                    <ModeGuideModal isOpen={showModeGuide} onClose={() => setShowModeGuide(false)} />
 
                     {showOpenClawDashboard && activeOpenClawDashboardUrl && (
                         <div className="absolute inset-0 z-40 bg-[var(--bg-primary)] flex flex-col border-t border-[var(--border)]">

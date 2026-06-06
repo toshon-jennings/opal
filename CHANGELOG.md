@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.15.0] - 2026-06-06
+### Added
+- Added an Advanced tab to the in-app Mission Control guide for power users, covering run lifecycle, validation linking, memory pipeline behavior, Transit Map semantics, and operational caveats.
+- Added a top-header mode guide (Guide button next to the mode switcher) that explains the differences between Chat, Cowork, Code, Agents (Agent CLI), Mission, and Build.
+- Added an Advanced tab to the mode guide for power users who want a more architectural explanation of how the modes differ.
+- Bumped version to 0.15.0.
+
+## [0.14.2] - 2026-06-06
+### Added
+- Added an Advanced tab to the in-app Mission Control guide for power users, covering run lifecycle, validation linking, memory pipeline behavior, Transit Map semantics, and operational caveats.
+- Added a top-header mode guide that explains the differences between Chat, Cowork, Code, Agents (Agent CLI), Mission, and Build.
+- Added an Advanced tab to the mode guide for power users who want a more architectural explanation of how the modes differ.
+
+## [0.14.1] - 2026-06-06
+### Added
+- Added a user-friendly in-app Mission Control guide that explains the page layout, statuses, validation flow, memory review, Transit Map, Mission Pulse, and OpenClaw integration.
+- Added a Mission Control "Guide" button that opens the documentation directly as a modal from the page.
+
+## [0.14.0] - 2026-06-04
+### Added
+- New **Agent CLI** mode — AI agent control center with job management, status tracking, and request composition.
+- 13 supported agents: Aider, Antigravity CLI, Claude Code, Codex, Copilot, Cursor CLI, Hermes, Jan, OpenClaw, OpenHands, OpenCode, Percival, Qwen Code.
+- Real-time job polling (2.5s active / 7s idle) with localStorage persistence.
+- Job filtering (All / Active / Done / Needs Attention) and search.
+- Job details pane with full prompt, output, timestamps, elapsed time, workspace path.
+- Cancel active jobs, copy job ID/prompt/output to clipboard.
+
 ## [0.13.1] - 2026-06-03
 ### Changed
 - Updated Chat, Code, and Cowork mode components.
