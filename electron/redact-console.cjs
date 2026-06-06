@@ -45,13 +45,46 @@ function redactSecrets(value, seen = new WeakSet(), depth = 0) {
   }));
 }
 
+function isBrokenPipe(err) {
+  return err && (err.code === 'EPIPE' || err.code === 'ERR_STREAM_DESTROYED' || err.code === 'ERR_STREAM_WRITE_AFTER_END');
+}
+
 function installRedactedConsole() {
   if (console.__opalRedactionInstalled) return;
+
+  // When a parent pipe is torn down (e.g. a renderer hard-refresh or the dev
+  // terminal closing the read end), the next write to stdout/stderr throws
+  // EPIPE. Swallow it here so a lost log line never crashes the main process.
+  for (const stream of [process.stdout, process.stderr]) {
+    stream?.on?.('error', (err) => { if (!isBrokenPipe(err)) throw err; });
+  }
+
+  // Safety net: if EPIPE still escapes (e.g. synchronous throw from a write
+  // that bypasses the stream error event), catch it at the process level rather
+  // than letting it become an uncaught exception.
+  if (!console.__opalEpipeHandlerInstalled) {
+    process.on('uncaughtException', (err) => {
+      if (isBrokenPipe(err)) return;
+      // Re-throw non-EPIPE errors so they are not silently swallowed.
+      throw err;
+    });
+    Object.defineProperty(console, '__opalEpipeHandlerInstalled', {
+      value: true,
+      configurable: false,
+      enumerable: false
+    });
+  }
 
   ['log', 'info', 'warn', 'error', 'debug'].forEach((method) => {
     const original = console[method]?.bind(console);
     if (!original) return;
-    console[method] = (...args) => original(...args.map(arg => redactSecrets(arg)));
+    console[method] = (...args) => {
+      try {
+        original(...args.map(arg => redactSecrets(arg)));
+      } catch (err) {
+        if (!isBrokenPipe(err)) throw err;
+      }
+    };
   });
 
   Object.defineProperty(console, '__opalRedactionInstalled', {
