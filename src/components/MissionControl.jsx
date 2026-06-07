@@ -301,7 +301,10 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
             if (!evt?.message || /[│┌├└┬┼┴]/.test(evt.message)) return;
             const meaningful = evt.level === 'warn' || evt.level === 'error' || evt.type === 'stream-error' || keyword.test(evt.message);
             if (!meaningful) return;
-            setLiveEvents(prev => [{ ...evt, id: `${evt.time}-${prev.length}` }, ...prev].slice(0, 20));
+            setLiveEvents(prev => {
+                const uniqueId = `${evt.time || Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+                return [{ ...evt, id: uniqueId }, ...prev].slice(0, 20);
+            });
         });
         window.electron.startOpenClawEvents(activeProfile);
         return () => {
