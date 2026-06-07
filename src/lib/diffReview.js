@@ -1,4 +1,4 @@
-export const DIFF_REVIEW_KEY = 'opal_diff_reviews';
+export const DIFF_REVIEW_KEY = 'perci_diff_reviews';
 
 export function createIntentReview({ title = 'Workspace review', command = '', output = '', files = [], validation = null } = {}) {
     const parsed = parseDiffLikeOutput(output);

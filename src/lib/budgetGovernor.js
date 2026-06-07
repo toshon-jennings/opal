@@ -1,4 +1,4 @@
-export const BUDGET_STATE_KEY = 'opal_budget_state';
+export const BUDGET_STATE_KEY = 'perci_budget_state';
 
 const DEFAULT_BUDGET = {
     maxIterations: 8,

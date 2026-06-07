@@ -1,6 +1,6 @@
 import { readJsonStorage } from './persistentStore';
 
-export const HARNESS_MEMORY_KEY = 'opal_harness_memory';
+export const HARNESS_MEMORY_KEY = 'perci_harness_memory';
 const MAX_MEMORY_ITEMS = 120;
 const MAX_RETRIEVED_ITEMS = 6;
 

@@ -1552,7 +1552,7 @@ function getAgentCommand(agentId) {
 
 // Per-agent flag used to select a model, verified against each CLI's --help.
 // Agents missing here have no --model flag (Jan picks its model via
-// `jan launch`; opal is a custom CLI), so the UI hides the model field for them.
+// `jan launch`; perci is a custom CLI), so the UI hides the model field for them.
 function getAgentModelFlag(agentId) {
   const flagMap = {
     aider: '--model',
