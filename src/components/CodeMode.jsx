@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Component } from 'react';
 import { useMode, MODES } from '../context/ModeContext';
 import { useChat } from '../context/ChatContext';
 import { useTheme } from '../context/ThemeContext';
@@ -38,6 +38,36 @@ const getDefaultSidebarWidth = () => {
 };
 
 const PROVIDERS_REQUIRING_API_KEYS = new Set(['openai', 'groq', 'gemini', 'openrouter', 'anthropic', 'mistral']);
+
+class EditorErrorBoundary extends Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false, error: null };
+    }
+    static getDerivedStateFromError(error) {
+        return { hasError: true, error };
+    }
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
+                    <Code size={28} className="text-[var(--text-tertiary)]" />
+                    <p className="text-sm font-medium text-[var(--text-primary)]">Editor failed to load</p>
+                    <p className="max-w-sm text-xs leading-5 text-[var(--text-tertiary)]">
+                        {this.state.error?.message || 'Monaco editor encountered an error.'}
+                    </p>
+                    <button
+                        onClick={() => this.setState({ hasError: false, error: null })}
+                        className="mt-1 rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)]"
+                    >
+                        Retry
+                    </button>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
 
 export default function CodeMode() {
     const { codeState, setCodeState } = useMode();
@@ -314,7 +344,7 @@ export default function CodeMode() {
             const toolRun = await runChatWithTools({
                 client,
                 messages: messagesForLLM,
-                tools: getIntegrationTools({ allowWrites: permissionLevel !== 'read' }),
+                tools: getIntegrationTools({ allowWrites: permissionLevel !== 'read', apiKeys }),
                 modelId: routedModel,
                 signal: abortController.signal,
                 executeTool: (name, params) => executeIntegrationTool(name, params, apiKeys),
@@ -547,30 +577,32 @@ export default function CodeMode() {
                             <FileExplorer files={codeState.files} activeFile={codeState.activeFile} onFileSelect={handleFileSelect} />
                         </div>
                     )}
-                    <div className={`flex-1 relative ${isDarkMode ? 'bg-[var(--bg-primary)]' : 'bg-white'} min-w-0 overflow-hidden`}>
+                    <div className={`flex-1 min-h-0 relative ${isDarkMode ? 'bg-[var(--bg-primary)]' : 'bg-white'} min-w-0 overflow-hidden`}>
                         {codeState.activeFile ? (
-                            <MonacoEditor
-                                height="100%"
-                                language={getLanguage(codeState.activeFile)}
-                                value={codeState.files[codeState.activeFile] || ''}
-                                onChange={(val) => setCodeState(prev => ({ ...prev, files: { ...prev.files, [prev.activeFile]: val }, unsavedChanges: true }))}
-                                theme={isDarkMode ? "vs-dark" : "light"}
-                                options={{
-                                    wordWrap: 'on',
-                                    wrappingIndent: 'indent',
-                                    automaticLayout: true,
-                                    minimap: { enabled: false },
-                                    fontSize: 13,
-                                    lineNumbers: 'on',
-                                    scrollBeyondLastLine: false,
-                                    padding: { top: 16, bottom: 16 },
-                                    fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
-                                    fontLigatures: true,
-                                    smoothScrolling: true,
-                                    cursorBlinking: 'smooth',
-                                    cursorSmoothCaretAnimation: 'on'
-                                }}
-                            />
+                            <EditorErrorBoundary>
+                                <MonacoEditor
+                                    height="100%"
+                                    language={getLanguage(codeState.activeFile)}
+                                    value={codeState.files[codeState.activeFile] || ''}
+                                    onChange={(val) => setCodeState(prev => ({ ...prev, files: { ...prev.files, [prev.activeFile]: val }, unsavedChanges: true }))}
+                                    theme={isDarkMode ? "vs-dark" : "light"}
+                                    options={{
+                                        wordWrap: 'on',
+                                        wrappingIndent: 'indent',
+                                        automaticLayout: true,
+                                        minimap: { enabled: false },
+                                        fontSize: 13,
+                                        lineNumbers: 'on',
+                                        scrollBeyondLastLine: false,
+                                        padding: { top: 16, bottom: 16 },
+                                        fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
+                                        fontLigatures: true,
+                                        smoothScrolling: true,
+                                        cursorBlinking: 'smooth',
+                                        cursorSmoothCaretAnimation: 'on'
+                                    }}
+                                />
+                            </EditorErrorBoundary>
                         ) : ( <div className="h-full flex items-center justify-center">Select a file</div> )}
                     </div>
                 </div>

@@ -91,6 +91,26 @@ function splitMisclassifiedThinking(value) {
         : { thinking: '', response: text };
 }
 
+function shouldAutoUseWebSearch(message) {
+    const query = String(message || '').toLowerCase();
+    return [
+        'today',
+        'right now',
+        'current',
+        'latest',
+        'recent',
+        'this week',
+        'this month',
+        'this year',
+        'on this day',
+        'this day in history',
+        'what happened',
+        'who won',
+        'stock price',
+        'weather'
+    ].some(phrase => query.includes(phrase));
+}
+
 function getArtifactExcerpt(artifact) {
     const content = artifact?.content || '';
     const stripped = content
@@ -565,6 +585,7 @@ function ChatMode() {
     const [activeTab, setActiveTab] = useState('chat'); // 'chat' or 'artifacts'
     const [isSearchEnabled, setIsSearchEnabled] = useState(false);
     const [isSearching, setIsSearching] = useState(false);
+    const [searchMode, setSearchMode] = useState('web');
     const [searchSteps, setSearchSteps] = useState([]);
     const [currentSearchQuery, setCurrentSearchQuery] = useState('');
     const [searchSources, setSearchSources] = useState([]);
@@ -699,25 +720,50 @@ function ChatMode() {
             // Check for Deep Research intent at a higher scope
             const isDeepResearch = userMessage.toLowerCase().startsWith('deep research:') ||
                 userMessage.toLowerCase().includes('write a research paper');
+            const shouldUseSearch = isSearchEnabled || shouldAutoUseWebSearch(userMessage);
 
-            // Perform intelligent search if enabled and Tavily key exists
-            if (isSearchEnabled && apiKeys.tavily) {
+            if (isDeepResearch) {
+                if (!selectedProvider || !selectedModel) {
+                    addMessage('assistant', "Please select a provider and model in Settings to use Deep Research.");
+                    setIsLoading(false);
+                    return;
+                }
+                if (PROVIDERS_REQUIRING_API_KEYS.has(selectedProvider) && !apiKeys[selectedProvider]) {
+                    addMessage('assistant', `Please set your ${selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1)} API Key in Settings to use Deep Research.`);
+                    setIsLoading(false);
+                    return;
+                }
+            }
+
+            // Perform intelligent search. The desktop app uses Perci's local search bridge; supported hosted providers can use native web search.
+            const providerHasNativeWebSearch = ['openai', 'anthropic'].includes(selectedProvider) && Boolean(apiKeys[selectedProvider]);
+            const hasDesktopWebSearch = typeof window !== 'undefined' && typeof window.electron?.webSearch === 'function';
+            const canUseLiveWebSearch = Boolean(hasDesktopWebSearch || providerHasNativeWebSearch);
+            if (shouldUseSearch && !canUseLiveWebSearch && !isDeepResearch) {
+                addMessage('assistant', 'This question needs web search, but no live web provider is available. Fully restart the Perci desktop dev app for local no-key search, or use OpenAI/Anthropic with an API key for native web search.');
+                setIsLoading(false);
+                return;
+            }
+            if ((shouldUseSearch && canUseLiveWebSearch) || isDeepResearch) {
                 try {
                     setIsSearching(true);
+                    setSearchMode(isDeepResearch ? 'research' : 'web');
                     setSearchSteps([]);
                     setSearchSources([]);
 
                     const searchTool = new IntelligentSearchTool(
-                        apiKeys.tavily,
                         selectedProvider,
                         apiKeys[selectedProvider],
                         lmStudioUrl,
-                        janUrl
+                        janUrl,
+                        selectedModel
                     );
 
                     // Check if we should search
                     const decision = isDeepResearch
                         ? { shouldSearch: true, reason: 'Deep Research requested' }
+                        : shouldAutoUseWebSearch(userMessage)
+                        ? { shouldSearch: true, reason: 'Current or historical lookup requires web context' }
                         : searchTool.shouldPerformWebSearch(userMessage);
 
                     console.log('🤔 Search decision:', decision);
@@ -725,15 +771,34 @@ function ChatMode() {
                     if (decision.shouldSearch) {
                         if (isDeepResearch) {
                             const query = userMessage.replace(/^deep research:/i, '').trim();
+                            setCurrentSearchQuery(query || 'Deep research');
+                            setSearchSteps([{ query: query || userMessage, status: 'decomposing', reason: 'Planning investigation' }]);
                             searchResults = await searchTool.deepResearch(query, (p) => {
-                                if (p.status === 'decomposing') setCurrentSearchQuery('Decomposing query...');
+                                if (p.status === 'decomposing') {
+                                    setCurrentSearchQuery(p.query || query || 'Decomposing query...');
+                                    setSearchSteps(prev => {
+                                        const next = prev.length ? [...prev] : [];
+                                        const last = next[next.length - 1];
+                                        if (last?.status === 'decomposing') {
+                                            next[next.length - 1] = { ...last, query: p.query || query || last.query, reason: p.message || 'Planning investigation' };
+                                            return next;
+                                        }
+                                        return [...next, { query: p.query || query || userMessage, status: 'decomposing', reason: p.message || 'Planning investigation' }];
+                                    });
+                                }
                                 else if (p.status === 'searching') {
                                     setCurrentSearchQuery(`Researching: ${p.query}`);
-                                    setSearchSteps(prev => [...prev, { query: p.query, status: 'searching', reason: `Step ${p.currentStep}/${p.totalSteps}` }]);
+                                    setSearchSteps(prev => [...prev, {
+                                        query: p.query,
+                                        status: 'searching',
+                                        phase: 'searching',
+                                        reason: p.message || `Step ${p.currentStep}/${p.totalSteps}`,
+                                        stepLabel: `Step ${p.currentStep || prev.length + 1}`
+                                    }]);
                                 }
                                 else if (p.status === 'synthesizing') {
                                     setCurrentSearchQuery('Synthesizing paper...');
-                                    setSearchSteps(prev => [...prev, { query: 'Synthesis', reason: 'Drafting paper' }]);
+                                    setSearchSteps(prev => [...prev, { query: 'Synthesis', status: 'synthesizing', phase: 'synthesizing', reason: 'Drafting paper' }]);
                                 }
                             });
                             context = searchResults.content;
@@ -803,9 +868,13 @@ function ChatMode() {
                     }
                 } catch (e) {
                     console.error("Search failed:", e);
+                    addMessage('assistant', `Web search failed before the model answered: ${e.message || 'Unknown search error'}`);
+                    setIsLoading(false);
+                    return;
                 } finally {
                     setIsSearching(false);
                     setCurrentSearchQuery('');
+                    setSearchMode('web');
                 }
             }
 
@@ -865,7 +934,13 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
             let userContent;
 
             if (fullTextContent && context) {
-                fullTextContent += '\n\nContext from Web Search:\n' + context;
+                const currentDate = new Date().toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric'
+                });
+                fullTextContent += `\n\nCurrent local date: ${currentDate}\n\nContext from Web Search:\n${context}\n\nUse the web-search context above as the source of truth. Cite sources inline as [1], [2], etc. Do not answer from memory if the search context is missing, ambiguous, or about a different date.`;
             }
 
             if (imageAttachments.length > 0 && supportsImages) {
@@ -897,7 +972,7 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
             const toolRun = await runChatWithTools({
                 client,
                 messages: messagesWithContext,
-                tools: getIntegrationTools({ allowWrites: permissionLevel !== 'read' }),
+                tools: getIntegrationTools({ allowWrites: permissionLevel !== 'read', apiKeys }),
                 modelId: selectedModel,
                 signal: abortController.signal,
                 executeTool: (name, params) => executeIntegrationTool(name, params, apiKeys),
@@ -1694,6 +1769,7 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                                         {isSearching && (
                                             <SearchProgress
                                                 isSearching={isSearching}
+                                                mode={searchMode}
                                                 searchSteps={searchSteps}
                                                 totalSources={searchSources.length}
                                                 currentQuery={currentSearchQuery}

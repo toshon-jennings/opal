@@ -4,6 +4,13 @@ import { readFileSync } from 'fs'
 
 const { version } = JSON.parse(readFileSync('./package.json', 'utf-8'))
 
+function setSecurityHeaders(res) {
+  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Content-Security-Policy', "frame-ancestors 'none'; object-src 'none'; base-uri 'self'");
+}
+
 // https://vitejs.dev/config/
 export default defineConfig({
   base: './',
@@ -60,17 +67,16 @@ export default defineConfig({
       name: 'configure-webcontainer-headers',
       configureServer(server) {
         server.middlewares.use((req, res, next) => {
-          // Required for WebContainer API (enables SharedArrayBuffer)
-          res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
-          res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+          // COOP/COEP enables SharedArrayBuffer for WebContainer; frame
+          // protection prevents the dev app from being embedded/clickjacked.
+          setSecurityHeaders(res);
           next();
         });
       },
       // Also configure for preview builds
       configurePreviewServer(server) {
         server.middlewares.use((req, res, next) => {
-          res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
-          res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+          setSecurityHeaders(res);
           next();
         });
       }

@@ -1,12 +1,17 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Code, Eye, Maximize2, X, Copy, Check, Download, FileText, Pencil, Sun, Moon } from 'lucide-react';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { SyntaxHighlighter } from '../lib/syntaxHighlighter';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import rehypeRaw from 'rehype-raw';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import {
+    PREVIEW_SECURITY_LIMITS,
+    buildPreviewErrorDocument,
+    buildStaticPreviewDocument,
+    getPreviewSandbox
+} from '../lib/previewSecurity';
 
 export function ArtifactPanel({ isOpen, onClose, artifact, onUpdateContent }) {
     const [view, setView] = useState('preview'); // 'preview', 'code', or 'edit'
@@ -14,20 +19,22 @@ export function ArtifactPanel({ isOpen, onClose, artifact, onUpdateContent }) {
     const [editContent, setEditContent] = useState('');
     const [previewTheme, setPreviewTheme] = useState('light'); // 'light' or 'dark'
     const [isMaximized, setIsMaximized] = useState(false);
-    const iframeRef = useRef(null);
 
     useEffect(() => {
         if (view === 'edit') setEditContent(artifact?.content || '');
     }, [view, artifact?.id]);
 
-    useEffect(() => {
-        if (artifact && artifact.type === 'html' && view === 'preview' && iframeRef.current) {
-            const doc = iframeRef.current.contentDocument;
-            doc.open();
-            doc.write(artifact.content);
-            doc.close();
+    const sandboxedPreviewDoc = useMemo(() => {
+        if (!artifact || !['html', 'svg'].includes(artifact.type)) return '';
+        try {
+            return buildStaticPreviewDocument(artifact.content, {
+                title: artifact.title,
+                type: artifact.type
+            });
+        } catch (error) {
+            return buildPreviewErrorDocument(error.message);
         }
-    }, [artifact, view]);
+    }, [artifact]);
 
     if (!isOpen || !artifact) return null;
 
@@ -72,6 +79,9 @@ export function ArtifactPanel({ isOpen, onClose, artifact, onUpdateContent }) {
             // Fallback to raster if vector fails
             try {
                 const canvas = await html2canvas(element, { scale: 2, useCORS: true });
+                if (canvas.width * canvas.height > PREVIEW_SECURITY_LIMITS.maxExportPixels) {
+                    throw new Error('PDF raster fallback is too large to export safely.');
+                }
                 const imgData = canvas.toDataURL('image/jpeg', 0.8); // JPEG compression
                 const pdf = new jsPDF('p', 'mm', 'a4');
                 const w = pdf.internal.pageSize.getWidth();
@@ -85,7 +95,7 @@ export function ArtifactPanel({ isOpen, onClose, artifact, onUpdateContent }) {
     };
 
     return (
-        <div className={`border-l border-[var(--border)] bg-[var(--bg-primary)] flex flex-col h-full z-40 transition-all duration-300 ${
+        <div className={`layout-transition border-l border-[var(--border)] bg-[var(--bg-primary)] flex flex-col h-full z-40 transition-all duration-300 ${
             isMaximized 
                 ? 'fixed inset-0 w-full' 
                 : 'w-full md:w-[560px] fixed md:relative right-0 top-0 bottom-0'
@@ -105,7 +115,7 @@ export function ArtifactPanel({ isOpen, onClose, artifact, onUpdateContent }) {
                     {artifact.type === 'research_paper' && (
                         <button
                             onClick={downloadPdf}
-                            className="px-3 py-1.5 rounded-md text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                            className="micro-interaction px-3 py-1.5 rounded-md text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
                         >
                             <Download size={14} className="inline mr-1" />
                             PDF
@@ -115,7 +125,7 @@ export function ArtifactPanel({ isOpen, onClose, artifact, onUpdateContent }) {
                         <>
                             <button
                                 onClick={() => setView('preview')}
-                                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${view === 'preview'
+                                className={`micro-interaction px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${view === 'preview'
                                     ? 'bg-[var(--accent)] text-white'
                                     : 'hover:bg-[var(--bg-hover)] text-[var(--text-secondary)]'
                                     }`}
@@ -125,7 +135,7 @@ export function ArtifactPanel({ isOpen, onClose, artifact, onUpdateContent }) {
                             </button>
                             <button
                                 onClick={() => setView('code')}
-                                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${view === 'code'
+                                className={`micro-interaction px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${view === 'code'
                                     ? 'bg-[var(--accent)] text-white'
                                     : 'hover:bg-[var(--bg-hover)] text-[var(--text-secondary)]'
                                     }`}
@@ -141,7 +151,7 @@ export function ArtifactPanel({ isOpen, onClose, artifact, onUpdateContent }) {
                     {view === 'preview' && (
                         <button
                             onClick={() => setPreviewTheme(t => t === 'light' ? 'dark' : 'light')}
-                            className="p-1.5 hover:bg-[var(--bg-hover)] rounded-md transition-colors text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                            className="micro-interaction p-1.5 hover:bg-[var(--bg-hover)] rounded-md transition-colors text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
                             title={`Switch to ${previewTheme === 'light' ? 'dark' : 'light'} preview`}
                         >
                             {previewTheme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
@@ -150,7 +160,7 @@ export function ArtifactPanel({ isOpen, onClose, artifact, onUpdateContent }) {
 
                     <button
                         onClick={() => setIsMaximized(!isMaximized)}
-                        className={`p-1.5 hover:bg-[var(--bg-hover)] rounded-md transition-colors ${isMaximized ? 'text-[var(--accent)] bg-[var(--accent)]/10' : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'}`}
+                        className={`micro-interaction p-1.5 hover:bg-[var(--bg-hover)] rounded-md transition-colors ${isMaximized ? 'text-[var(--accent)] bg-[var(--accent)]/10' : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'}`}
                         title={isMaximized ? "Restore size" : "Maximize"}
                     >
                         <Maximize2 size={16} />
@@ -158,7 +168,7 @@ export function ArtifactPanel({ isOpen, onClose, artifact, onUpdateContent }) {
 
                     <button
                         onClick={copyCode}
-                        className="p-1.5 hover:bg-[var(--bg-hover)] rounded-md transition-colors"
+                        className="micro-interaction p-1.5 hover:bg-[var(--bg-hover)] rounded-md transition-colors"
                         title="Copy code"
                     >
                         {copied ? (
@@ -169,7 +179,7 @@ export function ArtifactPanel({ isOpen, onClose, artifact, onUpdateContent }) {
                     </button>
                     <button
                         onClick={onClose}
-                        className="p-1.5 hover:bg-[var(--bg-hover)] rounded-md transition-colors"
+                        className="micro-interaction p-1.5 hover:bg-[var(--bg-hover)] rounded-md transition-colors"
                     >
                         <X size={16} className="text-[var(--text-tertiary)]" />
                     </button>
@@ -188,7 +198,6 @@ export function ArtifactPanel({ isOpen, onClose, artifact, onUpdateContent }) {
                             >
                                 <ReactMarkdown
                                     remarkPlugins={[remarkGfm]}
-                                    rehypePlugins={[rehypeRaw]}
                                     components={{
                                         h1: ({ node, ...props }) => <h1 style={{ fontSize: '28px', borderBottom: '2px solid currentColor', paddingBottom: '10px', marginTop: '0', marginBottom: '24px', fontWeight: 'bold' }} {...props} />,
                                         h2: ({ node, ...props }) => <h2 style={{ fontSize: '20px', borderBottom: '1px solid currentColor', paddingBottom: '6px', marginTop: '24px', marginBottom: '16px', fontWeight: 'bold', opacity: 0.9 }} {...props} />,
@@ -205,15 +214,22 @@ export function ArtifactPanel({ isOpen, onClose, artifact, onUpdateContent }) {
                         )}
                         {artifact.type === 'html' && (
                             <iframe
-                                ref={iframeRef}
                                 className="w-full h-full border-0"
-                                sandbox="allow-scripts allow-same-origin"
+                                srcDoc={sandboxedPreviewDoc}
+                                sandbox={getPreviewSandbox({ scripts: true })}
+                                referrerPolicy="no-referrer"
                                 title="HTML Preview"
                             />
                         )}
                         {artifact.type === 'svg' && (
-                            <div className={`w-full h-full flex items-center justify-center p-8 ${previewTheme === 'light' ? 'bg-gray-100' : 'bg-[#111]'}`}>
-                                <div dangerouslySetInnerHTML={{ __html: artifact.content }} />
+                            <div className={`w-full h-full ${previewTheme === 'light' ? 'bg-gray-100' : 'bg-[#111]'}`}>
+                                <iframe
+                                    className="h-full w-full border-0"
+                                    srcDoc={sandboxedPreviewDoc}
+                                    sandbox={getPreviewSandbox()}
+                                    referrerPolicy="no-referrer"
+                                    title="SVG Preview"
+                                />
                             </div>
                         )}
                         {artifact.type === 'react' && (

@@ -1,6 +1,7 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import { Send, FileCode, Terminal, Code, Monitor, Loader2, Plus, RefreshCw, Sparkles, Layers3, CheckCircle2, X } from 'lucide-react';
+import React, { useState, useEffect, useRef, Component } from 'react';
+import { Send, FileCode, Terminal, Code, Monitor, Loader2, Plus, RefreshCw, Sparkles, Layers3, CheckCircle2, X, Columns2 } from 'lucide-react';
+import { ProviderModelPicker } from './ProviderModelPicker';
 import { useBuild } from '../context/BuildContext';
 import { useChat } from '../context/ChatContext';
 import { useTheme } from '../context/ThemeContext';
@@ -10,6 +11,9 @@ import MonacoEditor from '@monaco-editor/react';
 import { buildBudgetPrompt, createBudgetRun } from '../lib/budgetGovernor';
 import { buildMemoryPrompt } from '../lib/harnessMemory';
 import { buildRoutingPrompt, chooseModelForTask } from '../lib/modelRouter';
+import { getPreviewSandbox } from '../lib/previewSecurity';
+import { buildCodeGenSystemPrompt, parseGeneratedFiles, PROVIDERS_REQUIRING_API_KEYS } from '../lib/buildGeneration';
+import BuildCompare from './BuildCompare';
 import {
     appendMissionRunEvent,
     recordBuildGenerationFinish,
@@ -18,7 +22,35 @@ import {
     recordBuildReset
 } from '../lib/missionControl';
 
-const PROVIDERS_REQUIRING_API_KEYS = new Set(['openai', 'groq', 'gemini', 'openrouter', 'anthropic', 'mistral']);
+class EditorErrorBoundary extends Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false, error: null };
+    }
+    static getDerivedStateFromError(error) {
+        return { hasError: true, error };
+    }
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
+                    <Code size={28} className="text-[var(--text-tertiary)]" />
+                    <p className="text-sm font-medium text-[var(--text-primary)]">Editor failed to load</p>
+                    <p className="max-w-sm text-xs leading-5 text-[var(--text-tertiary)]">
+                        {this.state.error?.message || 'Monaco editor encountered an error.'}
+                    </p>
+                    <button
+                        onClick={() => this.setState({ hasError: false, error: null })}
+                        className="mt-1 rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)]"
+                    >
+                        Retry
+                    </button>
+                </div>
+            );
+        }
+        return this.props.children;
+    }
+}
 
 function formatBuildTime(timestamp) {
     if (!timestamp) return 'just now';
@@ -55,6 +87,8 @@ export default function BuildMode() {
         selectedProvider,
         selectedModel,
         availableModels,
+        updateProvider,
+        updateModel,
         apiKeys,
         lmStudioUrl,
         janUrl
@@ -62,9 +96,15 @@ export default function BuildMode() {
     const { isDarkMode } = useTheme();
 
     const [input, setInput] = useState('');
-    const [previewHTML, setPreviewHTML] = useState('');
+    // Seed synchronously so the iframe mounts with real content. If we start empty
+    // and fill via the effect below, the iframe mounts with an empty srcDoc and
+    // mutating srcDoc in place doesn't reliably reload it in Chromium/Electron —
+    // the preview then only appears after the iframe is remounted (e.g. switching
+    // to code view and back).
+    const [previewHTML, setPreviewHTML] = useState(() => generatePreviewHTML(buildFiles, { isDarkMode }));
     const messagesEndRef = useRef(null);
     const [viewMode, setViewMode] = useState('preview'); // 'preview' or 'code'
+    const [compareOpen, setCompareOpen] = useState(false);
 
     const handleCancelGeneration = () => {
         abortGeneration();
@@ -132,33 +172,15 @@ export default function BuildMode() {
             });
 
             // Construct System Prompt
-            const systemPrompt = `You are a code generation AI. Generate React components based on user requests.
-
-CRITICAL RULES:
-1. Return a JSON object with file paths as keys and code as values
-2. Use React with TypeScript (tsx) or JavaScript (jsx)
-3. Use Tailwind CSS for styling
-4. Include proper imports (React, etc)
-5. Make components functional and complete
-6. The main entry point is typically src/App.tsx
-7. DO NOT use markdown formatting (no \`\`\`). Just return raw JSON.
-
-Format your response as valid JSON ONLY:
-{
-  "src/App.tsx": "import React from 'react'...",
-  "src/components/Header.tsx": "export default function Header()..."
-}
-
-Existing files:
-${JSON.stringify(Object.keys(buildFiles))}
-
-${buildRoutingPrompt(route)}
-
-${buildBudgetPrompt(budgetRun)}
-
-${memoryContext.prompt}
-
-User request: ${userMessage}`;
+            const systemPrompt = buildCodeGenSystemPrompt({
+                userMessage,
+                existingFiles: Object.keys(buildFiles),
+                extraSections: [
+                    buildRoutingPrompt(route),
+                    buildBudgetPrompt(budgetRun),
+                    memoryContext.prompt
+                ]
+            });
 
             // We use a non-streaming call for JSON generation to ensure we get valid JSON
             // For providers that don't support non-streaming easily via this client, we might need to adjust
@@ -174,17 +196,9 @@ User request: ${userMessage}`;
                 fullResponse += chunk;
             }, routedModel, { signal: abortController.signal });
 
-            // Clean up code blocks if present (LLMs often ignore "no markdown" rules)
-            let jsonStr = fullResponse;
-            if (jsonStr.includes('```json')) {
-                jsonStr = jsonStr.replace(/```json\n?/, '').replace(/```/, '');
-            } else if (jsonStr.includes('```')) {
-                jsonStr = jsonStr.replace(/```\n?/, '').replace(/```/, '');
-            }
-
-            // Parse JSON
+            // Parse JSON (strips any markdown fences the model added)
             try {
-                const generatedFiles = JSON.parse(jsonStr);
+                const generatedFiles = parseGeneratedFiles(fullResponse);
                 const generatedFilePaths = Object.keys(generatedFiles);
 
                 // Update files
@@ -270,6 +284,10 @@ User request: ${userMessage}`;
 
     const filePaths = Object.keys(buildFiles);
     const generatedCount = buildMessages.filter(message => message.files).length;
+
+    if (compareOpen) {
+        return <BuildCompare onClose={() => setCompareOpen(false)} initialPrompt={input} />;
+    }
 
     return (
         <div className="h-full min-h-0 w-full overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)]">
@@ -406,25 +424,42 @@ User request: ${userMessage}`;
                                 event.preventDefault();
                                 handleSendMessage();
                             }}
-                            className="relative"
                         >
                             <textarea
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
                                 onKeyDown={handleKeyDown}
                                 placeholder="Describe your app..."
-                                className="min-h-[92px] max-h-[220px] w-full resize-none rounded-2xl border border-[var(--border)] bg-[var(--bg-primary)] py-3.5 pl-4 pr-12 text-sm leading-6 text-[var(--text-primary)] shadow-sm outline-none transition-all placeholder:text-[var(--text-tertiary)] focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)]"
+                                className="min-h-[92px] max-h-[220px] w-full resize-none rounded-2xl border border-[var(--border)] bg-[var(--bg-primary)] px-4 py-3.5 text-sm leading-6 text-[var(--text-primary)] shadow-sm outline-none transition-all placeholder:text-[var(--text-tertiary)] focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)]"
                                 disabled={isGenerating}
                             />
-                            <button
-                                type={isGenerating ? 'button' : 'submit'}
-                                onClick={isGenerating ? handleCancelGeneration : undefined}
-                                disabled={!isGenerating && !input.trim()}
-                                className="absolute bottom-3 right-3 rounded-xl bg-[var(--accent)] p-2 text-white shadow-md transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
-                                title={isGenerating ? 'Cancel provider request' : 'Generate'}
-                            >
-                                {isGenerating ? <X size={17} /> : <Send size={17} />}
-                            </button>
+                            <div className="mt-2 flex items-center justify-between">
+                                <div className="relative">
+                                    <ProviderModelPicker
+                                        selectedProvider={selectedProvider}
+                                        selectedModel={selectedModel}
+                                        availableModels={availableModels}
+                                        updateProvider={updateProvider}
+                                        updateModel={updateModel}
+                                        buttonClassName="flex items-center gap-1.5 px-2.5 py-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-lg transition-colors"
+                                        labelClassName="text-xs"
+                                        iconSize={13}
+                                        title="Select model"
+                                        dropdownWidthClassName="w-72"
+                                        panelClassName="absolute bottom-full left-0 mb-2 max-h-80 overflow-y-auto z-20"
+                                        overlayClassName="fixed inset-0 z-10"
+                                    />
+                                </div>
+                                <button
+                                    type={isGenerating ? 'button' : 'submit'}
+                                    onClick={isGenerating ? handleCancelGeneration : undefined}
+                                    disabled={!isGenerating && !input.trim()}
+                                    className="rounded-xl bg-[var(--accent)] p-2 text-white shadow-md transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+                                    title={isGenerating ? 'Cancel provider request' : 'Generate'}
+                                >
+                                    {isGenerating ? <X size={17} /> : <Send size={17} />}
+                                </button>
+                            </div>
                         </form>
                     </div>
                 </aside>
@@ -461,6 +496,14 @@ User request: ${userMessage}`;
                         </div>
 
                         <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setCompareOpen(true)}
+                                className="flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--bg-primary)] px-2.5 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+                                title="Compare models side-by-side"
+                            >
+                                <Columns2 size={14} />
+                                Compare models
+                            </button>
                             {viewMode === 'code' && (
                                 <select
                                     value={activeFile}
@@ -485,33 +528,36 @@ User request: ${userMessage}`;
                     <div className="min-h-0 flex-1 overflow-hidden">
                         {viewMode === 'preview' ? (
                             <div className="h-full bg-[var(--bg-tertiary)] p-4">
-                                <div className="h-full overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-primary)] shadow-sm">
+                                <div className="h-full overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-primary)] shadow-sm layout-transition">
                                     <iframe
                                         className="h-full w-full border-none bg-[var(--bg-primary)]"
                                         srcDoc={previewHTML}
-                                        sandbox="allow-scripts allow-same-origin allow-forms"
+                                        sandbox={getPreviewSandbox({ scripts: true, forms: true })}
+                                        referrerPolicy="no-referrer"
                                         title="Preview"
                                     />
                                 </div>
                             </div>
                         ) : (
-                            <MonacoEditor
-                                height="100%"
-                                language={getBuildLanguage(activeFile)}
-                                value={buildFiles[activeFile] || ''}
-                                theme={isDarkMode ? 'vs-dark' : 'light'}
-                                options={{
-                                    minimap: { enabled: false },
-                                    fontSize: 13,
-                                    fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
-                                    fontLigatures: true,
-                                    readOnly: true,
-                                    scrollBeyondLastLine: false,
-                                    automaticLayout: true,
-                                    wordWrap: 'on',
-                                    padding: { top: 16, bottom: 16 }
-                                }}
-                            />
+                            <EditorErrorBoundary>
+                                <MonacoEditor
+                                    height="100%"
+                                    language={getBuildLanguage(activeFile)}
+                                    value={buildFiles[activeFile] || ''}
+                                    theme={isDarkMode ? 'vs-dark' : 'light'}
+                                    options={{
+                                        minimap: { enabled: false },
+                                        fontSize: 13,
+                                        fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
+                                        fontLigatures: true,
+                                        readOnly: true,
+                                        scrollBeyondLastLine: false,
+                                        automaticLayout: true,
+                                        wordWrap: 'on',
+                                        padding: { top: 16, bottom: 16 }
+                                    }}
+                                />
+                            </EditorErrorBoundary>
                         )}
                     </div>
                 </main>

@@ -902,7 +902,6 @@ const apiKeyStorageKeys = new Set([
   'openai_key',
   'groq_key',
   'gemini_key',
-  'tavily_key',
   'openrouter_key',
   'anthropic_key',
   'mistral_key',

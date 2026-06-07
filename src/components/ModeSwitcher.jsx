@@ -1,5 +1,5 @@
 import { useMode, MODES } from '../context/ModeContext';
-import { MessageSquare, Code, Users, ActivitySquare, Hammer } from 'lucide-react';
+import { MessageSquare, Code, Users, ActivitySquare, Hammer, Bot } from 'lucide-react';
 
 export default function ModeSwitcher() {
     const { currentMode, setCurrentMode } = useMode();
@@ -8,12 +8,13 @@ export default function ModeSwitcher() {
         { id: MODES.CHAT,   icon: MessageSquare, label: 'Chat' },
         { id: MODES.COWORK, icon: Users,         label: 'Cowork' },
         { id: MODES.CODE,   icon: Code,          label: 'Code' },
+        { id: MODES.AGENTS, icon: Bot,           label: 'Agents' },
         { id: MODES.MISSION, icon: ActivitySquare, label: 'Mission' },
         { id: MODES.BUILD,  icon: Hammer,        label: 'Build' },
     ];
 
     return (
-        <div className="flex gap-0.5 p-1 rounded-xl glass-panel">
+        <div className="flex gap-0.5 p-1 rounded-xl glass-panel layout-transition">
             {modes.map(mode => {
                 const active = currentMode === mode.id;
                 return (
@@ -22,13 +23,13 @@ export default function ModeSwitcher() {
                         onClick={() => setCurrentMode(mode.id)}
                         aria-label={mode.label}
                         title={mode.label}
-                        className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200"
+                        className="micro-interaction state-feedback relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200"
                         style={{ fontFamily: 'DM Sans, sans-serif' }}
                     >
                         {/* Sliding active indicator */}
                         {active && (
                             <span
-                                className="absolute inset-0 rounded-lg"
+                                className="absolute inset-0 rounded-lg layout-transition"
                                 style={{
                                     background: 'linear-gradient(135deg, var(--accent), var(--accent-cyan))',
                                     boxShadow: '0 0 16px var(--accent-glow)',

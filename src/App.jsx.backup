@@ -5,7 +5,6 @@ import { SettingsModal } from './components/SettingsModal';
 import { ChatMessage } from './components/ChatMessage';
 import { ArtifactPanel } from './components/ArtifactPanel';
 import { LLMFactory } from './lib/llm/clients';
-import { TavilyClient } from './lib/tavily';
 
 function ChatApp() {
     const {
@@ -55,11 +54,10 @@ function ChatApp() {
             let context = "";
 
             // Perform search if enabled
-            if (isSearchEnabled && apiKeys.tavily) {
+            if (isSearchEnabled && window.electron?.webSearch) {
                 try {
-                    const tavily = new TavilyClient(apiKeys.tavily);
-                    const searchResults = await tavily.search(userMessage);
-                    context = `\n\nWeb Search Results:\n${JSON.stringify(searchResults.results.map(r => ({ title: r.title, content: r.content, url: r.url })))}`;
+                    const searchResults = await window.electron.webSearch(userMessage, { maxResults: 5 });
+                    context = `\n\nWeb Search Results:\n${JSON.stringify((searchResults.sources || []).map(r => ({ title: r.title, content: r.content, url: r.url })))}`;
                 } catch (e) {
                     console.error("Search failed", e);
                 }

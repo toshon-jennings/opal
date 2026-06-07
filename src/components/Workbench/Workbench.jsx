@@ -243,7 +243,7 @@ export function Workbench({ streamingMessage, workingDirectory, onChooseFolder, 
                         {/* Live Preview Pane */}
                         {showPreview && (
                             <div
-                                className="flex flex-col min-w-0 overflow-hidden bg-white border-l border-[var(--border)]"
+                                className="layout-transition flex flex-col min-w-0 overflow-hidden bg-white border-l border-[var(--border)]"
                                 style={{ flex: '0 1 420px', width: '38%', minWidth: 'min(280px, 45%)', maxWidth: '45%' }}
                             >
                                 {/* Preview Header */}
@@ -256,10 +256,10 @@ export function Workbench({ streamingMessage, workingDirectory, onChooseFolder, 
                                         <button onClick={() => {
                                             const iframe = document.getElementById('preview-iframe');
                                             if (iframe && previewUrl) iframe.src = previewUrl;
-                                        }} className="p-1 hover:bg-gray-200 rounded text-gray-600">
+                                        }} className="micro-interaction p-1 hover:bg-gray-200 rounded text-gray-600">
                                             <RefreshCw size={12} />
                                         </button>
-                                        <button onClick={() => setShowPreview(false)} className="p-1 hover:bg-gray-200 rounded text-gray-600" title="Close Preview">
+                                        <button onClick={() => setShowPreview(false)} className="micro-interaction p-1 hover:bg-gray-200 rounded text-gray-600" title="Close Preview">
                                             <X size={12} />
                                         </button>
                                     </div>
@@ -271,6 +271,8 @@ export function Workbench({ streamingMessage, workingDirectory, onChooseFolder, 
                                         id="preview-iframe"
                                         src={previewUrl}
                                         className="w-full h-full border-0 bg-white"
+                                        sandbox="allow-scripts allow-same-origin allow-forms"
+                                        referrerPolicy="no-referrer"
                                         title="App Preview"
                                     />
                                 ) : (

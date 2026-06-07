@@ -129,10 +129,17 @@ export const INTEGRATION_TOOLS = [
 
 const WRITE_TOOL_NAMES = new Set(['github_create_issue']);
 
-export function getIntegrationTools({ allowWrites = true } = {}) {
+export function getIntegrationTools({ allowWrites = true, apiKeys = null } = {}) {
+    const availableTools = apiKeys
+        ? (apiKeys.github ? INTEGRATION_TOOLS : [])
+        : INTEGRATION_TOOLS;
     return allowWrites
-        ? INTEGRATION_TOOLS
-        : INTEGRATION_TOOLS.filter(tool => !WRITE_TOOL_NAMES.has(tool.name));
+        ? availableTools
+        : availableTools.filter(tool => !WRITE_TOOL_NAMES.has(tool.name));
+}
+
+export function hasConfiguredIntegrationTools(apiKeys = {}) {
+    return Boolean(apiKeys.github);
 }
 
 export function buildIntegrationToolsPrompt(apiKeys = {}) {

@@ -1,18 +1,113 @@
 // Intelligent Search Tool - Claude-like web search intelligence
 // Automatically decides when to search, reformulates queries, and manages citations
 
-import { TavilyClient } from './tavily';
 import { LLMFactory } from './llm/clients';
 
+const LOCAL_MODEL_PROVIDERS = new Set(['ollama', 'lmstudio', 'jan']);
+
+function getCurrentDateParts() {
+    const now = new Date();
+    return {
+        monthDay: now.toLocaleDateString('en-US', { month: 'long', day: 'numeric' }),
+        fullDate: now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+        year: now.getFullYear()
+    };
+}
+
+function resolveRelativeDateQuery(query) {
+    let resolved = String(query || '').trim();
+    const { monthDay, fullDate } = getCurrentDateParts();
+
+    if (/this day in history|on this day/i.test(resolved)) {
+        resolved = resolved.replace(/\btoday'?s?\b/gi, fullDate);
+        if (!new RegExp(monthDay, 'i').test(resolved)) {
+            resolved += ` ${monthDay}`;
+        }
+        return resolved;
+    }
+
+    resolved = resolved.replace(/\btoday'?s?\b/gi, fullDate);
+    return resolved;
+}
+
+const RELEVANCE_STOPWORDS = new Set([
+    'the', 'a', 'an', 'of', 'to', 'in', 'on', 'for', 'and', 'or', 'is', 'are', 'was', 'were',
+    'what', 'whats', 'who', 'whos', 'when', 'where', 'how', 'why', 'do', 'does', 'did',
+    'i', 'my', 'me', 'this', 'that', 'with', 'about', 'your', 'you', 'can', 'could', 'would',
+    'please', 'search', 'find', 'tell', 'give', 'show', 'get', 'lookup', 'look', 'up'
+]);
+
+function tokenizeForRelevance(text) {
+    return String(text || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .split(/\s+/)
+        .filter(token => token.length > 2 && !RELEVANCE_STOPWORDS.has(token));
+}
+
+// Deterministic detector for facts answerable from the local system clock/calendar.
+// Deliberately excludes "on this day in history" style queries, which want a web/
+// historical lookup rather than the current date.
+function detectLocalRuntimeFact(query) {
+    const q = String(query || '').toLowerCase().trim();
+    if (!q) return null;
+    if (/in history|on this day|years? ago|anniversary|was born|died on|happened on/i.test(q)) {
+        return null;
+    }
+
+    const now = new Date();
+    const fullDate = now.toLocaleDateString('en-US', {
+        weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+    });
+    const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+    if (/what year is it|current year|what'?s the year|which year is it/i.test(q)) {
+        return { kind: 'year', answer: `It is currently the year ${now.getFullYear()}.` };
+    }
+    if (/(current|local)\s+time|what'?s the time|what is the time|time is it|what time/i.test(q)) {
+        return { kind: 'time', answer: `The current local time is ${timeStr} on ${fullDate}.` };
+    }
+    if (
+        /today'?s date|current date|what'?s the date|what is the date|date today/i.test(q) ||
+        /what day is it|what'?s today|what is today|day of the week|which day is it/i.test(q)
+    ) {
+        return { kind: 'date', answer: `Today is ${fullDate}.` };
+    }
+    return null;
+}
+
 export class IntelligentSearchTool {
-    constructor(apiKey, llmProvider = null, llmApiKey = null, lmStudioUrl = null, janUrl = null) {
-        this.tavily = new TavilyClient(apiKey);
+    constructor(llmProvider = null, llmApiKey = null, lmStudioUrl = null, janUrl = null, llmModel = null) {
         this.llmProvider = llmProvider;
         this.llmApiKey = llmApiKey;
         this.lmStudioUrl = lmStudioUrl;
         this.janUrl = janUrl;
+        this.llmModel = llmModel;
         this.searchHistory = [];
         this.logoCache = new Map(); // Cache logos to avoid repeated fetches
+    }
+
+    hasWebSearch() {
+        return Boolean(this.hasNativeWebSearch() || this.hasLocalWebSearch());
+    }
+
+    hasNativeWebSearch() {
+        return Boolean(
+            (this.llmProvider === 'openai' && this.llmApiKey) ||
+            (this.llmProvider === 'anthropic' && this.llmApiKey)
+        );
+    }
+
+    hasLocalWebSearch() {
+        return typeof window !== 'undefined' && typeof window.electron?.webSearch === 'function';
+    }
+
+    canUseModel() {
+        return Boolean(this.llmProvider && (this.llmApiKey || LOCAL_MODEL_PROVIDERS.has(this.llmProvider)));
+    }
+
+    getModelId() {
+        return this.llmModel || undefined;
     }
 
     /**
@@ -178,6 +273,7 @@ export class IntelligentSearchTool {
      * @returns {Promise<string>} - Optimized search query
      */
     async reformulateSearchQuery(originalQuery) {
+        const dateResolvedQuery = resolveRelativeDateQuery(originalQuery);
         // If we have LLM access, use it for smart reformulation
         if (this.llmProvider && this.llmApiKey) {
             try {
@@ -198,13 +294,14 @@ Rules:
   "What's the weather like today?" → "weather today"
 
 Original query: "${originalQuery}"
+Date-resolved query: "${dateResolvedQuery}"
 
-Optimized search query (2-6 words only):`;
+Optimized search query (keep exact dates from the date-resolved query):`;
 
                 await client.streamChat(
                     [{ role: 'user', content: prompt }],
                     (chunk) => { reformulated += chunk; },
-                    this.llmProvider === 'openai' ? 'gpt-4o-mini' : 'llama-3.3-70b-versatile'
+                    this.getModelId()
                 );
 
                 const cleaned = reformulated.trim().replace(/^["']|["']$/g, '');
@@ -216,7 +313,7 @@ Optimized search query (2-6 words only):`;
         }
 
         // Fallback: keyword-based reformulation
-        return this.fallbackReformulation(originalQuery);
+        return this.fallbackReformulation(dateResolvedQuery);
     }
 
     /**
@@ -274,12 +371,12 @@ Optimized search query (2-6 words only):`;
         }
 
         // Convert relative time words to absolute
-        const currentYear = new Date().getFullYear();
+        const { fullDate, year: currentYear } = getCurrentDateParts();
         const lastYear = currentYear - 1;
 
         cleaned = cleaned.replace(/\bthis year\b/gi, String(currentYear));
         cleaned = cleaned.replace(/\blast year\b/gi, String(lastYear));
-        cleaned = cleaned.replace(/\btoday'?s?\b/gi, 'latest');
+        cleaned = cleaned.replace(/\btoday'?s?\b/gi, fullDate);
         cleaned = cleaned.replace(/\bcurrently\b/gi, 'current');
         cleaned = cleaned.replace(/\bright now\b/gi, 'now');
         cleaned = cleaned.replace(/\bup to date\b/gi, currentYear);
@@ -315,15 +412,6 @@ Optimized search query (2-6 words only):`;
     }
 
     /**
-     * Detects topic type for Tavily
-     * @param {string} query - Search query
-     * @returns {string} - 'news' or 'general'
-     */
-    detectTopic(query) {
-        return this.isNewsQuery(query) ? 'news' : 'general';
-    }
-
-    /**
      * Performs an intelligent search with optimized parameters
      * @param {string} originalQuery - User's original query
      * @param {Object} options - Search options
@@ -331,63 +419,228 @@ Optimized search query (2-6 words only):`;
      */
     async performSearch(originalQuery, options = {}) {
         // Step 1: Reformulate query
-        const optimizedQuery = await this.reformulateSearchQuery(originalQuery);
+        const resolvedQuery = resolveRelativeDateQuery(originalQuery);
+        const optimizedQuery = await this.reformulateSearchQuery(resolvedQuery);
 
         console.log(`🔍 Original: "${originalQuery}"`);
+        console.log(`📅 Date-resolved: "${resolvedQuery}"`);
         console.log(`🎯 Optimized: "${optimizedQuery}"`);
 
-        // Step 2: Determine search parameters
-        const topic = this.detectTopic(optimizedQuery);
-        const isNews = topic === 'news';
+        if (this.hasLocalWebSearch()) {
+            return this.performLocalWebSearch(originalQuery, optimizedQuery, options);
+        }
+        if (this.hasNativeWebSearch()) {
+            return this.performNativeWebSearch(originalQuery, optimizedQuery, options);
+        }
+        throw new Error('Web search requires the Perci desktop search bridge or a provider with native web search.');
+    }
 
-        // Step 3: Perform search
-        const results = await this.tavily.search(optimizedQuery, {
-            search_depth: options.depth || 'advanced',
-            topic: topic,
-            days: isNews ? 7 : undefined,
-            include_images: options.includeImages || false,
-            max_results: options.maxResults || 5
+    async performNativeWebSearch(originalQuery, optimizedQuery, options = {}) {
+        if (this.llmProvider === 'openai') {
+            return this.performOpenAIWebSearch(originalQuery, optimizedQuery, options);
+        }
+        if (this.llmProvider === 'anthropic') {
+            return this.performAnthropicWebSearch(originalQuery, optimizedQuery, options);
+        }
+        throw new Error(`Native web search is not available for provider: ${this.llmProvider}`);
+    }
+
+    async performLocalWebSearch(originalQuery, optimizedQuery, options = {}) {
+        const result = await window.electron.webSearch(optimizedQuery, {
+            maxResults: options.maxResults || 6
         });
 
-        // Step 4: Format and store results
-        const formatted = this.formatResults(results, originalQuery, optimizedQuery);
+        if (!result?.ok || !Array.isArray(result.sources) || result.sources.length === 0) {
+            throw new Error(result?.error || 'Local web search returned no results.');
+        }
+
+        const sources = result.sources.map((source, index) => ({
+            id: index + 1,
+            title: source.title,
+            url: source.url,
+            content: source.content,
+            score: source.score || 1,
+            publishedDate: source.publishedDate || null
+        }));
 
         this.searchHistory.push({
             originalQuery,
             optimizedQuery,
             timestamp: new Date(),
-            resultCount: formatted.sources.length,
-            topic
+            resultCount: sources.length,
+            topic: result.provider || 'local-web'
         });
-
-        return formatted;
-    }
-
-    /**
-     * Formats Tavily results with citation numbers
-     * @param {Object} tavilyResponse - Raw Tavily response
-     * @param {string} originalQuery - Original user query
-     * @param {string} optimizedQuery - Optimized search query
-     * @returns {Object} - Formatted results
-     */
-    formatResults(tavilyResponse, originalQuery, optimizedQuery) {
-        const sources = (tavilyResponse.results || []).map((result, index) => ({
-            id: index + 1,
-            title: result.title,
-            url: result.url,
-            content: result.content,
-            score: result.score || 0,
-            publishedDate: result.published_date || null
-        }));
 
         return {
             originalQuery,
             optimizedQuery,
-            answer: tavilyResponse.answer || null,
+            answer: null,
             sources,
-            images: tavilyResponse.images || [],
-            timestamp: new Date()
+            images: [],
+            timestamp: new Date(),
+            provider: result.provider || 'local-web'
         };
+    }
+
+    async performOpenAIWebSearch(originalQuery, optimizedQuery, options = {}) {
+        const response = await fetch('https://api.openai.com/v1/responses', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${this.llmApiKey}`
+            },
+            body: JSON.stringify({
+                model: this.getModelId() || 'gpt-4o-mini',
+                tools: [{ type: 'web_search' }],
+                tool_choice: 'auto',
+                include: ['web_search_call.action.sources'],
+                input: optimizedQuery
+            })
+        });
+
+        if (!response.ok) {
+            const message = await response.text();
+            throw new Error(`OpenAI web search failed: ${response.status} - ${message}`);
+        }
+
+        const data = await response.json();
+        const text = data.output_text || this.extractOpenAIOutputText(data);
+        const sources = this.extractOpenAISources(data);
+
+        this.searchHistory.push({
+            originalQuery,
+            optimizedQuery,
+            timestamp: new Date(),
+            resultCount: sources.length,
+            topic: 'native-openai'
+        });
+
+        return {
+            originalQuery,
+            optimizedQuery,
+            answer: text || null,
+            sources,
+            images: [],
+            timestamp: new Date(),
+            provider: 'openai'
+        };
+    }
+
+    extractOpenAIOutputText(data) {
+        return (data.output || [])
+            .filter(item => item.type === 'message')
+            .flatMap(item => item.content || [])
+            .filter(content => content.type === 'output_text' && content.text)
+            .map(content => content.text)
+            .join('\n\n')
+            .trim();
+    }
+
+    extractOpenAISources(data) {
+        const sourceMap = new Map();
+        const addSource = (source, indexHint = 0) => {
+            const url = source?.url;
+            if (!url || sourceMap.has(url)) return;
+            sourceMap.set(url, {
+                id: sourceMap.size + 1,
+                title: source.title || source.url,
+                url,
+                content: source.snippet || source.text || source.title || url,
+                score: source.score || 1,
+                publishedDate: source.published_date || source.publishedDate || null,
+                indexHint
+            });
+        };
+
+        (data.output || []).forEach((item, itemIndex) => {
+            if (item.type === 'web_search_call') {
+                const actionSources = item.action?.sources || item.sources || [];
+                actionSources.forEach((source, sourceIndex) => addSource(source, itemIndex + sourceIndex));
+            }
+            if (item.type === 'message') {
+                (item.content || []).forEach(content => {
+                    (content.annotations || []).forEach((annotation, annotationIndex) => {
+                        if (annotation.type === 'url_citation') addSource(annotation, annotationIndex);
+                    });
+                });
+            }
+        });
+
+        return [...sourceMap.values()].map(({ indexHint, ...source }, index) => ({ ...source, id: index + 1 }));
+    }
+
+    async performAnthropicWebSearch(originalQuery, optimizedQuery, options = {}) {
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': this.llmApiKey,
+                'anthropic-version': '2023-06-01',
+                'anthropic-dangerous-direct-browser-access': 'true'
+            },
+            body: JSON.stringify({
+                model: this.getModelId() || 'claude-sonnet-4-5',
+                max_tokens: 4096,
+                tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+                messages: [{ role: 'user', content: optimizedQuery }]
+            })
+        });
+
+        if (!response.ok) {
+            const message = await response.text();
+            throw new Error(`Anthropic web search failed: ${response.status} - ${message}`);
+        }
+
+        const data = await response.json();
+        const text = this.extractAnthropicText(data);
+        const sources = this.extractUrlSources(data);
+
+        this.searchHistory.push({
+            originalQuery,
+            optimizedQuery,
+            timestamp: new Date(),
+            resultCount: sources.length,
+            topic: 'native-anthropic'
+        });
+
+        return {
+            originalQuery,
+            optimizedQuery,
+            answer: text || null,
+            sources,
+            images: [],
+            timestamp: new Date(),
+            provider: 'anthropic'
+        };
+    }
+
+    extractAnthropicText(data) {
+        return (data.content || [])
+            .filter(block => block.type === 'text' && block.text)
+            .map(block => block.text)
+            .join('\n\n')
+            .trim();
+    }
+
+    extractUrlSources(value) {
+        const sourceMap = new Map();
+        const visit = (node) => {
+            if (!node || typeof node !== 'object') return;
+            if (typeof node.url === 'string' && /^https?:\/\//i.test(node.url)) {
+                if (sourceMap.has(node.url)) return;
+                sourceMap.set(node.url, {
+                    id: sourceMap.size + 1,
+                    title: node.title || node.url,
+                    url: node.url,
+                    content: node.snippet || node.text || node.title || node.url,
+                    score: node.score || 1,
+                    publishedDate: node.published_date || node.publishedDate || null
+                });
+            }
+            Object.values(node).forEach(visit);
+        };
+        visit(value);
+        return [...sourceMap.values()].map((source, index) => ({ ...source, id: index + 1 }));
     }
 
     /**
@@ -613,9 +866,13 @@ Optimized search query (2-6 words only):`;
      * @returns {string} - Context string with citations
      */
     buildSearchContext(searchResults) {
-        if (!searchResults || !searchResults.sources.length) return '';
+        if (!searchResults || (!searchResults.answer && !searchResults.sources.length)) return '';
 
         let context = '\n\nWeb Search Results:\n\n';
+
+        if (searchResults.answer) {
+            context += `Provider answer:\n${searchResults.answer}\n\n`;
+        }
 
         searchResults.sources.forEach((source, index) => {
             context += `[${index + 1}] ${source.title}\n`;
@@ -645,6 +902,10 @@ Optimized search query (2-6 words only):`;
      */
     async deepResearch(userQuery, onProgress = null) {
         console.log('🚀 Starting Deep Research Scientist Mode for:', userQuery);
+        if (!this.hasWebSearch()) {
+            return this.modelOnlyResearch(userQuery, onProgress);
+        }
+
         const startTime = Date.now();
         const MIN_TIME_MS = 180000; // 3 minutes
 
@@ -748,7 +1009,7 @@ Optimized search query (2-6 words only):`;
      * Decides the next research step with timing awareness
      */
     async decideNextStep(originalQuery, findingsSummary, currentStep, elapsedSeconds) {
-        if (!this.llmProvider || !this.llmApiKey) {
+        if (!this.canUseModel()) {
             if (currentStep < 4) return { action: 'search', query: originalQuery + " details", reasoning: 'Building depth' };
             return { action: 'finish', reasoning: 'Standard count reached' };
         }
@@ -781,7 +1042,7 @@ Optimized search query (2-6 words only):`;
             await client.streamChat(
                 [{ role: 'user', content: prompt }],
                 (chunk) => { response += chunk; },
-                'gpt-4o-mini'
+                this.getModelId()
             );
             const cleaned = response.replace(/```json|```/g, '').trim();
             return JSON.parse(cleaned);
@@ -796,7 +1057,7 @@ Optimized search query (2-6 words only):`;
      * Decomposes a query into 5-10 logical sub-questions
      */
     async decomposeQuery(query) {
-        if (!this.llmProvider || !this.llmApiKey) {
+        if (!this.canUseModel()) {
             return [query, query + ' analysis', query + ' perspectives', query + ' history'];
         }
 
@@ -811,7 +1072,7 @@ Optimized search query (2-6 words only):`;
             await client.streamChat(
                 [{ role: 'user', content: prompt }],
                 (chunk) => { response += chunk; },
-                'gpt-4o-mini'
+                this.getModelId()
             );
             const cleaned = response.replace(/```json|```/g, '').trim();
             return JSON.parse(cleaned);
@@ -860,7 +1121,7 @@ Optimized search query (2-6 words only):`;
    - Plan a multi-stage investigation strategy.
 
 2. **Research iteratively**:
-   - Use **Tavily** for initial evidence gathering.
+   - Use the configured live web search provider for initial evidence gathering.
    - If the topic requires forecasting, synthesis, or conflict resolution, **escalate to your proprietary deep agent**.
    - **Verify every key claim** across ≥3 authoritative sources (e.g., .gov, .edu, Reuters, Nature, official reports).
    - If sources contradict, **investigate further**—do not average or ignore.
@@ -902,7 +1163,7 @@ Your final output must be a **single, clean, structured Markdown document** that
 [Context + research goal + scope of paper.]
 
 ## 2. Methodology  
-This report was generated via autonomous deep research on ${date}. We decomposed the query into ${ranQueries.length} logical sub-questions, conducted iterative web searches using Tavily and proprietary verification agents, and synthesized findings from ${mergedResults.sources.length} authoritative sources. All external claims are cross-verified.
+This report was generated via autonomous deep research on ${date}. We decomposed the query into ${ranQueries.length} logical sub-questions, conducted iterative web searches using the configured live web search provider, and synthesized findings from ${mergedResults.sources.length} authoritative sources. All external claims are cross-verified.
 
 ## 3. Key Findings  
 [Use full paragraphs. Cite every external fact. Use subsections if needed. Aim for 5–8 detailed subsections.]
@@ -944,24 +1205,118 @@ You are not a chatbot. You are a **research scientist**. Deliver **flawless, pub
             const client = LLMFactory.getClient(this.llmProvider, this.llmApiKey, { lmStudioUrl: this.lmStudioUrl, janUrl: this.janUrl });
             let paper = '';
 
-            // Use a higher-intelligence model for the final paper if possible
-            const model = (this.llmProvider === 'openai' || this.llmProvider === 'groq')
-                ? 'llama-3.3-70b-versatile' // Stronger logic for synthesis
-                : 'gpt-4o';
-
             await client.streamChat(
                 [
                     { role: 'system', content: systemPrompt },
                     { role: 'user', content: `Based on this research context, generate the professional research paper for the query: "${userQuery}"\n\nContext:\n${context}` }
                 ],
                 (chunk) => { paper += chunk; },
-                model
+                this.getModelId()
             );
 
             return paper.trim();
         } catch (e) {
             console.error('Paper generation failed:', e);
             return `Failed to generate research paper. Context used: ${mergedResults.sources.length} sources.`;
+        }
+    }
+
+    async modelOnlyResearch(userQuery, onProgress = null) {
+        if (!this.canUseModel()) {
+            return {
+                content: 'Deep Research needs a configured model provider. Live web research uses the Perci desktop search bridge when available.',
+                sources: [],
+                optimizedQuery: userQuery
+            };
+        }
+
+        if (onProgress) onProgress({
+            status: 'decomposing',
+            query: userQuery,
+            message: 'Planning a model-only research report. No live web search provider is configured.'
+        });
+
+        const subQuestions = await this.decomposeQuery(userQuery);
+        const perspectives = subQuestions.slice(0, 6);
+
+        for (let i = 0; i < perspectives.length; i++) {
+            if (onProgress) onProgress({
+                status: 'searching',
+                query: perspectives[i],
+                currentStep: i + 1,
+                totalSteps: perspectives.length,
+                message: `Analyzing perspective ${i + 1}/${perspectives.length} without live web sources.`
+            });
+            await new Promise(resolve => setTimeout(resolve, 250));
+        }
+
+        if (onProgress) onProgress({
+            status: 'synthesizing',
+            message: 'Synthesizing model-only research report...'
+        });
+
+        const content = await this.generateModelOnlyResearchPaper(userQuery, perspectives);
+
+        return {
+            content,
+            sources: [],
+            optimizedQuery: userQuery,
+            mode: 'model-only'
+        };
+    }
+
+    async generateModelOnlyResearchPaper(userQuery, subQuestions) {
+        const date = new Date().toISOString().split('T')[0];
+        const prompt = `Create a polished model-only Deep Research report for this topic:
+"${userQuery}"
+
+Important constraints:
+- You do not have live web access in this run.
+- Do not invent citations, URLs, source names, or claim that facts were verified online.
+- Be explicit about uncertainty and where live verification would be needed.
+- Use the sub-questions below as the research plan:
+${subQuestions.map((question, index) => `${index + 1}. ${question}`).join('\n')}
+
+Return one valid Markdown document with this exact structure:
+**Title**: [Clear, descriptive title]
+**Author**: Autonomous Research Agent
+**Date**: ${date}
+
+## Abstract
+
+## 1. Research Plan
+
+## 2. Key Findings
+
+## 3. Analysis & Implications
+
+## 4. Limitations
+
+## 5. Conclusion
+
+## Next Live-Research Questions
+
+## Disclaimer
+This report was generated without live web research because no web search provider is configured. Verify time-sensitive or high-stakes claims independently.`;
+
+        try {
+            const client = LLMFactory.getClient(this.llmProvider, this.llmApiKey, { lmStudioUrl: this.lmStudioUrl, janUrl: this.janUrl });
+            let paper = '';
+            await client.streamChat(
+                [{ role: 'user', content: prompt }],
+                (chunk) => { paper += chunk; },
+                this.getModelId()
+            );
+            return paper.trim();
+        } catch (e) {
+            console.error('Model-only research generation failed:', e);
+            return `## Abstract
+
+Deep Research could not generate a model-only report for "${userQuery}".
+
+## Disclaimer
+
+No live web research ran because no web search provider is configured. The configured model provider also failed during synthesis.`;
         }
     }
 }

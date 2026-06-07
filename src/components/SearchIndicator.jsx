@@ -8,7 +8,7 @@ export function SearchIndicator({ searchQuery, isSearching = true, searchNumber 
     const isComplete = !isSearching && sourcesFound !== null;
 
     return (
-        <div className="search-indicator">
+        <div className={`search-indicator layout-transition ${isSearching ? 'status-progress' : ''}`}>
             {isComplete ? (
                 <CheckCircle size={16} className="text-green-600" />
             ) : isSearching ? (

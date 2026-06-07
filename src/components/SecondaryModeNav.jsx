@@ -12,13 +12,13 @@ export function SecondaryModeNav() {
 
     return (
         <div className="px-3 pt-3 pb-2">
-            <div className="grid grid-cols-3 gap-1 rounded-lg bg-[var(--bg-tertiary)] p-1">
+            <div className="grid grid-cols-3 gap-1 rounded-lg bg-[var(--bg-tertiary)] p-1 layout-transition">
                 {navItems.map(({ mode, label, icon: Icon }) => (
                     <button
                         key={mode}
                         type="button"
                         onClick={() => setCurrentMode(mode)}
-                        className={`flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-sm transition-colors ${
+                        className={`micro-interaction flex items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-sm transition-colors ${
                             currentMode === mode
                                 ? 'bg-[var(--bg-secondary)] text-[var(--text-primary)] shadow-sm'
                                 : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'

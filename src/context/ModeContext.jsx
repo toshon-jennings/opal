@@ -15,7 +15,8 @@ export const MODES = {
     COWORK: 'cowork',  // Session-based task interface (Claude style)
     MISSION: 'mission', // Agent run supervision and inspection
     CODE: 'code',      // Code editor interface (Legacy/Direct)
-    BUILD: 'build'     // Advanced build/deploy interface (future)
+    BUILD: 'build',    // Advanced build/deploy interface (future)
+    AGENTS: 'agents',  // AI agent control center
 };
 
 const DEFAULT_OPENCLAW_CONFIG = {
@@ -79,6 +80,8 @@ export function ModeProvider({ children }) {
 
     const normalizeCodeState = (state) => ({
         ...state,
+        files: state?.files || {},
+        activeFile: state?.files ? state.activeFile : null,
         expandedFolders: new Set(state?.expandedFolders || ['src'])
     });
 
@@ -119,9 +122,12 @@ export function ModeProvider({ children }) {
         };
     }, []);
 
-    // Save state to localStorage whenever it changes
+    // Save state to localStorage whenever it changes.
+    // Intentionally exclude `files`: it's a runtime disk-cache that syncFilesystem
+    // rebuilds on every startup. Persisting it causes unbounded growth when a large
+    // directory is opened (thousands of paths × empty strings = megabytes of JSON).
     useEffect(() => {
-        const stateToSave = {
+        const { files: _files, ...stateToSave } = {
             ...codeState,
             expandedFolders: Array.from(codeState.expandedFolders || [])
         };
@@ -137,6 +143,7 @@ export function ModeProvider({ children }) {
             }).catch(err => console.error('Failed to persist code state:', err));
         }
     }, [codeState]);
+
 
     const [chatState, setChatState] = useState({});
     const [showGlobalTerminal, setShowGlobalTerminal] = useState(false);

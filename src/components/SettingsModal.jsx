@@ -754,7 +754,6 @@ export function SettingsModal({ isOpen, onClose }) {
                             { id: 'openai',     label: 'OpenAI' },
                             { id: 'groq',       label: 'Groq' },
                             { id: 'gemini',     label: 'Gemini' },
-                            { id: 'tavily',     label: 'Tavily (Web Search)' },
                             { id: 'github',     label: 'GitHub Token' },
                         ].map(({ id, label }) => (
                             <div key={id} className="space-y-1.5">

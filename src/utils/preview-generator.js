@@ -1,37 +1,46 @@
 
+import {
+    PREVIEW_CDN_URLS,
+    PREVIEW_SECURITY_LIMITS,
+    assertPreviewBudget,
+    buildPreviewErrorDocument,
+    createPreviewRuntimeGuard,
+    getPreviewCsp
+} from '../lib/previewSecurity';
+
 export function generatePreviewHTML(files, options = {}) {
     const isDarkMode = Boolean(options.isDarkMode);
-    // Extract all component code
-    const appCode = files['src/App.tsx'] || '';
 
-    // Process component files to remove exports and imports for the browser bundle
-    // simpler approach: we'll bundle them all into one script for now or use a simple module system simulation
-    // For this implementation, we will concatenate them and use Babel.
-
-    // We need to resolve imports roughly.
-    // A simple strategy is to make all components available globally or in a scope.
-
+    // Each component file goes ahead of App.tsx so components are defined (in one
+    // shared eval scope) before App references them; the render call comes last.
+    // Files are kept as SEPARATE sources and transpiled one-by-one in the browser
+    // rather than concatenated first: each file commonly does `import React`, and
+    // parsing them as one module would be a duplicate-binding error. Imports and
+    // exports are stripped by Babel (strip-modules plugin below) instead of by
+    // regex, which missed multi-line and side-effect imports.
     const componentFiles = Object.entries(files)
         .filter(([path]) => (path.endsWith('.tsx') || path.endsWith('.jsx')) && path !== 'src/App.tsx' && path !== 'src/index.tsx')
-        .map(([, code]) => {
-            // Remove imports
-            let cleanCode = code.replace(/import\s+.*?from\s+['"].*?['"];?/g, '');
-            // Remove default export
-            cleanCode = cleanCode.replace(/export\s+default\s+/g, '');
-            // Remove named exports
-            cleanCode = cleanCode.replace(/export\s+/g, '');
-            return cleanCode;
-        });
+        .map(([, code]) => code);
 
-    let mainAppCode = appCode.replace(/import\s+.*?from\s+['"].*?['"];?/g, '');
-    mainAppCode = mainAppCode.replace(/export\s+default\s+function\s+App/, 'function App');
-    // If it was just "export default App", handle that
-    mainAppCode = mainAppCode.replace(/export\s+default\s+App;?/, '');
+    const appCode = files['src/App.tsx'] || '';
 
-    const combinedCode = [
+    const sources = [
         ...componentFiles,
-        mainAppCode
-    ].join('\n\n');
+        appCode,
+        `ReactDOM.createRoot(document.getElementById('root')).render(<App />);`
+    ];
+    const totalSourceChars = sources.reduce((total, source) => total + String(source || '').length, 0);
+    try {
+        assertPreviewBudget('Build preview source', totalSourceChars, PREVIEW_SECURITY_LIMITS.maxSourceChars);
+    } catch (error) {
+        return buildPreviewErrorDocument(error.message);
+    }
+
+    // Embed the sources as JSON inside a non-executed <script type="text/plain">.
+    // Each source is transpiled with the TypeScript preset (isTSX) so generated
+    // .tsx files with interfaces and generics (e.g. useState<T>()) transform
+    // correctly. Escape </script> so source can't break out of the block.
+    const sourcesJSON = JSON.stringify(sources).replace(/<\/script>/gi, '<\\/script>');
 
     // Surface colors so the preview's default (unpainted) background matches
     // Opal's active theme instead of always defaulting to white.
@@ -47,11 +56,12 @@ export function generatePreviewHTML(files, options = {}) {
 <html${isDarkMode ? ' class="dark"' : ''}>
 <head>
     <meta charset="UTF-8">
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <meta http-equiv="Content-Security-Policy" content="${getPreviewCsp({ scripts: true, styles: true, images: true })}">
+    <script src="${PREVIEW_CDN_URLS.react}"></script>
+    <script src="${PREVIEW_CDN_URLS.reactDom}"></script>
+    <script src="${PREVIEW_CDN_URLS.babel}"></script>
     <script>tailwind = { config: { darkMode: 'class' } };</script>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="${PREVIEW_CDN_URLS.tailwind}"></script>
     <style>
         html, body { background: ${surfaceBg}; color: ${surfaceText}; }
         body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
@@ -64,21 +74,62 @@ export function generatePreviewHTML(files, options = {}) {
 </head>
 <body>
     <div id="root"></div>
-    
-    <script type="text/babel">
+
+    <script type="application/json" id="__opal-src">${sourcesJSON}</script>
+    <script>
+        ${createPreviewRuntimeGuard()}
+
         const { useState, useEffect, useRef, useMemo, useCallback } = React;
-        
+
         // Prevent common errors
         window.process = { env: { NODE_ENV: 'production' } };
-        
+
         try {
-            ${combinedCode}
-            
-            // Note: We assume the main component is named 'App'
-            const root = ReactDOM.createRoot(document.getElementById('root'));
-            root.render(<App />);
+            // Strip ES module syntax: imports point at bare/relative modules that
+            // don't exist here (components share one eval scope), and exports are
+            // meaningless. A default-exported function/class declaration keeps its
+            // declaration so the name (e.g. App) stays defined; a bare default
+            // export expression is dropped.
+            const __stripModules = function () {
+                return {
+                    visitor: {
+                        ImportDeclaration(path) { path.remove(); },
+                        ExportDefaultDeclaration(path) {
+                            const decl = path.node.declaration;
+                            if (decl && (decl.type === 'FunctionDeclaration' || decl.type === 'ClassDeclaration') && decl.id) {
+                                path.replaceWith(decl);
+                            } else {
+                                path.remove();
+                            }
+                        },
+                        ExportNamedDeclaration(path) {
+                            if (path.node.declaration) path.replaceWith(path.node.declaration);
+                            else path.remove();
+                        },
+                        ExportAllDeclaration(path) { path.remove(); }
+                    }
+                };
+            };
+            const __sources = JSON.parse(document.getElementById('__opal-src').textContent);
+            // Transpile each file separately so a per-file import of React is not
+            // a duplicate-binding error across the combined program.
+            const __opalOut = __sources.map(function (src) {
+                return Babel.transform(src, {
+                    filename: 'app.tsx',
+                    presets: ['react', ['typescript', { isTSX: true, allExtensions: true }]],
+                    plugins: [__stripModules]
+                }).code;
+            }).join('\\n');
+            // Executing generated code is the whole point of this sandboxed
+            // (allow-scripts) preview iframe; this replaces the prior
+            // <script type="text/babel"> auto-transform. Direct eval keeps the
+            // destructured React hooks above in scope for the transpiled code.
+            eval(__opalOut);
         } catch (err) {
-            document.getElementById('root').innerHTML = '<div style="color: red; padding: 20px;">' + err.toString() + '</div>';
+            const errorBox = document.createElement('div');
+            errorBox.style.cssText = 'color: red; padding: 20px; white-space: pre-wrap; font-family: monospace;';
+            errorBox.textContent = err && err.message ? err.message : String(err);
+            document.getElementById('root').replaceChildren(errorBox);
             console.error(err);
         }
     </script>

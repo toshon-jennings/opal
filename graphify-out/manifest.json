@@ -1,0 +1,42 @@
+{
+  "docs/architecture/graphify-out/2026-06-06/.graphify_analysis.json": {
+    "mtime": 1780785204.0345328,
+    "ast_hash": "9528ed3bb1a47c566d35766fe21626bb",
+    "semantic_hash": ""
+  },
+  "docs/architecture/graphify-out/2026-06-06/graph.json": {
+    "mtime": 1780785204.035704,
+    "ast_hash": "aef6469e300ff4ece997c964e9541c50",
+    "semantic_hash": ""
+  },
+  "docs/architecture/graphify-out/2026-06-06/manifest.json": {
+    "mtime": 1780785204.0350337,
+    "ast_hash": "c0bb3fc76170088d5897761d65f91b6f",
+    "semantic_hash": ""
+  },
+  "docs/architecture/graphify-out/graph.json": {
+    "mtime": 1780785204.0383894,
+    "ast_hash": "ef65b54e9823cff39d86ef85873e92f7",
+    "semantic_hash": ""
+  },
+  "docs/architecture/graphify-out/manifest.json": {
+    "mtime": 1780785204.0389009,
+    "ast_hash": "c0bb3fc76170088d5897761d65f91b6f",
+    "semantic_hash": ""
+  },
+  "docs/architecture/graphify-out/2026-06-06/GRAPH_REPORT.md": {
+    "mtime": 1780785204.0340147,
+    "ast_hash": "2f39815f86c7afe5d08f959579978bc5",
+    "semantic_hash": ""
+  },
+  "docs/architecture/graphify-out/GRAPH_REPORT.md": {
+    "mtime": 1780785204.0363278,
+    "ast_hash": "2f39815f86c7afe5d08f959579978bc5",
+    "semantic_hash": ""
+  },
+  "docs/architecture/graphify-out/graph.html": {
+    "mtime": 1780785204.0373838,
+    "ast_hash": "b7b725f312a67aaaf7a43539a2a80f76",
+    "semantic_hash": ""
+  }
+}

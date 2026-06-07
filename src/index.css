@@ -288,6 +288,184 @@ textarea:focus-visible {
 }
 .animate-glow { animation: glow-pulse 3s ease-in-out infinite; }
 
+@keyframes opal-progress-flow {
+  0%   { transform: translateX(-55%); opacity: 0.25; }
+  50%  { opacity: 0.8; }
+  100% { transform: translateX(155%); opacity: 0.25; }
+}
+
+@keyframes opal-delight-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 0.28; }
+  50%      { transform: translate3d(10px, -8px, 0) rotate(8deg); opacity: 0.58; }
+}
+
+.micro-interaction {
+  transition:
+    transform 0.16s cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease,
+    box-shadow 0.16s ease,
+    opacity 0.16s ease;
+}
+
+.state-feedback {
+  position: relative;
+  overflow: hidden;
+}
+
+.status-progress {
+  position: relative;
+  overflow: hidden;
+}
+
+.status-progress::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 45%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, rgba(var(--accent-rgb), 0.22), transparent);
+  animation: opal-progress-flow 1.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.layout-transition {
+  transition:
+    transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.22s ease,
+    border-color 0.22s ease,
+    background-color 0.22s ease,
+    box-shadow 0.22s ease;
+}
+
+.delight-field {
+  position: relative;
+  overflow: hidden;
+}
+
+.delight-field > * {
+  position: relative;
+  z-index: 1;
+}
+
+.delight-field::before,
+.delight-field::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(var(--accent-rgb), 0.26), transparent 68%);
+  filter: blur(1px);
+  animation: opal-delight-drift 5.5s ease-in-out infinite;
+}
+
+.delight-field::before {
+  width: 72px;
+  height: 72px;
+  right: -28px;
+  top: -30px;
+}
+
+.delight-field::after {
+  width: 46px;
+  height: 46px;
+  left: 16%;
+  bottom: -22px;
+  animation-delay: -2.4s;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .micro-interaction:hover {
+    transform: translateY(-1px);
+  }
+
+  .micro-interaction:active {
+    transform: translateY(0) scale(0.985);
+  }
+}
+
+@keyframes mission-packet-flow {
+  0%   { transform: translateX(-16px) scale(0.8); opacity: 0; }
+  10%  { opacity: 1; }
+  82%  { opacity: 1; }
+  100% { transform: translateX(calc(100% + 16px)) scale(1); opacity: 0; }
+}
+
+.mission-pulse-panel {
+  position: relative;
+  box-shadow: inset 0 1px 0 rgba(var(--accent-rgb), 0.08);
+}
+
+.mission-pulse-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.18;
+  background-image:
+    linear-gradient(rgba(var(--accent-rgb), 0.14) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--accent-rgb), 0.1) 1px, transparent 1px);
+  background-size: 26px 26px;
+  mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent);
+}
+
+.mission-pulse-track {
+  position: relative;
+  height: 18px;
+  overflow: hidden;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, transparent, rgba(var(--accent-rgb), 0.12), transparent),
+    rgba(var(--border-rgb), 0.18);
+}
+
+.mission-pulse-track::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 8px;
+  right: 8px;
+  height: 2px;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(var(--accent-rgb), 0.1), rgba(var(--accent-rgb), 0.42), rgba(var(--accent-rgb), 0.1));
+}
+
+.mission-pulse-packet {
+  position: absolute;
+  top: 4px;
+  left: 0;
+  z-index: 2;
+  width: 26px;
+  height: 10px;
+  border-radius: 999px;
+  box-shadow: 0 0 14px currentColor;
+  animation: mission-packet-flow 6.5s linear infinite;
+}
+
+.mission-pulse-packet::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 7px;
+  right: 7px;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.24);
+}
+
+.mission-pulse-stop {
+  position: absolute;
+  top: 50%;
+  z-index: 3;
+  width: 8px;
+  height: 8px;
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--bg-primary);
+  border-radius: 999px;
+  box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.28);
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .animate-thinking-dot-1,
@@ -297,6 +475,10 @@ textarea:focus-visible {
   .animate-spin-slow       { animation: none; }
   .opal-text               { animation: none; }
   .animate-glow            { animation: none; }
+  .status-progress::after  { animation: none; opacity: 0.2; }
+  .delight-field::before,
+  .delight-field::after    { animation: none; opacity: 0.18; }
+  .mission-pulse-packet    { animation: none; opacity: 0.75; transform: translateX(50%); }
 }
 
 /* ─── Thinking / reasoning blocks ────────────────────────────────────────── */
