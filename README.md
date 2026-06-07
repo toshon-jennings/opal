@@ -1,380 +1,176 @@
-# 🤖 Perci
+# Perci
 
 <div align="center">
 
-**A modern, feature-rich chat interface supporting multiple AI providers with advanced reasoning capabilities**
+**The open-source AI workspace for serious work**
 
-[![React](https://img.shields.io/badge/React-18.2-blue.svg)](https://reactjs.org/)
-[![Vite](https://img.shields.io/badge/Vite-5.1-646CFF.svg)](https://vitejs.dev/)
+[![React](https://img.shields.io/badge/React-18-2361AB.svg)](https://reactjs.org/)
+[![Electron](https://img.shields.io/badge/Electron-39-47848F.svg)](https://electronjs.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-[Features](#-features) • [Quick Start](#-quick-start) • [Usage](#-usage) • [Development](#-development) • [Contributing](#-contributing)
+[Features](#-features) • [Quick Start](#-quick-start) • [Development](#-development)
 
 </div>
 
 ---
 
-## 📖 Overview
+## What Is Perci?
 
-Perci is a powerful, open-source chat interface inspired by Anthropic's Claude. **This project is a fork of an earlier implementation that we found inadequate in terms of UX/UI polish and feature completeness.** 
+Perci is an open-source AI workspace — a desktop application that brings together multi-provider AI chat, agent orchestration, deep research, and a code workbench under one roof. Forked from [Open-claude](https://github.com/Damienchakma/Open-claude), it has evolved into something substantially more: a general-purpose tool for anyone who works with AI, writes code, or needs to get real things done.
 
-Our mission is to build a desktop experience that is truly on par with—and in some ways exceeds—Claude's native desktop application. We have focused heavily on refining the aesthetic, improving interactive feedback, and implementing robust features like a full-featured Electron wrapper, advanced research tools, and a superior developer experience.
-
-### 🌟 Highlights
-
-- **🖥️ Native Electron Support**: A dedicated desktop application with system integration, tray icons, and polished window management.
-- **🔬 Deep Research Scientist Mode**: Autonomous iterative research loop for professional multi-page reports.
-- **🧠 Advanced Thinking UI**: Unique collapsible thinking/reasoning display showing AI's thought process.
-- **🎨 Premium Design**: A modern, highly-polished interface with meticulously tuned spacing and interactive states.
-- **🔄 Multi-Provider**: Switch between OpenAI, Groq, Gemini, Ollama, and LM Studio.
-- **🔍 Intelligent Web Search**: Integrated Tavily search with dynamic tool selection.
-- **📦 Artifacts**: Preview HTML, React, SVG, and Research Papers in a dedicated side-by-side panel.
-- **💬 Chat History**: Multiple conversations with persistent local storage.
-- **🎭 Markdown Support**: Full GitHub-flavored markdown with syntax highlighting and automatic citations.
+This is not a chat app. It's a **command center**.
 
 ---
 
-## ✨ Features
+## Features
 
-### 🧠 Thinking/Reasoning Mode
+### Multi-Provider AI Chat
 
-A groundbreaking feature that displays the AI's internal reasoning process:
+Switch between OpenAI, Google Gemini, Anthropic Claude, Groq, DeepSeek, or local models (Ollama, LM Studio, vLLM) — all in one interface. Each provider brings its own strengths; Perci lets you use the right tool for the job.
 
-- **Collapsible Sections**: View or hide the model's thought process
-- **Token Tracking**: See how many tokens were used for thinking
-- **Duration Display**: Track how long the model spent reasoning
-- **Streaming Support**: Watch the AI think in real-time
-- **Premium Design**: Beautiful gradient UI with smooth animations
+### Deep Research Scientist Mode
 
-### 🤖 Multi-Provider Support
+An autonomous research agent that plans searches, evaluates sources, synthesizes findings, and produces formal reports with abstracts, methodology, and citations. This isn't prompt-and-pray — it's an iterative loop that keeps digging until the question is answered.
 
-| Provider | Typical Models | Hosted | Notes |
-|----------|----------------|--------|-------|
-| **OpenAI** | GPT-5.2, GPT-5, GPT-4.x | Cloud | Best general purpose + tools |
-| **Google Gemini** | Gemini 3 Pro / Flash, 2.5 Flash / Pro | Cloud | Excellent multimodal, long context |
-| **Groq** | llama3, mixtral, gemma, openai/gpt-oss | Cloud / optimized servers | Ultra-fast inference |
-| **Ollama** | LLaMA, Gemma, Qwen, Mistral, Mixtral, CodeLlama | Local | Self-hosted open models |
-| **LM Studio** | Any local GGUF model | Local | Local hosting with OpenAI-style API |
+### Code & Cowork Modes
 
-### 🎨 User Interface
+- **Code Mode**: A dedicated code editor surface for working with AI on implementation tasks
+- **Cowork Mode**: Run multiple coding agents (Claude Code, Aider, Codex, Cursor CLI, Copilot, Antigravity) in parallel, each in its own workspace, coordinated through Perci's mission control system
 
-- **Clean Design**: A minimalist aesthetic
-- **Dark/Light Mode**: Automatic theme switching based on system preferences
-- **Responsive**: Works seamlessly on desktop and mobile
-- **Syntax Highlighting**: Beautiful code blocks with react-syntax-highlighter
-- **Artifact Panel**: Side-by-side code preview for HTML, React, and SVG
+### Mission Control
 
-### 🔍 Web Search Integration
+Orchestrate complex multi-step work. Launch agents, track their progress, validate outputs, and manage dependencies — visualized through a transit map that shows every run's state transitions. This is the operational backbone that makes Perci more than a single-chat interface.
 
-- Powered by Tavily API
-- Real-time web search results
-- Context-aware responses with up-to-date information
+### Artifacts & Live Preview
+
+AI-generated code (HTML, React, SVG) doesn't just appear in a chat bubble. It opens in a dedicated side-by-side panel with live preview, so you can iterate on working software, not just read about it.
+
+### OpenClaw Integration
+
+Perci includes native support for [OpenClaw](https://github.com/openclaw/openclaw) — a production-grade local AI gateway. This gives you persistent agent memory, cross-session continuity, and access to local models through a unified interface. Perci auto-detects OpenClaw on your system and installs the gateway if missing.
+
+### Terminal
+
+A built-in terminal for running shell commands, managing dev servers, and interacting with your system — all without leaving the workspace.
+
+### Advanced Reasoning UI
+
+Watch models think in real-time. Collapsible reasoning sections show the AI's thought process, token usage, and duration — streamed as it happens.
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
-Before you begin, ensure you have:
-
-- **Node.js** 18.0 or higher ([Download](https://nodejs.org/))
-- **npm** (comes with Node.js) or **yarn**
-- **Git** ([Download](https://git-scm.com/))
+- **Node.js** 18+
+- **npm** or **yarn**
+- **Git**
 
 ### Installation
-
-1. **Clone the repository**
 
 ```bash
 git clone https://github.com/toshon-jennings/opal.git
 cd opal
-```
-
-2. **Install dependencies**
-
-```bash
 npm install
-```
-
-3. **Start the development server**
-
-```bash
 npm run dev
 ```
 
-4. **Open in your browser**
+For the desktop app (Electron):
 
-Navigate to `http://localhost:5173`
+```bash
+npm run electron:dev
+```
 
-That's it! 🎉 The application is now running.
+To package for your platform:
 
----
+```bash
+npm run electron:build      # default platform
+npm run electron:build:mac  # macOS
+npm run electron:build:win  # Windows
+npm run electron:build:linux # Linux
+```
 
-## ⚙️ Configuration
+### API Keys
 
-### Getting API Keys
+Perci requires API keys for cloud providers. Keys are stored locally in the browser's localStorage — never sent to any server. Add them in Settings → API Keys.
 
-Perci requires API keys for cloud providers. Here's how to get them:
-
-#### OpenAI API Key
-1. Visit [OpenAI Platform](https://platform.openai.com/)
-2. Sign up or log in
-3. Go to **API Keys** section
-4. Click **Create new secret key**
-5. Copy and save the key (you won't see it again!)
-
-#### Google Gemini API Key
-1. Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
-2. Sign in with your Google account
-3. Click **Create API Key**
-4. Copy the generated key
-
-#### Groq API Key
-1. Visit [Groq Console](https://console.groq.com/)
-2. Create an account or log in
-3. Navigate to **API Keys**
-4. Generate a new API key
-
-#### Tavily API Key (Optional - for web search)
-1. Visit [Tavily](https://tavily.com/)
-2. Sign up for an account
-3. Get your API key from the dashboard
-
-### Setting Up API Keys in the App
-
-1. Click the **Settings** icon (gear) in the sidebar
-2. Enter your API keys in the respective fields
-3. Click **Save**
-4. Your keys are stored **locally in your browser** (never sent to any server)
-
-### Using Local Models (No API Key Required)
-
-#### Ollama Setup
-1. Install Ollama from [ollama.ai](https://ollama.ai/)
-2. Pull a model: `ollama pull llama2`
-3. Ollama runs on `localhost:11434` by default
-4. Select Ollama in the model dropdown
-
-#### LM Studio Setup
-1. Install [LM Studio](https://lmstudio.ai/)
-2. Download and load a model
-3. Start the local server (port 1234). Use `http://localhost:1234` when Perci and LM Studio run on the same Mac; LM Studio's LAN "Reachable @" address can change.
-4. Select LM Studio in the model dropdown
+Local models (Ollama, LM Studio, vLLM) require no API key.
 
 ---
 
-## 🎯 Usage
-
-### Basic Chat
-
-1. Select a provider and model from the dropdown
-2. Type your message in the input field
-3. Press **Enter** or click **Send**
-4. View the AI's response
-
-### Using Web Search
-
-1. Click the **Globe** icon to enable web search
-2. Your queries will include real-time web results
-3. The AI will provide context-aware answers with current information
-
-### Viewing Artifacts
-
-When the AI generates code (HTML, React, SVG):
-1. An artifact card appears in the chat
-2. Click the card to open the preview panel
-3. Toggle between **Preview** and **Code** views
-4. Copy code with the copy button
-
-### 🔬 Deep Research Scientist Mode
-
-The flagship feature for professional investigation:
-
-1.  **Autonomous Loop**: The agent decides what to search, evaluates results, and digs deeper until requirements are met.
-2.  **3-Minute Minimum**: Ensures high-quality, non-trivial research outputs.
-3.  **PDF-Ready Reports**: Generates formal research papers with Abstracts, Methodology, and References.
-4.  **Automatic Citations**: All claims are cited to verifiable sources.
-
-### Managing Chats
-
-- **New Chat**: Click the **New Chat** button in the sidebar
-- **Switch Chats**: Click on any chat in the history
-- **Delete Chat**: Hover over a chat and click the trash icon
-- **Persistence**: Your chats and artifacts are saved to your browser's local storage and isolated per session.
-
-### Viewing AI Thinking Process
-
-For models that support reasoning (like OpenAI o1):
-1. The thinking section appears above the response
-2. Click to expand/collapse
-3. View token count and duration
-4. See the AI's step-by-step reasoning
-
----
-
-## 🛠️ Development
+## Development
 
 ### Project Structure
 
 ```
-Perci/
-├── src/
-│   ├── components/          # React components
-│   │   ├── ArtifactPanel.jsx      # Code & Research preview panel
-│   │   ├── BuildMode.jsx          # AI App Builder mode
-│   │   ├── ChatMessage.jsx        # Individual message display
-│   │   ├── ChatMode.jsx           # Main chat interface logic
-│   │   ├── CitationDisplay.jsx    # Research source citations
-│   │   ├── CodeMode.jsx           # Dedicated code editor
-│   │   ├── ModeSwitcher.jsx       # Switch between Chat, Build, Code
-│   │   ├── SettingsModal.jsx      # Provider & Model configuration
-│   │   ├── ThinkingDisplay.jsx    # Reasoning process UI
-│   │   └── Workbench/             # Build mode development area
-│   ├── context/             # Global state management
-│   │   ├── ChatContext.jsx        # Core chat & artifacts state
-│   │   ├── ModeContext.jsx        # Application mode state
-│   │   └── BuildContext.jsx       # Build mode state
-│   ├── lib/                 # Core logic & tools
-│   │   ├── llm/                   # LLM factory and clients
-│   │   ├── IntelligentSearchTool.js # Deep Research & Web Search
-│   │   └── BoltArtifactParser.js   # Advanced artifact extraction
-│   ├── App.jsx              # Main app entry layout
-│   ├── main.jsx             # React mounting point
-│   └── index.css            # Global design system
-├── public/                  # Static assets
-├── index.html               # Main entry template
-├── package.json             # Dependencies
-└── tailwind.config.js       # UI design tokens
+src/
+├── components/     # React UI components
+│   ├── AgentsPanel.jsx       # Multi-agent orchestration UI
+│   ├── ArtifactPanel.jsx     # Code/preview panel
+│   ├── BuildMode.jsx         # AI app builder
+│   ├── CodeMode.jsx          # Code editor surface
+│   ├── CoworkMode.jsx        # Parallel agent sessions
+│   ├── MissionControl.jsx    # Mission orchestration dashboard
+│   ├── ModeSwitcher.jsx      # Chat / Build / Code / Cowork
+│   ├── Terminal.jsx          # Built-in terminal
+│   └── ...
+├── context/        # Global state (ModeContext, ChatContext, BuildContext)
+├── lib/            # Core logic
+│   ├── llm/                  # LLM provider clients (factory pattern)
+│   ├── IntelligentSearchTool.js  # Deep research & web search
+│   ├── missionControl.js     # Mission run tracking & validation
+│   ├── terminalBridge.js     # Terminal IPC
+│   └── ...
+electron/         # Electron main process
 ```
 
 ### Tech Stack
 
-- **Frontend Framework**: React 18.2
-- **Build Tool**: Vite 5.1
-- **Styling**: Tailwind CSS + Custom CSS Variables
+- **Frontend**: React 18, Tailwind CSS, Framer Motion
+- **Build**: Vite 5
+- **Desktop**: Electron 39
 - **Markdown**: react-markdown + remark-gfm
 - **Syntax Highlighting**: react-syntax-highlighter
 - **Icons**: Lucide React
-- **Animations**: Framer Motion
 
 ### Available Scripts
 
 ```bash
-# Start development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
-
-# Lint code
-npm run lint
+npm run dev           # Start dev server
+npm run build         # Production build
+npm run preview       # Preview production build
+npm run lint          # Lint
+npm run electron:dev  # Electron dev mode
+npm run electron:build # Package desktop app
 ```
 
-### Building for Production
+---
 
-```bash
-npm run build
-```
+## Architecture
 
-This creates an optimized production build in the `dist/` folder.
+Perci's codebase is organized around a central event bus (`appendMissionRunEvent()`) that connects the mission control system to the UI layer. The graph analysis (514 nodes, 1047 edges, 31 communities) shows clean separation of concerns with zero import cycles.
 
-### Environment Variables
+Key architectural communities:
+- **Mission Event Logging** — Central event bus (19 edges, #1 hub)
+- **App Core and Providers** — Window/dock system, mode routing (#2 hub)
+- **UI Navigation and Settings** — Mode switcher, settings, API key management
+- **LLM Provider Clients** — Factory pattern across 6+ providers
+- **Code and Cowork Modes** — Parallel agent orchestration
+- **Artifact Preview Security** — Sandboxed iframes, CSP, budget enforcement
 
-The app doesn't use `.env` files. All settings are stored in browser localStorage for security.
+See `docs/architecture/GRAPH_ANALYSIS_2026-06-07.md` for the full breakdown.
 
 ---
 
-## 🎨 Customization
+## License
 
-### Changing Theme Colors
-
-Edit `src/index.css` to customize the color scheme:
-
-```css
-:root {
-  --accent: #d97757;        /* Primary accent color */
-  --bg-primary: #FFFFFF;    /* Main background */
-  --text-primary: #2F2F2F;  /* Main text color */
-  /* ... more variables */
-}
-```
-
-### Adding New LLM Providers
-
-1. Create a new client class in `src/lib/llm/clients.js`
-2. Extend `BaseClient` and implement `streamChat()`
-3. Add to `LLMFactory.getClient()` switch case
-4. Update `ModelService.js` to fetch available models
-5. Add UI elements in `SettingsModal.jsx`
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Here's how you can help:
-
-### Reporting Bugs
-
-1. Check if the bug has already been reported in [Issues](https://github.com/Damienchakma/Open-claude/issues)
-2. Create a new issue with:
-   - Clear title and description
-   - Steps to reproduce
-   - Expected vs actual behavior
-   - Screenshots if applicable
-
-### Suggesting Features
-
-1. Open an issue with the `enhancement` label
-2. Describe the feature and why it would be useful
-3. Provide examples or mockups if possible
-
-### Pull Requests
-
-1. Fork the repository
-2. Create a new branch: `git checkout -b feature/your-feature-name`
-3. Make your changes
-4. Test thoroughly
-5. Commit: `git commit -m "Add: your feature description"`
-6. Push: `git push origin feature/your-feature-name`
-7. Open a Pull Request
-
----
-
-## 📝 License
-
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 🙏 Acknowledgments
-
-- Inspired by [Anthropic's Claude](https://www.anthropic.com/claude) interface
-- Built with modern web technologies
-- Community-driven development
-
----
-
-## 📞 Support
-
-- **Issues**: [GitHub Issues](https://github.com/Damienchakma/Open-claude/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/Damienchakma/Open-claude/discussions)
-
----
-
-## ⭐ Star History
-
-If you find this project useful, please consider giving it a star! ⭐
+MIT — see [LICENSE](LICENSE).
 
 ---
 
 <div align="center">
 
-Owner: [Damien Chakma](https://github.com/Damienchakma)
-
-**[⬆ back to top](#-opal)**
+**[⬆ back to top](#-perci)**
 
 </div>
