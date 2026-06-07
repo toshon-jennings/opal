@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
     hasElectronStore,
     loadElectronPersistence,
@@ -18,6 +18,47 @@ export const MODES = {
     BUILD: 'build',    // Advanced build/deploy interface (future)
     AGENTS: 'agents',  // AI agent control center
 };
+
+// Non-mode windows (surfaces that open as windows but aren't in the MODES enum).
+export const OPENCLAW_WINDOW_ID = 'openclaw';
+
+// Titles shown in window headers and dock chips for each windowed surface.
+export const WINDOW_TITLES = {
+    [MODES.COWORK]: 'Cowork',
+    [MODES.CODE]: 'Code',
+    [MODES.AGENTS]: 'Agents',
+    [MODES.MISSION]: 'Mission Control',
+    [MODES.BUILD]: 'Build',
+    [OPENCLAW_WINDOW_ID]: 'OpenClaw',
+};
+
+// Windows whose content is an Electron <webview>; CSS transforms can make webviews
+// flicker, so these minimize with a plain fade instead of the whirlpool spin.
+const NO_WHIRLPOOL_IDS = new Set([OPENCLAW_WINDOW_ID]);
+
+const WINDOW_DEFAULTS = { width: 960, height: 640, minWidth: 420, minHeight: 300, cascade: 34 };
+
+function viewportSize() {
+    if (typeof window === 'undefined') return { width: 1440, height: 900 };
+    return { width: window.innerWidth, height: window.innerHeight };
+}
+
+function defaultBounds(index = 0) {
+    const { width: vw, height: vh } = viewportSize();
+    const width = Math.min(WINDOW_DEFAULTS.width, Math.round(vw * 0.72));
+    const height = Math.min(WINDOW_DEFAULTS.height, Math.round((vh - 120) * 0.94));
+    const offset = (index % 6) * WINDOW_DEFAULTS.cascade;
+    return { x: 80 + offset, y: 36 + offset, width, height };
+}
+
+function clampBounds(bounds) {
+    const { width: vw, height: vh } = viewportSize();
+    const width = Math.max(WINDOW_DEFAULTS.minWidth, Math.min(bounds.width, vw));
+    const height = Math.max(WINDOW_DEFAULTS.minHeight, Math.min(bounds.height, vh - 80));
+    const x = Math.min(Math.max(bounds.x, 0), Math.max(0, vw - 160));
+    const y = Math.min(Math.max(bounds.y, 0), Math.max(0, vh - 140));
+    return { x, y, width, height };
+}
 
 const DEFAULT_OPENCLAW_CONFIG = {
     activeProfileId: 'local',
@@ -64,8 +105,137 @@ function normalizeOpenClawConfig(config) {
 }
 
 export function ModeProvider({ children }) {
-    const [currentMode, setCurrentMode] = useState(MODES.CHAT);
+    const [currentMode, setActiveMode] = useState(MODES.CHAT);
     const electronPersistenceReadyRef = useRef(!hasElectronStore());
+
+    // ── Window system ──────────────────────────────────────────────
+    // Chat is the always-mounted base "desktop". The other modes open as
+    // floating windows on top, tracked here and surfaced by the bottom dock.
+    // Window geometry is remembered per mode; the open set itself is per-session
+    // (we don't auto-reopen heavy modes on reload).
+    const [windows, setWindows] = useState([]);
+    const zCounterRef = useRef(20);
+
+    // Mirror of `windows` so actions can read the latest set without putting
+    // impure logic inside setState updaters.
+    const windowsRef = useRef(windows);
+    useEffect(() => { windowsRef.current = windows; }, [windows]);
+
+    // Per-mode geometry memory. Kept in a ref (not React state) so move/resize
+    // updaters stay pure; persisted to localStorage by the effect below.
+    const windowBoundsRef = useRef(readJsonStorage('opal_window_bounds', {}) || {});
+    useEffect(() => {
+        let changed = false;
+        const next = { ...windowBoundsRef.current };
+        for (const w of windows) {
+            if (w.state !== 'normal') continue;
+            const cur = next[w.modeId];
+            if (!cur || cur.x !== w.bounds.x || cur.y !== w.bounds.y || cur.width !== w.bounds.width || cur.height !== w.bounds.height) {
+                next[w.modeId] = w.bounds;
+                changed = true;
+            }
+        }
+        if (changed) {
+            windowBoundsRef.current = next;
+            localStorage.setItem('opal_window_bounds', serializeJson(next));
+        }
+    }, [windows]);
+
+    const topVisibleId = (list) => {
+        const visible = list.filter(w => w.state !== 'minimized');
+        if (!visible.length) return MODES.CHAT;
+        return visible.reduce((a, b) => (b.z > a.z ? b : a), visible[0]).id;
+    };
+
+    const focusWindow = useCallback((id) => {
+        const nextZ = ++zCounterRef.current;
+        setWindows(ws => ws.map(w => w.id === id
+            ? { ...w, z: nextZ, focusedAt: Date.now(), state: w.state === 'minimized' ? 'normal' : w.state }
+            : w));
+        setActiveMode(id);
+    }, []);
+
+    const openWindow = useCallback((modeId) => {
+        if (modeId === MODES.CHAT) return;
+        const nextZ = ++zCounterRef.current;
+        setActiveMode(modeId);
+        setWindows(ws => {
+            const existing = ws.find(w => w.id === modeId);
+            if (existing) {
+                return ws.map(w => w.id === modeId
+                    ? { ...w, z: nextZ, focusedAt: Date.now(), state: w.state === 'minimized' ? 'normal' : w.state }
+                    : w);
+            }
+            const bounds = clampBounds(windowBoundsRef.current[modeId] || defaultBounds(ws.length));
+            return [...ws, {
+                id: modeId,
+                modeId,
+                title: WINDOW_TITLES[modeId] || modeId,
+                state: 'normal',
+                z: nextZ,
+                focusedAt: Date.now(),
+                bounds,
+                noWhirlpool: NO_WHIRLPOOL_IDS.has(modeId),
+            }];
+        });
+    }, []);
+
+    // setCurrentMode keeps its existing call sites working: Chat reveals the
+    // desktop (minimizing windows); every other mode opens/focuses its window.
+    const setCurrentMode = useCallback((modeId) => {
+        if (modeId === MODES.CHAT) {
+            setActiveMode(MODES.CHAT);
+            setWindows(ws => ws.map(w => (w.state === 'minimized' ? w : { ...w, state: 'minimized' })));
+            return;
+        }
+        openWindow(modeId);
+    }, [openWindow]);
+
+    const closeWindow = useCallback((id) => {
+        const next = windowsRef.current.filter(w => w.id !== id);
+        setWindows(next);
+        setActiveMode(topVisibleId(next));
+    }, []);
+
+    const minimizeWindow = useCallback((id) => {
+        const next = windowsRef.current.map(w => (w.id === id ? { ...w, state: 'minimized' } : w));
+        setWindows(next);
+        setActiveMode(topVisibleId(next));
+    }, []);
+
+    const toggleMaximizeWindow = useCallback((id) => {
+        setWindows(ws => ws.map(w => {
+            if (w.id !== id) return w;
+            if (w.state === 'maximized') {
+                return { ...w, state: 'normal', bounds: clampBounds(w.restoreBounds || w.bounds), restoreBounds: undefined };
+            }
+            return { ...w, state: 'maximized', restoreBounds: w.bounds };
+        }));
+        focusWindow(id);
+    }, [focusWindow]);
+
+    const moveWindow = useCallback((id, x, y) => {
+        setWindows(ws => ws.map(w => (
+            w.id === id ? { ...w, bounds: clampBounds({ ...w.bounds, x, y }) } : w
+        )));
+    }, []);
+
+    const resizeWindow = useCallback((id, width, height) => {
+        setWindows(ws => ws.map(w => (
+            w.id === id ? { ...w, bounds: clampBounds({ ...w.bounds, width, height }) } : w
+        )));
+    }, []);
+
+    const windowApi = useMemo(() => ({
+        windows,
+        openWindow,
+        closeWindow,
+        focusWindow,
+        minimizeWindow,
+        toggleMaximizeWindow,
+        moveWindow,
+        resizeWindow,
+    }), [windows, openWindow, closeWindow, focusWindow, minimizeWindow, toggleMaximizeWindow, moveWindow, resizeWindow]);
 
     const createDefaultCodeState = () => ({
         workingDirectory: readStringStorage('working_directory', null),
@@ -147,7 +317,15 @@ export function ModeProvider({ children }) {
 
     const [chatState, setChatState] = useState({});
     const [showGlobalTerminal, setShowGlobalTerminal] = useState(false);
-    const [showOpenClawDashboard, setShowOpenClawDashboard] = useState(false);
+
+    // OpenClaw is now a window. Keep the old open/close API working for existing
+    // call sites (AgentsPanel, SettingsModal, MissionControl) by bridging to the
+    // window system: open/focus or close the OpenClaw window.
+    const showOpenClawDashboard = windows.some(w => w.id === OPENCLAW_WINDOW_ID && w.state !== 'minimized');
+    const setShowOpenClawDashboard = useCallback((open) => {
+        if (open) openWindow(OPENCLAW_WINDOW_ID);
+        else closeWindow(OPENCLAW_WINDOW_ID);
+    }, [openWindow, closeWindow]);
     const [openClawConfig, setOpenClawConfig] = useState(() => (
         normalizeOpenClawConfig(readJsonStorage('openclaw_config', DEFAULT_OPENCLAW_CONFIG))
     ));
@@ -237,6 +415,7 @@ export function ModeProvider({ children }) {
         <ModeContext.Provider value={{
             currentMode,
             setCurrentMode,
+            ...windowApi,
             chatState,
             setChatState,
             codeState,

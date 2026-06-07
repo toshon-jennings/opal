@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, Component } from 'react';
 import opalLogo from './assets/opal-logo.png';
-import { useMode, MODES } from './context/ModeContext';
+import { useMode, MODES, OPENCLAW_WINDOW_ID } from './context/ModeContext';
 import ModeSwitcher from './components/ModeSwitcher';
 import ChatMode from './components/ChatMode';
 import CodeMode from './components/CodeMode';
@@ -8,6 +8,8 @@ import CoworkMode from './components/CoworkMode';
 import MissionControl from './components/MissionControl';
 import BuildMode from './components/BuildMode';
 import AgentsPanel from './components/AgentsPanel';
+import DesktopHost from './components/windows/DesktopHost';
+import Dock from './components/windows/Dock';
 import { ModeGuideModal } from './components/ModeGuideModal';
 import { BuildModeProvider } from './context/BuildModeContext'; // Keeping original context for now, but primary logic will be in BuildContext
 import { BuildProvider } from './context/BuildContext';
@@ -15,7 +17,7 @@ import { ChatProvider } from './context/ChatContext';
 
 import hermesLogo from './assets/hermes.png';
 import openClawLogo from './assets/openclaw-color.png';
-import { Moon, Sun, Lock, Unlock, Plus, Terminal as TerminalIcon, Server, X, RefreshCw, ExternalLink, Bot, AlertCircle, BookOpen } from 'lucide-react';
+import { Moon, Sun, Lock, Unlock, Plus, Terminal as TerminalIcon, Server, RefreshCw, ExternalLink, Bot, AlertCircle, BookOpen } from 'lucide-react';
 import { useTheme, ThemeProvider } from './context/ThemeContext';
 import { useChat } from './context/ChatContext';
 import TerminalPanel from './components/Terminal';
@@ -72,13 +74,14 @@ function AppContent() {
     const {
         currentMode,
         setCurrentMode,
+        windows,
+        openWindow,
         showGlobalTerminal,
         setShowGlobalTerminal,
-        showOpenClawDashboard,
-        setShowOpenClawDashboard,
         openClawConfig,
         hermesAppPath,
     } = useMode();
+    const openClawWindowOpen = windows.some(w => w.id === OPENCLAW_WINDOW_ID && w.state !== 'minimized');
     const { isDarkMode, toggleTheme } = useTheme();
     const { isIncognitoMode, toggleIncognitoMode, createNewChat } = useChat();
     const [openClawStatus, setOpenClawStatus] = useState({ state: 'idle' });
@@ -188,7 +191,7 @@ function AppContent() {
     const openOpenClawDashboard = () => {
         if (!activeOpenClawDashboardUrl) return;
         setOpenClawDashboardIssue(null);
-        setShowOpenClawDashboard(true);
+        openWindow(OPENCLAW_WINDOW_ID);
     };
 
     const launchHermesApp = async () => {
@@ -248,6 +251,239 @@ function AppContent() {
             }
         };
         setTimeout(pollUntilLive, pollMs);
+    };
+
+    // Supplies the UI for each windowed mode. Mission Control needs live props,
+    // so window content is rendered here rather than inside the window layer.
+    // OpenClaw renders as a window (webview-backed). Reuses the dashboard
+    // toolbar/tabs/content that previously lived in a fullscreen overlay.
+    const renderOpenClawWindow = () => (
+        <div className="flex h-full flex-col bg-[var(--bg-primary)]">
+                            <div className="h-11 shrink-0 flex items-center justify-between gap-3 px-4 border-b border-[var(--border)] bg-[var(--bg-secondary)]">
+                                <div className="min-w-0 flex items-center gap-2">
+                                    <Server size={15} className={openClawStatus.state === 'online' ? 'text-emerald-500' : 'text-[var(--text-tertiary)]'} />
+                                    <div className="min-w-0">
+                                        <div className="text-sm font-semibold text-[var(--text-primary)] truncate">
+                                            {activeOpenClawProfile.name}
+                                        </div>
+                                        <div className="text-[11px] font-mono text-[var(--text-tertiary)] truncate">
+                                            {activeOpenClawProfile.controlUrl}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {openClawDashboardTab === 'gateway' && (
+                                    <form onSubmit={handleTerminalSubmit} className="flex-1 max-w-md mx-8 relative">
+                                        <div className="relative flex items-center">
+                                            <span className="absolute left-2.5 text-[var(--text-tertiary)] font-mono text-xs select-none">$</span>
+                                            <input
+                                                type="text"
+                                                value={terminalCommand}
+                                                onChange={(e) => setTerminalCommand(e.target.value)}
+                                                placeholder="Send command to terminal..."
+                                                className="w-full pl-6 pr-12 py-1 text-xs font-mono rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:outline-none focus:border-[var(--accent)] transition-all"
+                                            />
+                                            <button
+                                                type="submit"
+                                                className="absolute right-1 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] border border-[var(--border)] transition-colors"
+                                            >
+                                                Run
+                                            </button>
+                                        </div>
+                                    </form>
+                                )}
+                                {openClawDashboardTab === 'diary' && (
+                                    <div className="flex-1 mx-8 flex items-center justify-center">
+                                        <span className="text-xs text-[var(--text-tertiary)] italic">
+                                            {diarySaving ? 'Saving…' : diaryLastSaved ? `Saved ${diaryLastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Not yet saved'}
+                                        </span>
+                                    </div>
+                                )}
+
+                                <div className="flex items-center gap-2">
+                                    <span className={`hidden sm:inline text-xs ${openClawStatus.state === 'online' ? 'text-emerald-500' : openClawStatus.state === 'checking' ? 'text-[var(--text-secondary)]' : 'text-red-400'}`}>
+                                        {openClawStatus.state === 'online'
+                                            ? 'Gateway reachable'
+                                            : openClawStatus.state === 'checking'
+                                                ? 'Checking...'
+                                                : 'Gateway unreachable'}
+                                    </span>
+                                    <button
+                                        onClick={() => {
+                                            setOpenClawDashboardIssue(null);
+                                            setOpenClawFrameKey(key => key + 1);
+                                        }}
+                                        className="p-1.5 rounded-md text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+                                        title="Reload dashboard"
+                                    >
+                                        <RefreshCw size={16} />
+                                    </button>
+                                    {window.electron?.restartOpenClawGateway && activeOpenClawProfile?.mode === 'local' && (
+                                        <button
+                                            onClick={restartOpenClawGateway}
+                                            disabled={isRestartingOpenClaw}
+                                            className="px-2 py-1.5 rounded-md text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] disabled:opacity-50 transition-colors"
+                                            title="Restart local OpenClaw Gateway"
+                                        >
+                                            {isRestartingOpenClaw ? 'Restarting...' : 'Restart Gateway'}
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={openOpenClawExternally}
+                                        className="p-1.5 rounded-md text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+                                        title="Open in browser"
+                                    >
+                                        <ExternalLink size={16} />
+                                    </button>
+                                </div>
+                            </div>
+                            {/* Tab strip */}
+                            <div className="shrink-0 flex items-center border-b border-[var(--border)] bg-[var(--bg-secondary)] px-2">
+                                {[
+                                    { id: 'gateway', label: 'Gateway', icon: <Server size={12} /> },
+                                    { id: 'diary', label: "User's Diary", icon: <BookOpen size={12} /> },
+                                ].map(tab => (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setOpenClawDashboardTab(tab.id)}
+                                        className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors ${
+                                            openClawDashboardTab === tab.id
+                                                ? 'border-[var(--accent)] text-[var(--accent)]'
+                                                : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
+                                        }`}
+                                    >
+                                        {tab.icon}
+                                        {tab.label}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {openClawDashboardTab === 'diary' ? (
+                                <div className="flex-1 min-h-0 flex flex-col bg-[var(--bg-primary)]">
+                                    <div className="flex-1 min-h-0 relative">
+                                        <textarea
+                                            value={diaryContent}
+                                            onChange={e => handleDiaryChange(e.target.value)}
+                                            placeholder={`Write anything you'd like OpenClaw to know about you — your thoughts, goals, current projects, preferences, reflections…\n\nOpenClaw reads this daily to get deeper context about who you are and what matters to you.`}
+                                            className="absolute inset-0 w-full h-full resize-none p-6 bg-[var(--bg-primary)] text-[var(--text-primary)] text-sm leading-7 outline-none placeholder-[var(--text-tertiary)] font-[inherit]"
+                                            spellCheck
+                                            autoFocus
+                                        />
+                                    </div>
+                                    <div className="shrink-0 flex items-center justify-between px-6 py-2 border-t border-[var(--border)] bg-[var(--bg-secondary)]">
+                                        <span className="text-[11px] text-[var(--text-tertiary)]">
+                                            {diaryContent.trim() ? `${diaryContent.trim().split(/\s+/).filter(Boolean).length} words` : 'Empty'}
+                                        </span>
+                                        <span className="text-[11px] text-[var(--text-tertiary)]">
+                                            OpenClaw reads this for context
+                                        </span>
+                                    </div>
+                                </div>
+                            ) : openClawStatus.state === 'offline' ? (
+                                <div className="flex-1 min-h-0 flex items-center justify-center p-8">
+                                    <div className="max-w-lg text-center">
+                                        <div className="mx-auto mb-4 w-12 h-12 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] flex items-center justify-center">
+                                            <Server size={22} className="text-[var(--text-tertiary)]" />
+                                        </div>
+                                        <h2 className="text-lg font-semibold text-[var(--text-primary)]">OpenClaw Gateway is unreachable</h2>
+                                        <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                                            Perci is trying to reach {activeOpenClawProfile.gatewayUrl}. Start the local Gateway or switch to an appliance profile in Settings.
+                                        </p>
+                                        {openClawStatus.result?.error && (
+                                            <p className="mt-3 text-xs font-mono text-red-400">{openClawStatus.result.error}</p>
+                                        )}
+                                        {window.electron?.restartOpenClawGateway && activeOpenClawProfile?.mode === 'local' && (
+                                            <button
+                                                type="button"
+                                                onClick={restartOpenClawGateway}
+                                                disabled={isRestartingOpenClaw}
+                                                className="mt-5 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--accent)] text-white text-sm font-medium hover:bg-[var(--accent-hover)] disabled:opacity-50 transition-colors"
+                                            >
+                                                <RefreshCw size={15} className={isRestartingOpenClaw ? 'animate-spin' : ''} />
+                                                {isRestartingOpenClaw ? 'Restarting Gateway...' : 'Restart Gateway'}
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : openClawDashboardIssue ? (
+                                <div className="flex-1 min-h-0 flex items-center justify-center p-8">
+                                    <div className="max-w-lg text-center">
+                                        <div className="mx-auto mb-4 w-12 h-12 rounded-xl border border-red-500/30 bg-red-500/10 flex items-center justify-center">
+                                            <AlertCircle size={22} className="text-red-400" />
+                                        </div>
+                                        <h2 className="text-lg font-semibold text-[var(--text-primary)]">{openClawDashboardIssue.title}</h2>
+                                        <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                                            {openClawDashboardIssue.message}
+                                        </p>
+                                        <div className="mt-5 flex items-center justify-center gap-2">
+                                            {window.electron?.restartOpenClawGateway && activeOpenClawProfile?.mode === 'local' && (
+                                                <button
+                                                    type="button"
+                                                    onClick={restartOpenClawGateway}
+                                                    disabled={isRestartingOpenClaw}
+                                                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--accent)] text-white text-sm font-medium hover:bg-[var(--accent-hover)] disabled:opacity-50 transition-colors"
+                                                >
+                                                    <RefreshCw size={15} className={isRestartingOpenClaw ? 'animate-spin' : ''} />
+                                                    {isRestartingOpenClaw ? 'Restarting Gateway...' : 'Restart Gateway'}
+                                                </button>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setOpenClawDashboardIssue(null);
+                                                    setOpenClawFrameKey(key => key + 1);
+                                                }}
+                                                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-[var(--border)] text-[var(--text-secondary)] text-sm font-medium hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+                                            >
+                                                <RefreshCw size={15} />
+                                                Reload
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : window.electron ? (
+                                <webview
+                                    ref={attachOpenClawWebview}
+                                    key={`${activeOpenClawProfile.id}-${openClawFrameKey}`}
+                                    src={activeOpenClawDashboardUrl}
+                                    title="OpenClaw Dashboard"
+                                    className="flex-1 min-h-0 w-full border-0 bg-white"
+                                    partition="persist:opal-openclaw"
+                                    allowpopups="true"
+                                />
+                            ) : (
+                                <div className="flex-1 min-h-0 flex items-center justify-center p-8">
+                                    <div className="max-w-lg text-center">
+                                        <div className="mx-auto mb-4 w-12 h-12 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] flex items-center justify-center">
+                                            <Server size={22} className="text-[var(--text-tertiary)]" />
+                                        </div>
+                                        <h2 className="text-lg font-semibold text-[var(--text-primary)]">OpenClaw requires the desktop app</h2>
+                                        <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                                            OpenClaw blocks iframe embedding. Perci uses an Electron webview in desktop mode to render it safely.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+        </div>
+    );
+
+    const renderWindowContent = (modeId) => {
+        switch (modeId) {
+            case MODES.COWORK: return <CoworkMode />;
+            case MODES.CODE: return <CodeMode />;
+            case MODES.AGENTS: return <AgentsPanel />;
+            case MODES.BUILD: return <BuildMode />;
+            case MODES.MISSION:
+                return (
+                    <MissionControl
+                        openClawStatus={openClawStatus}
+                        onRestartOpenClaw={restartOpenClawGateway}
+                        isRestartingOpenClaw={isRestartingOpenClaw}
+                    />
+                );
+            case OPENCLAW_WINDOW_ID: return renderOpenClawWindow();
+            default: return null;
+        }
     };
 
     const inspectOpenClawDashboard = useCallback(async (webview) => {
@@ -602,7 +838,7 @@ function AppContent() {
                     <button
                         onClick={openOpenClawDashboard}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all text-[11px] uppercase tracking-wider ${
-                            showOpenClawDashboard
+                            openClawWindowOpen
                                 ? 'openclaw-branded active'
                                 : 'openclaw-branded'
                         }`}
@@ -665,233 +901,16 @@ function AppContent() {
             {/* Mode-Specific UI */}
             <main className="app-main relative flex-1 min-h-0 overflow-hidden flex flex-col">
                 <div className="flex-1 min-h-0 overflow-hidden relative">
-                    <ModeErrorBoundary key={currentMode}>
-                        {currentMode === MODES.CHAT && <ChatMode />}
-                        {currentMode === MODES.COWORK && <CoworkMode />}
-                        {currentMode === MODES.MISSION && <MissionControl openClawStatus={openClawStatus} onRestartOpenClaw={restartOpenClawGateway} isRestartingOpenClaw={isRestartingOpenClaw} />}
-                        {currentMode === MODES.CODE && <CodeMode />}
-                        {currentMode === MODES.AGENTS && <AgentsPanel />}
-                        {currentMode === MODES.BUILD && <BuildMode />}
+                    {/* Chat is the always-mounted base; other modes float as windows on top. */}
+                    <ModeErrorBoundary>
+                        <ChatMode />
                     </ModeErrorBoundary>
+
+                    <DesktopHost renderContent={renderWindowContent} />
+                    <Dock />
 
                     <ModeGuideModal isOpen={showModeGuide} onClose={() => setShowModeGuide(false)} />
 
-                    {showOpenClawDashboard && activeOpenClawDashboardUrl && (
-                        <div className="absolute inset-0 z-40 bg-[var(--bg-primary)] flex flex-col border-t border-[var(--border)]">
-                            <div className="h-11 shrink-0 flex items-center justify-between gap-3 px-4 border-b border-[var(--border)] bg-[var(--bg-secondary)]">
-                                <div className="min-w-0 flex items-center gap-2">
-                                    <Server size={15} className={openClawStatus.state === 'online' ? 'text-emerald-500' : 'text-[var(--text-tertiary)]'} />
-                                    <div className="min-w-0">
-                                        <div className="text-sm font-semibold text-[var(--text-primary)] truncate">
-                                            {activeOpenClawProfile.name}
-                                        </div>
-                                        <div className="text-[11px] font-mono text-[var(--text-tertiary)] truncate">
-                                            {activeOpenClawProfile.controlUrl}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {openClawDashboardTab === 'gateway' && (
-                                    <form onSubmit={handleTerminalSubmit} className="flex-1 max-w-md mx-8 relative">
-                                        <div className="relative flex items-center">
-                                            <span className="absolute left-2.5 text-[var(--text-tertiary)] font-mono text-xs select-none">$</span>
-                                            <input
-                                                type="text"
-                                                value={terminalCommand}
-                                                onChange={(e) => setTerminalCommand(e.target.value)}
-                                                placeholder="Send command to terminal..."
-                                                className="w-full pl-6 pr-12 py-1 text-xs font-mono rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:outline-none focus:border-[var(--accent)] transition-all"
-                                            />
-                                            <button
-                                                type="submit"
-                                                className="absolute right-1 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] border border-[var(--border)] transition-colors"
-                                            >
-                                                Run
-                                            </button>
-                                        </div>
-                                    </form>
-                                )}
-                                {openClawDashboardTab === 'diary' && (
-                                    <div className="flex-1 mx-8 flex items-center justify-center">
-                                        <span className="text-xs text-[var(--text-tertiary)] italic">
-                                            {diarySaving ? 'Saving…' : diaryLastSaved ? `Saved ${diaryLastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Not yet saved'}
-                                        </span>
-                                    </div>
-                                )}
-
-                                <div className="flex items-center gap-2">
-                                    <span className={`hidden sm:inline text-xs ${openClawStatus.state === 'online' ? 'text-emerald-500' : openClawStatus.state === 'checking' ? 'text-[var(--text-secondary)]' : 'text-red-400'}`}>
-                                        {openClawStatus.state === 'online'
-                                            ? 'Gateway reachable'
-                                            : openClawStatus.state === 'checking'
-                                                ? 'Checking...'
-                                                : 'Gateway unreachable'}
-                                    </span>
-                                    <button
-                                        onClick={() => {
-                                            setOpenClawDashboardIssue(null);
-                                            setOpenClawFrameKey(key => key + 1);
-                                        }}
-                                        className="p-1.5 rounded-md text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
-                                        title="Reload dashboard"
-                                    >
-                                        <RefreshCw size={16} />
-                                    </button>
-                                    {window.electron?.restartOpenClawGateway && activeOpenClawProfile?.mode === 'local' && (
-                                        <button
-                                            onClick={restartOpenClawGateway}
-                                            disabled={isRestartingOpenClaw}
-                                            className="px-2 py-1.5 rounded-md text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] disabled:opacity-50 transition-colors"
-                                            title="Restart local OpenClaw Gateway"
-                                        >
-                                            {isRestartingOpenClaw ? 'Restarting...' : 'Restart Gateway'}
-                                        </button>
-                                    )}
-                                    <button
-                                        onClick={openOpenClawExternally}
-                                        className="p-1.5 rounded-md text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
-                                        title="Open in browser"
-                                    >
-                                        <ExternalLink size={16} />
-                                    </button>
-                                    <button
-                                        onClick={() => setShowOpenClawDashboard(false)}
-                                        className="p-1.5 rounded-md text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
-                                        title="Close OpenClaw"
-                                    >
-                                        <X size={17} />
-                                    </button>
-                                </div>
-                            </div>
-                            {/* Tab strip */}
-                            <div className="shrink-0 flex items-center border-b border-[var(--border)] bg-[var(--bg-secondary)] px-2">
-                                {[
-                                    { id: 'gateway', label: 'Gateway', icon: <Server size={12} /> },
-                                    { id: 'diary', label: "User's Diary", icon: <BookOpen size={12} /> },
-                                ].map(tab => (
-                                    <button
-                                        key={tab.id}
-                                        onClick={() => setOpenClawDashboardTab(tab.id)}
-                                        className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors ${
-                                            openClawDashboardTab === tab.id
-                                                ? 'border-[var(--accent)] text-[var(--accent)]'
-                                                : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
-                                        }`}
-                                    >
-                                        {tab.icon}
-                                        {tab.label}
-                                    </button>
-                                ))}
-                            </div>
-
-                            {openClawDashboardTab === 'diary' ? (
-                                <div className="flex-1 min-h-0 flex flex-col bg-[var(--bg-primary)]">
-                                    <div className="flex-1 min-h-0 relative">
-                                        <textarea
-                                            value={diaryContent}
-                                            onChange={e => handleDiaryChange(e.target.value)}
-                                            placeholder={`Write anything you'd like OpenClaw to know about you — your thoughts, goals, current projects, preferences, reflections…\n\nOpenClaw reads this daily to get deeper context about who you are and what matters to you.`}
-                                            className="absolute inset-0 w-full h-full resize-none p-6 bg-[var(--bg-primary)] text-[var(--text-primary)] text-sm leading-7 outline-none placeholder-[var(--text-tertiary)] font-[inherit]"
-                                            spellCheck
-                                            autoFocus
-                                        />
-                                    </div>
-                                    <div className="shrink-0 flex items-center justify-between px-6 py-2 border-t border-[var(--border)] bg-[var(--bg-secondary)]">
-                                        <span className="text-[11px] text-[var(--text-tertiary)]">
-                                            {diaryContent.trim() ? `${diaryContent.trim().split(/\s+/).filter(Boolean).length} words` : 'Empty'}
-                                        </span>
-                                        <span className="text-[11px] text-[var(--text-tertiary)]">
-                                            OpenClaw reads this for context
-                                        </span>
-                                    </div>
-                                </div>
-                            ) : openClawStatus.state === 'offline' ? (
-                                <div className="flex-1 min-h-0 flex items-center justify-center p-8">
-                                    <div className="max-w-lg text-center">
-                                        <div className="mx-auto mb-4 w-12 h-12 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] flex items-center justify-center">
-                                            <Server size={22} className="text-[var(--text-tertiary)]" />
-                                        </div>
-                                        <h2 className="text-lg font-semibold text-[var(--text-primary)]">OpenClaw Gateway is unreachable</h2>
-                                        <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                                            Perci is trying to reach {activeOpenClawProfile.gatewayUrl}. Start the local Gateway or switch to an appliance profile in Settings.
-                                        </p>
-                                        {openClawStatus.result?.error && (
-                                            <p className="mt-3 text-xs font-mono text-red-400">{openClawStatus.result.error}</p>
-                                        )}
-                                        {window.electron?.restartOpenClawGateway && activeOpenClawProfile?.mode === 'local' && (
-                                            <button
-                                                type="button"
-                                                onClick={restartOpenClawGateway}
-                                                disabled={isRestartingOpenClaw}
-                                                className="mt-5 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--accent)] text-white text-sm font-medium hover:bg-[var(--accent-hover)] disabled:opacity-50 transition-colors"
-                                            >
-                                                <RefreshCw size={15} className={isRestartingOpenClaw ? 'animate-spin' : ''} />
-                                                {isRestartingOpenClaw ? 'Restarting Gateway...' : 'Restart Gateway'}
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            ) : openClawDashboardIssue ? (
-                                <div className="flex-1 min-h-0 flex items-center justify-center p-8">
-                                    <div className="max-w-lg text-center">
-                                        <div className="mx-auto mb-4 w-12 h-12 rounded-xl border border-red-500/30 bg-red-500/10 flex items-center justify-center">
-                                            <AlertCircle size={22} className="text-red-400" />
-                                        </div>
-                                        <h2 className="text-lg font-semibold text-[var(--text-primary)]">{openClawDashboardIssue.title}</h2>
-                                        <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                                            {openClawDashboardIssue.message}
-                                        </p>
-                                        <div className="mt-5 flex items-center justify-center gap-2">
-                                            {window.electron?.restartOpenClawGateway && activeOpenClawProfile?.mode === 'local' && (
-                                                <button
-                                                    type="button"
-                                                    onClick={restartOpenClawGateway}
-                                                    disabled={isRestartingOpenClaw}
-                                                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--accent)] text-white text-sm font-medium hover:bg-[var(--accent-hover)] disabled:opacity-50 transition-colors"
-                                                >
-                                                    <RefreshCw size={15} className={isRestartingOpenClaw ? 'animate-spin' : ''} />
-                                                    {isRestartingOpenClaw ? 'Restarting Gateway...' : 'Restart Gateway'}
-                                                </button>
-                                            )}
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setOpenClawDashboardIssue(null);
-                                                    setOpenClawFrameKey(key => key + 1);
-                                                }}
-                                                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-[var(--border)] text-[var(--text-secondary)] text-sm font-medium hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
-                                            >
-                                                <RefreshCw size={15} />
-                                                Reload
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            ) : window.electron ? (
-                                <webview
-                                    ref={attachOpenClawWebview}
-                                    key={`${activeOpenClawProfile.id}-${openClawFrameKey}`}
-                                    src={activeOpenClawDashboardUrl}
-                                    title="OpenClaw Dashboard"
-                                    className="flex-1 min-h-0 w-full border-0 bg-white"
-                                    partition="persist:opal-openclaw"
-                                    allowpopups="true"
-                                />
-                            ) : (
-                                <div className="flex-1 min-h-0 flex items-center justify-center p-8">
-                                    <div className="max-w-lg text-center">
-                                        <div className="mx-auto mb-4 w-12 h-12 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] flex items-center justify-center">
-                                            <Server size={22} className="text-[var(--text-tertiary)]" />
-                                        </div>
-                                        <h2 className="text-lg font-semibold text-[var(--text-primary)]">OpenClaw requires the desktop app</h2>
-                                        <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                                            OpenClaw blocks iframe embedding. Perci uses an Electron webview in desktop mode to render it safely.
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
                 </div>
 
                 {/* Global Docked Terminal */}
