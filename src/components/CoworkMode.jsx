@@ -860,9 +860,10 @@ export default function CoworkMode() {
     const fileInputRef = useRef(null);
     const activeRequestRef = useRef(null);
 
-    useEffect(() => {
-        return () => activeRequestRef.current?.abort();
-    }, []);
+    // Note: do not abort the active request on unmount. Cowork is unmounted when
+    // navigating to another mode (App renders modes conditionally), and aborting
+    // here would cancel an in-flight job just because the user switched views.
+    // Cancellation is explicit-only via handleCancelRequest (the Stop button).
 
     const handleCancelRequest = () => {
         activeRequestRef.current?.abort();
