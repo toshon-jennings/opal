@@ -399,16 +399,206 @@ Optimized search query (keep exact dates from the date-resolved query):`;
     }
 
     /**
-     * Detects if query is news-related
-     * @param {string} query - Search query
-     * @returns {boolean}
+     * Plans how to handle a user message: classify intent, decide whether a web
+     * search is needed, and produce optimized search queries. Uses the selected
+     * model for semantic planning when available, deterministic local-fact
+     * detection for obvious clock/calendar questions, and keyword heuristics as
+     * the offline fallback.
+     * @param {string} userQuery
+     * @returns {Promise<Object>} - { intent, reason, searchQueries, freshness, expectedSourceTypes, directAnswer }
      */
-    isNewsQuery(query) {
-        const newsKeywords = [
-            'news', 'breaking', 'latest', 'today', 'yesterday',
-            'this week', 'happened', 'announced', 'reports'
-        ];
-        return newsKeywords.some(kw => query.toLowerCase().includes(kw));
+    async planSearch(userQuery) {
+        const localFact = detectLocalRuntimeFact(userQuery);
+        if (localFact) {
+            return this.normalizePlan(
+                { intent: 'local_runtime_fact', reason: 'Answerable from the local system clock/calendar.' },
+                userQuery,
+                localFact
+            );
+        }
+
+        if (this.canUseModel()) {
+            try {
+                const modelPlan = await this.modelSearchPlan(userQuery);
+                if (modelPlan) return this.normalizePlan(modelPlan, userQuery, null);
+            } catch (error) {
+                console.error('Model search planning failed, using heuristics:', error);
+            }
+        }
+
+        return this.heuristicPlan(userQuery);
+    }
+
+    async modelSearchPlan(userQuery) {
+        const { fullDate, year } = getCurrentDateParts();
+        const prompt = `You are the search planner for an AI assistant. The user's local system date is ${fullDate}.
+Analyze the user's message and decide how to handle it. Respond with JSON ONLY, no prose:
+{
+  "intent": one of ["local_runtime_fact","no_search","web_search","historical_on_this_day","news","shopping","weather","finance","general_lookup"],
+  "reason": "<one short sentence>",
+  "searchQueries": ["<concise optimized query>", ...],
+  "freshness": one of ["realtime","day","week","month","year","any"],
+  "expectedSourceTypes": ["news","official","reference","retail","finance","weather", ...]
+}
+
+Guidance:
+- local_runtime_fact: answerable from the device clock/calendar (today's date, current time, day of week). Empty searchQueries.
+- no_search: greetings, opinions, math, coding, or general knowledge you already know well. Empty searchQueries.
+- historical_on_this_day: "on this day in history" / anniversaries of a calendar date.
+- news / weather / finance / shopping: route to those with specific, fresh queries.
+- web_search / general_lookup: anything needing current, factual, or web-dependent info.
+- searchQueries must be concise (2-7 words), specific, and include the year ${year} when freshness matters.
+
+User message: "${userQuery}"
+
+JSON:`;
+
+        const client = LLMFactory.getClient(this.llmProvider, this.llmApiKey, { lmStudioUrl: this.lmStudioUrl, janUrl: this.janUrl });
+        let response = '';
+        await client.streamChat(
+            [{ role: 'user', content: prompt }],
+            (chunk) => { response += chunk; },
+            this.getModelId()
+        );
+
+        const cleaned = response.replace(/```json|```/g, '').trim();
+        const start = cleaned.indexOf('{');
+        const end = cleaned.lastIndexOf('}');
+        if (start === -1 || end === -1) return null;
+        return JSON.parse(cleaned.slice(start, end + 1));
+    }
+
+    heuristicPlan(userQuery) {
+        const decision = this.shouldPerformWebSearch(userQuery);
+        if (!decision.shouldSearch) {
+            return this.normalizePlan({ intent: 'no_search', reason: decision.reason }, userQuery, null);
+        }
+
+        const q = userQuery.toLowerCase();
+        let intent = 'web_search';
+        let freshness = 'any';
+        if (/this day in history|on this day|historical events/.test(q)) {
+            intent = 'historical_on_this_day';
+        } else if (/\b(news|breaking|headlines?)\b/.test(q)) {
+            intent = 'news'; freshness = 'day';
+        } else if (/\b(weather|forecast|temperature|rain|snow)\b/.test(q)) {
+            intent = 'weather'; freshness = 'day';
+        } else if (/\b(stock|share price|market cap|exchange rate|crypto|bitcoin|nasdaq|s&p|dow)\b/.test(q)) {
+            intent = 'finance'; freshness = 'realtime';
+        } else if (/\b(buy|cheapest|deal|discount|price of|coupon)\b/.test(q)) {
+            intent = 'shopping'; freshness = 'week';
+        } else if (/\b(latest|recent|current|today|now|breaking|update)\b/.test(q)) {
+            freshness = 'week';
+        }
+
+        return this.normalizePlan({ intent, reason: decision.reason, freshness }, userQuery, null);
+    }
+
+    normalizePlan(plan, userQuery, localFact) {
+        const validIntents = new Set([
+            'local_runtime_fact', 'no_search', 'web_search', 'historical_on_this_day',
+            'news', 'shopping', 'weather', 'finance', 'general_lookup'
+        ]);
+
+        let intent = validIntents.has(plan?.intent) ? plan.intent : 'web_search';
+        let searchQueries = Array.isArray(plan?.searchQueries)
+            ? plan.searchQueries.filter(q => typeof q === 'string' && q.trim()).map(q => q.trim())
+            : [];
+        let directAnswer = typeof plan?.directAnswer === 'string' ? plan.directAnswer : null;
+
+        if (localFact) {
+            intent = 'local_runtime_fact';
+            directAnswer = localFact.answer;
+        }
+        if (intent === 'local_runtime_fact' || intent === 'no_search') {
+            searchQueries = [];
+        }
+
+        if (intent !== 'local_runtime_fact' && intent !== 'no_search' && searchQueries.length === 0) {
+            searchQueries = [this.fallbackReformulation(resolveRelativeDateQuery(userQuery))];
+        }
+
+        if (intent === 'historical_on_this_day') {
+            searchQueries = searchQueries
+                .map(q => (/this day in history|on this day|historical events/i.test(q) ? q : `on this day in history ${q}`))
+                .map(q => resolveRelativeDateQuery(q));
+            if (!searchQueries.length) {
+                searchQueries = [resolveRelativeDateQuery('on this day in history')];
+            }
+        }
+
+        return {
+            intent,
+            reason: typeof plan?.reason === 'string' && plan.reason.trim() ? plan.reason.trim() : 'Planned search',
+            searchQueries,
+            freshness: typeof plan?.freshness === 'string' ? plan.freshness : 'any',
+            expectedSourceTypes: Array.isArray(plan?.expectedSourceTypes) ? plan.expectedSourceTypes : [],
+            directAnswer
+        };
+    }
+
+    /**
+     * Scores how relevant a single source is to a query using title/snippet token
+     * overlap. Title hits weigh more than body hits. Returns 0..1.
+     */
+    scoreRelevance(query, source) {
+        const tokens = tokenizeForRelevance(query);
+        if (!tokens.length) return 0.5;
+        const title = String(source?.title || '').toLowerCase();
+        const content = String(source?.content || '').toLowerCase();
+        let score = 0;
+        for (const token of tokens) {
+            if (title.includes(token)) score += 1;
+            else if (content.includes(token)) score += 0.6;
+        }
+        return Math.min(1, score / tokens.length);
+    }
+
+    scoreResults(query, sources) {
+        return (sources || []).map(source => ({ ...source, relevance: this.scoreRelevance(query, source) }));
+    }
+
+    averageRelevance(sources) {
+        if (!sources || !sources.length) return 0;
+        return sources.reduce((sum, source) => sum + (source.relevance || 0), 0) / sources.length;
+    }
+
+    /**
+     * Produces a better search query after a weak/off-target attempt. Uses the
+     * model when available (showing it the disappointing titles), otherwise falls
+     * back to adding recency/specificity hints.
+     */
+    async improveQuery(userQuery, lastQuery, plan, sources) {
+        if (this.canUseModel()) {
+            try {
+                const titles = (sources || []).slice(0, 5).map(s => `- ${s.title}`).join('\n') || '(no results)';
+                const prompt = `A web search for "${lastQuery}" returned weak or off-target results:
+${titles}
+
+The user actually asked: "${userQuery}".
+Write ONE improved web search query (2-7 words, no quotes, no explanation) that would find more relevant, authoritative results. Query only:`;
+                const client = LLMFactory.getClient(this.llmProvider, this.llmApiKey, { lmStudioUrl: this.lmStudioUrl, janUrl: this.janUrl });
+                let response = '';
+                await client.streamChat(
+                    [{ role: 'user', content: prompt }],
+                    (chunk) => { response += chunk; },
+                    this.getModelId()
+                );
+                const cleaned = response.trim().split('\n')[0].replace(/^["']|["']$/g, '').trim();
+                if (cleaned && cleaned.length > 2) return cleaned;
+            } catch (error) {
+                console.error('Query improvement failed, using fallback:', error);
+            }
+        }
+
+        let improved = lastQuery;
+        const { year } = getCurrentDateParts();
+        if (!/202[0-9]/.test(improved) && plan?.freshness && plan.freshness !== 'any') {
+            improved += ` ${year}`;
+        } else {
+            improved += ' overview';
+        }
+        return improved.trim();
     }
 
     /**
@@ -418,9 +608,11 @@ Optimized search query (keep exact dates from the date-resolved query):`;
      * @returns {Promise<Object>} - Formatted search results
      */
     async performSearch(originalQuery, options = {}) {
-        // Step 1: Reformulate query
+        // Step 1: Reformulate query (skip when the planner already optimized it)
         const resolvedQuery = resolveRelativeDateQuery(originalQuery);
-        const optimizedQuery = await this.reformulateSearchQuery(resolvedQuery);
+        const optimizedQuery = options.skipReformulate
+            ? resolvedQuery
+            : await this.reformulateSearchQuery(resolvedQuery);
 
         console.log(`🔍 Original: "${originalQuery}"`);
         console.log(`📅 Date-resolved: "${resolvedQuery}"`);
@@ -644,71 +836,6 @@ Optimized search query (keep exact dates from the date-resolved query):`;
     }
 
     /**
-     * Analyzes if search results are comprehensive enough
-     * @param {string} query - Original query
-     * @param {Object} searchResults - Current search results
-     * @returns {Promise<Object>} - { needsMore: boolean, reason: string, suggestedQuery: string }
-     */
-    async analyzeSearchCompleteness(query, searchResults) {
-        // Heuristic-based analysis with smarter follow-up query generation
-
-        // If we got fewer than 3 quality results, definitely need more
-        const qualitySources = searchResults.sources.filter(s => s.score > 0.5);
-        if (qualitySources.length < 3) {
-            // Try a more specific query
-            const broadenedQuery = query.includes('latest') || query.includes('recent')
-                ? query.replace(/latest|recent/, 'news updates')
-                : query + ' news';
-
-            return {
-                needsMore: true,
-                reason: 'Need more quality sources',
-                suggestedQuery: broadenedQuery
-            };
-        }
-
-        // If average score is low, try alternative phrasing
-        const avgScore = searchResults.sources.reduce((sum, s) => sum + s.score, 0) / searchResults.sources.length;
-        if (avgScore < 0.6) {
-            // Try a different angle
-            const alternativeQuery = query.includes('what') || query.includes('who')
-                ? query.replace(/what|who/i, '').trim() + ' overview'
-                : query + ' information';
-
-            return {
-                needsMore: true,
-                reason: 'Low relevance - trying different angle',
-                suggestedQuery: alternativeQuery
-            };
-        }
-
-        // If no recent sources for time-sensitive queries, search for updates
-        if (query.match(/latest|recent|current|today|2025|news/i)) {
-            const hasRecentSources = searchResults.sources.some(s => {
-                if (!s.publishedDate) return false;
-                const date = new Date(s.publishedDate);
-                const daysSincePublished = (Date.now() - date.getTime()) / (1000 * 60 * 60 * 24);
-                return daysSincePublished < 30; // Within last 30 days
-            });
-
-            if (!hasRecentSources && searchResults.sources.length < 5) {
-                return {
-                    needsMore: true,
-                    reason: 'No recent sources found - searching for updates',
-                    suggestedQuery: query + ' 2025 update'
-                };
-            }
-        }
-
-        // Results look good
-        return {
-            needsMore: false,
-            reason: 'Search results appear comprehensive',
-            suggestedQuery: null
-        };
-    }
-
-    /**
      * Performs multiple searches if needed for complex queries
      * Claude-style: searches continuously until confident we have enough info
      * @param {string} userQuery - User's original query
@@ -716,116 +843,116 @@ Optimized search query (keep exact dates from the date-resolved query):`;
      * @param {Function} onProgress - Callback for progress updates
      * @returns {Promise<Object>} - Merged search results
      */
-    async intelligentMultiSearch(userQuery, maxSearches = 3, onProgress = null) {
+    async intelligentMultiSearch(userQuery, maxSearches = 3, onProgress = null, plan = null) {
+        plan = plan || await this.planSearch(userQuery);
+
+        // Planner says no web search is needed (e.g. local fact / general knowledge).
+        if (plan.intent === 'local_runtime_fact' || plan.intent === 'no_search') {
+            return {
+                originalQuery: userQuery,
+                optimizedQuery: userQuery,
+                answer: plan.directAnswer || null,
+                sources: [],
+                images: [],
+                timestamp: new Date(),
+                provider: 'none',
+                plan,
+                weakResults: false,
+                bestRelevance: 0
+            };
+        }
+
+        const queue = (plan.searchQueries && plan.searchQueries.length)
+            ? [...plan.searchQueries]
+            : [await this.reformulateSearchQuery(userQuery)];
+
         const allResults = [];
+        const tried = new Set();
         let searchCount = 0;
-        let totalSources = 0;
-
-        // Notify start of multi-search
-        if (onProgress) {
-            onProgress({
-                searchNumber: 1,
-                totalSearches: maxSearches,
-                query: userQuery,
-                status: 'starting'
-            });
-        }
-
-        // First search - always perform
-        console.log(`\n🔍 Multi-Search #1: Initial query`);
-        if (onProgress) {
-            onProgress({
-                searchNumber: 1,
-                totalSearches: maxSearches,
-                query: userQuery,
-                status: 'searching'
-            });
-        }
-
-        let results = await this.performSearch(userQuery);
-        allResults.push(results);
-        searchCount++;
-        totalSources = results.sources.length;
+        let bestRelevance = 0;
 
         if (onProgress) {
-            onProgress({
-                searchNumber: 1,
-                totalSearches: maxSearches,
-                query: results.optimizedQuery,
-                results: results,
-                sourcesFound: totalSources,
-                status: 'complete'
-            });
+            onProgress({ searchNumber: 1, totalSearches: maxSearches, query: queue[0] || userQuery, status: 'starting' });
         }
 
-        // Continue searching until we have enough high-quality sources
-        const MIN_SOURCES = 5;
-        const MIN_AVG_SCORE = 0.6;
+        while (searchCount < maxSearches && queue.length) {
+            const nextQuery = (queue.shift() || '').trim();
+            if (!nextQuery || tried.has(nextQuery.toLowerCase())) continue;
+            tried.add(nextQuery.toLowerCase());
+            searchCount++;
 
-        while (searchCount < maxSearches) {
-            const avgScore = totalSources > 0
-                ? allResults.reduce((sum, r) => sum + r.sources.reduce((s, src) => s + src.score, 0), 0) / totalSources
-                : 0;
-
-            // Check if we need more searches
-            if (totalSources >= MIN_SOURCES && avgScore >= MIN_AVG_SCORE) {
-                console.log(`✅ Sufficient information found (${totalSources} sources, avg score: ${avgScore.toFixed(2)})`);
-                break;
+            console.log(`\n🔍 Multi-Search #${searchCount}: "${nextQuery}"`);
+            if (onProgress) {
+                onProgress({ searchNumber: searchCount, totalSearches: maxSearches, query: nextQuery, status: 'searching' });
             }
 
-            // Analyze what additional information we need
-            const analysis = await this.analyzeSearchCompleteness(userQuery, this.mergeSearchResults(allResults));
-
-            if (analysis.needsMore && analysis.suggestedQuery) {
-                const nextSearchNum = searchCount + 1;
-                console.log(`\n🔍 Multi-Search #${nextSearchNum}: ${analysis.reason}`);
-
+            let results;
+            try {
+                results = await this.performSearch(nextQuery, { plan, skipReformulate: true });
+            } catch (error) {
+                console.error(`Search failed for "${nextQuery}":`, error);
                 if (onProgress) {
-                    onProgress({
-                        searchNumber: nextSearchNum,
-                        totalSearches: maxSearches,
-                        query: analysis.suggestedQuery,
-                        status: 'searching',
-                        reason: analysis.reason
-                    });
+                    onProgress({ searchNumber: searchCount, totalSearches: maxSearches, query: nextQuery, status: 'complete', sourcesFound: 0, reason: 'No results' });
                 }
-
-                const followUpResults = await this.performSearch(analysis.suggestedQuery);
-                allResults.push(followUpResults);
-                searchCount++;
-                const newSources = followUpResults.sources.length;
-                totalSources += newSources;
-
-                if (onProgress) {
-                    onProgress({
-                        searchNumber: nextSearchNum,
-                        totalSearches: maxSearches,
-                        query: followUpResults.optimizedQuery,
-                        results: followUpResults,
-                        sourcesFound: newSources,
-                        totalSourcesNow: totalSources,
-                        status: 'complete'
-                    });
+                if (searchCount < maxSearches && queue.length === 0) {
+                    const improved = await this.improveQuery(userQuery, nextQuery, plan, []);
+                    if (improved && !tried.has(improved.toLowerCase())) queue.push(improved);
                 }
-            } else {
-                console.log(`ℹ️ No additional searches needed`);
-                break;
+                continue;
+            }
+
+            results.sources = this.scoreResults(nextQuery, results.sources);
+            results.sources.sort((a, b) => (b.relevance || 0) - (a.relevance || 0));
+            const relevance = this.averageRelevance(results.sources);
+            bestRelevance = Math.max(bestRelevance, relevance);
+            allResults.push(results);
+
+            if (onProgress) {
+                onProgress({
+                    searchNumber: searchCount,
+                    totalSearches: maxSearches,
+                    query: results.optimizedQuery || nextQuery,
+                    results,
+                    sourcesFound: results.sources.length,
+                    status: 'complete',
+                    reason: relevance < 0.25 ? 'Weak relevance — refining query' : undefined
+                });
+            }
+
+            const strong = results.sources.filter(s => (s.relevance || 0) >= 0.34);
+            if (strong.length >= 3 && relevance >= 0.4) break;
+
+            // Off-target or thin and nothing else queued: ask for a better query.
+            if (searchCount < maxSearches && queue.length === 0 && (relevance < 0.4 || strong.length < 3)) {
+                const improved = await this.improveQuery(userQuery, nextQuery, plan, results.sources);
+                if (improved && !tried.has(improved.toLowerCase())) queue.push(improved);
             }
         }
 
-        console.log(`\n📊 Multi-search complete: ${searchCount} searches, ${totalSources} total sources`);
+        const merged = allResults.length
+            ? this.mergeSearchResults(allResults)
+            : {
+                originalQuery: userQuery,
+                optimizedQuery: userQuery,
+                answer: null,
+                sources: [],
+                images: [],
+                timestamp: new Date(),
+                provider: 'none'
+            };
 
+        merged.sources.sort((a, b) => (b.relevance || 0) - (a.relevance || 0));
+        merged.sources.forEach((source, index) => { source.id = index + 1; });
+        merged.plan = plan;
+        merged.bestRelevance = bestRelevance;
+        merged.weakResults = merged.sources.length === 0 || bestRelevance < 0.25;
+
+        console.log(`\n📊 Multi-search complete: ${searchCount} searches, ${merged.sources.length} sources, best relevance ${bestRelevance.toFixed(2)}`);
         if (onProgress) {
-            onProgress({
-                searchNumber: searchCount,
-                totalSearches: searchCount,
-                totalSources: totalSources,
-                status: 'all_complete'
-            });
+            onProgress({ searchNumber: searchCount, totalSearches: searchCount, totalSources: merged.sources.length, status: 'all_complete' });
         }
 
-        // Merge and deduplicate
-        return this.mergeSearchResults(allResults);
+        return merged;
     }
 
     /**

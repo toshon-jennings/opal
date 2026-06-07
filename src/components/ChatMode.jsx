@@ -91,26 +91,6 @@ function splitMisclassifiedThinking(value) {
         : { thinking: '', response: text };
 }
 
-function shouldAutoUseWebSearch(message) {
-    const query = String(message || '').toLowerCase();
-    return [
-        'today',
-        'right now',
-        'current',
-        'latest',
-        'recent',
-        'this week',
-        'this month',
-        'this year',
-        'on this day',
-        'this day in history',
-        'what happened',
-        'who won',
-        'stock price',
-        'weather'
-    ].some(phrase => query.includes(phrase));
-}
-
 function getArtifactExcerpt(artifact) {
     const content = artifact?.content || '';
     const stripped = content
@@ -720,7 +700,6 @@ function ChatMode() {
             // Check for Deep Research intent at a higher scope
             const isDeepResearch = userMessage.toLowerCase().startsWith('deep research:') ||
                 userMessage.toLowerCase().includes('write a research paper');
-            const shouldUseSearch = isSearchEnabled || shouldAutoUseWebSearch(userMessage);
 
             if (isDeepResearch) {
                 if (!selectedProvider || !selectedModel) {
@@ -739,6 +718,40 @@ function ChatMode() {
             const providerHasNativeWebSearch = ['openai', 'anthropic'].includes(selectedProvider) && Boolean(apiKeys[selectedProvider]);
             const hasDesktopWebSearch = typeof window !== 'undefined' && typeof window.electron?.webSearch === 'function';
             const canUseLiveWebSearch = Boolean(hasDesktopWebSearch || providerHasNativeWebSearch);
+
+            const searchTool = new IntelligentSearchTool(
+                selectedProvider,
+                apiKeys[selectedProvider],
+                lmStudioUrl,
+                janUrl,
+                selectedModel
+            );
+
+            // Build a semantic search plan. A small deterministic layer catches obvious
+            // local facts (today's date/time); otherwise the selected model classifies
+            // intent and plans queries, with keyword heuristics as the offline fallback.
+            let searchPlan = null;
+            if (!isDeepResearch) {
+                const cheapWantsSearch = searchTool.shouldPerformWebSearch(userMessage).shouldSearch;
+                if (isSearchEnabled || cheapWantsSearch) {
+                    try {
+                        searchPlan = await searchTool.planSearch(userMessage);
+                        console.log('🧭 Search plan:', searchPlan);
+                    } catch (planError) {
+                        console.error('Search planning failed:', planError);
+                    }
+                }
+            }
+
+            // Local runtime facts (today's date/time/day): answer directly, no web search.
+            const isLocalRuntimeFact = searchPlan?.intent === 'local_runtime_fact' && Boolean(searchPlan.directAnswer);
+            if (isLocalRuntimeFact) {
+                fullTextContent += `\n\n[Local runtime fact — no web search needed]\n${searchPlan.directAnswer}\nAnswer the user's question directly using this fact, and briefly mention that no web search was necessary because it comes from the device's clock/calendar.`;
+            }
+
+            const planWantsSearch = Boolean(searchPlan && !['local_runtime_fact', 'no_search'].includes(searchPlan.intent));
+            const shouldUseSearch = !isLocalRuntimeFact && (isSearchEnabled || planWantsSearch);
+
             if (shouldUseSearch && !canUseLiveWebSearch && !isDeepResearch) {
                 addMessage('assistant', 'This question needs web search, but no live web provider is available. Fully restart the Perci desktop dev app for local no-key search, or use OpenAI/Anthropic with an API key for native web search.');
                 setIsLoading(false);
@@ -751,20 +764,10 @@ function ChatMode() {
                     setSearchSteps([]);
                     setSearchSources([]);
 
-                    const searchTool = new IntelligentSearchTool(
-                        selectedProvider,
-                        apiKeys[selectedProvider],
-                        lmStudioUrl,
-                        janUrl,
-                        selectedModel
-                    );
-
-                    // Check if we should search
+                    // We only reach here when search is warranted (plan or Deep Research).
                     const decision = isDeepResearch
                         ? { shouldSearch: true, reason: 'Deep Research requested' }
-                        : shouldAutoUseWebSearch(userMessage)
-                        ? { shouldSearch: true, reason: 'Current or historical lookup requires web context' }
-                        : searchTool.shouldPerformWebSearch(userMessage);
+                        : { shouldSearch: true, reason: searchPlan?.reason || 'Web lookup required' };
 
                     console.log('🤔 Search decision:', decision);
 
@@ -843,26 +846,32 @@ function ChatMode() {
                                             reason: progress.reason
                                         }]);
                                     }
-                                }
+                                },
+                                searchPlan
                             );
 
-                            // Enhance sources with logos asynchronously - verify result used in metadata
-                            if (searchResults && searchResults.sources) {
-                                // Create promise and attach to local scope to use later
+                            const hasSources = searchResults?.sources?.length > 0;
+
+                            if (hasSources) {
+                                // Enhance sources with logos asynchronously - verify result used in metadata
                                 const logoPromise = searchTool.enhanceSourcesWithLogos(searchResults.sources)
                                     .then(enhanced => {
                                         setSearchSources(enhanced);
                                         return enhanced;
                                     });
-
-                                // Attach to searchResults for easy access later if needed, though we will use the promise result
                                 searchResults.logoPromise = logoPromise;
 
-                                // Build context for LLM
+                                // Build context for LLM from the actual retrieved sources
                                 context = searchTool.buildSearchContext(searchResults);
+                                context += '\n\nIMPORTANT: When using information from the search results above, cite sources using [1], [2], etc. inline with your response. Only summarize what the listed sources actually say — do not invent source titles or describe sources generically (e.g. "various websites").';
 
-                                // Add instruction for citing sources
-                                context += '\n\nIMPORTANT: When using information from the search results above, cite sources using [1], [2], etc. inline with your response.';
+                                if (searchResults.weakResults) {
+                                    context += '\n\nNOTE: These results may be weak or only loosely related to the question. If they do not genuinely answer it, tell the user you searched but did not find clearly relevant, reliable sources rather than presenting a confident answer from these pages.';
+                                }
+                            } else {
+                                // Searched but came back empty: be honest instead of guessing.
+                                setSearchSources([]);
+                                context = '\n\n[Web search ran but returned no usable results]\nTell the user you searched the web but did not find relevant results for this query, and offer to try a more specific search. Do not fabricate sources or answer as if results were found.';
                             }
                         }
                     }
