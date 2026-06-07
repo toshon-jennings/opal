@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Plus, Send, Code, Layout, Users, ChevronRight, Clock, FolderOpen, Settings, Play, Globe, X, ChevronDown, Check, Calendar, Zap, Monitor, Cloud, AlertTriangle, GitBranch, Terminal as TerminalIcon, Copy, Edit2, Youtube } from 'lucide-react';
 import { useMode, MODES } from '../context/ModeContext';
 import { useChat } from '../context/ChatContext';
@@ -11,7 +12,7 @@ import { EditableTitle } from './EditableTitle';
 import { SettingsModal } from './SettingsModal';
 import { PermissionsDropdown } from './PermissionsDropdown';
 import { useAgentTools } from '../hooks/useAgentTools';
-import opalLogo from '../assets/opal-logo.png';
+import perciLogo from '../assets/perci-logo.png';
 import { hasElectronStore, loadElectronPersistence, saveElectronPersistence } from '../lib/persistentStore';
 import { normalizeAssistantSpacing } from '../lib/textFormatting';
 import { ProviderModelPicker } from './ProviderModelPicker';
@@ -729,7 +730,7 @@ function RoutinesView({ onRunRoutine, workingDirectory, onChooseFolder }) {
                                         <Play size={11} /> Run once
                                     </button>
                                     <button title="Copy API endpoint"
-                                        onClick={() => navigator.clipboard.writeText(`opal://routines/${routine.id}/run`)}
+                                        onClick={() => navigator.clipboard.writeText(`perci://routines/${routine.id}/run`)}
                                         className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] border border-[var(--border)] rounded-lg hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-colors">
                                         <Globe size={11} /> Remote
                                     </button>
@@ -757,8 +758,8 @@ function RoutinesView({ onRunRoutine, workingDirectory, onChooseFolder }) {
 
 function YouTubeLinkModal({ onPlay, onCancel }) {
     const [url, setUrl] = useState('');
-    return (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in" onClick={onCancel}>
+    return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in" onClick={onCancel}>
             <div className="w-[400px] bg-[var(--bg-primary)] border border-[var(--border)] rounded-2xl shadow-2xl p-6 space-y-4" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -781,27 +782,29 @@ function YouTubeLinkModal({ onPlay, onCancel }) {
                     <button onClick={() => onPlay(url)} className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-semibold shadow-lg transition-colors">Play</button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }
 
 function YouTubePiPStatus({ onClose }) {
-    return (
+    return createPortal(
         <div 
-            className="fixed z-[2000] right-5 bottom-5 bg-black/90 text-white rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.35)] border border-white/10 flex items-center gap-3 px-3 py-2 animate-slide-up"
+            className="fixed z-[10000] right-5 bottom-5 bg-black/90 text-white rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.35)] border border-white/10 flex items-center gap-3 px-3 py-2 animate-slide-up"
         >
             <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
             <span className="text-xs font-semibold">YouTube PiP open</span>
             <button onClick={onClose} className="text-white/50 hover:text-white transition-colors p-1 rounded-md hover:bg-white/10" title="Close YouTube PiP">
                 <X size={15} />
             </button>
-        </div>
+        </div>,
+        document.body
     );
 }
 
 function YouTubeFallbackPlayer({ url, onClose }) {
-    return (
-        <div className="fixed z-[2000] w-[400px] aspect-video right-5 bottom-5 bg-black rounded-xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 flex flex-col group animate-slide-up">
+    return createPortal(
+        <div className="fixed z-[10000] w-[400px] aspect-video right-5 bottom-5 bg-black rounded-xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 flex flex-col group animate-slide-up">
             <div className="h-9 bg-black/90 backdrop-blur-md flex items-center justify-between px-3 border-b border-white/5 z-10">
                 <span className="text-[10px] font-bold text-white/80 uppercase tracking-widest">YouTube PiP</span>
                 <button onClick={onClose} className="text-white/40 hover:text-white transition-colors p-1 rounded-md hover:bg-white/10"><X size={16} /></button>
@@ -816,7 +819,8 @@ function YouTubeFallbackPlayer({ url, onClose }) {
                     title="YouTube Video"
                 />
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }
 
@@ -852,7 +856,7 @@ export default function CoworkMode() {
     const [sidebarWidth, setSidebarWidth] = useState(getDefaultSidebarWidth);
     const [conversationWidth, setConversationWidth] = useState(400);
     const [previewUrl, setPreviewUrl] = useState(() => {
-        return localStorage.getItem('opal_preview_url') || 'http://localhost:5173';
+        return localStorage.getItem('perci_preview_url') || 'http://localhost:5173';
     });
     const isResizingSidebarRef = useRef(false);
     const isResizingConversationRef = useRef(false);
@@ -870,7 +874,7 @@ export default function CoworkMode() {
     };
 
     useEffect(() => {
-        document.documentElement.style.setProperty('--opal-terminal-left', `${sidebarWidth}px`);
+        document.documentElement.style.setProperty('--perci-terminal-left', `${sidebarWidth}px`);
     }, [sidebarWidth]);
 
     useEffect(() => {
@@ -937,7 +941,7 @@ export default function CoworkMode() {
             formattedUrl = `http://${url}`;
         }
         setPreviewUrl(formattedUrl);
-        localStorage.setItem('opal_preview_url', formattedUrl);
+        localStorage.setItem('perci_preview_url', formattedUrl);
     };
 
     useEffect(() => {
@@ -1031,7 +1035,7 @@ export default function CoworkMode() {
             id: Date.now().toString(),
             title: 'New Session',
             status: 'Started',
-            project: 'opal',
+            project: 'perci',
             lastActivity: 'just now',
             messages: [],
         };
@@ -1087,7 +1091,7 @@ export default function CoworkMode() {
                 id: Date.now().toString(),
                 title: message.substring(0, 40) + (message.length > 40 ? '...' : ''),
                 status: 'In progress',
-                project: 'opal',
+                project: 'perci',
                 lastActivity: 'just now',
                 messages: [],
             };
@@ -1346,7 +1350,7 @@ export default function CoworkMode() {
             id: Date.now().toString(),
             title: routine.name,
             status: 'In progress',
-            project: 'opal',
+            project: 'perci',
             lastActivity: 'just now',
             messages: [],
         };
@@ -1739,7 +1743,7 @@ export default function CoworkMode() {
                 ) : (
                 <main className="flex-1 overflow-y-auto p-12 max-w-5xl mx-auto w-full">
                     <div className="flex items-center gap-3 mb-12">
-                        <img src={opalLogo} alt="Perci" className="h-8 w-auto" />
+                        <img src={perciLogo} alt="Perci" className="h-8 w-auto" />
                         <h1 className="text-2xl font-semibold text-[var(--text-primary)]">
                             {userName ? `Welcome back, ${userName}` : 'Welcome back'}
                         </h1>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Key, Globe, RefreshCw, ChevronDown, Check, Wifi, WifiOff, User, ScrollText, Search, Server, ExternalLink, Plus, Trash2, Bot } from 'lucide-react';
 import { useChat } from '../context/ChatContext';
 import { useMode } from '../context/ModeContext';
@@ -387,9 +388,9 @@ export function SettingsModal({ isOpen, onClose }) {
         onClose();
     };
 
-    return (
+    return createPortal(
         <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999]"
             onClick={handleClose}
         >
             <div
@@ -987,6 +988,7 @@ export function SettingsModal({ isOpen, onClose }) {
                     </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

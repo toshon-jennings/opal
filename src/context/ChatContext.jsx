@@ -106,7 +106,7 @@ export function ChatProvider({ children }) {
     const electronPersistenceReadyRef = useRef(!hasElectronStore());
 
     const [projects, setProjects] = useState(() => {
-        const parsed = readJsonStorage('opal_projects', null);
+        const parsed = readJsonStorage('perci_projects', null);
         return Array.isArray(parsed) ? parsed : createDefaultProjects();
     });
 
@@ -224,7 +224,7 @@ export function ChatProvider({ children }) {
                     const nextChats = Array.isArray(persistedChats) && persistedChats.length > 0
                         ? persistedChats
                         : [createDefaultChat()];
-                    const persistedProjects = readJsonStorage('opal_projects', null);
+                    const persistedProjects = readJsonStorage('perci_projects', null);
                     const nextCurrentChatId = readStringStorage('current_chat_id', nextChats[0]?.id);
                     const nextCurrentChat = nextChats.find(chat => chat.id === nextCurrentChatId) || nextChats[0];
 
@@ -283,9 +283,9 @@ export function ChatProvider({ children }) {
 
     useEffect(() => {
         const serializedProjects = serializeJson(projects);
-        localStorage.setItem('opal_projects', serializedProjects);
+        localStorage.setItem('perci_projects', serializedProjects);
         if (electronPersistenceReadyRef.current) {
-            saveElectronPersistence({ opal_projects: serializedProjects }).catch(err => console.error('Failed to persist projects:', err));
+            saveElectronPersistence({ perci_projects: serializedProjects }).catch(err => console.error('Failed to persist projects:', err));
         }
     }, [projects]);
 

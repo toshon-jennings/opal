@@ -12,8 +12,8 @@ const isDev = process.env.NODE_ENV === 'development';
 installRedactedConsole();
 
 // macOS uses app.getName() for the "About <name>" menu item; package.json's
-// "name" is lowercase ("opal"), so override it to the product name.
-app.setName('Opal');
+// "name" is lowercase ("perci"), so override it to the product name.
+app.setName('Perci');
 
 // Renderer crash log — written to userData so it survives packaged builds.
 // Path is logged on startup so users can find it after a blank-screen failure.
@@ -23,7 +23,7 @@ function getRendererLogPath() {
   try {
     rendererLogPath = path.join(app.getPath('userData'), 'renderer.log');
   } catch (_) {
-    rendererLogPath = path.join(require('os').tmpdir(), 'opal-renderer.log');
+    rendererLogPath = path.join(require('os').tmpdir(), 'perci-renderer.log');
   }
   return rendererLogPath;
 }
@@ -307,7 +307,7 @@ async function searchWikimediaOnThisDay(query, maxResults = 8) {
   const { month, day } = parseHistoryDateFromQuery(query);
   const url = `https://api.wikimedia.org/feed/v1/wikipedia/en/onthisday/events/${month}/${day}`;
   const response = await requestJson(url, 8000, {
-    'User-Agent': 'Opal/1.0 (https://opal.local)'
+    'User-Agent': 'Perci/1.0 (https://perci.local)'
   });
 
   if (!response.ok) {
@@ -552,7 +552,7 @@ function startTerminalServer() {
     ? path.join(process.resourcesPath, 'app.asar', 'terminal-server.cjs')
     : path.join(__dirname, '..', 'terminal-server.cjs');
 
-  console.log(`Starting Opal Terminal Server from: ${serverPath}`);
+  console.log(`Starting Perci Terminal Server from: ${serverPath}`);
   
   // Use Electron's process.execPath to ensure node is available even if not in system PATH
   terminalServerProcess = spawn(process.execPath, [serverPath], {
@@ -566,7 +566,7 @@ function startTerminalServer() {
   });
 
   terminalServerProcess.on('error', (err) => {
-    console.error('Failed to start Opal Terminal Server:', err);
+    console.error('Failed to start Perci Terminal Server:', err);
   });
 
   terminalServerProcess.on('close', (code) => {
@@ -581,7 +581,7 @@ function startTerminalServer() {
 function createMenu() {
   const template = [
     ...(process.platform === 'darwin' ? [{
-      label: 'Opal',
+      label: 'Perci',
       submenu: [
         { role: 'about' },
         { type: 'separator' },
@@ -764,7 +764,7 @@ function createYouTubePlayerWindow(parentWindow, url) {
       contextIsolation: true,
       sandbox: true,
       webSecurity: true,
-      partition: 'persist:opal-youtube',
+      partition: 'persist:perci-youtube',
     },
   });
 
@@ -911,8 +911,8 @@ ipcMain.handle('select-directory', async () => {
 });
 
 const fs = require('fs').promises;
-const appDataFileName = 'opal-data.json';
-const encryptedValueMarker = '__opalEncryptedValue';
+const appDataFileName = 'perci-data.json';
+const encryptedValueMarker = '__perciEncryptedValue';
 const apiKeyStorageKeys = new Set([
   'openai_key',
   'groq_key',
@@ -1050,7 +1050,7 @@ ipcMain.handle('web-search', async (event, { query, options = {} } = {}) => {
   searchUrl.searchParams.set('q', trimmedQuery);
 
   const response = await requestText(searchUrl.toString(), 8000, {
-    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Opal/1.0 Safari/537.36',
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Perci/1.0 Safari/537.36',
     'Accept': 'text/html,application/xhtml+xml'
   });
 
@@ -1543,7 +1543,7 @@ function getAgentCommand(agentId) {
     jan: 'jan',
     openhands: 'openhands',
     opencode: 'opencode',
-    opal_code: 'opal',
+    perci_code: 'perci',
     qwen_code: 'qwen',
     // hermes and openclaw are special — not spawned as local CLIs
   };

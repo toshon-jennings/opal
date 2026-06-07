@@ -1,4 +1,4 @@
-# Opal Harness Upgrade Progress
+# Perci Harness Upgrade Progress
 
 Date: 2026-06-02
 
@@ -14,7 +14,7 @@ Implemented in this pass:
 - Code, Cowork, and Build modes now inject durable memory, budget instructions, and model-routing context before LLM calls.
 - Terminal-backed Mission runs can now receive a structured cancel interrupt through `terminal-server.cjs`.
 - Build is now retained as a first-class mode in the main mode switcher.
-- Build UI was restyled to match Opal's dark workspace language: assistant rail, project file list, preview/code toolbar, variable-based surfaces, and dark-mode-aware Monaco.
+- Build UI was restyled to match Perci's dark workspace language: assistant rail, project file list, preview/code toolbar, variable-based surfaces, and dark-mode-aware Monaco.
 - Chat/Cowork/Code/Build response routing was hardened so final answers are not trapped inside reasoning panels or dropped by malformed/unclosed thinking tags.
 - Provider/API cancellation now uses `AbortController` signals across OpenAI-compatible, Gemini, Anthropic, Mistral, Ollama, LM Studio, Jan, and OpenRouter client calls.
 - Chat, Code, Cowork, and Build modes now expose active stop controls that abort in-flight provider calls and record explicit cancelled outcomes where Mission runs exist.
@@ -37,7 +37,7 @@ Validated:
 
 Known follow-up:
 - Terminal cancellation now preserves explicit `cancelled` status when the terminal later reports interrupt exit code 130.
-- Provider-side billing/processing semantics can still vary after a request reaches a vendor, but Opal now aborts the browser fetch stream where the provider client supports it.
+- Provider-side billing/processing semantics can still vary after a request reaches a vendor, but Perci now aborts the browser fetch stream where the provider client supports it.
 - Harness memory now dedupes by source run, skips low-signal generic completions, scores candidates, and requires Mission review for generated memory candidates.
 - Certification-specific personas/workflows are intentionally deferred.
 - Focused automated tests for abort propagation and memory quality scoring are now in place (Vitest, `npm test`).

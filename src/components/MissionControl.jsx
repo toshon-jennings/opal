@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
     AlertTriangle,
     BookOpen,
@@ -83,7 +84,7 @@ function getCheckpointClass(state) {
 
 function cancelTerminalRun(runId) {
     return new Promise((resolve) => {
-        const port = localStorage.getItem('opal_terminal_port') || '3001';
+        const port = localStorage.getItem('perci_terminal_port') || '3001';
         const socket = new WebSocket(`ws://localhost:${port}/?sessionId=default&telemetry=1`);
         const timeout = setTimeout(() => {
             socket.close();
@@ -1136,10 +1137,10 @@ function TransitMapModal({ graph, runs, onClose }) {
         { color: 'var(--accent)', label: 'General' },
     ];
 
-    return (
+    return createPortal(
         <div
             ref={overlayRef}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm"
             onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
         >
             <div className="relative flex h-[90vh] w-[95vw] max-w-6xl flex-col rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] shadow-2xl overflow-hidden">
@@ -1204,7 +1205,8 @@ function TransitMapModal({ graph, runs, onClose }) {
                     </div>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }
 
@@ -1344,9 +1346,9 @@ function needsValidation(run) {
 
 function getRunSourceType(run) {
     if (run.id === 'mission-openclaw-health' || run.gateway) return 'gateway';
-    if (run.id?.startsWith('terminal-') || run.agent === 'Opal Terminal') return 'terminal';
-    if (run.id?.startsWith('cowork-') || run.agent === 'Opal Cowork Agent') return 'cowork';
-    if (run.id?.startsWith('code-') || run.agent === 'Opal Code Assistant' || run.agent === 'Opal Code Editor') return 'code';
-    if (run.id?.startsWith('build-') || run.agent === 'Opal Build Assistant') return 'build';
+    if (run.id?.startsWith('terminal-') || run.agent === 'Perci Terminal') return 'terminal';
+    if (run.id?.startsWith('cowork-') || run.agent === 'Perci Cowork Agent') return 'cowork';
+    if (run.id?.startsWith('code-') || run.agent === 'Perci Code Assistant' || run.agent === 'Perci Code Editor') return 'code';
+    if (run.id?.startsWith('build-') || run.agent === 'Perci Build Assistant') return 'build';
     return 'general';
 }

@@ -1,11 +1,11 @@
 import { createIntentReview } from './diffReview';
 import { evaluateMemoryQuality, ingestRunMemory, readHarnessMemory } from './harnessMemory';
 
-export const MISSION_RUNS_KEY = 'opal_mission_runs';
-export const MISSION_MEMORY_KEY = 'opal_mission_memory';
-export const MISSION_MEMORY_CANDIDATES_KEY = 'opal_mission_memory_candidates';
-export const MISSION_VALIDATION_TARGET_KEY = 'opal_mission_validation_target';
-export const MISSION_UPDATED_EVENT = 'opal:mission-runs-updated';
+export const MISSION_RUNS_KEY = 'perci_mission_runs';
+export const MISSION_MEMORY_KEY = 'perci_mission_memory';
+export const MISSION_MEMORY_CANDIDATES_KEY = 'perci_mission_memory_candidates';
+export const MISSION_VALIDATION_TARGET_KEY = 'perci_mission_validation_target';
+export const MISSION_UPDATED_EVENT = 'perci:mission-runs-updated';
 
 const MAX_RUNS = 30;
 const MAX_EVENTS_PER_RUN = 24;
@@ -16,7 +16,7 @@ export function createSeedMissionRuns() {
         {
             id: 'mission-memory-review',
             title: 'Session memory capture',
-            agent: 'Opal Memory Reviewer',
+            agent: 'Perci Memory Reviewer',
             status: 'waiting',
             startedAt: new Date(now - 42 * 60 * 1000).toISOString(),
             updatedAt: new Date(now - 18 * 60 * 1000).toISOString(),
@@ -24,7 +24,7 @@ export function createSeedMissionRuns() {
             objective: 'Turn useful agent-session outcomes into durable project memory.',
             reason: 'The harness should remember decisions, rejected approaches, and recurring operational fixes across sessions.',
             commands: ['scan run summary', 'draft memory note'],
-            files: ['localStorage:opal_mission_memory', 'localStorage:opal_projects'],
+            files: ['localStorage:perci_mission_memory', 'localStorage:perci_projects'],
             checkpoints: [
                 { label: 'Candidate notes detected', state: 'done' },
                 { label: 'Waiting for user approval', state: 'active' },
@@ -37,7 +37,7 @@ export function createSeedMissionRuns() {
         {
             id: 'mission-openclaw-health',
             title: 'OpenClaw integration health',
-            agent: 'Opal Integration Monitor',
+            agent: 'Perci Integration Monitor',
             status: 'waiting',
             startedAt: new Date(now - 7 * 60 * 1000).toISOString(),
             updatedAt: new Date(now - 22 * 60 * 1000).toISOString(),
@@ -58,7 +58,7 @@ export function createSeedMissionRuns() {
         {
             id: 'mission-diff-quality',
             title: 'Intent-first diff review',
-            agent: 'Opal Review Gate',
+            agent: 'Perci Review Gate',
             status: 'blocked',
             startedAt: new Date(now - 3 * 60 * 60 * 1000).toISOString(),
             updatedAt: new Date(now - 2 * 60 * 60 * 1000).toISOString(),
@@ -177,7 +177,7 @@ export function recordGatewayCheck(profile, result, source = 'automatic check') 
     upsertMissionRun({
         id: runId,
         title: 'OpenClaw integration health',
-        agent: 'Opal Integration Monitor',
+        agent: 'Perci Integration Monitor',
         status,
         startedAt: now,
         updatedAt: now,
@@ -219,15 +219,15 @@ export function recordGatewayRestart(profile, result, phase = 'completed') {
     const ok = Boolean(result?.ok);
     const status = phase === 'started' ? 'running' : ok ? 'running' : 'blocked';
     const detail = phase === 'started'
-        ? 'Restart requested from Opal.'
+        ? 'Restart requested from Perci.'
         : ok
-            ? 'Restart command completed; Opal is polling until the Gateway binds.'
+            ? 'Restart command completed; Perci is polling until the Gateway binds.'
             : (result?.error || 'Restart command failed.');
 
     upsertMissionRun({
         id: 'mission-openclaw-health',
         title: 'OpenClaw integration health',
-        agent: 'Opal Integration Monitor',
+        agent: 'Perci Integration Monitor',
         status,
         workingDirectory: '/Users/toshonjennings/opal',
         objective: 'Track the configured OpenClaw Gateway for OpenClaw-backed work.',
@@ -256,14 +256,14 @@ export function recordTerminalCommand(command, patch = {}) {
     upsertMissionRun({
         id,
         title: `Terminal command: ${command}`,
-        agent: 'Opal Terminal',
+        agent: 'Perci Terminal',
         status: patch.status || 'running',
         startedAt: now,
         updatedAt: now,
         workingDirectory: patch.workingDirectory || '/Users/toshonjennings/opal',
         objective: validationTarget
             ? `Run terminal validation for ${validationTarget.title}.`
-            : 'Send a command to the local Opal terminal server.',
+            : 'Send a command to the local Perci terminal server.',
         reason: 'Terminal submissions are execution events and should be inspectable from Mission Control.',
         commands: [command],
         files: [],
@@ -396,7 +396,7 @@ export function recordCoworkSessionStart(session, prompt, patch = {}) {
     upsertMissionRun({
         id,
         title: `Cowork: ${title}`,
-        agent: 'Opal Cowork Agent',
+        agent: 'Perci Cowork Agent',
         status: patch.status || 'running',
         startedAt: now,
         updatedAt: now,
@@ -509,7 +509,7 @@ export function recordCodeSessionStart(session, prompt, patch = {}) {
     upsertMissionRun({
         id,
         title: `Code: ${session?.title || prompt?.slice(0, 48) || 'Coding session'}`,
-        agent: 'Opal Code Assistant',
+        agent: 'Perci Code Assistant',
         status: patch.status || 'running',
         startedAt: now,
         updatedAt: now,
@@ -577,7 +577,7 @@ export function recordCodeFileSave(filePath, patch = {}) {
     upsertMissionRun({
         id,
         title: `Code save: ${filePath || 'file'}`,
-        agent: 'Opal Code Editor',
+        agent: 'Perci Code Editor',
         status: 'completed',
         startedAt: now,
         updatedAt: now,
@@ -616,7 +616,7 @@ export function recordBuildGenerationStart(prompt, patch = {}) {
     upsertMissionRun({
         id,
         title: `Build: ${prompt?.slice(0, 48) || 'Generation'}`,
-        agent: 'Opal Build Assistant',
+        agent: 'Perci Build Assistant',
         status: patch.status || 'running',
         startedAt: now,
         updatedAt: now,
@@ -742,7 +742,7 @@ export function recordBuildReset(patch = {}) {
     upsertMissionRun({
         id,
         title: 'Build workspace reset',
-        agent: 'Opal Build Assistant',
+        agent: 'Perci Build Assistant',
         status: 'completed',
         startedAt: now,
         updatedAt: now,
@@ -912,7 +912,7 @@ function normalizeRun(run) {
     const normalized = {
         id: run.id || `run-${Date.now()}`,
         title: run.title || 'Untitled run',
-        agent: run.agent || 'Opal',
+        agent: run.agent || 'Perci',
         status: run.status || 'waiting',
         startedAt: run.startedAt || new Date().toISOString(),
         updatedAt: run.updatedAt || run.startedAt || new Date().toISOString(),
@@ -934,7 +934,7 @@ function normalizeRun(run) {
         return {
             ...normalized,
             title: 'OpenClaw integration health',
-            agent: 'Opal Integration Monitor',
+            agent: 'Perci Integration Monitor',
             objective: 'Track the configured OpenClaw Gateway for OpenClaw-backed work.',
             reason: 'Code and Cowork can run independently; OpenClaw health is recorded as an integration dependency when that surface is used.',
             next: normalized.gateway?.ok
@@ -1058,10 +1058,10 @@ function getOutcomeText(run, latestEvent) {
 
 function getRunSourceType(run) {
     if (run.id === 'mission-openclaw-health' || run.gateway) return 'gateway';
-    if (run.id?.startsWith('terminal-') || run.agent === 'Opal Terminal') return 'terminal';
-    if (run.id?.startsWith('cowork-') || run.agent === 'Opal Cowork Agent') return 'cowork';
-    if (run.id?.startsWith('code-') || run.agent === 'Opal Code Assistant' || run.agent === 'Opal Code Editor') return 'code';
-    if (run.id?.startsWith('build-') || run.agent === 'Opal Build Assistant') return 'build';
+    if (run.id?.startsWith('terminal-') || run.agent === 'Perci Terminal') return 'terminal';
+    if (run.id?.startsWith('cowork-') || run.agent === 'Perci Cowork Agent') return 'cowork';
+    if (run.id?.startsWith('code-') || run.agent === 'Perci Code Assistant' || run.agent === 'Perci Code Editor') return 'code';
+    if (run.id?.startsWith('build-') || run.agent === 'Perci Build Assistant') return 'build';
     return 'general';
 }
 
@@ -1077,7 +1077,7 @@ function compactTerminalOutput(output) {
             const trimmed = line.trim();
             return trimmed
                 && !trimmed.includes('__OPAL_MISSION_')
-                && !trimmed.includes('__opal_mission_status')
+                && !trimmed.includes('__perci_mission_status')
                 && !trimmed.startsWith('printf ');
         })
         .slice(-12)

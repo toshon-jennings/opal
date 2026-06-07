@@ -1,4 +1,4 @@
-# 🤖 Opal
+# 🤖 Perci
 
 <div align="center">
 
@@ -16,7 +16,7 @@
 
 ## 📖 Overview
 
-Opal is a powerful, open-source chat interface inspired by Anthropic's Claude. **This project is a fork of an earlier implementation that we found inadequate in terms of UX/UI polish and feature completeness.** 
+Perci is a powerful, open-source chat interface inspired by Anthropic's Claude. **This project is a fork of an earlier implementation that we found inadequate in terms of UX/UI polish and feature completeness.** 
 
 Our mission is to build a desktop experience that is truly on par with—and in some ways exceeds—Claude's native desktop application. We have focused heavily on refining the aesthetic, improving interactive feedback, and implementing robust features like a full-featured Electron wrapper, advanced research tools, and a superior developer experience.
 
@@ -115,7 +115,7 @@ That's it! 🎉 The application is now running.
 
 ### Getting API Keys
 
-Opal requires API keys for cloud providers. Here's how to get them:
+Perci requires API keys for cloud providers. Here's how to get them:
 
 #### OpenAI API Key
 1. Visit [OpenAI Platform](https://platform.openai.com/)
@@ -159,7 +159,7 @@ Opal requires API keys for cloud providers. Here's how to get them:
 #### LM Studio Setup
 1. Install [LM Studio](https://lmstudio.ai/)
 2. Download and load a model
-3. Start the local server (port 1234). Use `http://localhost:1234` when Opal and LM Studio run on the same Mac; LM Studio's LAN "Reachable @" address can change.
+3. Start the local server (port 1234). Use `http://localhost:1234` when Perci and LM Studio run on the same Mac; LM Studio's LAN "Reachable @" address can change.
 4. Select LM Studio in the model dropdown
 
 ---
@@ -218,7 +218,7 @@ For models that support reasoning (like OpenAI o1):
 ### Project Structure
 
 ```
-Opal/
+Perci/
 ├── src/
 │   ├── components/          # React components
 │   │   ├── ArtifactPanel.jsx      # Code & Research preview panel

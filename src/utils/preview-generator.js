@@ -43,7 +43,7 @@ export function generatePreviewHTML(files, options = {}) {
     const sourcesJSON = JSON.stringify(sources).replace(/<\/script>/gi, '<\\/script>');
 
     // Surface colors so the preview's default (unpainted) background matches
-    // Opal's active theme instead of always defaulting to white.
+    // Perci's active theme instead of always defaulting to white.
     const surfaceBg = isDarkMode ? '#0f1115' : '#ffffff';
     const surfaceText = isDarkMode ? '#e5e7eb' : '#111827';
     const scrollbarTrack = isDarkMode ? '#1c1f26' : '#f1f1f1';
@@ -75,7 +75,7 @@ export function generatePreviewHTML(files, options = {}) {
 <body>
     <div id="root"></div>
 
-    <script type="application/json" id="__opal-src">${sourcesJSON}</script>
+    <script type="application/json" id="__perci-src">${sourcesJSON}</script>
     <script>
         ${createPreviewRuntimeGuard()}
 
@@ -110,10 +110,10 @@ export function generatePreviewHTML(files, options = {}) {
                     }
                 };
             };
-            const __sources = JSON.parse(document.getElementById('__opal-src').textContent);
+            const __sources = JSON.parse(document.getElementById('__perci-src').textContent);
             // Transpile each file separately so a per-file import of React is not
             // a duplicate-binding error across the combined program.
-            const __opalOut = __sources.map(function (src) {
+            const __perciOut = __sources.map(function (src) {
                 return Babel.transform(src, {
                     filename: 'app.tsx',
                     presets: ['react', ['typescript', { isTSX: true, allExtensions: true }]],
@@ -124,7 +124,7 @@ export function generatePreviewHTML(files, options = {}) {
             // (allow-scripts) preview iframe; this replaces the prior
             // <script type="text/babel"> auto-transform. Direct eval keeps the
             // destructured React hooks above in scope for the transpiled code.
-            eval(__opalOut);
+            eval(__perciOut);
         } catch (err) {
             const errorBox = document.createElement('div');
             errorBox.style.cssText = 'color: red; padding: 20px; white-space: pre-wrap; font-family: monospace;';

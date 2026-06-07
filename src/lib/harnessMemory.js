@@ -117,13 +117,13 @@ export function buildMemoryPrompt(query, options = {}) {
     if (memories.length === 0) {
         return {
             memories,
-            prompt: 'Relevant durable Opal memory: none found for this request.'
+            prompt: 'Relevant durable Perci memory: none found for this request.'
         };
     }
     const lines = memories.map((memory, index) => `${index + 1}. [${memory.sourceType}/${memory.status}] ${memory.text}`);
     return {
         memories,
-        prompt: `Relevant durable Opal memory:\n${lines.join('\n')}`
+        prompt: `Relevant durable Perci memory:\n${lines.join('\n')}`
     };
 }
 
@@ -251,9 +251,9 @@ function textOverlap(a, b) {
 
 function getRunSourceType(run) {
     if (run.id === 'mission-openclaw-health' || run.gateway) return 'gateway';
-    if (run.id?.startsWith('terminal-') || run.agent === 'Opal Terminal') return 'terminal';
-    if (run.id?.startsWith('cowork-') || run.agent === 'Opal Cowork Agent') return 'cowork';
-    if (run.id?.startsWith('code-') || run.agent === 'Opal Code Assistant' || run.agent === 'Opal Code Editor') return 'code';
-    if (run.id?.startsWith('build-') || run.agent === 'Opal Build Assistant') return 'build';
+    if (run.id?.startsWith('terminal-') || run.agent === 'Perci Terminal') return 'terminal';
+    if (run.id?.startsWith('cowork-') || run.agent === 'Perci Cowork Agent') return 'cowork';
+    if (run.id?.startsWith('code-') || run.agent === 'Perci Code Assistant' || run.agent === 'Perci Code Editor') return 'code';
+    if (run.id?.startsWith('build-') || run.agent === 'Perci Build Assistant') return 'build';
     return 'general';
 }

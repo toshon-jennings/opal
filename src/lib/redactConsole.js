@@ -46,7 +46,7 @@ export function redactSecrets(value, seen = new WeakSet(), depth = 0) {
 }
 
 export function installRedactedConsole() {
-    if (typeof console === 'undefined' || console.__opalRedactionInstalled) return;
+    if (typeof console === 'undefined' || console.__perciRedactionInstalled) return;
 
     ['log', 'info', 'warn', 'error', 'debug'].forEach((method) => {
         const original = console[method]?.bind(console);
@@ -54,7 +54,7 @@ export function installRedactedConsole() {
         console[method] = (...args) => original(...args.map(arg => redactSecrets(arg)));
     });
 
-    Object.defineProperty(console, '__opalRedactionInstalled', {
+    Object.defineProperty(console, '__perciRedactionInstalled', {
         value: true,
         configurable: false,
         enumerable: false

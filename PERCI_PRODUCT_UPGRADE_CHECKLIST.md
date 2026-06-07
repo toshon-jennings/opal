@@ -10,7 +10,7 @@ This file is for any agent continuing the work if chat context is lost.
 - Orbit reference repo: `/Users/toshonjennings/toshi_bot`.
 - Generated Odysseus Graphify graph:
   `docs/architecture/odysseus-graphify/graphify-out/graph.json`.
-- Opal renderer Graphify graph:
+- Perci renderer Graphify graph:
   `docs/architecture/graphify-out/graph.json`.
 - The working tree was already dirty before this checklist was created. Do not revert unrelated changes.
 - Repo rule: edit only the main project at `/Users/toshonjennings/opal`, not a worktree.

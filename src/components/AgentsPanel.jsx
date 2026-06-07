@@ -116,8 +116,8 @@ const AGENT_DEFINITIONS = [
     defaultPrompt: 'Ask OpenCode to inspect, edit, or plan work in the selected folder.',
   },
   {
-    id: 'opal_code',
-    requestType: 'opal_code',
+    id: 'perci_code',
+    requestType: 'perci_code',
     label: 'Percival',
     shortLabel: 'Percival',
     detail: 'Custom terminal-first coding assistant built for fast, focused edits in the active workspace.',
@@ -140,7 +140,7 @@ const AGENT_DEFINITIONS = [
 // Agents whose CLI accepts a `--model` flag (verified against each CLI's
 // --help in the desktop bridge). Presence here gates the model field and
 // supplies an example placeholder. Agents without a --model flag (Jan picks
-// its model via `jan launch`, OpenClaw, the custom opal_code) are omitted.
+// its model via `jan launch`, OpenClaw, the custom perci_code) are omitted.
 const AGENT_MODEL_HINTS = {
   aider: 'e.g. anthropic/claude-opus-4-8',
   antigravity_cli: 'e.g. gemini-3-pro',

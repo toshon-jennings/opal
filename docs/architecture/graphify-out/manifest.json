@@ -274,7 +274,7 @@
     "ast_hash": "f866a8c65843257be6a6b40cdbcfea65",
     "semantic_hash": "f866a8c65843257be6a6b40cdbcfea65"
   },
-  "lib/opalLogoDataUri.js": {
+  "lib/perciLogoDataUri.js": {
     "mtime": 1780583400.823915,
     "ast_hash": "1a8353e485b45db3326bf6c8ceac24fa",
     "semantic_hash": "1a8353e485b45db3326bf6c8ceac24fa"
@@ -344,7 +344,7 @@
     "ast_hash": "a688df75bde84ae40b82e302bcdbf960",
     "semantic_hash": "a688df75bde84ae40b82e302bcdbf960"
   },
-  "assets/opal-logo.png": {
+  "assets/perci-logo.png": {
     "mtime": 1778371800.8421423,
     "ast_hash": "7498874c68b7f877ece8050a236d9e66",
     "semantic_hash": "7498874c68b7f877ece8050a236d9e66"

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 export function ChangelogModal({ isOpen, onClose }) {
     const [index, setIndex] = useState(0);
@@ -25,17 +26,18 @@ export function ChangelogModal({ isOpen, onClose }) {
     }, [isOpen]);
 
     if (!isOpen) return null;
-    if (logs.length === 0) return (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+    if (logs.length === 0) return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
             <div className="bg-[var(--bg-primary)] border border-[var(--border)] rounded-2xl p-8 text-center max-w-md">
                 <p className="text-[var(--text-primary)]">Loading changelog...</p>
                 <button onClick={onClose} className="mt-4 text-[var(--accent)] hover:underline">Close</button>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 
-    return (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-md">
+    return createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-md">
             <div className="bg-[var(--bg-primary)] border border-[var(--border)] rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-fade-in">
                 <div className="glass-header p-6 flex items-center justify-between border-b border-[var(--border)]">
                     <h2 className="text-xl font-semibold text-[var(--text-primary)]" style={{ fontFamily: 'Outfit, sans-serif' }}>
@@ -78,6 +80,7 @@ export function ChangelogModal({ isOpen, onClose }) {
                     </p>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

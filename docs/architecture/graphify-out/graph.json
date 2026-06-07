@@ -616,7 +616,7 @@
       "id": "components_chatmode_thinkingtimer"
     },
     {
-      "label": "OpalThinkingIndicator()",
+      "label": "PerciThinkingIndicator()",
       "file_type": "code",
       "source_file": "components/ChatMode.jsx",
       "source_location": "L2006",
@@ -4099,9 +4099,9 @@
       "id": "lib_modelrouter_buildroute"
     },
     {
-      "label": "opalLogoDataUri.js",
+      "label": "perciLogoDataUri.js",
       "file_type": "code",
-      "source_file": "lib/opalLogoDataUri.js",
+      "source_file": "lib/perciLogoDataUri.js",
       "source_location": "L1",
       "community": 2,
       "norm_label": "opallogodatauri.js",
@@ -4616,9 +4616,9 @@
       "id": "assets_hermes"
     },
     {
-      "label": "Opal Logo",
+      "label": "Perci Logo",
       "file_type": "image",
-      "source_file": "assets/opal-logo.png",
+      "source_file": "assets/perci-logo.png",
       "source_location": null,
       "source_url": null,
       "captured_at": null,
@@ -4626,7 +4626,7 @@
       "contributor": null,
       "community": 27,
       "norm_label": "opal logo",
-      "id": "assets_opal-logo"
+      "id": "assets_perci-logo"
     },
     {
       "label": "Openclaw Color Image",

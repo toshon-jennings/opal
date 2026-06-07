@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A queryable knowledge graph of the Perci (Opal) renderer codebase, built with
+A queryable knowledge graph of the Perci (Perci) renderer codebase, built with
 [graphify](https://github.com/anthropics/graphify). It maps files, functions,
 imports, and calls into a graph database you can query with natural language.
 

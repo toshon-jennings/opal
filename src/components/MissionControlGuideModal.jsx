@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
     AlertTriangle,
     BookOpen,
@@ -437,9 +438,9 @@ export function MissionControlGuideModal({ isOpen, onClose }) {
 
     if (!isOpen) return null;
 
-    return (
+    return createPortal(
         <div
-            className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
             onMouseDown={(event) => {
                 if (event.target === event.currentTarget) {
                     onClose();
@@ -461,7 +462,7 @@ export function MissionControlGuideModal({ isOpen, onClose }) {
                             Mission Control guide
                         </h2>
                         <p className="mt-1 max-w-3xl text-sm leading-6 text-[var(--text-secondary)]">
-                            Mission Control is Opal&apos;s operational dashboard for AI work. It gives you a live, inspectable view of runs, validation, risk, memory, terminal activity, and OpenClaw health across the rest of the app.
+                            Mission Control is Perci&apos;s operational dashboard for AI work. It gives you a live, inspectable view of runs, validation, risk, memory, terminal activity, and OpenClaw health across the rest of the app.
                         </p>
                     </div>
                     <button
@@ -485,6 +486,7 @@ export function MissionControlGuideModal({ isOpen, onClose }) {
                     {activeTab === 'overview' ? <OverviewTab /> : <AdvancedTab />}
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

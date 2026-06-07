@@ -1,4 +1,4 @@
-# Opal – Copilot Instructions
+# Perci – Copilot Instructions
 
 ## Commands
 
@@ -14,7 +14,7 @@ No test suite exists yet.
 
 ## Architecture
 
-Opal is a React 18 / Vite SPA that runs as both a web app and an Electron desktop application.
+Perci is a React 18 / Vite SPA that runs as both a web app and an Electron desktop application.
 
 ### Electron process split
 

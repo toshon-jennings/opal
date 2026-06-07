@@ -8,7 +8,7 @@ import { User, Copy, Check, Code, ExternalLink, FileText, Image as ImageIcon, Ta
 import { useChat } from '../context/ChatContext';
 import { CitationDisplay } from './CitationDisplay';
 import { ThinkingDisplay } from './ThinkingDisplay';
-import opalLogo from '../assets/opal-logo.png';
+import perciLogo from '../assets/perci-logo.png';
 
 export function ChatMessage({ message }) {
     const isUser = message.role === 'user';
@@ -149,7 +149,7 @@ export function ChatMessage({ message }) {
                 ? 'bg-[var(--accent)] text-white'
                 : ''
                 }`}>
-                {isUser ? <User size={18} /> : <img src={opalLogo} alt="Perci" className="w-full h-full rounded-full" />}
+                {isUser ? <User size={18} /> : <img src={perciLogo} alt="Perci" className="w-full h-full rounded-full" />}
             </div>
 
             <div className="flex-1 overflow-hidden">

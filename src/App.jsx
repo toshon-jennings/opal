@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, Component } from 'react';
-import opalLogo from './assets/opal-logo.png';
+import perciLogo from './assets/perci-logo.png';
 import { useMode, MODES, OPENCLAW_WINDOW_ID } from './context/ModeContext';
 import ModeSwitcher from './components/ModeSwitcher';
 import ChatMode from './components/ChatMode';
@@ -448,7 +448,7 @@ function AppContent() {
                                     src={activeOpenClawDashboardUrl}
                                     title="OpenClaw Dashboard"
                                     className="flex-1 min-h-0 w-full border-0 bg-white"
-                                    partition="persist:opal-openclaw"
+                                    partition="persist:perci-openclaw"
                                     allowpopups="true"
                                 />
                             ) : (
@@ -805,7 +805,7 @@ function AppContent() {
                     <div 
                         className={`w-9 h-9 rounded-[8px] flex items-center justify-center relative shadow-sm overflow-hidden ${isDarkMode ? 'bg-gradient-to-b from-[#2a2a2e] to-[#0c0c0d]' : 'bg-gradient-to-b from-white to-[#f5f5f7] border border-[#e5e7eb]'}`}
                     >
-                        <img src={opalLogo} alt="Perci" className="w-[70%] h-[70%] object-contain relative z-10" />
+                        <img src={perciLogo} alt="Perci" className="w-[70%] h-[70%] object-contain relative z-10" />
                     </div>
                     <div className="flex flex-col">
                         <h1 className="opal-text text-base font-semibold leading-none" style={{fontFamily: 'Outfit, sans-serif', letterSpacing: '-0.02em'}}>Perci</h1>

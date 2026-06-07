@@ -1116,8 +1116,8 @@ export class OpenRouterClient extends BaseClient {
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${this.apiKey}`,
-                'HTTP-Referer': 'https://opal.app',
-                'X-Title': 'Opal'
+                'HTTP-Referer': 'https://perci.app',
+                'X-Title': 'Perci'
             },
             body: JSON.stringify({ model: modelId, messages: formattedMessages, stream: true }),
             signal: streamOptions.signal
@@ -1165,7 +1165,7 @@ export class OpenRouterClient extends BaseClient {
             {
                 'Authorization': `Bearer ${this.apiKey}`,
                 'HTTP-Referer': window.location.origin,
-                'X-Title': 'Opal'
+                'X-Title': 'Perci'
             },
             messages, tools, onChunk, modelId, options
         );

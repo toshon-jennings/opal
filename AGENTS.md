@@ -1,4 +1,4 @@
-# Opal — repo rules
+# Perci — repo rules
 
 Repo-specific rules for every agent working in this repository. Global rules
 (minimal code, no unnecessary duplication, etc.) live in

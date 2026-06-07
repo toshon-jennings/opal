@@ -92,7 +92,7 @@ describe('ingestRunMemory', () => {
     it('captures a blocked terminal run with useful signals', () => {
         const memory = ingestRunMemory({
             id: 'terminal-7',
-            agent: 'Opal Terminal',
+            agent: 'Perci Terminal',
             status: 'blocked',
             title: 'Terminal task',
             objective: 'Run the build',
@@ -111,7 +111,7 @@ describe('ingestRunMemory', () => {
     it('skips low-signal completed runs', () => {
         const memory = ingestRunMemory({
             id: 'terminal-8',
-            agent: 'Opal Terminal',
+            agent: 'Perci Terminal',
             status: 'completed',
             title: 'Empty run',
             workingDirectory: '/proj',

@@ -133,7 +133,7 @@ export function ModeProvider({ children }) {
     // floating windows on top, tracked here and surfaced by the bottom dock.
     // The open set is persisted so windows survive a reload; per-mode geometry is
     // remembered separately so reopening a closed window restores its size.
-    const [windows, setWindows] = useState(() => hydrateWindows(readJsonStorage('opal_open_windows', [])));
+    const [windows, setWindows] = useState(() => hydrateWindows(readJsonStorage('perci_open_windows', [])));
     const zCounterRef = useRef(windows.reduce((max, w) => Math.max(max, w.z || 0), 20));
 
     // Mirror of `windows` so actions can read the latest set without putting
@@ -143,12 +143,12 @@ export function ModeProvider({ children }) {
 
     // Persist the open window set (which modes are open, their state + geometry).
     useEffect(() => {
-        localStorage.setItem('opal_open_windows', serializeJson(windows));
+        localStorage.setItem('perci_open_windows', serializeJson(windows));
     }, [windows]);
 
     // Per-mode geometry memory. Kept in a ref (not React state) so move/resize
     // updaters stay pure; persisted to localStorage by the effect below.
-    const windowBoundsRef = useRef(readJsonStorage('opal_window_bounds', {}) || {});
+    const windowBoundsRef = useRef(readJsonStorage('perci_window_bounds', {}) || {});
     useEffect(() => {
         let changed = false;
         const next = { ...windowBoundsRef.current };
@@ -162,7 +162,7 @@ export function ModeProvider({ children }) {
         }
         if (changed) {
             windowBoundsRef.current = next;
-            localStorage.setItem('opal_window_bounds', serializeJson(next));
+            localStorage.setItem('perci_window_bounds', serializeJson(next));
         }
     }, [windows]);
 
@@ -282,7 +282,7 @@ export function ModeProvider({ children }) {
 
     // Load initial state from localStorage
     const [codeState, setCodeState] = useState(() => {
-        const parsed = readJsonStorage('opal_code_state', null);
+        const parsed = readJsonStorage('perci_code_state', null);
         return parsed ? normalizeCodeState(parsed) : createDefaultCodeState();
     });
 
@@ -294,12 +294,12 @@ export function ModeProvider({ children }) {
             try {
                 const electronData = await loadElectronPersistence();
                 if (!isMounted) return;
-                if (typeof electronData?.opal_code_state === 'string') {
-                    localStorage.setItem('opal_code_state', electronData.opal_code_state);
+                if (typeof electronData?.perci_code_state === 'string') {
+                    localStorage.setItem('perci_code_state', electronData.perci_code_state);
                     if (typeof electronData.working_directory === 'string') {
                         localStorage.setItem('working_directory', electronData.working_directory);
                     }
-                    const parsed = readJsonStorage('opal_code_state', null);
+                    const parsed = readJsonStorage('perci_code_state', null);
                     setCodeState(parsed ? normalizeCodeState(parsed) : createDefaultCodeState());
                 }
             } catch (err) {
@@ -327,13 +327,13 @@ export function ModeProvider({ children }) {
             expandedFolders: Array.from(codeState.expandedFolders || [])
         };
         const serializedCodeState = serializeJson(stateToSave);
-        localStorage.setItem('opal_code_state', serializedCodeState);
+        localStorage.setItem('perci_code_state', serializedCodeState);
         if (codeState.workingDirectory) {
             localStorage.setItem('working_directory', codeState.workingDirectory);
         }
         if (electronPersistenceReadyRef.current) {
             saveElectronPersistence({
-                opal_code_state: serializedCodeState,
+                perci_code_state: serializedCodeState,
                 working_directory: codeState.workingDirectory || ''
             }).catch(err => console.error('Failed to persist code state:', err));
         }

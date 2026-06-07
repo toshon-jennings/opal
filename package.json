@@ -1,7 +1,7 @@
 {
-  "name": "opal",
+  "name": "perci",
   "private": true,
-  "version": "0.16.0",
+  "version": "0.16.1",
   "description": "A desktop AI workspace for chat, coding, coworking, and agent tools.",
   "author": "Toshon Jennings",
   "main": "electron/main.cjs",
@@ -18,12 +18,12 @@
     "dist": "npm run build && electron-builder"
   },
   "build": {
-    "appId": "com.opal.ai",
-    "productName": "Opal",
+    "appId": "com.perci.ai",
+    "productName": "Perci",
     "directories": {
       "output": "dist_electron"
     },
-    "icon": "public/opal-icon.png",
+    "icon": "public/perci-icon.png",
     "files": [
       "dist/**/*",
       "electron/**/*",
@@ -36,7 +36,7 @@
       "target": [
         "dmg"
       ],
-      "icon": "opal.icns",
+      "icon": "perci.icns",
       "category": "public.app-category.developer-tools"
     },
     "win": {

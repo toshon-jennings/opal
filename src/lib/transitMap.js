@@ -59,9 +59,9 @@ export function assignTransitLayout(graph, width = 760, height = 420) {
 
 function getRunSourceType(run) {
     if (run.id === 'mission-openclaw-health' || run.gateway) return 'gateway';
-    if (run.id?.startsWith('terminal-') || run.agent === 'Opal Terminal') return 'terminal';
-    if (run.id?.startsWith('cowork-') || run.agent === 'Opal Cowork Agent') return 'cowork';
-    if (run.id?.startsWith('code-') || run.agent === 'Opal Code Assistant' || run.agent === 'Opal Code Editor') return 'code';
-    if (run.id?.startsWith('build-') || run.agent === 'Opal Build Assistant') return 'build';
+    if (run.id?.startsWith('terminal-') || run.agent === 'Perci Terminal') return 'terminal';
+    if (run.id?.startsWith('cowork-') || run.agent === 'Perci Cowork Agent') return 'cowork';
+    if (run.id?.startsWith('code-') || run.agent === 'Perci Code Assistant' || run.agent === 'Perci Code Editor') return 'code';
+    if (run.id?.startsWith('build-') || run.agent === 'Perci Build Assistant') return 'build';
     return 'general';
 }

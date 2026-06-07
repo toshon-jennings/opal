@@ -18,7 +18,7 @@ import rehypeRaw from 'rehype-raw';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { SyntaxHighlighter } from '../lib/syntaxHighlighter';
 import { Copy, Check } from 'lucide-react';
-import opalLogo from '../assets/opal-logo.png';
+import perciLogo from '../assets/perci-logo.png';
 import { PermissionsDropdown } from './PermissionsDropdown';
 import LivePreviewPanel from './LivePreviewPanel';
 import { ProviderModelPicker } from './ProviderModelPicker';
@@ -132,7 +132,7 @@ function ArtifactCard({ artifact, onOpen }) {
 
 function ArtifactsPage({ artifacts, onOpenArtifact, onNewArtifact }) {
     return (
-        <div className="opal-artifacts-page h-full overflow-y-auto bg-[var(--bg-primary)] px-6 py-10 md:px-12 lg:px-20">
+        <div className="perci-artifacts-page h-full overflow-y-auto bg-[var(--bg-primary)] px-6 py-10 md:px-12 lg:px-20">
             <div className="mx-auto w-full max-w-[1120px]">
                 <div className="flex items-start justify-between gap-6">
                     <h1 className="text-[32px] font-semibold leading-none text-[var(--text-primary)]" style={{ fontFamily: "'Georgia', 'Times New Roman', serif", letterSpacing: '0' }}>
@@ -552,13 +552,13 @@ function ChatMode() {
     } = useChat();
     const [input, setInput] = useState(() => {
         if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('opal_draft_input');
+            const saved = localStorage.getItem('perci_draft_input');
             return saved || '';
         }
         return '';
     });
     useEffect(() => {
-        localStorage.setItem('opal_draft_input', input);
+        localStorage.setItem('perci_draft_input', input);
     }, [input]);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isChangelogOpen, setIsChangelogOpen] = useState(false);
@@ -589,7 +589,7 @@ function ChatMode() {
 
     useEffect(() => {
         const offset = isSidebarOpen ? sidebarWidth : 0;
-        document.documentElement.style.setProperty('--opal-terminal-left', `${offset}px`);
+        document.documentElement.style.setProperty('--perci-terminal-left', `${offset}px`);
     }, [isSidebarOpen, sidebarWidth]);
 
     useEffect(() => {
@@ -659,7 +659,7 @@ function ChatMode() {
         if (trimmedInput === '/changelog') {
             setIsChangelogOpen(true);
             setInput('');
-            localStorage.removeItem('opal_draft_input');
+            localStorage.removeItem('perci_draft_input');
             return;
         }
         if (!input.trim() && attachments.length === 0 || isLoading) return;
@@ -682,7 +682,7 @@ function ChatMode() {
             .filter(a => a.type === 'image' && a.previewUrl)
             .map(a => ({ name: a.name, dataUrl: a.previewUrl }));
         setInput('');
-        localStorage.removeItem('opal_draft_input');
+        localStorage.removeItem('perci_draft_input');
         setAttachments([]); // Clear attachments after sending
         const attachmentSummary = currentAttachments.length > 0
             ? currentAttachments.map(a => `[${a.type === 'image' ? 'Image' : 'File'}: ${a.name}]`).join('\n')
@@ -1644,7 +1644,7 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                             {messages.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center h-full text-center space-y-6">
                                     <h2 className="flex items-center justify-center gap-3 text-3xl md:text-4xl font-light text-[var(--text-primary)]" style={{ fontFamily: "'Georgia', 'Tiempos Text', serif" }}>
-                                        <img src={opalLogo} alt="" className="h-9 w-9 object-contain" aria-hidden="true" />
+                                        <img src={perciLogo} alt="" className="h-9 w-9 object-contain" aria-hidden="true" />
                                         {getGreeting()}{userName ? `, ${userName}` : ''}
                                     </h2>
                                 </div>
@@ -1656,7 +1656,7 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                             {isStreaming && (streamingMessage || streamingThinking) && (
                                 <div className="flex gap-3 md:gap-4 py-6 px-4 bg-[var(--bg-secondary)] rounded-lg">
                                     <div className="w-6 h-6 md:w-7 md:h-7 rounded-lg flex items-center justify-center shrink-0">
-                                        <img src={opalLogo} alt="Perci" className="w-full h-full rounded-full" />
+                                        <img src={perciLogo} alt="Perci" className="w-full h-full rounded-full" />
                                     </div>
                                     <div className="flex-1 overflow-hidden">
                                         <div className="font-medium text-sm mb-1.5 text-[var(--text-primary)]">Perci</div>
@@ -1782,7 +1782,7 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                             {isLoading && (!isStreaming || (!streamingMessage && !streamingThinking)) && (
                                 <div className="flex gap-3 md:gap-4 py-6 px-4 bg-[var(--bg-secondary)] rounded-lg animate-fade-in">
                                     <div className="w-6 h-6 md:w-7 md:h-7 rounded-lg flex items-center justify-center shrink-0 relative">
-                                        <img src={opalLogo} alt="Perci" className="w-full h-full rounded-full" />
+                                        <img src={perciLogo} alt="Perci" className="w-full h-full rounded-full" />
                                         <div className="absolute inset-0 rounded-lg bg-[var(--accent)]/20 animate-ping-slow" />
                                     </div>
                                     <div className="flex-1">
@@ -1806,7 +1806,7 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                                                         isStreaming={true}
                                                     />
                                                 )
-                                                : <OpalThinkingIndicator startTime={thinkingStartTime.current} />
+                                                : <PerciThinkingIndicator startTime={thinkingStartTime.current} />
                                         )}
                                     </div>
                                 </div>
@@ -2003,7 +2003,7 @@ function ThinkingTimer({ startTime }) {
     return <span className="text-xs tabular-nums" style={{ color: 'var(--accent)', opacity: 0.7, fontFamily: 'JetBrains Mono, monospace' }}>{formatTime(elapsed)}</span>;
 }
 
-function OpalThinkingIndicator({ startTime }) {
+function PerciThinkingIndicator({ startTime }) {
     return (
         <div
             className="inline-flex items-center gap-3 px-4 py-2.5 rounded-2xl"

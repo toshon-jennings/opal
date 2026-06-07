@@ -29,8 +29,8 @@ function buildMissionCommandScript(runId, command) {
   return [
     `printf '\\n${MISSION_START_PREFIX}:${runId}\\n'`,
     command,
-    '__opal_mission_status=$?',
-    `printf '\\n${MISSION_END_PREFIX}:${runId}:%s\\n' "$__opal_mission_status"`
+    '__perci_mission_status=$?',
+    `printf '\\n${MISSION_END_PREFIX}:${runId}:%s\\n' "$__perci_mission_status"`
   ].join('\n') + '\n';
 }
 
@@ -51,7 +51,7 @@ function cleanMissionOutput(rawOutput, runId, command = '') {
         && !trimmed.includes(MISSION_END_PREFIX)
         && !trimmed.includes(runId)
         && !(runIdTail && trimmed.includes(runIdTail))
-        && !trimmed.includes('__opal_mission_status')
+        && !trimmed.includes('__perci_mission_status')
         && !trimmed.startsWith('printf ')
         && trimmed !== '%'
         && trimmed !== '-'
@@ -88,7 +88,7 @@ process.on('unhandledRejection', (reason, promise) => {
 let wss;
 try {
   wss = new WebSocketServer({ port: PORT });
-  console.log(`Opal Terminal Server (node-pty) running on ws://localhost:${PORT}`);
+  console.log(`Perci Terminal Server (node-pty) running on ws://localhost:${PORT}`);
 } catch (err) {
   console.error(`[ERROR] Failed to start WebSocket server on port ${PORT}:`, err);
   process.exit(1);
@@ -170,7 +170,7 @@ function createSession(sessionId) {
     console.log(`[PTY] Session ${sessionId} exited with code ${exitCode}`);
     for (const client of session.clients) {
       if (client.readyState === WebSocket.OPEN) {
-        client.send('\r\n\x1b[31m[Opal]\x1b[0m Shell process terminated.\r\n');
+        client.send('\r\n\x1b[31m[Perci]\x1b[0m Shell process terminated.\r\n');
         client.close();
       }
     }

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
     ActivitySquare,
     BookOpen,
@@ -362,9 +363,9 @@ export function ModeGuideModal({ isOpen, onClose }) {
 
     if (!isOpen) return null;
 
-    return (
+    return createPortal(
         <div
-            className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
             onMouseDown={(event) => {
                 if (event.target === event.currentTarget) {
                     onClose();
@@ -410,6 +411,7 @@ export function ModeGuideModal({ isOpen, onClose }) {
                     {activeTab === 'overview' ? <OverviewTab /> : <AdvancedTab />}
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
-import { OPAL_LOGO_DATA_URI } from '../lib/opalLogoDataUri';
+import { OPAL_LOGO_DATA_URI } from '../lib/perciLogoDataUri';
 
 const BuildContext = createContext();
 

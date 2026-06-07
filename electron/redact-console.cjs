@@ -50,7 +50,7 @@ function isBrokenPipe(err) {
 }
 
 function installRedactedConsole() {
-  if (console.__opalRedactionInstalled) return;
+  if (console.__perciRedactionInstalled) return;
 
   // When a parent pipe is torn down (e.g. a renderer hard-refresh or the dev
   // terminal closing the read end), the next write to stdout/stderr throws
@@ -62,13 +62,13 @@ function installRedactedConsole() {
   // Safety net: if EPIPE still escapes (e.g. synchronous throw from a write
   // that bypasses the stream error event), catch it at the process level rather
   // than letting it become an uncaught exception.
-  if (!console.__opalEpipeHandlerInstalled) {
+  if (!console.__perciEpipeHandlerInstalled) {
     process.on('uncaughtException', (err) => {
       if (isBrokenPipe(err)) return;
       // Re-throw non-EPIPE errors so they are not silently swallowed.
       throw err;
     });
-    Object.defineProperty(console, '__opalEpipeHandlerInstalled', {
+    Object.defineProperty(console, '__perciEpipeHandlerInstalled', {
       value: true,
       configurable: false,
       enumerable: false
@@ -87,7 +87,7 @@ function installRedactedConsole() {
     };
   });
 
-  Object.defineProperty(console, '__opalRedactionInstalled', {
+  Object.defineProperty(console, '__perciRedactionInstalled', {
     value: true,
     configurable: false,
     enumerable: false

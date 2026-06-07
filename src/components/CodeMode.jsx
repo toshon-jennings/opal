@@ -100,7 +100,7 @@ export default function CodeMode() {
     // Optimized Resize Logic
     useEffect(() => {
         const offset = showHistory ? historyWidth : 0;
-        document.documentElement.style.setProperty('--opal-terminal-left', `${offset}px`);
+        document.documentElement.style.setProperty('--perci-terminal-left', `${offset}px`);
     }, [showHistory, historyWidth]);
 
     useEffect(() => {

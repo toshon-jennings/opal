@@ -1,4 +1,4 @@
-/* ─── Opal Design System ───────────────────────────────────────────────────
+/* ─── Perci Design System ───────────────────────────────────────────────────
    Prismatic Obsidian — black/white base with iridescent accent splashes
    Inspired by the color-play of opal gemstones
    ────────────────────────────────────────────────────────────────────────── */
@@ -47,7 +47,7 @@
   --shadow-md:      0 4px 16px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.05);
   --shadow-glow:    0 0 20px rgba(249, 115, 22, 0.15);
 
-  /* Opal gradient — orange to amber */
+  /* Perci gradient — orange to amber */
   --opal-gradient:  linear-gradient(135deg, #ea580c 0%, #f97316 40%, #fb923c 100%);
   --opal-gradient-subtle: linear-gradient(135deg, rgba(249, 115, 22, 0.10), rgba(251, 146, 60, 0.07), rgba(253, 186, 116, 0.06));
 }
@@ -171,7 +171,7 @@ body.artifacts-page-active .app-header {
   display: none;
 }
 
-/* ─── Opal brand utilities ────────────────────────────────────────────────── */
+/* ─── Perci brand utilities ────────────────────────────────────────────────── */
 
 /* Iridescent gradient text — for logo, headings */
 .opal-text {

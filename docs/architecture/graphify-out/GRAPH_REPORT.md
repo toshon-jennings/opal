@@ -36,7 +36,7 @@
 - [[_COMMUNITY_Mission Validation Logic|Mission Validation Logic]]
 - [[_COMMUNITY_Mission Transit Mapping|Mission Transit Mapping]]
 - [[_COMMUNITY_Hermes Assets|Hermes Assets]]
-- [[_COMMUNITY_Opal Branding|Opal Branding]]
+- [[_COMMUNITY_Perci Branding|Perci Branding]]
 - [[_COMMUNITY_Openclaw Branding|Openclaw Branding]]
 
 ## God Nodes (most connected - your core abstractions)

@@ -528,8 +528,8 @@ export class ModelService {
             const response = await fetch('https://openrouter.ai/api/v1/models', {
                 headers: {
                     'Authorization': `Bearer ${apiKey}`,
-                    'HTTP-Referer': 'https://opal.app',
-                    'X-Title': 'Opal'
+                    'HTTP-Referer': 'https://perci.app',
+                    'X-Title': 'Perci'
                 }
             });
 

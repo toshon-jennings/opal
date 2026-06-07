@@ -1,4 +1,4 @@
-export const TERMINAL_PORT_KEY = 'opal_terminal_port';
+export const TERMINAL_PORT_KEY = 'perci_terminal_port';
 export const TERMINAL_PORT_CANDIDATES = [3001, 3002];
 
 export function getTerminalPortCandidates() {
