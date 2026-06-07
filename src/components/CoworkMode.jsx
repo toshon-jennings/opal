@@ -83,11 +83,19 @@ const LOCAL_AGENT_TOOLS = [
         name: 'run_command',
         description: 'Run a shell command in the WebContainer sandbox. NOT available for local-folder projects — only for sandboxed environments.',
         parameters: { command: 'Shell command to execute, e.g. "npm install" or "node src/index.js".' }
+    },
+    {
+        name: 'delegate_to_openclaw',
+        description: 'Delegate a task to the OpenClaw gateway agent for long-running, scheduled, or multi-step orchestration (cron, browser automation, paired-node execution) beyond local file edits. Runs one agent turn and returns its reply. Requires the local OpenClaw gateway to be reachable.',
+        parameters: {
+            message: 'The task or question to hand to the OpenClaw agent.',
+            session_key: 'Optional. A stable key (e.g. "cowork:my-task") to continue the same OpenClaw conversation across calls.'
+        }
     }
 ];
-const getAgentTools = ({ allowIntegrationWrites = true } = {}) => [
+const getAgentTools = ({ allowIntegrationWrites = true, apiKeys = null } = {}) => [
     ...LOCAL_AGENT_TOOLS,
-    ...getIntegrationTools({ allowWrites: allowIntegrationWrites })
+    ...getIntegrationTools({ allowWrites: allowIntegrationWrites, apiKeys })
 ];
 
 // ── Path bar ────────────────────────────────────────────────────────────────
@@ -1146,6 +1154,7 @@ export default function CoworkMode() {
                 buildIntegrationToolsPrompt(apiKeys),
                 `Use tools proactively to inspect the codebase, read files before editing them, and verify your changes.`,
                 `run_command is only available in WebContainer sandboxes, not local projects.`,
+                `delegate_to_openclaw hands a task to the OpenClaw gateway agent — use it for long-running, scheduled, or multi-step orchestration (cron, browser automation, paired-node execution) that goes beyond local file edits.`,
                 `Current session task: ${currentSession.title}`
             ].join('\n');
             appendMissionRunEvent(missionRunId, {
@@ -1208,7 +1217,7 @@ export default function CoworkMode() {
 
                 const { content, toolCalls } = await client.streamChatWithTools(
                     llmMessages,
-                    getAgentTools({ allowIntegrationWrites: permissionLevel !== 'read' }),
+                    getAgentTools({ allowIntegrationWrites: permissionLevel !== 'read', apiKeys }),
                     (chunk, meta) => {
                         if (!meta?.isThinking) {
                             iterContent += chunk;

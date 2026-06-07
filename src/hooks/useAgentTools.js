@@ -115,6 +115,26 @@ export function useAgentTools(workingDirectory, webcontainerInstance, apiKeys = 
                     return { output, exitCode };
                 }
 
+                // ── delegate_to_openclaw ───────────────────────────────────
+                case 'delegate_to_openclaw': {
+                    if (!window.electron?.runOpenClawAgent) {
+                        return { error: 'OpenClaw delegation requires the Perci desktop app.' };
+                    }
+                    const message = (params.message || '').trim();
+                    if (!message) return { error: 'A message is required to delegate to OpenClaw.' };
+                    log(`→ OpenClaw: ${message.slice(0, 80)}`);
+                    const res = await window.electron.runOpenClawAgent({
+                        message,
+                        sessionKey: params.session_key || undefined,
+                    });
+                    if (!res?.ok) {
+                        log(`❌ OpenClaw: ${res?.error || 'failed'}`);
+                        return { error: res?.error || 'OpenClaw delegation failed.' };
+                    }
+                    log(`✓ OpenClaw replied (${res.text.length} chars)`);
+                    return { reply: res.text, session_id: res.sessionId, model: res.model };
+                }
+
                 default:
                     return await executeIntegrationTool(name, params, apiKeys);
             }

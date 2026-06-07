@@ -86,7 +86,7 @@ function isBundledAssetDocumentUrl(url) {
     || /\/node_modules\/@webcontainer\/api\/dist\/.+\.js$/.test(pathname);
 }
 
-function requestJson(url, timeoutMs = 2000) {
+function requestJson(url, timeoutMs = 2000, headers = {}) {
   return new Promise((resolve) => {
     let parsed;
     try {
@@ -98,7 +98,7 @@ function requestJson(url, timeoutMs = 2000) {
 
     const client = parsed.protocol === 'https:' ? https : http;
     const startedAt = Date.now();
-    const req = client.get(parsed, { timeout: timeoutMs }, (res) => {
+    const req = client.get(parsed, { timeout: timeoutMs, headers }, (res) => {
       let body = '';
       res.setEncoding('utf8');
       res.on('data', chunk => { body += chunk; });
@@ -135,6 +135,182 @@ function requestJson(url, timeoutMs = 2000) {
       resolve({ ok: false, url, error: err.message, latencyMs: Date.now() - startedAt });
     });
   });
+}
+
+function requestText(url, timeoutMs = 8000, headers = {}) {
+  return new Promise((resolve) => {
+    let parsed;
+    try {
+      parsed = new URL(url);
+    } catch (err) {
+      resolve({ ok: false, url, error: err.message });
+      return;
+    }
+
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      resolve({ ok: false, url, error: 'Unsupported protocol' });
+      return;
+    }
+
+    const client = parsed.protocol === 'https:' ? https : http;
+    const startedAt = Date.now();
+    const req = client.get(parsed, { timeout: timeoutMs, headers }, (res) => {
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', chunk => {
+        body += chunk;
+        if (body.length > 1_000_000) req.destroy(new Error('Response too large'));
+      });
+      res.on('end', () => {
+        resolve({
+          ok: res.statusCode >= 200 && res.statusCode < 300,
+          url,
+          status: res.statusCode,
+          body,
+          latencyMs: Date.now() - startedAt
+        });
+      });
+    });
+
+    req.on('timeout', () => {
+      req.destroy();
+      resolve({ ok: false, url, error: 'Connection timed out', latencyMs: Date.now() - startedAt });
+    });
+    req.on('error', err => {
+      resolve({ ok: false, url, error: err.message, latencyMs: Date.now() - startedAt });
+    });
+  });
+}
+
+function decodeHtmlEntities(value = '') {
+  return String(value)
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&#x2F;/g, '/')
+    .replace(/&#(\d+);/g, (_match, code) => String.fromCharCode(Number(code)));
+}
+
+function stripHtml(value = '') {
+  return decodeHtmlEntities(String(value).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim());
+}
+
+function normalizeDuckDuckGoUrl(rawUrl = '') {
+  try {
+    const parsed = new URL(decodeHtmlEntities(rawUrl), 'https://duckduckgo.com');
+    const uddg = parsed.searchParams.get('uddg');
+    if (uddg) return decodeURIComponent(uddg);
+    return parsed.toString();
+  } catch {
+    return '';
+  }
+}
+
+function parseDuckDuckGoResults(html, maxResults = 6) {
+  const results = [];
+  const seen = new Set();
+  const titlePattern = /<a[^>]+class="[^"]*\bresult__a\b[^"]*"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g;
+  const snippetPattern = /<a[^>]+class="result__snippet"[\s\S]*?>([\s\S]*?)<\/a>|<div[^>]+class="result__snippet"[\s\S]*?>([\s\S]*?)<\/div>/;
+
+  const titleMatches = [...html.matchAll(titlePattern)];
+  for (let i = 0; i < titleMatches.length; i++) {
+    if (results.length >= maxResults) break;
+    const titleMatch = titleMatches[i];
+
+    const url = normalizeDuckDuckGoUrl(titleMatch[1]);
+    if (!url || seen.has(url) || !/^https?:\/\//i.test(url)) continue;
+    seen.add(url);
+
+    const nextIndex = titleMatches[i + 1]?.index || html.length;
+    const block = html.slice(titleMatch.index, nextIndex);
+    const snippetMatch = block.match(snippetPattern);
+    const title = stripHtml(titleMatch[2]);
+    const snippet = stripHtml(snippetMatch?.[1] || snippetMatch?.[2] || title);
+
+    results.push({
+      id: results.length + 1,
+      title,
+      url,
+      content: snippet,
+      score: 1,
+      publishedDate: null
+    });
+  }
+
+  return results;
+}
+
+const MONTH_NAMES = [
+  'january', 'february', 'march', 'april', 'may', 'june',
+  'july', 'august', 'september', 'october', 'november', 'december'
+];
+
+function parseHistoryDateFromQuery(query) {
+  const text = String(query || '').toLowerCase();
+  const monthPattern = new RegExp(`\\b(${MONTH_NAMES.join('|')})\\s+(\\d{1,2})\\b`, 'i');
+  const monthMatch = text.match(monthPattern);
+  if (monthMatch) {
+    const month = MONTH_NAMES.indexOf(monthMatch[1].toLowerCase()) + 1;
+    const day = Number(monthMatch[2]);
+    if (month >= 1 && day >= 1 && day <= 31) return { month, day };
+  }
+
+  const numericMatch = text.match(/\b(\d{1,2})[/-](\d{1,2})(?:[/-]\d{2,4})?\b/);
+  if (numericMatch) {
+    const month = Number(numericMatch[1]);
+    const day = Number(numericMatch[2]);
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) return { month, day };
+  }
+
+  const now = new Date();
+  return { month: now.getMonth() + 1, day: now.getDate() };
+}
+
+function isHistoryDateQuery(query) {
+  return /this day in history|on this day|historical events/i.test(String(query || ''));
+}
+
+function formatWikimediaHistorySources(data, month, day, maxResults = 8) {
+  const events = Array.isArray(data?.events) ? data.events : [];
+  return events.slice(0, maxResults).map((event, index) => {
+    const primaryPage = Array.isArray(event.pages) ? event.pages[0] : null;
+    const year = event.year ? `${event.year}: ` : '';
+    return {
+      id: index + 1,
+      title: `${year}${stripHtml(event.text || primaryPage?.title || 'Historical event')}`,
+      url: primaryPage?.content_urls?.desktop?.page || `https://en.wikipedia.org/wiki/${MONTH_NAMES[month - 1]}_${day}`,
+      content: `${year}${stripHtml(event.text || '')}`,
+      score: 1,
+      publishedDate: null
+    };
+  });
+}
+
+async function searchWikimediaOnThisDay(query, maxResults = 8) {
+  const { month, day } = parseHistoryDateFromQuery(query);
+  const url = `https://api.wikimedia.org/feed/v1/wikipedia/en/onthisday/events/${month}/${day}`;
+  const response = await requestJson(url, 8000, {
+    'User-Agent': 'Opal/1.0 (https://opal.local)'
+  });
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: response.error || `Wikimedia on-this-day lookup failed with status ${response.status || 'unknown'}`,
+      sources: []
+    };
+  }
+
+  const sources = formatWikimediaHistorySources(response.data, month, day, maxResults);
+  return {
+    ok: sources.length > 0,
+    query,
+    sources,
+    provider: 'wikimedia-onthisday',
+    error: sources.length > 0 ? null : 'No Wikimedia on-this-day events found'
+  };
 }
 
 function commandExists(command, extraPaths = []) {
@@ -844,6 +1020,44 @@ ipcMain.handle('open-external', async (event, url) => {
   return true;
 });
 
+ipcMain.handle('web-search', async (event, { query, options = {} } = {}) => {
+  const trimmedQuery = typeof query === 'string' ? query.trim().slice(0, 300) : '';
+  if (!trimmedQuery) {
+    return { ok: false, error: 'Missing search query', sources: [] };
+  }
+
+  const maxResults = Math.min(10, Math.max(1, Number(options.maxResults) || 6));
+  if (isHistoryDateQuery(trimmedQuery)) {
+    const historyResults = await searchWikimediaOnThisDay(trimmedQuery, maxResults);
+    if (historyResults.ok) return historyResults;
+  }
+
+  const searchUrl = new URL('https://html.duckduckgo.com/html/');
+  searchUrl.searchParams.set('q', trimmedQuery);
+
+  const response = await requestText(searchUrl.toString(), 8000, {
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Opal/1.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml'
+  });
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: response.error || `Search failed with status ${response.status || 'unknown'}`,
+      sources: []
+    };
+  }
+
+  const sources = parseDuckDuckGoResults(response.body || '', maxResults);
+  return {
+    ok: sources.length > 0,
+    query: trimmedQuery,
+    sources,
+    provider: 'duckduckgo-html',
+    error: sources.length > 0 ? null : 'No search results found'
+  };
+});
+
 
 function deriveOpenClawHttpUrl(profile = {}) {
   if (profile.controlUrl) return profile.controlUrl;
@@ -1031,6 +1245,34 @@ ipcMain.handle('openclaw:events-start', async (event, profile = {}) => {
 ipcMain.handle('openclaw:events-stop', async () => {
   stopOpenClawLogStream();
   return { ok: true };
+});
+
+// Await-style agent turn for the Cowork delegation tool: runs `openclaw agent
+// --json` to completion and returns the reply. Arg array (no shell) — message
+// is caller-supplied. --session-key keeps a resumable conversation.
+ipcMain.handle('openclaw:agent-run', async (event, { message, agent = 'main', sessionKey, model, timeoutSec = 600 } = {}) => {
+  if (!message || typeof message !== 'string') return { ok: false, error: 'A message is required.' };
+  const args = ['agent', '--agent', agent, '--json', '--timeout', String(timeoutSec), '--message', message];
+  if (sessionKey) args.push('--session-key', sessionKey);
+  if (model) args.push('--model', model);
+
+  const result = await runOpenClaw(args, (timeoutSec + 30) * 1000);
+  const data = extractJsonObject(result.stdout);
+  // Gateway-routed replies nest under `result`; embedded fallback puts payloads
+  // at the top level. Handle both.
+  const payload = data?.result || data;
+  const text = payload?.payloads?.map(p => p.text).filter(Boolean).join('\n').trim();
+  if (text) {
+    return {
+      ok: true,
+      text,
+      sessionId: payload?.meta?.agentMeta?.sessionId || null,
+      model: payload?.meta?.agentMeta?.model || null
+    };
+  }
+  const err = (result.error || result.stderr || result.stdout || '')
+    .split('\n').map(l => l.trim()).filter(Boolean).slice(-3).join(' ') || 'No reply from the OpenClaw gateway agent.';
+  return { ok: false, error: err };
 });
 
 ipcMain.handle('openclaw:get-local-profile', async () => {
@@ -1351,8 +1593,53 @@ ipcMain.handle('agent-jobs:queue', async (event, { agent, prompt, working_direct
   if (agent === 'hermes') {
     return { ok: false, error: 'Use the Mercury app for Hermes. Launch it from the Agents page or Settings.' };
   }
+  // OpenClaw runs a gateway agent turn (session bridging) rather than a local
+  // CLI. Spawn `openclaw agent --json` (arg array, no shell — prompt is user
+  // input) and surface the agent's reply through the same job record machinery.
   if (agent === 'openclaw') {
-    return { ok: false, error: 'OpenClaw runs through the Gateway. Use the OpenClaw dashboard.' };
+    const jobId = generateJobId();
+    const startedAt = new Date().toISOString();
+    const jobRecord = {
+      id: jobId, agent, type: agent, status: 'running', prompt,
+      working_directory: null, model: requestedModel || null, source: 'agents_page',
+      created_at: startedAt, started_at: startedAt, completed_at: null,
+      exit_code: null, output: '', output_kind: null, session_id: null, childProcess: null,
+    };
+    const args = ['agent', '--agent', 'main', '--json', '--timeout', '600', '--message', prompt];
+    if (requestedModel) args.push('--model', requestedModel);
+    const child = spawn('openclaw', args, { env: { ...process.env }, stdio: ['ignore', 'pipe', 'pipe'], shell: false });
+    jobRecord.childProcess = child;
+
+    let raw = '';
+    child.stdout.on('data', chunk => { raw += chunk.toString(); });
+    child.on('error', err => {
+      jobRecord.completed_at = new Date().toISOString();
+      jobRecord.status = 'failed';
+      jobRecord.output_kind = 'error';
+      jobRecord.output = `Process error: ${err.message}`;
+    });
+    child.on('close', code => {
+      jobRecord.completed_at = new Date().toISOString();
+      const data = extractJsonObject(raw);
+      // Gateway-routed replies nest under `result`; embedded fallback is top-level.
+      const payload = data?.result || data;
+      const text = payload?.payloads?.map(p => p.text).filter(Boolean).join('\n').trim();
+      if (text) {
+        jobRecord.output = text;
+        jobRecord.output_kind = 'output';
+        jobRecord.status = 'completed';
+        jobRecord.exit_code = 0;
+        jobRecord.session_id = payload?.meta?.agentMeta?.sessionId || null;
+      } else {
+        jobRecord.status = 'failed';
+        jobRecord.exit_code = code;
+        jobRecord.output_kind = 'error';
+        jobRecord.output = raw.split('\n').map(l => l.trim()).filter(Boolean).slice(-4).join('\n') || 'No reply from the OpenClaw gateway agent.';
+      }
+    });
+
+    agentJobs.set(jobId, { childProcess: child, job: jobRecord });
+    return { ok: true, job: serializeJob(jobRecord) };
   }
 
   const command = getAgentCommand(agent);

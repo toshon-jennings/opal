@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('electron', {
   setAppData: (data) => ipcRenderer.invoke('app-data:set', data),
   getAppDataPath: () => ipcRenderer.invoke('app-data:path'),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
+  webSearch: (query, options) => ipcRenderer.invoke('web-search', { query, options }),
   listAgentJobs: (options) => ipcRenderer.invoke('agent-jobs:list', options),
   queueAgentJob: (job) => ipcRenderer.invoke('agent-jobs:queue', job),
   cancelAgentJob: (id) => ipcRenderer.invoke('agent-jobs:cancel', id),
@@ -24,6 +25,7 @@ contextBridge.exposeInMainWorld('electron', {
     ipcRenderer.on('openclaw:event', listener);
     return () => ipcRenderer.removeListener('openclaw:event', listener);
   },
+  runOpenClawAgent: (opts) => ipcRenderer.invoke('openclaw:agent-run', opts),
   restartOpenClawGateway: () => ipcRenderer.invoke('openclaw:restart-gateway'),
   readOpenClawConfig: () => ipcRenderer.invoke('openclaw:read-config'),
   writeOpenClawConfig: (config) => ipcRenderer.invoke('openclaw:write-config'),
