@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.16.0] - 2026-06-07
+### Added
+- New **window + dock system** for non-Chat modes — Cowork, Code, Agents, Mission, Build, and OpenClaw open as floating, draggable, resizable windows with macOS traffic-light controls, 8-way resize, double-click maximize, and a bottom dock with whirlpool-minimize and domino chip-in animations.
+- Open windows persist across reloads; per-mode geometry is remembered when reopening closed windows.
+- Per-window error boundary so a crash in one mode doesn't tear down others.
+- **OpenClaw session bridging** (bridge step 3) — Agents panel can run OpenClaw through the gateway agent bridge; Cowork exposes `delegate_to_openclaw` for long-running or multi-step gateway delegation.
+- **Gateway health + live event streaming** in Mission Control.
+- **Intent-aware search** — `IntelligentSearchTool.planSearch()` classifies each message (intent/reason/searchQueries/freshness/expectedSourceTypes) using the selected model, with deterministic local-fact detection for clock/calendar questions and keyword heuristics as offline fallback. Replaces the old brittle `shouldAutoUseWebSearch` phrase matcher.
+- `local_runtime_fact` intent answers date/time/day questions directly from the system clock — no web search needed.
+- Relevance scoring (token overlap) sorts search results; weak/empty results trigger honest "I searched but found nothing" model guidance instead of fabricated summaries.
+- Odysseus-inspired motion pass for Perci/Mission: whirlpool thinking/search indicators, Mission timeline rails, active synapse pulses, domino list reveal utilities.
+- Scoped focus-card hover for Mission Control and guide modals — hovered cards lift/glow while siblings recede.
+- Perci product upgrades capture.
+
+### Changed
+- Perci web search now uses the desktop `web-search` bridge/native provider search path instead of Tavily.
+- Removed dead `analyzeSearchCompleteness` and `isNewsQuery` from `IntelligentSearchTool`.
+- OpenClaw dashboard rendered as a window (not fullscreen overlay); redundant inline close button removed (window chrome owns close).
+
+### Fixed
+- Prevented EPIPE crash from broken stdout/stderr pipe.
+- Cowork jobs no longer cancel when navigating away from the mode.
+- Explicit web search toggle now honored correctly.
+- Window resize-larger drag fixed via full-viewport drag shield.
+- Spurious same-origin full reloads blocked in main-process (prevents SPA state wipe).
+- Guide modals no longer reset Advanced tab back to Guide during re-renders.
+- Mission guide tab reset on close only (not during background re-renders).
+
 ## [0.15.0] - 2026-06-06
 ### Added
 - Added an Advanced tab to the in-app Mission Control guide for power users, covering run lifecycle, validation linking, memory pipeline behavior, Transit Map semantics, and operational caveats.
