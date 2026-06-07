@@ -752,6 +752,19 @@ function ChatMode() {
             const planWantsSearch = Boolean(searchPlan && !['local_runtime_fact', 'no_search'].includes(searchPlan.intent));
             const shouldUseSearch = !isLocalRuntimeFact && (isSearchEnabled || planWantsSearch);
 
+            // User explicitly enabled web search but the planner saw no need: honor the
+            // toggle with a general web search (local runtime facts are still answered directly).
+            if (shouldUseSearch && !isLocalRuntimeFact && (!searchPlan || searchPlan.intent === 'no_search')) {
+                searchPlan = {
+                    intent: 'web_search',
+                    reason: 'User enabled web search',
+                    searchQueries: [],
+                    freshness: 'any',
+                    expectedSourceTypes: [],
+                    directAnswer: null
+                };
+            }
+
             if (shouldUseSearch && !canUseLiveWebSearch && !isDeepResearch) {
                 addMessage('assistant', 'This question needs web search, but no live web provider is available. Fully restart the Perci desktop dev app for local no-key search, or use OpenAI/Anthropic with an API key for native web search.');
                 setIsLoading(false);
