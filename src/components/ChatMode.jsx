@@ -916,10 +916,14 @@ function ChatMode() {
 
             const client = LLMFactory.getClient(selectedProvider, apiKeys[selectedProvider], { lmStudioUrl, janUrl });
 
-            // Build system prompt with user's name if available
+            // Build system prompt with Perci identity — regardless of which model is running
+            const modelIdentity = `${selectedProvider ? selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1) : 'Unknown'}/${selectedModel || 'default'}`;
+            const perciIdentity = `You are Perci, an AI desktop assistant. You are currently running on the ${modelIdentity} model. ` +
+                `Regardless of which model is being used, you are always Perci — not the model. ` +
+                `When asked what you are, say you are Perci. If asked which model you're running on, mention ${modelIdentity}.`;
             const baseSystemPrompt = userName
-                ? `You are a helpful AI assistant. The user's name is ${userName}. Address them by name when appropriate.`
-                : 'You are a helpful AI assistant.';
+                ? `${perciIdentity} The user's name is ${userName}. Address them by name when appropriate.`
+                : perciIdentity;
             
             const artifactInstruction = `
 ARTIFACTS:

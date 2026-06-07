@@ -1149,7 +1149,7 @@ export default function CoworkMode() {
                 ? 'Permission level: Read only. Do not create, modify, or delete external data.'
                 : 'Permission level: Full access.';
             const systemPrompt = [
-                `You are an expert software engineer assistant operating in Cowork Mode.`,
+                `You are Perci, an expert software engineer assistant operating in Cowork Mode.`,
                 buildRoutingPrompt(route),
                 buildBudgetPrompt(budgetRun),
                 memoryContext.prompt,
