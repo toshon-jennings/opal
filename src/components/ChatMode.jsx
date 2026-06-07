@@ -2014,19 +2014,7 @@ function OpalThinkingIndicator({ startTime }) {
             role="status"
             aria-live="polite"
         >
-            <svg
-                className="w-4 h-4 animate-pulse shrink-0"
-                style={{ color: 'var(--accent)' }}
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                aria-hidden="true"
-            >
-                <path d="M12 4.5c-3.5 0-6 2.5-6 5.5 0 2 1 3.5 2.5 4.5v2a1.5 1.5 0 001.5 1.5h4a1.5 1.5 0 001.5-1.5v-2c1.5-1 2.5-2.5 2.5-4.5 0-3-2.5-5.5-6-5.5z" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M9 18.5v1a1.5 1.5 0 001.5 1.5h3a1.5 1.5 0 001.5-1.5v-1" strokeLinecap="round" />
-                <path d="M10 10h.01M14 10h.01M12 10v3" strokeLinecap="round" />
-            </svg>
+            <span className="perci-whirlpool perci-whirlpool-lg" aria-hidden="true" />
 
             <div className="flex items-center gap-2">
                 <span className="text-sm font-medium" style={{ color: 'var(--accent)' }}>

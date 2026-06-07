@@ -448,7 +448,7 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
                         </div>
                     </div>
 
-                    <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-2">
+                    <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-2 perci-domino-list">
                         {filteredRuns.length === 0 ? (
                             <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] p-3 text-sm leading-6 text-[var(--text-secondary)]">
                                 No Mission runs match this filter.
@@ -506,10 +506,23 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
 
                             <div className="mt-4 grid grid-cols-2 gap-4 max-lg:grid-cols-1">
                                 <Panel title="Checkpoints" icon={History}>
-                                    <div className="space-y-3">
+                                    <div className={`space-y-3 perci-timeline ${selectedRun.status === 'running' ? 'streaming' : ''}`}>
                                         {(selectedRun.checkpoints || []).map((checkpoint, index) => (
-                                            <div key={`${checkpoint.label}-${index}`} className="flex items-center gap-3">
-                                                <span className={`h-2.5 w-2.5 rounded-full ${checkpoint.state === 'done' ? 'bg-emerald-400' : checkpoint.state === 'active' ? 'bg-amber-400' : checkpoint.state === 'blocked' ? 'bg-red-400' : 'bg-[var(--bg-tertiary)] border border-[var(--border)]'}`} />
+                                            <div
+                                                key={`${checkpoint.label}-${index}`}
+                                                className={`perci-timeline-node flex items-center gap-3 ${checkpoint.state === 'active' ? 'is-running' : ''}`}
+                                            >
+                                                <span
+                                                    className={`perci-timeline-dot ${
+                                                        checkpoint.state === 'done'
+                                                            ? 'is-done'
+                                                            : checkpoint.state === 'active'
+                                                                ? 'is-running'
+                                                                : checkpoint.state === 'blocked'
+                                                                    ? 'is-blocked'
+                                                                    : ''
+                                                    }`}
+                                                />
                                                 <span className={`text-sm ${getCheckpointClass(checkpoint.state)}`}>{checkpoint.label}</span>
                                             </div>
                                         ))}
@@ -617,9 +630,15 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
                             <div className="mt-4">
                                 <Panel title="Run Events" icon={History}>
                                     {selectedRun.events?.length ? (
-                                        <div className="space-y-3">
-                                            {selectedRun.events.map(event => (
-                                                <div key={event.id} className="rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] p-3">
+                                        <div className={`space-y-3 perci-timeline perci-domino-list ${selectedRun.status === 'running' ? 'streaming' : ''}`}>
+                                            {selectedRun.events.map((event, index) => (
+                                                <div
+                                                    key={event.id}
+                                                    className={`perci-timeline-node rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] p-3 ${
+                                                        selectedRun.status === 'running' && index === 0 ? 'is-running' : ''
+                                                    }`}
+                                                >
+                                                    <span className={`perci-timeline-dot ${selectedRun.status === 'running' && index === 0 ? 'is-running' : 'is-done'}`} />
                                                     <div className="flex items-center justify-between gap-3">
                                                         <span className="text-sm font-medium text-[var(--text-primary)]">{event.title}</span>
                                                         <span className="text-[11px] text-[var(--text-tertiary)]">{formatTime(event.createdAt)}</span>

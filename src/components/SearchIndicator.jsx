@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Loader2, CheckCircle } from 'lucide-react';
+import { Search, CheckCircle } from 'lucide-react';
 
 export function SearchIndicator({ searchQuery, isSearching = true, searchNumber = null, totalSearches = null, sourcesFound = null }) {
     if (!searchQuery && !isSearching) return null;
@@ -12,7 +12,7 @@ export function SearchIndicator({ searchQuery, isSearching = true, searchNumber 
             {isComplete ? (
                 <CheckCircle size={16} className="text-green-600" />
             ) : isSearching ? (
-                <Loader2 size={16} className="animate-spin text-[var(--accent)]" />
+                <span className="perci-whirlpool perci-whirlpool-sm" aria-hidden="true" />
             ) : (
                 <Search size={16} className="text-[var(--accent)]" />
             )}
