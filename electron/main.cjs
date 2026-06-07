@@ -56,6 +56,21 @@ function attachRendererDiagnostics(win) {
     if (!isDev && isBundledAssetDocumentUrl(url)) {
       event.preventDefault();
       appendRendererLog(`blocked-bundled-asset-navigation url=${url}`);
+      return;
+    }
+    // The renderer is a single-page app and must never navigate its own top
+    // frame. A stray form submit or anchor click that targets the app's origin
+    // would otherwise trigger a full reload, wiping in-memory UI state (open
+    // windows, scroll, unsaved input). Block same-origin top-frame navigations;
+    // this does not affect Vite HMR (location.reload), the OpenClaw <webview>
+    // (separate webContents), or external links (different origin).
+    try {
+      if (new URL(url).origin === new URL(wc.getURL()).origin) {
+        event.preventDefault();
+        appendRendererLog(`blocked-self-navigation url=${url}`);
+      }
+    } catch {
+      /* unparseable URL — leave default behavior */
     }
   });
   wc.on('did-navigate', (_event, url) => {

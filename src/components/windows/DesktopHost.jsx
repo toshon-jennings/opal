@@ -1,5 +1,6 @@
 import { useMode } from '../../context/ModeContext';
 import WindowFrame from './WindowFrame';
+import WindowErrorBoundary from './WindowErrorBoundary';
 
 // Overlay layer that renders the open windows above the Chat base. The host
 // itself is click-through (pointer-events: none); each window re-enables
@@ -17,7 +18,9 @@ export default function DesktopHost({ renderContent }) {
         <div className="perci-desktop-host">
             {sorted.map(win => (
                 <WindowFrame key={win.id} win={win} active={win.id === activeId}>
-                    {renderContent(win.modeId)}
+                    <WindowErrorBoundary label={win.title}>
+                        {renderContent(win.modeId)}
+                    </WindowErrorBoundary>
                 </WindowFrame>
             ))}
         </div>

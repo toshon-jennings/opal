@@ -60,6 +60,26 @@ function clampBounds(bounds) {
     return { x, y, width, height };
 }
 
+// Rebuilds the persisted open-window set on load: validates shape, re-clamps
+// geometry to the current viewport, and re-derives non-persisted fields.
+function hydrateWindows(saved) {
+    if (!Array.isArray(saved)) return [];
+    const validStates = new Set(['normal', 'minimized', 'maximized']);
+    return saved
+        .filter(w => w && typeof w.id === 'string' && typeof w.modeId === 'string')
+        .map(w => ({
+            id: w.id,
+            modeId: w.modeId,
+            title: WINDOW_TITLES[w.modeId] || w.title || w.modeId,
+            state: validStates.has(w.state) ? w.state : 'normal',
+            z: Number(w.z) || 20,
+            focusedAt: Number(w.focusedAt) || Date.now(),
+            bounds: clampBounds(w.bounds && typeof w.bounds === 'object' ? w.bounds : defaultBounds(0)),
+            restoreBounds: w.restoreBounds && typeof w.restoreBounds === 'object' ? clampBounds(w.restoreBounds) : undefined,
+            noWhirlpool: NO_WHIRLPOOL_IDS.has(w.modeId),
+        }));
+}
+
 const DEFAULT_OPENCLAW_CONFIG = {
     activeProfileId: 'local',
     profiles: [
@@ -111,15 +131,20 @@ export function ModeProvider({ children }) {
     // ── Window system ──────────────────────────────────────────────
     // Chat is the always-mounted base "desktop". The other modes open as
     // floating windows on top, tracked here and surfaced by the bottom dock.
-    // Window geometry is remembered per mode; the open set itself is per-session
-    // (we don't auto-reopen heavy modes on reload).
-    const [windows, setWindows] = useState([]);
-    const zCounterRef = useRef(20);
+    // The open set is persisted so windows survive a reload; per-mode geometry is
+    // remembered separately so reopening a closed window restores its size.
+    const [windows, setWindows] = useState(() => hydrateWindows(readJsonStorage('opal_open_windows', [])));
+    const zCounterRef = useRef(windows.reduce((max, w) => Math.max(max, w.z || 0), 20));
 
     // Mirror of `windows` so actions can read the latest set without putting
     // impure logic inside setState updaters.
     const windowsRef = useRef(windows);
     useEffect(() => { windowsRef.current = windows; }, [windows]);
+
+    // Persist the open window set (which modes are open, their state + geometry).
+    useEffect(() => {
+        localStorage.setItem('opal_open_windows', serializeJson(windows));
+    }, [windows]);
 
     // Per-mode geometry memory. Kept in a ref (not React state) so move/resize
     // updaters stay pure; persisted to localStorage by the effect below.

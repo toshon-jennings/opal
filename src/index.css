@@ -339,6 +339,36 @@ textarea:focus-visible {
     box-shadow 0.22s ease;
 }
 
+.focus-card {
+  position: relative;
+  transition:
+    transform 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.18s ease,
+    filter 0.18s ease,
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .focus-field:has(> .focus-card:hover) > .focus-card:not(:hover):not(:focus-within),
+  .focus-field:has(> .focus-card:focus-within) > .focus-card:not(:hover):not(:focus-within) {
+    opacity: 0.48;
+    filter: saturate(0.72) contrast(0.9);
+  }
+
+  .focus-card:hover,
+  .focus-card:focus-within {
+    z-index: 2;
+    transform: translateY(-2px);
+    border-color: rgba(var(--accent-rgb), 0.46);
+    box-shadow:
+      0 0 0 1px rgba(var(--accent-rgb), 0.18),
+      0 12px 32px rgba(0, 0, 0, 0.16),
+      0 0 28px rgba(var(--accent-rgb), 0.14);
+  }
+}
+
 .delight-field {
   position: relative;
   overflow: hidden;
@@ -625,6 +655,9 @@ textarea:focus-visible {
   .perci-timeline-dot.is-running,
   .perci-domino-list > *,
   .perci-skeleton-shimmer { animation: none; }
+  .focus-card { transition: none; }
+  .focus-card:hover,
+  .focus-card:focus-within { transform: none; }
 }
 
 /* ─── Thinking / reasoning blocks ────────────────────────────────────────── */
@@ -1138,3 +1171,12 @@ html.dark .mercury-branded.active {
 .perci-window.anim-fade-in { animation: perci-fade-in 0.22s ease; }
 @keyframes perci-fade-out { from { opacity: 1; } to { opacity: 0; } }
 @keyframes perci-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* Drag shield: covers everything (incl. webviews) during a window drag/resize so
+   pointer events never get swallowed by an iframe/webview the cursor passes over. */
+.perci-drag-shield {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  background: transparent;
+}

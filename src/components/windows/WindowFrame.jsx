@@ -1,9 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useMode } from '../../context/ModeContext';
 
 const MIN_W = 420;
 const MIN_H = 300;
 const RESIZE_DIRS = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
+
+// Cursor for the drag shield based on what's being dragged.
+const DRAG_CURSORS = {
+    move: 'grabbing',
+    n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize',
+    ne: 'nesw-resize', sw: 'nesw-resize', nw: 'nwse-resize', se: 'nwse-resize',
+};
 
 // A single floating window. Draggable by its header, resizable from 8 edges,
 // with macOS-style traffic-light controls. Minimizing plays a "whirlpool" spin
@@ -16,6 +24,7 @@ export default function WindowFrame({ win, active, children }) {
     const openedRef = useRef(false);
     const prevStateRef = useRef(win.state);
     const [anim, setAnim] = useState(null); // 'open' | 'in' | 'out' | 'close'
+    const [dragKind, setDragKind] = useState(null); // 'move' | resize dir, drives the drag shield
 
     useEffect(() => {
         if (!openedRef.current) {
@@ -54,6 +63,7 @@ export default function WindowFrame({ win, active, children }) {
 
     const endDrag = useCallback(() => {
         dragRef.current = null;
+        setDragKind(null);
         window.removeEventListener('pointermove', onPointerMove);
         window.removeEventListener('pointerup', endDrag);
         document.body.style.userSelect = '';
@@ -65,6 +75,7 @@ export default function WindowFrame({ win, active, children }) {
         if (e.button !== 0 || win.state === 'maximized') return;
         focusWindow(win.id);
         dragRef.current = { type: 'move', sx: e.clientX, sy: e.clientY, ...win.bounds };
+        setDragKind('move');
         document.body.style.userSelect = 'none';
         window.addEventListener('pointermove', onPointerMove);
         window.addEventListener('pointerup', endDrag);
@@ -75,6 +86,7 @@ export default function WindowFrame({ win, active, children }) {
         if (win.state === 'maximized') return;
         focusWindow(win.id);
         dragRef.current = { type: 'resize', dir, sx: e.clientX, sy: e.clientY, ...win.bounds };
+        setDragKind(dir);
         document.body.style.userSelect = 'none';
         window.addEventListener('pointermove', onPointerMove);
         window.addEventListener('pointerup', endDrag);
@@ -114,9 +126,9 @@ export default function WindowFrame({ win, active, children }) {
                 onDoubleClick={() => toggleMaximizeWindow(win.id)}
             >
                 <div className="perci-window-controls" onPointerDown={(e) => e.stopPropagation()}>
-                    <button className="pwc close" aria-label={`Close ${win.title}`} onClick={(e) => { e.stopPropagation(); setAnim('close'); }} />
-                    <button className="pwc min" aria-label={`Minimize ${win.title}`} onClick={(e) => { e.stopPropagation(); minimizeWindow(win.id); }} />
-                    <button className="pwc max" aria-label={`${maximized ? 'Restore' : 'Maximize'} ${win.title}`} onClick={(e) => { e.stopPropagation(); toggleMaximizeWindow(win.id); }} />
+                    <button type="button" className="pwc close" aria-label={`Close ${win.title}`} onClick={(e) => { e.stopPropagation(); setAnim('close'); }} />
+                    <button type="button" className="pwc min" aria-label={`Minimize ${win.title}`} onClick={(e) => { e.stopPropagation(); minimizeWindow(win.id); }} />
+                    <button type="button" className="pwc max" aria-label={`${maximized ? 'Restore' : 'Maximize'} ${win.title}`} onClick={(e) => { e.stopPropagation(); toggleMaximizeWindow(win.id); }} />
                 </div>
                 <div className="perci-window-title">{win.title}</div>
             </div>
@@ -126,6 +138,15 @@ export default function WindowFrame({ win, active, children }) {
             {!maximized && RESIZE_DIRS.map(dir => (
                 <div key={dir} className={`perci-resizer ${dir}`} onPointerDown={startResize(dir)} />
             ))}
+
+            {/* During a drag, a full-viewport shield sits above all windows and any
+                iframe/webview so the cursor never leaves this document — otherwise
+                dragging outward over a webview swallows pointer events and the drag
+                (e.g. resizing larger) silently stops. */}
+            {dragKind && createPortal(
+                <div className="perci-drag-shield" style={{ cursor: DRAG_CURSORS[dragKind] || 'default' }} />,
+                document.body
+            )}
         </div>
     );
 }
