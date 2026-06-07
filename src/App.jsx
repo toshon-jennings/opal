@@ -152,6 +152,15 @@ function AppContent() {
             }
 
             const result = await window.electron.testOpenClawConnection(activeOpenClawProfile);
+            // When reachable, enrich with structured gateway health (runtime,
+            // tasks, agents) for the Mission Control lane. Best-effort — a failure
+            // here must not flip the reachability verdict from the TCP probe.
+            if (result.ok && window.electron?.getOpenClawGatewayStatus) {
+                try {
+                    const status = await window.electron.getOpenClawGatewayStatus(activeOpenClawProfile);
+                    if (status?.ok && status.health) result.health = status.health;
+                } catch { /* leave result as the bare reachability check */ }
+            }
             if (!cancelled) {
                 const checkedAt = new Date().toISOString();
                 setOpenClawStatus({

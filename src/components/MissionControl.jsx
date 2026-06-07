@@ -130,6 +130,7 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
     const [intentReviews, setIntentReviews] = useState(() => readIntentReviews());
     const [transitModalOpen, setTransitModalOpen] = useState(false);
     const [guideModalOpen, setGuideModalOpen] = useState(false);
+    const [liveEvents, setLiveEvents] = useState([]);
 
     const activeProfile = openClawConfig.profiles.find(profile => profile.id === openClawConfig.activeProfileId) || openClawConfig.profiles[0];
     const filteredRuns = useMemo(() => runs.filter(run => matchesRunFilter(run, activeFilter)), [runs, activeFilter]);
@@ -278,9 +279,35 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
         if (!window.electron?.testOpenClawConnection || !activeProfile) return;
         setIsCheckingGateway(true);
         const result = await window.electron.testOpenClawConnection(activeProfile);
+        if (result.ok && window.electron?.getOpenClawGatewayStatus) {
+            try {
+                const status = await window.electron.getOpenClawGatewayStatus(activeProfile);
+                if (status?.ok && status.health) result.health = status.health;
+            } catch { /* keep bare reachability result */ }
+        }
         setGatewayCheck({ ...result, checkedAt: new Date().toISOString() });
         recordGatewayCheck(activeProfile, result, 'manual check');
         setIsCheckingGateway(false);
+    }, [activeProfile]);
+
+    // Live gateway event stream — subscribe while Mission Control is open. The
+    // raw log is noisy (CLI table dumps, migration warnings), so keep only
+    // meaningful lines: warnings/errors or messages that mention agent/task/
+    // session/gateway activity, and drop box-drawing table output.
+    useEffect(() => {
+        if (!activeProfile || !window.electron?.startOpenClawEvents || !window.electron?.onOpenClawEvent) return;
+        const keyword = /\b(agent|task|session|exec|cron|gateway|completed|failed|started|cancelled|delivered)\b/i;
+        const unsubscribe = window.electron.onOpenClawEvent((evt) => {
+            if (!evt?.message || /[│┌├└┬┼┴]/.test(evt.message)) return;
+            const meaningful = evt.level === 'warn' || evt.level === 'error' || evt.type === 'stream-error' || keyword.test(evt.message);
+            if (!meaningful) return;
+            setLiveEvents(prev => [{ ...evt, id: `${evt.time}-${prev.length}` }, ...prev].slice(0, 20));
+        });
+        window.electron.startOpenClawEvents(activeProfile);
+        return () => {
+            unsubscribe();
+            window.electron.stopOpenClawEvents?.();
+        };
     }, [activeProfile]);
 
     const addMemoryNote = useCallback((e) => {
@@ -643,8 +670,52 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
                                 {gatewayDetails?.controlUrl || activeProfile?.controlUrl}
                             </div>
                         )}
+                        {gatewayDetails?.health && (
+                            <div className="mt-3 rounded-md border border-[var(--border)] bg-[var(--bg-primary)] px-2 py-2 text-xs">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[var(--text-tertiary)]">Runtime</span>
+                                    <span className="font-mono text-[var(--text-secondary)]">{gatewayDetails.health.runtimeVersion || '—'}</span>
+                                </div>
+                                {gatewayDetails.health.tasks?.total != null && (
+                                    <div className="mt-1 flex items-center justify-between">
+                                        <span className="text-[var(--text-tertiary)]">Tasks</span>
+                                        <span className="text-[var(--text-secondary)]">
+                                            {gatewayDetails.health.tasks.total} total · {gatewayDetails.health.tasks.active ?? 0} active
+                                            {gatewayDetails.health.tasks.failures ? ` · ${gatewayDetails.health.tasks.failures} failed` : ''}
+                                        </span>
+                                    </div>
+                                )}
+                                {gatewayDetails.health.agents?.length > 0 && (
+                                    <div className="mt-1 flex items-center justify-between gap-2">
+                                        <span className="text-[var(--text-tertiary)]">Agents</span>
+                                        <span className="text-right text-[var(--text-secondary)] break-all">{gatewayDetails.health.agents.join(', ')}</span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                         {healthError && (
                             <p className="mt-3 text-xs leading-5 text-red-400">{healthError}</p>
+                        )}
+                        {liveEvents.length > 0 && (
+                            <div className="mt-3">
+                                <div className="mb-1 flex items-center gap-1.5 text-xs text-[var(--text-tertiary)]">
+                                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+                                    Live activity
+                                </div>
+                                <div className="max-h-40 overflow-y-auto rounded-md border border-[var(--border)] bg-[var(--bg-primary)] divide-y divide-[var(--border)]">
+                                    {liveEvents.map(evt => (
+                                        <div key={evt.id} className="px-2 py-1.5 text-xs">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span className={`font-medium ${evt.level === 'error' || evt.type === 'stream-error' ? 'text-red-400' : evt.level === 'warn' ? 'text-amber-400' : 'text-[var(--text-secondary)]'}`}>
+                                                    {evt.subsystem || evt.level || 'log'}
+                                                </span>
+                                                <span className="text-[var(--text-tertiary)]">{formatTime(evt.time)}</span>
+                                            </div>
+                                            <div className="mt-0.5 text-[var(--text-secondary)] break-words line-clamp-2">{evt.message}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                         )}
                         <div className="mt-4 flex flex-wrap gap-2">
                             <ActionButton icon={RefreshCw} label={isCheckingGateway ? 'Checking' : 'Check'} onClick={checkGateway} disabled={isCheckingGateway || !window.electron?.testOpenClawConnection} />

@@ -11,8 +11,19 @@ contextBridge.exposeInMainWorld('electron', {
   setAppData: (data) => ipcRenderer.invoke('app-data:set', data),
   getAppDataPath: () => ipcRenderer.invoke('app-data:path'),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
+  listAgentJobs: (options) => ipcRenderer.invoke('agent-jobs:list', options),
+  queueAgentJob: (job) => ipcRenderer.invoke('agent-jobs:queue', job),
+  cancelAgentJob: (id) => ipcRenderer.invoke('agent-jobs:cancel', id),
   getOpenClawLocalProfile: () => ipcRenderer.invoke('openclaw:get-local-profile'),
   testOpenClawConnection: (profile) => ipcRenderer.invoke('openclaw:test-connection', profile),
+  getOpenClawGatewayStatus: (profile) => ipcRenderer.invoke('openclaw:gateway-status', profile),
+  startOpenClawEvents: (profile) => ipcRenderer.invoke('openclaw:events-start', profile),
+  stopOpenClawEvents: () => ipcRenderer.invoke('openclaw:events-stop'),
+  onOpenClawEvent: (callback) => {
+    const listener = (event, evt) => callback(evt);
+    ipcRenderer.on('openclaw:event', listener);
+    return () => ipcRenderer.removeListener('openclaw:event', listener);
+  },
   restartOpenClawGateway: () => ipcRenderer.invoke('openclaw:restart-gateway'),
   readOpenClawConfig: () => ipcRenderer.invoke('openclaw:read-config'),
   writeOpenClawConfig: (config) => ipcRenderer.invoke('openclaw:write-config'),

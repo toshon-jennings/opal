@@ -202,7 +202,8 @@ export function recordGatewayCheck(profile, result, source = 'automatic check') 
             controlUrl,
             checkedAt: now,
             ok,
-            error
+            error,
+            health: result?.health || existingRun?.gateway?.health || null
         }
     });
 

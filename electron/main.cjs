@@ -3,6 +3,7 @@ const { installRedactedConsole } = require('./redact-console.cjs');
 const path = require('path');
 const fsSync = require('fs');
 const { spawn, spawnSync } = require('child_process');
+const { randomUUID } = require('crypto');
 const http = require('http');
 const https = require('https');
 const net = require('net');
@@ -69,6 +70,7 @@ let terminalServerProcess = null;
 let mainWindow = null;
 let splashWindow = null;
 let youtubeWindow = null;
+
 
 function isBundledAssetDocumentUrl(url) {
   let parsed;
@@ -634,6 +636,7 @@ function createWindow() {
     }
     if (mainWindow === win) {
       mainWindow = null;
+      stopOpenClawLogStream();
     }
   });
 
@@ -689,6 +692,7 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  stopOpenClawLogStream();
   if (terminalServerProcess) {
     terminalServerProcess.kill();
   }
@@ -777,15 +781,24 @@ function decryptAppData(data) {
 }
 
 async function readAppData() {
-  try {
-    const raw = await fs.readFile(getAppDataPath(), 'utf-8');
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' ? decryptAppData(parsed) : {};
-  } catch (err) {
-    if (err.code === 'ENOENT') return {};
-    console.error('Error reading app data:', err);
-    return {};
+  const filePath = getAppDataPath();
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const raw = await fs.readFile(filePath, 'utf-8');
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? decryptAppData(parsed) : {};
+    } catch (err) {
+      if (err.code === 'ENOENT') return {};
+      // Partial write or corrupted data — retry after a short delay
+      if (attempt < 2) {
+        await new Promise(resolve => setTimeout(resolve, 50 * (attempt + 1)));
+        continue;
+      }
+      console.error('Error reading app data:', err);
+      return {};
+    }
   }
+  return {};
 }
 
 async function writeAppData(data) {
@@ -797,7 +810,10 @@ async function writeAppData(data) {
     updatedAt: Date.now()
   };
   await fs.mkdir(path.dirname(filePath), { recursive: true });
-  await fs.writeFile(filePath, JSON.stringify(payload, null, 2), 'utf-8');
+  // Atomic write: write to a temp file, then rename to avoid partial reads
+  const tmpPath = `${filePath}.${process.pid}.tmp`;
+  await fs.writeFile(tmpPath, JSON.stringify(payload, null, 2), 'utf-8');
+  await fs.rename(tmpPath, filePath);
   return decryptAppData(payload);
 }
 
@@ -828,6 +844,7 @@ ipcMain.handle('open-external', async (event, url) => {
   return true;
 });
 
+
 function deriveOpenClawHttpUrl(profile = {}) {
   if (profile.controlUrl) return profile.controlUrl;
   const gatewayUrl = profile.gatewayUrl || 'ws://127.0.0.1:18789';
@@ -855,6 +872,166 @@ function deriveOpenClawSocketTarget(profile = {}) {
     return { host: '127.0.0.1', port: 18789 };
   }
 }
+
+// Extract the first complete top-level JSON object from mixed CLI output.
+// `openclaw … --json` prints migration/plugin warnings before the JSON, so we
+// scan for the opening brace and brace-match (respecting strings) to the close.
+function extractJsonObject(text) {
+  if (!text) return null;
+  const start = text.indexOf('{');
+  if (start === -1) return null;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) {
+        try { return JSON.parse(text.slice(start, i + 1)); }
+        catch { return null; }
+      }
+    }
+  }
+  return null;
+}
+
+// Run an `openclaw` CLI command and resolve its stdout/stderr/exit code.
+// Args are passed as an array (never a shell string) so caller-supplied values
+// like profile URLs/tokens cannot inject. The token is never logged.
+function runOpenClaw(args, timeoutMs = 10000) {
+  return new Promise((resolve) => {
+    const child = spawn('openclaw', args, { stdio: ['ignore', 'pipe', 'pipe'], env: process.env });
+    let stdout = '';
+    let stderr = '';
+    const timer = setTimeout(() => { child.kill('SIGKILL'); }, timeoutMs);
+    child.stdout.on('data', chunk => { stdout += chunk.toString(); });
+    child.stderr.on('data', chunk => { stderr += chunk.toString(); });
+    child.on('error', err => { clearTimeout(timer); resolve({ ok: false, error: err.message, stdout, stderr }); });
+    child.on('close', code => { clearTimeout(timer); resolve({ ok: code === 0, code, stdout, stderr }); });
+  });
+}
+
+// Profile-aware rich health via the Gateway RPC (`gateway call status`). Unlike
+// test-connection's TCP probe, this returns a structured summary (runtime, task
+// counts, agents, channels) for the Mission Control gateway lane. Read-only RPC,
+// so it does not require elevated device scopes.
+ipcMain.handle('openclaw:gateway-status', async (event, profile = {}) => {
+  const startedAt = Date.now();
+  const args = ['gateway', 'call', 'status', '--json', '--timeout', '8000'];
+  if (profile.gatewayUrl) args.push('--url', profile.gatewayUrl);
+  if (profile.token) args.push('--token', profile.token);
+
+  const result = await runOpenClaw(args, 10000);
+  const latencyMs = Date.now() - startedAt;
+  const data = extractJsonObject(result.stdout);
+
+  if (!data) {
+    const errLine = (result.error || result.stderr || result.stdout || '')
+      .split('\n').map(l => l.trim()).filter(Boolean).pop() || 'No status returned';
+    return { ok: false, error: errLine, latencyMs };
+  }
+
+  const tasks = data.tasks || {};
+  return {
+    ok: true,
+    latencyMs,
+    health: {
+      runtimeVersion: data.runtimeVersion || null,
+      agents: (data.heartbeat?.agents || []).map(a => a.agentId).filter(Boolean),
+      defaultAgentId: data.heartbeat?.defaultAgentId || null,
+      channels: data.channelSummary || [],
+      tasks: {
+        total: tasks.total ?? null,
+        active: tasks.active ?? null,
+        failures: tasks.failures ?? null,
+        byStatus: tasks.byStatus || null
+      }
+    }
+  };
+});
+
+// --- Live gateway event stream (`openclaw logs --follow --json`) ---
+// A single long-lived tailer feeds the renderer compact events via
+// webContents.send, replacing the need to poll for liveness. The heavy `raw`
+// field is stripped and messages are capped so noisy CLI table dumps can't
+// flood the IPC channel.
+let openClawLogChild = null;
+let openClawLogStopped = true;
+let openClawLogRestartTimer = null;
+
+function forwardOpenClawEvent(evt) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('openclaw:event', evt);
+  }
+}
+
+function startOpenClawLogStream(profile = {}) {
+  openClawLogStopped = false;
+  if (openClawLogChild) return; // already streaming
+
+  const args = ['logs', '--follow', '--json', '--interval', '1000'];
+  if (profile.gatewayUrl) args.push('--url', profile.gatewayUrl);
+  if (profile.token) args.push('--token', profile.token);
+
+  const child = spawn('openclaw', args, { stdio: ['ignore', 'pipe', 'pipe'], env: process.env });
+  openClawLogChild = child;
+
+  let buffer = '';
+  child.stdout.on('data', chunk => {
+    buffer += chunk.toString();
+    let nl;
+    while ((nl = buffer.indexOf('\n')) !== -1) {
+      const line = buffer.slice(0, nl).trim();
+      buffer = buffer.slice(nl + 1);
+      if (!line || line[0] !== '{') continue;
+      let parsed;
+      try { parsed = JSON.parse(line); } catch { continue; }
+      const message = typeof parsed.message === 'string' ? parsed.message.slice(0, 1000) : '';
+      if (!message && parsed.type !== 'notice') continue;
+      forwardOpenClawEvent({
+        type: parsed.type || 'log',
+        time: parsed.time || new Date().toISOString(),
+        level: parsed.level || 'info',
+        subsystem: parsed.subsystem || null,
+        message
+      });
+    }
+  });
+
+  child.on('error', err => { forwardOpenClawEvent({ type: 'stream-error', time: new Date().toISOString(), level: 'error', message: err.message }); });
+  child.on('close', () => {
+    openClawLogChild = null;
+    // Auto-reconnect (e.g. after a gateway restart) unless intentionally stopped.
+    if (!openClawLogStopped) {
+      openClawLogRestartTimer = setTimeout(() => startOpenClawLogStream(profile), 2000);
+    }
+  });
+}
+
+function stopOpenClawLogStream() {
+  openClawLogStopped = true;
+  if (openClawLogRestartTimer) { clearTimeout(openClawLogRestartTimer); openClawLogRestartTimer = null; }
+  if (openClawLogChild) { openClawLogChild.kill('SIGKILL'); openClawLogChild = null; }
+}
+
+ipcMain.handle('openclaw:events-start', async (event, profile = {}) => {
+  startOpenClawLogStream(profile);
+  return { ok: true };
+});
+
+ipcMain.handle('openclaw:events-stop', async () => {
+  stopOpenClawLogStream();
+  return { ok: true };
+});
 
 ipcMain.handle('openclaw:get-local-profile', async () => {
   try {
@@ -1087,6 +1264,211 @@ ipcMain.handle('youtube-player:close', async () => {
     youtubeWindow.close();
   }
   return true;
+});
+
+// ─── Agent Jobs ─────────────────────────────────────────────────────────────
+// In-memory job store: jobId → { childProcess, jobRecord }
+const agentJobs = new Map();
+
+function generateJobId() {
+  return `job-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function getAgentCommand(agentId) {
+  // Map agent ids to their CLI command names.
+  // These must be on PATH. Users can configure custom paths later.
+  const commandMap = {
+    aider: 'aider',
+    antigravity_cli: 'antigravity',
+    claude_code: 'claude',
+    codex: 'codex',
+    copilot: 'copilot',
+    cursor_cli: 'cursor',
+    jan: 'jan',
+    openhands: 'openhands',
+    opencode: 'opencode',
+    opal_code: 'opal',
+    qwen_code: 'qwen',
+    // hermes and openclaw are special — not spawned as local CLIs
+  };
+  return commandMap[agentId] || null;
+}
+
+// Per-agent flag used to select a model, verified against each CLI's --help.
+// Agents missing here have no --model flag (Jan picks its model via
+// `jan launch`; opal is a custom CLI), so the UI hides the model field for them.
+function getAgentModelFlag(agentId) {
+  const flagMap = {
+    aider: '--model',
+    antigravity_cli: '--model',
+    claude_code: '--model',
+    codex: '--model',
+    copilot: '--model',
+    cursor_cli: '--model',
+    openhands: '--model',
+    opencode: '--model',
+    qwen_code: '--model',
+  };
+  return flagMap[agentId] || null;
+}
+
+// Model names are user-supplied and get appended to the spawn args, so bound
+// them to a safe charset (covers aliases like `opus`, full names like
+// `claude-opus-4-8`, and provider/model forms like `openai/o4-mini`). Anything
+// outside this set is rejected before spawn to avoid shell injection.
+const SAFE_MODEL_PATTERN = /^[A-Za-z0-9._:/-]+$/;
+
+function serializeJob(jobRecord) {
+  const { childProcess: _cp, ...safe } = jobRecord;
+  return safe;
+}
+
+ipcMain.handle('agent-jobs:list', async (event, options = {}) => {
+  const limit = Number(options.limit) || 24;
+  const source = options.source || null;
+
+  const allJobs = [];
+  for (const [, jobRecord] of agentJobs) {
+    if (source && jobRecord.job.source !== source) continue;
+    allJobs.push(serializeJob(jobRecord.job));
+  }
+
+  // Sort by created_at descending, then slice
+  allJobs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  return allJobs.slice(0, limit);
+});
+
+ipcMain.handle('agent-jobs:queue', async (event, { agent, prompt, working_directory, model } = {}) => {
+  if (!agent || !prompt) {
+    return { ok: false, error: 'Missing agent or prompt.' };
+  }
+  const requestedModel = typeof model === 'string' ? model.trim() : '';
+  if (requestedModel && !SAFE_MODEL_PATTERN.test(requestedModel)) {
+    return { ok: false, error: 'Model name contains unsupported characters.' };
+  }
+
+  // Hermes and OpenClaw are special — not local CLI agents
+  if (agent === 'hermes') {
+    return { ok: false, error: 'Use the Mercury app for Hermes. Launch it from the Agents page or Settings.' };
+  }
+  if (agent === 'openclaw') {
+    return { ok: false, error: 'OpenClaw runs through the Gateway. Use the OpenClaw dashboard.' };
+  }
+
+  const command = getAgentCommand(agent);
+  if (!command) {
+    return { ok: false, error: `Unknown agent: ${agent}. No CLI command is configured.` };
+  }
+
+  const jobId = generateJobId();
+  const now = new Date().toISOString();
+
+  const jobRecord = {
+    id: jobId,
+    agent,
+    type: agent, // alias for compatibility
+    status: 'pending',
+    prompt,
+    working_directory: working_directory || null,
+    model: requestedModel || null,
+    source: 'agents_page',
+    created_at: now,
+    started_at: null,
+    completed_at: null,
+    exit_code: null,
+    output: '',
+    output_kind: null,
+    childProcess: null,
+  };
+
+  // Spawn the agent CLI
+  const cwd = working_directory || process.env.HOME || '/tmp';
+  const modelFlag = getAgentModelFlag(agent);
+  const spawnArgs = requestedModel && modelFlag ? [modelFlag, requestedModel] : [];
+  const child = spawn(command, spawnArgs, {
+    cwd,
+    env: { ...process.env },
+    stdio: ['pipe', 'pipe', 'pipe'],
+    shell: true,
+    detached: false,
+  });
+
+  jobRecord.childProcess = child;
+  jobRecord.status = 'running';
+  jobRecord.started_at = new Date().toISOString();
+
+  // Capture stdout
+  child.stdout.on('data', (chunk) => {
+    const text = chunk.toString();
+    jobRecord.output += text;
+    jobRecord.output_kind = 'output';
+  });
+
+  // Capture stderr
+  child.stderr.on('data', (chunk) => {
+    const text = chunk.toString();
+    if (!jobRecord.output_kind) jobRecord.output_kind = 'error';
+    jobRecord.output += (jobRecord.output ? '\n' : '') + text;
+  });
+
+  // Process exited
+  child.on('close', (code) => {
+    jobRecord.completed_at = new Date().toISOString();
+    jobRecord.exit_code = code;
+    if (code === 0) {
+      jobRecord.status = 'completed';
+    } else {
+      jobRecord.status = 'failed';
+      if (!jobRecord.output_kind) jobRecord.output_kind = 'error';
+    }
+    // Keep in map for history — renderer reads from it via list
+  });
+
+  // Process error (e.g., command not found)
+  child.on('error', (err) => {
+    jobRecord.completed_at = new Date().toISOString();
+    jobRecord.status = 'failed';
+    jobRecord.exit_code = null;
+    jobRecord.output_kind = 'error';
+    jobRecord.output += (jobRecord.output ? '\n' : '') + `Process error: ${err.message}`;
+  });
+
+  agentJobs.set(jobId, { childProcess: child, job: jobRecord });
+
+  return { ok: true, job: serializeJob(jobRecord) };
+});
+
+ipcMain.handle('agent-jobs:cancel', async (event, jobId) => {
+  const entry = agentJobs.get(jobId);
+  if (!entry) {
+    return { ok: false, error: 'Job not found.' };
+  }
+
+  const { childProcess: child, job: jobRecord } = entry;
+
+  if (jobRecord.status === 'completed' || jobRecord.status === 'failed' || jobRecord.status === 'cancelled') {
+    return { ok: true, status: jobRecord.status, message: 'Job already finished.' };
+  }
+
+  // Kill the process
+  try {
+    if (process.platform === 'win32') {
+      child.kill('SIGTERM');
+    } else {
+      // Negative PID kills the process group (since detached:false, this is the child)
+      child.kill('SIGTERM');
+    }
+  } catch (err) {
+    return { ok: false, error: `Failed to kill process: ${err.message}` };
+  }
+
+  jobRecord.status = 'cancelled';
+  jobRecord.completed_at = new Date().toISOString();
+  jobRecord.output_kind = 'status';
+  if (!jobRecord.output.endsWith('\n')) jobRecord.output += '\n';
+  jobRecord.output += '[Cancelled by user]';
+
+  return { ok: true, status: 'cancelled' };
 });
 
 // Recursive file listing
