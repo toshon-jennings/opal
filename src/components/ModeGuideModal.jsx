@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     ActivitySquare,
     BookOpen,
@@ -104,7 +104,7 @@ const advancedCards = [
 
 function GuideSection({ title, icon: Icon, children }) {
     return (
-        <section className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5">
+        <section className="focus-card rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5">
             <div className="flex items-center gap-2">
                 <Icon size={16} className="text-[var(--accent)]" />
                 <h3 className="text-base font-semibold text-[var(--text-primary)]">{title}</h3>
@@ -147,12 +147,12 @@ function TabButton({ active, label, onClick }) {
 
 function OverviewTab() {
     return (
-        <div className="space-y-5">
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="focus-field space-y-5">
+            <div className="focus-field grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {modeCards.map(mode => {
                     const Icon = mode.icon;
                     return (
-                        <div key={mode.id} className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-4">
+                        <div key={mode.id} className="focus-card rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-4">
                             <div className="flex items-center gap-2">
                                 <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-primary)]">
                                     <Icon size={16} className="text-[var(--accent)]" />
@@ -259,10 +259,10 @@ function OverviewTab() {
 
 function AdvancedTab() {
     return (
-        <div className="space-y-5">
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="focus-field space-y-5">
+            <div className="focus-field grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 {advancedCards.map(card => (
-                    <div key={card.title} className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-4">
+                    <div key={card.title} className="focus-card rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-4">
                         <div className="text-sm font-semibold text-[var(--text-primary)]">{card.title}</div>
                         <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">{card.text}</p>
                     </div>
@@ -334,6 +334,11 @@ function AdvancedTab() {
 
 export function ModeGuideModal({ isOpen, onClose }) {
     const [activeTab, setActiveTab] = useState('overview');
+    const onCloseRef = useRef(onClose);
+
+    useEffect(() => {
+        onCloseRef.current = onClose;
+    }, [onClose]);
 
     useEffect(() => {
         if (!isOpen) return undefined;
@@ -342,7 +347,7 @@ export function ModeGuideModal({ isOpen, onClose }) {
         const previousOverflow = document.body.style.overflow;
         const handleKeyDown = (event) => {
             if (event.key === 'Escape') {
-                onClose();
+                onCloseRef.current();
             }
         };
 
@@ -353,7 +358,7 @@ export function ModeGuideModal({ isOpen, onClose }) {
             document.body.style.overflow = previousOverflow;
             window.removeEventListener('keydown', handleKeyDown);
         };
-    }, [isOpen, onClose]);
+    }, [isOpen]);
 
     if (!isOpen) return null;
 
@@ -401,7 +406,7 @@ export function ModeGuideModal({ isOpen, onClose }) {
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto px-6 py-6">
+                <div className="focus-field flex-1 overflow-y-auto px-6 py-6">
                     {activeTab === 'overview' ? <OverviewTab /> : <AdvancedTab />}
                 </div>
             </div>

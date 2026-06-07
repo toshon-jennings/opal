@@ -423,7 +423,7 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
                             </div>
                         )}
 
-                        <div className="mt-4 grid grid-cols-4 gap-2">
+                        <div className="focus-field mt-4 grid grid-cols-4 gap-2">
                             <Metric label="Active" value={(counts.running || 0) + (counts.waiting || 0)} />
                             <Metric label="Blocked" value={counts.blocked || 0} />
                             <Metric label="Validate" value={counts.needsValidation || 0} />
@@ -448,7 +448,7 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
                         </div>
                     </div>
 
-                    <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-2 perci-domino-list">
+                    <div className="focus-field flex-1 min-h-0 overflow-y-auto p-2 space-y-2 perci-domino-list">
                         {filteredRuns.length === 0 ? (
                             <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] p-3 text-sm leading-6 text-[var(--text-secondary)]">
                                 No Mission runs match this filter.
@@ -487,14 +487,14 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
                                 </div>
                             </div>
 
-                            <div className="mt-6 grid grid-cols-5 gap-3 max-md:grid-cols-1">
+                            <div className="focus-field mt-6 grid grid-cols-5 gap-3 max-md:grid-cols-1">
                                 <InfoTile icon={Bot} label="Agent" value={selectedRun.agent} />
                                 <InfoTile icon={Clock3} label="Updated" value={formatTime(selectedRun.updatedAt)} />
                                 <InfoTile icon={GitBranch} label="Workspace" value={selectedRun.workingDirectory} mono wide wrap />
                                 <InfoTile icon={Sparkles} label="Memory" value={`${harnessMemory.length} notes`} />
                             </div>
 
-                            <div className="mt-6 grid grid-cols-2 gap-4 max-lg:grid-cols-1">
+                            <div className="focus-field mt-6 grid grid-cols-2 gap-4 max-lg:grid-cols-1">
                                 <Panel title="Why This Is Running" icon={Sparkles}>
                                     <p className="text-sm leading-6 text-[var(--text-secondary)]">{selectedRun.reason}</p>
                                 </Panel>
@@ -504,7 +504,7 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
                                 </Panel>
                             </div>
 
-                            <div className="mt-4 grid grid-cols-2 gap-4 max-lg:grid-cols-1">
+                            <div className="focus-field mt-4 grid grid-cols-2 gap-4 max-lg:grid-cols-1">
                                 <Panel title="Checkpoints" icon={History}>
                                     <div className={`space-y-3 perci-timeline ${selectedRun.status === 'running' ? 'streaming' : ''}`}>
                                         {(selectedRun.checkpoints || []).map((checkpoint, index) => (
@@ -538,7 +538,7 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
                                 </Panel>
                             </div>
 
-                            <div className="mt-4 grid grid-cols-2 gap-4 max-lg:grid-cols-1">
+                            <div className="focus-field mt-4 grid grid-cols-2 gap-4 max-lg:grid-cols-1">
                                 <Panel title="Commands" icon={TerminalSquare}>
                                     <div className="space-y-2">
                                         {(selectedRun.commands || []).map(command => (
@@ -558,13 +558,13 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
 
                             <div className="mt-4">
                                 <Panel title="Finish Report" icon={ClipboardCheck}>
-                                    <div className="grid grid-cols-2 gap-3 max-lg:grid-cols-1">
+                                    <div className="focus-field grid grid-cols-2 gap-3 max-lg:grid-cols-1">
                                         <ReportField label="Outcome" value={finishReport.outcome} />
                                         <ReportField label="Validation" value={finishReport.validation} />
                                         <ReportField label="Remaining Risk" value={finishReport.remainingRisk} />
                                         <ReportField label="Next Action" value={finishReport.nextAction} />
                                     </div>
-                                    <div className="mt-3 grid grid-cols-2 gap-3 max-lg:grid-cols-1">
+                                    <div className="focus-field mt-3 grid grid-cols-2 gap-3 max-lg:grid-cols-1">
                                         <ReportList label="Commands Attempted" values={finishReport.commandsAttempted} />
                                         <ReportList label="Context Touched" values={finishReport.contextTouched} />
                                     </div>
@@ -574,7 +574,7 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
                             {latestIntentReview && (
                                 <div className="mt-4">
                                     <Panel title="Intent-First Review" icon={ShieldCheck}>
-                                        <div className="grid grid-cols-2 gap-3 max-lg:grid-cols-1">
+                                        <div className="focus-field grid grid-cols-2 gap-3 max-lg:grid-cols-1">
                                             <ReportField label="Summary" value={latestIntentReview.summary} />
                                             <ReportField label="Validation" value={latestIntentReview.validation?.summary || 'No validation detected.'} />
                                             <ReportList label="Files" values={latestIntentReview.files?.length ? latestIntentReview.files : ['No files detected.']} />
@@ -587,7 +587,7 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
                             {selectedRun.validation && (
                                 <div className="mt-4">
                                     <Panel title="Validation Actions" icon={ShieldCheck}>
-                                        <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 max-md:grid-cols-1">
+                                        <div className="focus-field grid grid-cols-[minmax(0,1fr)_auto] gap-3 max-md:grid-cols-1">
                                             <textarea
                                                 value={validationDraft}
                                                 onChange={e => setValidationDraft(e.target.value)}
@@ -609,7 +609,7 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
                             {selectedRun.terminal && (
                                 <div className="mt-4">
                                     <Panel title="Terminal Result" icon={TerminalSquare}>
-                                        <div className="grid grid-cols-[160px_minmax(0,1fr)] gap-3 max-md:grid-cols-1">
+                                        <div className="focus-field grid grid-cols-[160px_minmax(0,1fr)] gap-3 max-md:grid-cols-1">
                                             <ReportField
                                                 label="Exit Code"
                                                 value={selectedRun.terminal.exitCode === null || selectedRun.terminal.exitCode === undefined
@@ -658,8 +658,8 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
                     )}
                 </section>
 
-                <aside className="min-h-0 overflow-y-auto border-l border-[var(--border)] bg-[var(--bg-secondary)] p-4 flex flex-col gap-4 max-xl:col-span-2 max-xl:border-l-0 max-xl:border-t max-lg:col-span-1">
-                    <div className="order-2">
+                <aside className="focus-field min-h-0 overflow-y-auto border-l border-[var(--border)] bg-[var(--bg-secondary)] p-4 flex flex-col gap-4 max-xl:col-span-2 max-xl:border-l-0 max-xl:border-t max-lg:col-span-1">
+                    <div className="focus-card order-2">
                     <Panel title="OpenClaw Integration" icon={Server}>
                         <p className="mb-3 text-xs leading-5 text-[var(--text-secondary)]">
                             Gateway status for the OpenClaw dashboard and agent handoff.
@@ -746,7 +746,7 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
                     </Panel>
                     </div>
 
-                    <div className="order-1">
+                    <div className="focus-card order-1">
                     <Panel title="Memory Review" icon={ClipboardCheck}>
                         <div className="mb-3 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] px-3 py-2">
                             <div className="text-xs font-semibold text-[var(--text-primary)]">What should this AI remember?</div>
@@ -849,7 +849,7 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
 
 function Metric({ label, value }) {
     return (
-        <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] px-3 py-2">
+        <div className="focus-card rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] px-3 py-2">
             <div className="text-lg font-semibold text-[var(--text-primary)]">{value}</div>
             <div className="text-[11px] uppercase text-[var(--text-tertiary)]">{label}</div>
         </div>
@@ -863,7 +863,7 @@ function RunListItem({ run, active, onSelect }) {
         <button
             type="button"
             onClick={onSelect}
-            className={`w-full text-left rounded-lg border p-3 transition-colors ${active ? 'border-[var(--accent)] bg-[var(--bg-primary)]' : 'border-transparent hover:border-[var(--border)] hover:bg-[var(--bg-primary)]'}`}
+            className={`focus-card w-full text-left rounded-lg border p-3 transition-colors ${active ? 'border-[var(--accent)] bg-[var(--bg-primary)]' : 'border-transparent hover:border-[var(--border)] hover:bg-[var(--bg-primary)]'}`}
         >
             <div className="flex items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-1.5">
@@ -917,7 +917,7 @@ function ActionButton({ icon: Icon, label, onClick, disabled }) {
 
 function InfoTile({ icon: Icon, label, value, mono, wide, wrap }) {
     return (
-        <div className={`rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-3 ${wide ? 'md:col-span-2' : ''}`}>
+        <div className={`focus-card rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-3 ${wide ? 'md:col-span-2' : ''}`}>
             <div className="flex items-center gap-2 text-xs uppercase text-[var(--text-tertiary)]">
                 <Icon size={13} />
                 {label}
@@ -934,7 +934,7 @@ function InfoTile({ icon: Icon, label, value, mono, wide, wrap }) {
 
 function ReportField({ label, value }) {
     return (
-        <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] p-3">
+        <div className="focus-card rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] p-3">
             <div className="text-[11px] font-semibold uppercase text-[var(--text-tertiary)]">{label}</div>
             <p className="mt-1 text-sm leading-5 text-[var(--text-secondary)]">{value}</p>
         </div>
@@ -943,7 +943,7 @@ function ReportField({ label, value }) {
 
 function ReportList({ label, values }) {
     return (
-        <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] p-3">
+        <div className="focus-card rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] p-3">
             <div className="text-[11px] font-semibold uppercase text-[var(--text-tertiary)]">{label}</div>
             <div className="mt-2 space-y-1.5">
                 {(values || []).map(value => (
@@ -956,7 +956,7 @@ function ReportList({ label, values }) {
 
 function Panel({ title, icon: Icon, children, action }) {
     return (
-        <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-4">
+        <div className="focus-card rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-4">
             <div className="mb-3 flex items-center gap-2">
                 <Icon size={15} className="text-[var(--accent)]" />
                 <h3 className="text-sm font-semibold text-[var(--text-primary)]">{title}</h3>

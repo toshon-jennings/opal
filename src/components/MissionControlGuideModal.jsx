@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     AlertTriangle,
     BookOpen,
@@ -60,7 +60,7 @@ const advancedCards = [
 
 function GuideSection({ title, icon: Icon, children }) {
     return (
-        <section className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5">
+        <section className="focus-card rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5">
             <div className="flex items-center gap-2">
                 <Icon size={16} className="text-[var(--accent)]" />
                 <h3 className="text-base font-semibold text-[var(--text-primary)]">{title}</h3>
@@ -104,20 +104,20 @@ function TabButton({ active, label, onClick }) {
 function OverviewTab() {
     return (
         <>
-            <div className="grid gap-4 md:grid-cols-3">
-                <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-4">
+            <div className="focus-field grid gap-4 md:grid-cols-3">
+                <div className="focus-card rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-4">
                     <div className="text-xs font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Track</div>
                     <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
                         See what your AI is doing in Code, Cowork, Build, Terminal, and OpenClaw-related flows.
                     </p>
                 </div>
-                <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-4">
+                <div className="focus-card rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-4">
                     <div className="text-xs font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Validate</div>
                     <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
                         Record whether a change actually worked, instead of treating a generated answer as automatically correct.
                     </p>
                 </div>
-                <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-4">
+                <div className="focus-card rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-4">
                     <div className="text-xs font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Remember</div>
                     <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
                         Review memory candidates and save only the outcomes worth keeping for future work.
@@ -126,7 +126,7 @@ function OverviewTab() {
             </div>
 
             <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(280px,0.7fr)]">
-                <div className="space-y-5">
+                <div className="focus-field space-y-5">
                     <GuideSection title="What this page is for" icon={BookOpen}>
                         <p>
                             Mission Control is meant to answer a practical question: “What just happened, what changed, what still needs validation, and what should the AI remember?”
@@ -179,9 +179,9 @@ function OverviewTab() {
                     </GuideSection>
 
                     <GuideSection title="Status glossary" icon={AlertTriangle}>
-                        <div className="space-y-3">
+                        <div className="focus-field space-y-3">
                             {statusItems.map(item => (
-                                <div key={item.label} className="rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] p-3">
+                                <div key={item.label} className="focus-card rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] p-3">
                                     <span className={`inline-flex items-center rounded-full border px-2 py-1 text-xs font-semibold ${item.tone}`}>
                                         {item.label}
                                     </span>
@@ -249,7 +249,7 @@ function OverviewTab() {
                     </GuideSection>
                 </div>
 
-                <div className="space-y-5">
+                <div className="focus-field space-y-5">
                     <GuideSection title="OpenClaw Integration" icon={Server}>
                         <BulletList
                             items={[
@@ -315,10 +315,10 @@ function OverviewTab() {
 
 function AdvancedTab() {
     return (
-        <div className="space-y-5">
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="focus-field space-y-5">
+            <div className="focus-field grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 {advancedCards.map(card => (
-                    <div key={card.title} className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-4">
+                    <div key={card.title} className="focus-card rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-4">
                         <div className="text-sm font-semibold text-[var(--text-primary)]">{card.title}</div>
                         <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">{card.text}</p>
                     </div>
@@ -409,6 +409,11 @@ function AdvancedTab() {
 
 export function MissionControlGuideModal({ isOpen, onClose }) {
     const [activeTab, setActiveTab] = useState('overview');
+    const onCloseRef = useRef(onClose);
+
+    useEffect(() => {
+        onCloseRef.current = onClose;
+    }, [onClose]);
 
     useEffect(() => {
         if (!isOpen) return undefined;
@@ -417,7 +422,7 @@ export function MissionControlGuideModal({ isOpen, onClose }) {
         const previousOverflow = document.body.style.overflow;
         const handleKeyDown = (event) => {
             if (event.key === 'Escape') {
-                onClose();
+                onCloseRef.current();
             }
         };
 
@@ -428,7 +433,7 @@ export function MissionControlGuideModal({ isOpen, onClose }) {
             document.body.style.overflow = previousOverflow;
             window.removeEventListener('keydown', handleKeyDown);
         };
-    }, [isOpen, onClose]);
+    }, [isOpen]);
 
     if (!isOpen) return null;
 
