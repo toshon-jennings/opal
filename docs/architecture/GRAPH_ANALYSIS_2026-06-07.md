@@ -1,69 +1,61 @@
-# Perci Codebase Graph Analysis — 2026-06-07
+# Perci Codebase Graph Analysis — 2026-06-07 (Updated)
 
 ## Graph Stats
 
-| Metric | Old (Jun 6) | New (Jun 7) | Delta |
-|--------|-------------|-------------|-------|
-| Nodes  | 564         | 502         | -62 (dedup + pruning) |
-| Edges  | 1066        | 1012        | -54 |
-| Communities | 37     | 32          | -5 (consolidation) |
+| Metric | Previous | Current | Delta |
+|--------|----------|---------|-------|
+| Nodes  | 502      | 514     | +12 |
+| Edges  | 1012     | 1047    | +35 |
+| Communities | 32  | 31      | -1 (consolidation) |
+| Source files | 65   | 68      | +3 |
 
-### What changed
-- **62 fewer nodes, 37→32 communities**: Graphify re-extracted clean from `src/` only. Previous graph included external/cached nodes from other projects. The consolidation from 37→32 communities reflects cleaner boundaries after the recent refactors.
-- **Net -54 edges**: Some dead code paths removed, but the core architecture is denser — the same functionality is more tightly connected.
+### What changed since last graph
+- **+12 nodes, +35 edges**: New window/dock system (`65c32f6`) and Odysseus motion pass (`fa63cc0`) added UI infrastructure. CoworkMode fix (`06afe83`) added session lifecycle tracking.
+- **32→31 communities**: Consolidation — "Session Lifecycle Tracking" absorbed into "Code and Cowork Modes". Cleaner boundaries.
+- **65→68 source files**: 3 new files added to `src/`.
 
-## Architecture Map (32 Communities)
+## Architecture Map (31 Communities)
 
 ### Core Runtime
-1. **Mission Run Management** (44 nodes) — `appendMissionRunEvent()` is the #1 hub (19 edges). Central event bus connecting every mode (Chat, Code, Cowork, Build) to mission tracking, memory ingestion, and gateway health.
-2. **App Layout and Providers** (32 nodes) — `LLMFactory` bridges this to Chat, Search, Cowork, Code. Contains Theme, Mode context providers, terminal bridge, build generation.
-3. **Mode Navigation and Context** (7 nodes, cohesion 0.25) — `useMode()` is a cross-community hub bridging 7 communities. Clean switching between Chat/Code/Cowork/Build.
+1. **Mission Event Logging** — `appendMissionRunEvent()` still #1 hub (19 edges). Central event bus.
+2. **App Core and Providers** — `useMode()` grew to 17 edges (was 13), now the #2 hub. Window/dock system connects here.
+3. **UI Navigation and Settings** (37 nodes, cohesion 0.06) — Largest community. Mode switcher, settings modal, API key nav, routines.
 
 ### AI/LLM Layer
-4. **LLM Client Integration** (16 nodes, cohesion 0.18) — `clients.js`: Anthropic, Gemini, Groq, Jan, OpenAI, DeepSeek. Clean factory pattern.
-5. **Model Capability Service** (10 nodes) — `ModelService` bridges to API key storage. Detects audio/image/video support, fastest-model selection.
-6. **Model Routing Logic** (12 nodes, cohesion 0.24) — `chooseModelForTask()`, complexity classification, provider/model picking.
-7. **Intelligent Search Tool** (4 nodes) — Tavily client, relative date resolution. Tightly scoped.
+4. **LLM Provider Clients** — Factory pattern: Anthropic, Gemini, Groq, Jan, OpenAI, DeepSeek.
+5. **Model Capabilities Service** — `ModelService` (14 edges). Audio/image/video detection.
+6. **Intelligent Search Tool** — Tavily client, intent classification, relevance scoring.
 
 ### User-Facing Features
-8. **Chat and Attachment System** (27 nodes) — ChatMode, ArtifactPanel, attachment preview/formatting. `executeIntegrationTool()` connects chat to the agent tool loop.
-9. **Cowork Mode and Routines** (6 nodes) — Routines, triggers, schedule pills, local agent tools.
-10. **Code Editor and Permissions** (7 nodes) — CodeMode, editor error boundary, permissions, file save tracking.
-11. **Budget and Token Governance** (8 nodes, cohesion 0.27) — Budget prompt builder, iteration tracking, response recording.
+7. **Chat and Attachments** — ChatMode, ArtifactPanel, attachment system.
+8. **Code and Cowork Modes** (31 nodes) — CodeMode, CoworkMode, connectors, schedules, permissions.
+9. **Mission Execution UI** — MissionControl component, run visualization.
+10. **Search Progress UI** — ResearchProgress, formatElapsed, RESEARCH_PHASES.
 
 ### Safety/Security
-12. **Console Secret Redaction** (5 nodes, cohesion 0.38) — `installRedactedConsole()`, secret patterns. High cohesion = well-isolated security boundary.
-13. **Diff and Intent Review** (7 nodes, cohesion 0.39) — Risk inference, validation, intent parsing. Very cohesive.
-14. **API Key and Routine Storage** (16 nodes) — Local key snapshot, clear, provider key management.
+11. **Artifact Preview Security** — Sandbox iframe, CSP, budget enforcement.
+12. **Diff and Intent Review** — Risk inference, validation, intent parsing.
+13. **Mode Error Handling** — Error boundaries per mode.
 
-### New in Latest Commits (since Jun 6)
-- **`AgentsPanel.jsx`** (26 edges) — Largest new component. Job status tracking, agent definitions, model hints, attention/active/completed job state machines. Connects to 4 status constants + 3 agent config objects.
-- **`buildGeneration.js`** (5 edges) — Build code generation prompt, file parsing, provider key requirements. Used by BuildMode + BuildCompare.
-- **`previewSecurity.js`** (13 edges) — Sandbox iframe generation, CSP headers, budget enforcement, CDN allowlist. Connects BuildMode, BuildCompare, ArtifactPanel, preview-generator.
-- **`MissionControl.jsx`** (71 lines new) — UI component for run visualization.
-
-### Uncommitted Changes (in flight)
-18 files modified, ~1,374 insertions / 270 deletions:
-- Major: `SearchProgress.jsx` (+205 lines), `IntelligentSearchTool.js` (+441/-), `BuildContext.jsx` (+174), `index.css` (+182), `BuildMode.jsx` (+188/-), `ChatMode.jsx` (+94/-)
-- These are active development — not yet reflected in the graph. Need `graphify update` after commit.
+### New/Notable Communities
+- **Session Lifecycle Tracking** — New from CoworkMode fix. Job navigation without cancellation.
+- **Mission Transit Mapping** — Transit map for mission state transitions.
+- **Mission Validation Logic** — Validation rules for mission runs.
 
 ## Key Insights
 
-1. **Mission Control is the spine.** `appendMissionRunEvent()` (19 edges) touches every mode and feeds memory ingestion. Any change here cascades.
-2. **`useMode()` is the router.** 13 edges bridging 7 communities. Mode switches are clean with no import cycles.
-3. **`AgentsPanel` is the biggest new surface.** 26 edges — it's where job monitoring, agent status, and model resolution converge. Has the most internal constants (AGENT_DEFINITIONS, AGENT_MODEL_HINTS, etc.) — potential area to extract into a dedicated config module.
-4. **No import cycles detected.** Clean dependency graph.
-5. **47 isolated nodes** — mostly status constants (ACTIVE_JOB_STATUSES, etc.) that should be consumed by AgentsPanel but may not have direct import edges in the AST.
-6. **Low-cohesion communities** (Mission Run Management 0.06, App Layout 0.07, Chat 0.06) are the areas most likely to benefit from further modularization.
+1. **`appendMissionRunEvent()` remains the spine** (19 edges). Unchanged — the event bus is stable.
+2. **`useMode()` jumped from 13→17 edges**. The window/dock system added connections. It's now the primary UI routing hub.
+3. **Zero import cycles.** Still clean after 3 new commits.
+4. **Lowest-cohesion communities**: UI Navigation (0.06), Code and Cowork (0.06). These are the broadest surfaces — expect them to grow.
+5. **Community labeling is now working** — all 31 communities have meaningful names (previous run had a JSON parse error in labeling).
 
-## Recommended Next Queries
+## Comparison: Previous vs Current
 
-```bash
-# After committing current work:
-graphify update docs/architecture/graphify-out
-
-# Explore specific areas:
-graphify explain "SearchProgress" --graph docs/architecture/graphify-out/graph.json
-graphify explain "IntelligentSearchTool" --graph docs/architecture/graphify-out/graph.json
-graphify path "AgentsPanel.jsx" "MissionControl.jsx" --graph docs/architecture/graphify-out/graph.json
-```
+| Aspect | Previous | Current |
+|--------|----------|---------|
+| Top hub | `appendMissionRunEvent()` (19) | `appendMissionRunEvent()` (19) — unchanged |
+| #2 hub | `useChat()` (14) | `useMode()` (17) — grew |
+| Largest community | Mission Run Management (44) | UI Navigation and Settings (37) |
+| Import cycles | 0 | 0 |
+| Unlabeled communities | 0 (after fix) | 0 |

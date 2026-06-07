@@ -1,8 +1,8 @@
 {
   "App.jsx": {
-    "mtime": 1780791094.1606135,
-    "ast_hash": "1cfc82a07ea7c2e8fbec596c7c9022c5",
-    "semantic_hash": "1cfc82a07ea7c2e8fbec596c7c9022c5"
+    "mtime": 1780835220.8955567,
+    "ast_hash": "a3239efdef53b20a1d953c21529b1b00",
+    "semantic_hash": "a3239efdef53b20a1d953c21529b1b00"
   },
   "components/AgentsPanel.jsx": {
     "mtime": 1780799391.7711592,
@@ -40,9 +40,9 @@
     "semantic_hash": "b7ead827edc587507f5577f80e80382b"
   },
   "components/ChatMode.jsx": {
-    "mtime": 1780801908.380707,
-    "ast_hash": "4410b1ad2b35e3955f6580e0de9e4057",
-    "semantic_hash": "4410b1ad2b35e3955f6580e0de9e4057"
+    "mtime": 1780835503.3060732,
+    "ast_hash": "c581bcb9fc5682d5f167c13f3fbe7d27",
+    "semantic_hash": "c581bcb9fc5682d5f167c13f3fbe7d27"
   },
   "components/CitationDisplay.jsx": {
     "mtime": 1778323647.7749212,
@@ -55,9 +55,9 @@
     "semantic_hash": "946026fb1c56512da93fc845784e03f1"
   },
   "components/CoworkMode.jsx": {
-    "mtime": 1780800214.9115565,
-    "ast_hash": "f4e36c17241b8b8352811c0741e03a82",
-    "semantic_hash": "f4e36c17241b8b8352811c0741e03a82"
+    "mtime": 1780831486.118543,
+    "ast_hash": "24eedfe13809eb6a8fa71e7b39c23acb",
+    "semantic_hash": "24eedfe13809eb6a8fa71e7b39c23acb"
   },
   "components/EditableTitle.jsx": {
     "mtime": 1778362887.9298723,
@@ -80,9 +80,9 @@
     "semantic_hash": "2f974bff16bb5bef9a795b640082e0ba"
   },
   "components/MissionControl.jsx": {
-    "mtime": 1780796501.243948,
-    "ast_hash": "154e577573e1d237d88ebbe7f6e185fd",
-    "semantic_hash": "154e577573e1d237d88ebbe7f6e185fd"
+    "mtime": 1780835519.051567,
+    "ast_hash": "1df47a69d98d334ebcc536a0b83995af",
+    "semantic_hash": "1df47a69d98d334ebcc536a0b83995af"
   },
   "components/MissionControlGuideModal.jsx": {
     "mtime": 1780764803.724257,
@@ -115,9 +115,9 @@
     "semantic_hash": "7bae64ec8ed72cc10eebc373228c78d2"
   },
   "components/SearchIndicator.jsx": {
-    "mtime": 1780771555.3471713,
-    "ast_hash": "29b5d7e23e31949c28233ee557876db1",
-    "semantic_hash": "29b5d7e23e31949c28233ee557876db1"
+    "mtime": 1780835488.009313,
+    "ast_hash": "dc0710995214dcad8ed6a34013bd25d7",
+    "semantic_hash": "dc0710995214dcad8ed6a34013bd25d7"
   },
   "components/SearchProgress.jsx": {
     "mtime": 1780794085.8944,
@@ -130,9 +130,9 @@
     "semantic_hash": "1a5eff18b23bf6579853d0a64a9ddf28"
   },
   "components/SettingsModal.jsx": {
-    "mtime": 1780485122.786763,
-    "ast_hash": "3fa3539629f3f435114e6d2b45430078",
-    "semantic_hash": "3fa3539629f3f435114e6d2b45430078"
+    "mtime": 1780828799.6949298,
+    "ast_hash": "4520eb403af1f94f3a6c5afff66eb644",
+    "semantic_hash": "4520eb403af1f94f3a6c5afff66eb644"
   },
   "components/Terminal.jsx": {
     "mtime": 1780485129.4755723,
@@ -159,6 +159,26 @@
     "ast_hash": "d9bd5cca0982bd7b436e335d4f0e8136",
     "semantic_hash": "d9bd5cca0982bd7b436e335d4f0e8136"
   },
+  "components/windows/DesktopHost.jsx": {
+    "mtime": 1780833060.5533838,
+    "ast_hash": "83a8c980f11b3cc13f97be8e25ff7a34",
+    "semantic_hash": "83a8c980f11b3cc13f97be8e25ff7a34"
+  },
+  "components/windows/Dock.jsx": {
+    "mtime": 1780834739.2044315,
+    "ast_hash": "a7d4c9785863e2015da39616831023a1",
+    "semantic_hash": "a7d4c9785863e2015da39616831023a1"
+  },
+  "components/windows/WindowContextMenu.jsx": {
+    "mtime": 1780834998.731111,
+    "ast_hash": "6a4f093128b48bca6b67d31edce5cabb",
+    "semantic_hash": "6a4f093128b48bca6b67d31edce5cabb"
+  },
+  "components/windows/WindowFrame.jsx": {
+    "mtime": 1780834725.7948823,
+    "ast_hash": "90b40bec749145195d2b35e7e4e43e6c",
+    "semantic_hash": "90b40bec749145195d2b35e7e4e43e6c"
+  },
   "context/BuildContext.jsx": {
     "mtime": 1780771555.4025779,
     "ast_hash": "9f60c85c1bbbb0677e86ac68dfdd45e2",
@@ -175,9 +195,9 @@
     "semantic_hash": "ca06434abca5414f7e000fa805f6511a"
   },
   "context/ModeContext.jsx": {
-    "mtime": 1780771555.4082246,
-    "ast_hash": "e54f6e189d60a398971a7b6a12fbba9d",
-    "semantic_hash": "e54f6e189d60a398971a7b6a12fbba9d"
+    "mtime": 1780834920.2724297,
+    "ast_hash": "4e2cec7f74b8fad4d4650d40c98a90ea",
+    "semantic_hash": "4e2cec7f74b8fad4d4650d40c98a90ea"
   },
   "context/ThemeContext.jsx": {
     "mtime": 1778323647.777536,
@@ -200,9 +220,9 @@
     "semantic_hash": "e1940966442b4e9c79fdc3ff959e5e95"
   },
   "lib/IntelligentSearchTool.js": {
-    "mtime": 1780801895.164025,
-    "ast_hash": "f134278fc7e782f83bfc03f04557b58e",
-    "semantic_hash": "f134278fc7e782f83bfc03f04557b58e"
+    "mtime": 1780829768.018774,
+    "ast_hash": "a9405f24ba773b7783d2b799cc54d285",
+    "semantic_hash": "a9405f24ba773b7783d2b799cc54d285"
   },
   "lib/budgetGovernor.js": {
     "mtime": 1780457923.225239,
@@ -260,9 +280,9 @@
     "semantic_hash": "1a8353e485b45db3326bf6c8ceac24fa"
   },
   "lib/persistentStore.js": {
-    "mtime": 1780483911.6964815,
-    "ast_hash": "717f3e495400bb0b1167cbe972fd2c19",
-    "semantic_hash": "717f3e495400bb0b1167cbe972fd2c19"
+    "mtime": 1780828803.2378898,
+    "ast_hash": "6f901f4e88dbefd58ccb245e6f1fdb3b",
+    "semantic_hash": "6f901f4e88dbefd58ccb245e6f1fdb3b"
   },
   "lib/previewSecurity.js": {
     "mtime": 1780571545.0096436,
@@ -278,11 +298,6 @@
     "mtime": 1778982218.0502186,
     "ast_hash": "4595d0603f57a4dc4d318d6d0f749ee8",
     "semantic_hash": "4595d0603f57a4dc4d318d6d0f749ee8"
-  },
-  "lib/tavily.js": {
-    "mtime": 1778323647.778711,
-    "ast_hash": "41c9edb4965e7466fab51457b5c1302e",
-    "semantic_hash": "41c9edb4965e7466fab51457b5c1302e"
   },
   "lib/terminalBridge.js": {
     "mtime": 1780442930.554288,
