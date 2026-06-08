@@ -1,0 +1,72 @@
+/* Sir Perci mascot animations.
+ *
+ * Most parts pivot around their own bounding box (transform-box: fill-box), so
+ * transforms stay correct at any render size. The sword/shield use view-box so
+ * they can pivot around an exact hand point in the SVG coordinate system.
+ * State is driven by the `data-state` attribute on the root <svg class="perci">.
+ */
+
+.perci {
+    overflow: visible;
+    display: inline-block;
+}
+
+.perci .perci-all,
+.perci .perci-antennae,
+.perci .perci-eyes,
+.perci .perci-eyes-inner {
+    transform-box: fill-box;
+}
+
+.perci .perci-all        { transform-origin: 50% 100%; }  /* pivot at the feet */
+.perci .perci-antennae   { transform-origin: 50% 100%; }  /* pivot at the base */
+.perci .perci-eyes       { transform-origin: 50% 50%; }
+.perci .perci-eyes-inner { transform-origin: 50% 50%; }
+
+/* weapons pivot around the hand, in SVG user units */
+.perci .perci-sword  { transform-box: view-box; transform-origin: 248px 204px; }
+.perci .perci-shield { transform-box: view-box; transform-origin: 88px 206px; }
+
+/* ---- keyframes ---- */
+@keyframes perci-bob         { 0%,100% { transform: translateY(0); }        50% { transform: translateY(-3px); } }
+@keyframes perci-blink       { 0%,90%,100% { transform: scaleY(1); }        95% { transform: scaleY(0.12); } }
+@keyframes perci-sway        { 0%,100% { transform: rotate(-3deg); }        50% { transform: rotate(3deg); } }
+@keyframes perci-wiggle      { 0%,100% { transform: rotate(-8deg); }        50% { transform: rotate(8deg); } }
+@keyframes perci-tilt        { 0% { transform: rotate(0); } 25% { transform: rotate(3deg); } 75% { transform: rotate(-3deg); } 100% { transform: rotate(0); } }
+@keyframes perci-lookup      { 0%,100% { transform: translateY(0); }        50% { transform: translateY(-4px); } }
+@keyframes perci-bounce      { 0%,100% { transform: translateY(0); } 30% { transform: translateY(-10px); } 50% { transform: translateY(0); } 65% { transform: translateY(-4px); } 80% { transform: translateY(0); } }
+@keyframes perci-shake       { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-4px); } 40% { transform: translateX(4px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(3px); } }
+@keyframes perci-sword-swing { 0%,100% { transform: rotate(0); }            50% { transform: rotate(-8deg); } }
+@keyframes perci-sword-raise { 0%,100% { transform: rotate(-20deg); }       50% { transform: rotate(-30deg); } }
+@keyframes perci-shield-guard{ 0%,100% { transform: translate(6px, -4px); } 50% { transform: translate(10px, -8px); } }
+
+/* ---- idle (default) ---- */
+.perci[data-state="idle"] .perci-all        { animation: perci-bob 3.2s ease-in-out infinite; }
+.perci[data-state="idle"] .perci-antennae   { animation: perci-sway 4s ease-in-out infinite; }
+.perci[data-state="idle"] .perci-eyes-inner { animation: perci-blink 5s ease-in-out infinite; }
+
+/* ---- thinking: head tilts, antennae wiggle, eyes glance up ---- */
+.perci[data-state="thinking"] .perci-all        { animation: perci-tilt 2.4s ease-in-out infinite; }
+.perci[data-state="thinking"] .perci-antennae   { animation: perci-wiggle 0.9s ease-in-out infinite; }
+.perci[data-state="thinking"] .perci-eyes       { animation: perci-lookup 2.4s ease-in-out infinite; }
+.perci[data-state="thinking"] .perci-eyes-inner { animation: perci-blink 3.5s ease-in-out infinite; }
+
+/* ---- working: brisk bob + sword swing ---- */
+.perci[data-state="working"] .perci-all        { animation: perci-bob 1.1s ease-in-out infinite; }
+.perci[data-state="working"] .perci-antennae   { animation: perci-wiggle 1.1s ease-in-out infinite; }
+.perci[data-state="working"] .perci-sword      { animation: perci-sword-swing 1.1s ease-in-out infinite; }
+.perci[data-state="working"] .perci-eyes-inner { animation: perci-blink 4s ease-in-out infinite; }
+
+/* ---- happy: bounce + sword raised ---- */
+.perci[data-state="happy"] .perci-all      { animation: perci-bounce 1s ease-in-out infinite; }
+.perci[data-state="happy"] .perci-antennae { animation: perci-wiggle 0.6s ease-in-out infinite; }
+.perci[data-state="happy"] .perci-sword    { animation: perci-sword-raise 0.7s ease-in-out infinite; }
+
+/* ---- error: shake + shield raised to guard ---- */
+.perci[data-state="error"] .perci-all      { animation: perci-shake 0.5s ease-in-out 2; }
+.perci[data-state="error"] .perci-antennae { animation: perci-sway 0.4s ease-in-out infinite; }
+.perci[data-state="error"] .perci-shield   { animation: perci-shield-guard 0.4s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+    .perci * { animation: none !important; }
+}

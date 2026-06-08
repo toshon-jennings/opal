@@ -18,7 +18,7 @@ import rehypeRaw from 'rehype-raw';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { SyntaxHighlighter } from '../lib/syntaxHighlighter';
 import { Copy, Check } from 'lucide-react';
-import perciLogo from '../assets/perci-logo.png';
+import PerciMascot from './PerciMascot';
 import { PermissionsDropdown } from './PermissionsDropdown';
 import LivePreviewPanel from './LivePreviewPanel';
 import { ProviderModelPicker } from './ProviderModelPicker';
@@ -1648,7 +1648,7 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                             {messages.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center h-full text-center space-y-6">
                                     <h2 className="flex items-center justify-center gap-3 text-3xl md:text-4xl font-light text-[var(--text-primary)]" style={{ fontFamily: "'Georgia', 'Tiempos Text', serif" }}>
-                                        <img src={perciLogo} alt="" className="h-9 w-9 object-contain" aria-hidden="true" />
+                                        <PerciMascot state="idle" size={40} aria-hidden="true" />
                                         {getGreeting()}{userName ? `, ${userName}` : ''}
                                     </h2>
                                 </div>
@@ -1659,8 +1659,8 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                             )}
                             {isStreaming && (streamingMessage || streamingThinking) && (
                                 <div className="flex gap-3 md:gap-4 py-6 px-4 bg-[var(--bg-secondary)] rounded-lg">
-                                    <div className="w-6 h-6 md:w-7 md:h-7 rounded-lg flex items-center justify-center shrink-0">
-                                        <img src={perciLogo} alt="Perci" className="w-full h-full rounded-full" />
+                                    <div className="w-6 h-6 md:w-7 md:h-7 flex items-center justify-center shrink-0">
+                                        <PerciMascot state="working" size={28} title="Perci is working" />
                                     </div>
                                     <div className="flex-1 overflow-hidden">
                                         <div className="font-medium text-sm mb-1.5 text-[var(--text-primary)]">Perci</div>
@@ -1785,9 +1785,8 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                             )}
                             {isLoading && (!isStreaming || (!streamingMessage && !streamingThinking)) && (
                                 <div className="flex gap-3 md:gap-4 py-6 px-4 bg-[var(--bg-secondary)] rounded-lg animate-fade-in">
-                                    <div className="w-6 h-6 md:w-7 md:h-7 rounded-lg flex items-center justify-center shrink-0 relative">
-                                        <img src={perciLogo} alt="Perci" className="w-full h-full rounded-full" />
-                                        <div className="absolute inset-0 rounded-lg bg-[var(--accent)]/20 animate-ping-slow" />
+                                    <div className="w-6 h-6 md:w-7 md:h-7 flex items-center justify-center shrink-0">
+                                        <PerciMascot state="thinking" size={28} title="Perci is thinking" />
                                     </div>
                                     <div className="flex-1">
                                         <div className="font-medium text-sm mb-2 text-[var(--text-primary)]">Perci</div>

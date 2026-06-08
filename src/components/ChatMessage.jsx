@@ -8,10 +8,21 @@ import { User, Copy, Check, Code, ExternalLink, FileText, Image as ImageIcon, Ta
 import { useChat } from '../context/ChatContext';
 import { CitationDisplay } from './CitationDisplay';
 import { ThinkingDisplay } from './ThinkingDisplay';
-import perciLogo from '../assets/perci-logo.png';
+import PerciMascot from './PerciMascot';
 
 export function ChatMessage({ message }) {
     const isUser = message.role === 'user';
+    const isError = !isUser && typeof message.content === 'string' && message.content.startsWith('Error:');
+    // Brief celebration only for a freshly-arrived answer (not old history on load).
+    const [celebrate, setCelebrate] = React.useState(
+        () => !isUser && !isError && message.timestamp && Date.now() - message.timestamp < 4000
+    );
+    React.useEffect(() => {
+        if (!celebrate) return;
+        const t = setTimeout(() => setCelebrate(false), 1600);
+        return () => clearTimeout(t);
+    }, [celebrate]);
+    const mascotState = isError ? 'error' : celebrate ? 'happy' : 'idle';
     const [copiedCode, setCopiedCode] = React.useState(null);
     const [copiedMessage, setCopiedMessage] = React.useState(false);
     const { setCurrentArtifactId, setIsArtifactOpen } = useChat();
@@ -149,7 +160,7 @@ export function ChatMessage({ message }) {
                 ? 'bg-[var(--accent)] text-white'
                 : ''
                 }`}>
-                {isUser ? <User size={18} /> : <img src={perciLogo} alt="Perci" className="w-full h-full rounded-full" />}
+                {isUser ? <User size={18} /> : <PerciMascot state={mascotState} size={32} title={isError ? 'Perci hit an error' : 'Perci'} />}
             </div>
 
             <div className="flex-1 overflow-hidden">
