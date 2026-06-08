@@ -900,7 +900,7 @@ function AppContent() {
 
             {/* Mode-Specific UI */}
             <main className="app-main relative flex-1 min-h-0 overflow-hidden flex flex-col">
-                <div className="flex-1 min-h-0 overflow-hidden relative">
+                <div className={`flex-1 min-h-0 overflow-hidden relative${windows.length ? ' perci-dock-reserved' : ''}`}>
                     {/* Chat is the always-mounted base; other modes float as windows on top. */}
                     <ModeErrorBoundary>
                         <ChatMode />

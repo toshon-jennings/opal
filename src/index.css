@@ -904,6 +904,15 @@ html.dark .mercury-branded.active {
   overflow: hidden;
 }
 
+.perci-dock-reserved {
+  --perci-dock-space: 64px;
+  padding-bottom: var(--perci-dock-space);
+}
+
+.perci-dock-reserved .perci-desktop-host {
+  bottom: var(--perci-dock-space);
+}
+
 .perci-window {
   position: absolute;
   display: flex;

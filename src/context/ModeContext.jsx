@@ -37,6 +37,7 @@ export const WINDOW_TITLES = {
 const NO_WHIRLPOOL_IDS = new Set([OPENCLAW_WINDOW_ID]);
 
 const WINDOW_DEFAULTS = { width: 960, height: 640, minWidth: 420, minHeight: 300, cascade: 34 };
+const DOCK_RESERVED_HEIGHT = 64;
 
 function viewportSize() {
     if (typeof window === 'undefined') return { width: 1440, height: 900 };
@@ -46,7 +47,7 @@ function viewportSize() {
 function defaultBounds(index = 0) {
     const { width: vw, height: vh } = viewportSize();
     const width = Math.min(WINDOW_DEFAULTS.width, Math.round(vw * 0.72));
-    const height = Math.min(WINDOW_DEFAULTS.height, Math.round((vh - 120) * 0.94));
+    const height = Math.min(WINDOW_DEFAULTS.height, Math.round((vh - 120 - DOCK_RESERVED_HEIGHT) * 0.94));
     const offset = (index % 6) * WINDOW_DEFAULTS.cascade;
     return { x: 80 + offset, y: 36 + offset, width, height };
 }
@@ -54,9 +55,9 @@ function defaultBounds(index = 0) {
 function clampBounds(bounds) {
     const { width: vw, height: vh } = viewportSize();
     const width = Math.max(WINDOW_DEFAULTS.minWidth, Math.min(bounds.width, vw));
-    const height = Math.max(WINDOW_DEFAULTS.minHeight, Math.min(bounds.height, vh - 80));
+    const height = Math.max(WINDOW_DEFAULTS.minHeight, Math.min(bounds.height, vh - 80 - DOCK_RESERVED_HEIGHT));
     const x = Math.min(Math.max(bounds.x, 0), Math.max(0, vw - 160));
-    const y = Math.min(Math.max(bounds.y, 0), Math.max(0, vh - 140));
+    const y = Math.min(Math.max(bounds.y, 0), Math.max(0, vh - 140 - DOCK_RESERVED_HEIGHT));
     return { x, y, width, height };
 }
 
