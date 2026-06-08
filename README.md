@@ -49,6 +49,22 @@ AI-generated code (HTML, React, SVG) doesn't just appear in a chat bubble. It op
 
 Perci includes native support for [OpenClaw](https://github.com/openclaw/openclaw) — a production-grade local AI gateway. This gives you persistent agent memory, cross-session continuity, and access to local models through a unified interface. Perci auto-detects OpenClaw on your system and installs the gateway if missing.
 
+## Mission Control in Action
+
+Perci's Mission Control orchestrates agent workflows, visualizes complex tasks, and provides detailed insights into every step.
+
+### OpenClaw Integration Health
+
+This view captures a live run of an "OpenClaw integration health" mission. You can see the agent's progress through individual checkpoints, the commands executed, and the final report.
+
+![Screenshot of Perci's Mission Control showing an OpenClaw integration health run](docs/screenshots/perci-openclaw-integration.png)
+
+### The Agent Transit Map
+
+The Transit Map provides a high-level overview of agent missions. Each node represents a distinct step or dependency, allowing you to quickly understand the flow and state of complex tasks.
+
+![Screenshot of Perci's Mission Control Transit Map visualizing agent workflow](docs/screenshots/perci-mission-control-transit-map.png)
+
 ### Terminal
 
 A built-in terminal for running shell commands, managing dev servers, and interacting with your system — all without leaving the workspace.
