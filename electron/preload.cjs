@@ -34,11 +34,4 @@ contextBridge.exposeInMainWorld('electron', {
   discoverModelProviders: () => ipcRenderer.invoke('models:discover-providers'),
   startJanServer: (options) => ipcRenderer.invoke('models:start-jan-server', options),
   openHermesApp: (appPath) => ipcRenderer.invoke('hermes:open-app', appPath),
-  openYouTubePlayer: (url) => ipcRenderer.invoke('youtube-player:open', url),
-  closeYouTubePlayer: () => ipcRenderer.invoke('youtube-player:close'),
-  onYouTubePlayerClosed: (callback) => {
-    const listener = () => callback();
-    ipcRenderer.on('youtube-player:closed', listener);
-    return () => ipcRenderer.removeListener('youtube-player:closed', listener);
-  },
 });

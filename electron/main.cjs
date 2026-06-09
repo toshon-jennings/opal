@@ -84,7 +84,6 @@ function attachRendererDiagnostics(win) {
 let terminalServerProcess = null;
 let mainWindow = null;
 let splashWindow = null;
-let youtubeWindow = null;
 
 
 function isBundledAssetDocumentUrl(url) {
@@ -695,93 +694,6 @@ function createMenu() {
   Menu.setApplicationMenu(menu);
 }
 
-function getYouTubeVideoId(url) {
-  try {
-    const parsed = new URL(url);
-    const host = parsed.hostname.replace(/^www\./, '');
-
-    if (host === 'youtu.be') {
-      return parsed.pathname.split('/').filter(Boolean)[0] || null;
-    }
-
-    if (host !== 'youtube.com' && host !== 'youtube-nocookie.com') {
-      return null;
-    }
-
-    if (parsed.pathname === '/watch') {
-      return parsed.searchParams.get('v');
-    }
-
-    if (parsed.pathname.startsWith('/embed/') || parsed.pathname.startsWith('/shorts/')) {
-      return parsed.pathname.split('/').filter(Boolean)[1] || null;
-    }
-
-    return null;
-  } catch (err) {
-    return null;
-  }
-}
-
-function getYouTubeWatchUrl(url) {
-  const videoId = getYouTubeVideoId(url);
-  if (!videoId) {
-    throw new Error('Only YouTube video URLs can be opened in the PiP player.');
-  }
-  const watchUrl = new URL('https://www.youtube.com/watch');
-  watchUrl.searchParams.set('v', videoId);
-  return watchUrl.toString();
-}
-
-function createYouTubePlayerWindow(parentWindow, url) {
-  const playerUrl = getYouTubeWatchUrl(url);
-
-  if (youtubeWindow && !youtubeWindow.isDestroyed()) {
-    youtubeWindow.loadURL(playerUrl);
-    youtubeWindow.show();
-    youtubeWindow.focus();
-    return;
-  }
-
-  const parentBounds = parentWindow?.getBounds();
-  const defaultBounds = {
-    width: 520,
-    height: 340,
-    x: parentBounds ? parentBounds.x + parentBounds.width - 560 : undefined,
-    y: parentBounds ? parentBounds.y + 80 : undefined,
-  };
-
-  youtubeWindow = new BrowserWindow({
-    ...defaultBounds,
-    title: 'YouTube PiP',
-    parent: parentWindow || undefined,
-    alwaysOnTop: true,
-    minimizable: false,
-    maximizable: false,
-    fullscreenable: false,
-    backgroundColor: '#000000',
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      sandbox: true,
-      webSecurity: true,
-      partition: 'persist:perci-youtube',
-    },
-  });
-
-  youtubeWindow.webContents.setUserAgent(
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-  );
-
-  youtubeWindow.on('closed', () => {
-    youtubeWindow = null;
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('youtube-player:closed');
-    }
-  });
-
-  youtubeWindow.loadURL(playerUrl);
-}
-
 function createWindow() {
   const win = new BrowserWindow({
     width: 1200,
@@ -822,9 +734,6 @@ function createWindow() {
     tryRevealMain();
   });
   win.on('closed', () => {
-    if (youtubeWindow && !youtubeWindow.isDestroyed()) {
-      youtubeWindow.close();
-    }
     if (mainWindow === win) {
       mainWindow = null;
       stopOpenClawLogStream();
@@ -1507,19 +1416,6 @@ ipcMain.handle('hermes:open-app', async (event, customPath) => {
     }
   }
   return { ok: false, error: 'Mercury app not found. Set the path in Settings > Mercury.' };
-});
-
-ipcMain.handle('youtube-player:open', async (event, url) => {
-  const parentWindow = BrowserWindow.fromWebContents(event.sender) || mainWindow;
-  createYouTubePlayerWindow(parentWindow, url);
-  return true;
-});
-
-ipcMain.handle('youtube-player:close', async () => {
-  if (youtubeWindow && !youtubeWindow.isDestroyed()) {
-    youtubeWindow.close();
-  }
-  return true;
 });
 
 // ─── Agent Jobs ─────────────────────────────────────────────────────────────

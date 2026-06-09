@@ -57,8 +57,10 @@ function getYouTubeEmbedUrl(url) {
     }
     
     if (!videoId) return null;
-    const origin = encodeURIComponent(window.location.origin);
-    return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&rel=0&controls=1&origin=${origin}`;
+    // No `origin` param: the player runs as the webview's top-level document in
+    // desktop mode, so a declared embedding origin would mismatch and trip
+    // YouTube error 153 ("Video player configuration error").
+    return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&rel=0&controls=1`;
 }
 // ── Agent tool definitions ──────────────────────────────────────────────────
 const LOCAL_AGENT_TOOLS = [
@@ -787,47 +789,10 @@ function YouTubeLinkModal({ onPlay, onCancel }) {
     );
 }
 
-function YouTubePiPStatus({ onClose }) {
-    return createPortal(
-        <div 
-            className="fixed z-[10000] right-5 bottom-5 bg-black/90 text-white rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.35)] border border-white/10 flex items-center gap-3 px-3 py-2 animate-slide-up"
-        >
-            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-            <span className="text-xs font-semibold">YouTube PiP open</span>
-            <button onClick={onClose} className="text-white/50 hover:text-white transition-colors p-1 rounded-md hover:bg-white/10" title="Close YouTube PiP">
-                <X size={15} />
-            </button>
-        </div>,
-        document.body
-    );
-}
-
-function YouTubeFallbackPlayer({ url, onClose }) {
-    return createPortal(
-        <div className="fixed z-[10000] w-[400px] aspect-video right-5 bottom-5 bg-black rounded-xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 flex flex-col group animate-slide-up">
-            <div className="h-9 bg-black/90 backdrop-blur-md flex items-center justify-between px-3 border-b border-white/5 z-10">
-                <span className="text-[10px] font-bold text-white/80 uppercase tracking-widest">YouTube PiP</span>
-                <button onClick={onClose} className="text-white/40 hover:text-white transition-colors p-1 rounded-md hover:bg-white/10"><X size={16} /></button>
-            </div>
-            <div className="flex-1 w-full h-full relative bg-black">
-                <iframe 
-                    src={url}
-                    className="absolute inset-0 w-full h-full border-0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-                    referrerPolicy="strict-origin-when-cross-origin"
-                    allowFullScreen
-                    title="YouTube Video"
-                />
-            </div>
-        </div>,
-        document.body
-    );
-}
-
 // ── Main CoworkMode ─────────────────────────────────────────────────────────
 
 export default function CoworkMode() {
-    const { codeState, setCodeState, showGlobalTerminal, setShowGlobalTerminal } = useMode();
+    const { codeState, setCodeState, showGlobalTerminal, setShowGlobalTerminal, openYouTubeWindow } = useMode();
     const {
         userName,
         selectedProvider,
@@ -851,7 +816,6 @@ export default function CoworkMode() {
     const [sidebarView, setSidebarView] = useState('sessions'); // 'sessions' | 'routines'
     const [attachments, setAttachments] = useState([]);
     const [permissionLevel, setPermissionLevel] = useState('full');
-    const [youtubeUrl, setYoutubeUrl] = useState(null);
     const [showYouTubeModal, setShowYouTubeModal] = useState(false);
     const [sidebarWidth, setSidebarWidth] = useState(getDefaultSidebarWidth);
     const [conversationWidth, setConversationWidth] = useState(400);
@@ -877,38 +841,11 @@ export default function CoworkMode() {
         document.documentElement.style.setProperty('--perci-terminal-left', `${sidebarWidth}px`);
     }, [sidebarWidth]);
 
-    useEffect(() => {
-        if (!window.electron?.onYouTubePlayerClosed) return undefined;
-        return window.electron.onYouTubePlayerClosed(() => setYoutubeUrl(null));
-    }, []);
-
-    const handleOpenYouTube = async (url) => {
+    const handleOpenYouTube = (url) => {
         const embedUrl = getYouTubeEmbedUrl(url);
         if (!embedUrl) return;
         setShowYouTubeModal(false);
-
-        if (window.electron?.openYouTubePlayer) {
-            try {
-                await window.electron.openYouTubePlayer(url);
-                setYoutubeUrl(embedUrl);
-            } catch (err) {
-                console.error('Failed to open YouTube PiP:', err);
-            }
-            return;
-        }
-
-        setYoutubeUrl(embedUrl);
-    };
-
-    const handleCloseYouTube = async () => {
-        setYoutubeUrl(null);
-        if (window.electron?.closeYouTubePlayer) {
-            try {
-                await window.electron.closeYouTubePlayer();
-            } catch (err) {
-                console.error('Failed to close YouTube PiP:', err);
-            }
-        }
+        openYouTubeWindow(embedUrl);
     };
 
     useEffect(() => {
@@ -1371,16 +1308,6 @@ export default function CoworkMode() {
                         onCancel={() => setShowYouTubeModal(false)}
                     />
                 )}
-                {youtubeUrl && (
-                    window.electron?.openYouTubePlayer ? (
-                        <YouTubePiPStatus onClose={handleCloseYouTube} />
-                    ) : (
-                    <YouTubeFallbackPlayer 
-                        url={youtubeUrl} 
-                        onClose={handleCloseYouTube} 
-                    />
-                    )
-                )}
                 {/* Session sidebar */}
                 <div
                     className="border-r border-[var(--border)] flex flex-col bg-[var(--bg-secondary)] shrink-0"
@@ -1605,16 +1532,6 @@ export default function CoworkMode() {
                     onPlay={handleOpenYouTube}
                     onCancel={() => setShowYouTubeModal(false)}
                 />
-            )}
-            {youtubeUrl && (
-                window.electron?.openYouTubePlayer ? (
-                    <YouTubePiPStatus onClose={handleCloseYouTube} />
-                ) : (
-                <YouTubeFallbackPlayer 
-                    url={youtubeUrl} 
-                    onClose={handleCloseYouTube} 
-                />
-                )
             )}
             {/* Sidebar */}
             <aside

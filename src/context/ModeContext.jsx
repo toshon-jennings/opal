@@ -21,6 +21,7 @@ export const MODES = {
 
 // Non-mode windows (surfaces that open as windows but aren't in the MODES enum).
 export const OPENCLAW_WINDOW_ID = 'openclaw';
+export const YOUTUBE_WINDOW_ID = 'youtube';
 
 // Titles shown in window headers and dock chips for each windowed surface.
 export const WINDOW_TITLES = {
@@ -30,11 +31,12 @@ export const WINDOW_TITLES = {
     [MODES.MISSION]: 'Mission Control',
     [MODES.BUILD]: 'Build',
     [OPENCLAW_WINDOW_ID]: 'OpenClaw',
+    [YOUTUBE_WINDOW_ID]: 'YouTube',
 };
 
 // Windows whose content is an Electron <webview>; CSS transforms can make webviews
 // flicker, so these minimize with a plain fade instead of the whirlpool spin.
-const NO_WHIRLPOOL_IDS = new Set([OPENCLAW_WINDOW_ID]);
+const NO_WHIRLPOOL_IDS = new Set([OPENCLAW_WINDOW_ID, YOUTUBE_WINDOW_ID]);
 
 const WINDOW_DEFAULTS = { width: 960, height: 640, minWidth: 420, minHeight: 300, cascade: 34 };
 const DOCK_RESERVED_HEIGHT = 64;
@@ -67,7 +69,9 @@ function hydrateWindows(saved) {
     if (!Array.isArray(saved)) return [];
     const validStates = new Set(['normal', 'minimized', 'maximized']);
     return saved
-        .filter(w => w && typeof w.id === 'string' && typeof w.modeId === 'string')
+        // The YouTube window's content (its embed URL) isn't persisted, so drop
+        // any stale chip on reload rather than rehydrate an empty player.
+        .filter(w => w && typeof w.id === 'string' && typeof w.modeId === 'string' && w.id !== YOUTUBE_WINDOW_ID)
         .map(w => ({
             id: w.id,
             modeId: w.modeId,
@@ -135,6 +139,9 @@ export function ModeProvider({ children }) {
     // The open set is persisted so windows survive a reload; per-mode geometry is
     // remembered separately so reopening a closed window restores its size.
     const [windows, setWindows] = useState(() => hydrateWindows(readJsonStorage('perci_open_windows', [])));
+    // The embed URL backing the YouTube window's iframe. The window itself lives
+    // in `windows` (so it's a first-class dock citizen); this holds its content.
+    const [youtubeUrl, setYoutubeUrl] = useState(null);
     const zCounterRef = useRef(windows.reduce((max, w) => Math.max(max, w.z || 0), 20));
 
     // Mirror of `windows` so actions can read the latest set without putting
@@ -206,6 +213,13 @@ export function ModeProvider({ children }) {
         });
     }, []);
 
+    // Opens (or refocuses) the YouTube window with a new embed URL.
+    const openYouTubeWindow = useCallback((embedUrl) => {
+        if (!embedUrl) return;
+        setYoutubeUrl(embedUrl);
+        openWindow(YOUTUBE_WINDOW_ID);
+    }, [openWindow]);
+
     // setCurrentMode keeps its existing call sites working: Chat reveals the
     // desktop (minimizing windows); every other mode opens/focuses its window.
     const setCurrentMode = useCallback((modeId) => {
@@ -221,6 +235,7 @@ export function ModeProvider({ children }) {
         const next = windowsRef.current.filter(w => w.id !== id);
         setWindows(next);
         setActiveMode(topVisibleId(next));
+        if (id === YOUTUBE_WINDOW_ID) setYoutubeUrl(null);
     }, []);
 
     const minimizeWindow = useCallback((id) => {
@@ -261,7 +276,9 @@ export function ModeProvider({ children }) {
         toggleMaximizeWindow,
         moveWindow,
         resizeWindow,
-    }), [windows, openWindow, closeWindow, focusWindow, minimizeWindow, toggleMaximizeWindow, moveWindow, resizeWindow]);
+        youtubeUrl,
+        openYouTubeWindow,
+    }), [windows, openWindow, closeWindow, focusWindow, minimizeWindow, toggleMaximizeWindow, moveWindow, resizeWindow, youtubeUrl, openYouTubeWindow]);
 
     const createDefaultCodeState = () => ({
         workingDirectory: readStringStorage('working_directory', null),

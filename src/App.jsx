@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, Component } from 'react';
 import perciLogo from './assets/perci-logo.png';
-import { useMode, MODES, OPENCLAW_WINDOW_ID } from './context/ModeContext';
+import { useMode, MODES, OPENCLAW_WINDOW_ID, YOUTUBE_WINDOW_ID } from './context/ModeContext';
 import ModeSwitcher from './components/ModeSwitcher';
 import ChatMode from './components/ChatMode';
 import CodeMode from './components/CodeMode';
@@ -76,6 +76,7 @@ function AppContent() {
         setCurrentMode,
         windows,
         openWindow,
+        youtubeUrl,
         showGlobalTerminal,
         setShowGlobalTerminal,
         openClawConfig,
@@ -482,6 +483,33 @@ function AppContent() {
                     />
                 );
             case OPENCLAW_WINDOW_ID: return renderOpenClawWindow();
+            case YOUTUBE_WINDOW_ID:
+                if (!youtubeUrl) return null;
+                // Desktop: load the full /watch page in a <webview> (its own
+                // top-level document), like the OpenClaw window. The bare /embed
+                // player refuses to load in an Electron <iframe>
+                // (ERR_BLOCKED_BY_RESPONSE) and errors 153 as a top-level webview
+                // document, so the watch page is the reliable path. Web build keeps
+                // the lighter /embed iframe, where embedding is permitted.
+                return window.electron ? (
+                    <webview
+                        key={youtubeUrl}
+                        src={watchUrlFromEmbed(youtubeUrl)}
+                        className="w-full h-full border-0 bg-black"
+                        partition="persist:perci-youtube"
+                        useragent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                        allowpopups="true"
+                    />
+                ) : (
+                    <iframe
+                        src={youtubeUrl}
+                        className="w-full h-full border-0 bg-black"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        referrerPolicy="strict-origin-when-cross-origin"
+                        allowFullScreen
+                        title="YouTube"
+                    />
+                );
             default: return null;
         }
     };
@@ -928,6 +956,13 @@ function getOpenClawDashboardUrl(profile) {
     if (!profile?.controlUrl) return '';
     if (!profile.token || profile.controlUrl.includes('#token=')) return profile.controlUrl;
     return `${profile.controlUrl.replace(/\/?$/, '/')}#token=${encodeURIComponent(profile.token)}`;
+}
+
+// The YouTube window stores an /embed URL (used by the web iframe). The desktop
+// webview loads the full /watch page instead, so map the video id across.
+function watchUrlFromEmbed(embedUrl) {
+    const match = /\/embed\/([^?&/]+)/.exec(embedUrl || '');
+    return match ? `https://www.youtube.com/watch?v=${match[1]}` : embedUrl;
 }
 
 export default function App() {
