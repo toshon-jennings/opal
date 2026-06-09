@@ -16,7 +16,7 @@
 
 ## What Is Perci?
 
-Perci is an open-source AI workspace — a desktop application that brings together multi-provider AI chat, agent orchestration, deep research, and a code workbench under one roof. Forked from [Open-claude](https://github.com/Damienchakma/Open-claude), it has evolved into something substantially more: a general-purpose tool for anyone who works with AI, writes code, or needs to get real things done.
+Perci is an open-source AI workspace — a desktop application that brings together multi-provider AI chat, agent orchestration, deep research, and a code workbench under one roof. Forked from [Open Claude](https://github.com/Damienchakma/Open-claude), it has evolved into something substantially more: a general-purpose tool for anyone who works with AI, writes code, or needs to get real things done.
 
 This is not a chat app. It's a **command center**.
 
