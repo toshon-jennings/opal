@@ -559,14 +559,14 @@ export default function CodeMode() {
 
             <div className="flex-1 min-h-0 flex flex-col min-w-[300px] bg-[var(--bg-primary)] overflow-hidden">
                 <div className="h-12 border-b border-[var(--border)] flex items-center justify-between px-4 bg-[var(--bg-secondary)]/30 shrink-0">
-                    <div className="flex items-center gap-4">
-                        <button onClick={() => setShowSidebar(!showSidebar)} className={`p-1.5 rounded-md transition-colors ${showSidebar ? 'text-[var(--accent)]' : 'text-[var(--text-tertiary)]'}`}><Sidebar size={18} /></button>
-                        <div className="flex items-center gap-2 overflow-hidden">
+                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                        <button onClick={() => setShowSidebar(!showSidebar)} className={`p-1.5 rounded-md transition-colors shrink-0 ${showSidebar ? 'text-[var(--accent)]' : 'text-[var(--text-tertiary)]'}`}><Sidebar size={18} /></button>
+                        <div className="flex items-center gap-2 overflow-hidden min-w-0">
                             <FileCode size={14} className="text-[var(--accent)] shrink-0" />
                             <span className="text-xs font-mono text-[var(--text-secondary)] truncate font-medium">{codeState.activeFile || 'No file selected'}</span>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                         <button onClick={handleChooseFolder} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-all"><FolderOpen size={14} />{codeState.workingDirectory ? 'Change Folder' : 'Choose Folder'}</button>
                         <button onClick={handleSave} disabled={!codeState.unsavedChanges} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${codeState.unsavedChanges ? 'bg-[var(--accent)] text-white shadow-md hover:bg-[var(--accent-hover)]' : 'bg-[var(--bg-tertiary)] text-[var(--text-tertiary)]'}`}><Save size={14} />{codeState.unsavedChanges ? 'Save Changes' : 'Saved'}</button>
                     </div>
