@@ -1,0 +1,20 @@
+# NOTICE
+
+Perci includes code derived from the following open-source project:
+
+## Open Claude
+
+- **Author:** Damien ChakraUI (Damienchakma)
+- **Repository:** https://github.com/Damienchakma/Open-claude
+- **License:** MIT License
+- **Copyright:** Copyright (c) 2025 Damien ChakraUI
+
+The original MIT license terms apply to the portions of this software derived
+from Open Claude. The full text of the MIT License is included in the LICENSE
+file in this repository.
+
+---
+
+All other components, including but not limited to Autoresearch mode, Office
+mode, Dashboard mode, the agent bridge, and the Sir Percival mascot, are
+original works and are not covered by the MIT License.
