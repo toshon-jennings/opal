@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.18.7] - 2026-06-10
+### Changed
+- Rebuild with latest artwork and positioning changes.
+
 ## [0.18.6] - 2026-06-10
 ### Added
 - **Framed artwork on Office walls** — WallArt3D component with proper texture loading, two pieces placed (right wall and back wall).
