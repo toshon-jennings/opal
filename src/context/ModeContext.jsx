@@ -148,6 +148,9 @@ export function ModeProvider({ children }) {
     // The embed URL backing the YouTube window's iframe. The window itself lives
     // in `windows` (so it's a first-class dock citizen); this holds its content.
     const [youtubeUrl, setYoutubeUrl] = useState(null);
+    // Agent id to pre-select when the Agents window opens (e.g. clicking a desk
+    // in Perci HQ). Consumed and cleared by AgentsPanel.
+    const [pendingAgentSelection, setPendingAgentSelection] = useState(null);
     const zCounterRef = useRef(windows.reduce((max, w) => Math.max(max, w.z || 0), 20));
 
     // Mirror of `windows` so actions can read the latest set without putting
@@ -226,6 +229,12 @@ export function ModeProvider({ children }) {
         openWindow(YOUTUBE_WINDOW_ID);
     }, [openWindow]);
 
+    // Opens (or refocuses) the Agents window with a specific agent's card selected.
+    const openAgentWindow = useCallback((agentId) => {
+        setPendingAgentSelection(agentId);
+        openWindow(MODES.AGENTS);
+    }, [openWindow]);
+
     // setCurrentMode keeps its existing call sites working: Dashboard reveals
     // the desktop (minimizing windows); every other mode opens/focuses its window.
     const setCurrentMode = useCallback((modeId) => {
@@ -284,7 +293,10 @@ export function ModeProvider({ children }) {
         resizeWindow,
         youtubeUrl,
         openYouTubeWindow,
-    }), [windows, openWindow, closeWindow, focusWindow, minimizeWindow, toggleMaximizeWindow, moveWindow, resizeWindow, youtubeUrl, openYouTubeWindow]);
+        pendingAgentSelection,
+        setPendingAgentSelection,
+        openAgentWindow,
+    }), [windows, openWindow, closeWindow, focusWindow, minimizeWindow, toggleMaximizeWindow, moveWindow, resizeWindow, youtubeUrl, openYouTubeWindow, pendingAgentSelection, openAgentWindow]);
 
     const createDefaultCodeState = () => ({
         workingDirectory: readStringStorage('working_directory', null),

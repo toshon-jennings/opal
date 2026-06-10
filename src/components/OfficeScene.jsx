@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Html, ContactShadows, useCursor } from '@react-three/drei';
+import { OrbitControls, Html, ContactShadows, useCursor, useTexture, Text, Billboard } from '@react-three/drei';
+import RetroTvPlayer from './RetroTvPlayer';
 
 /* Perci HQ rendered as a real 3D room (react-three-fiber). Sir Perci is a
  * rigged primitive model — legs, arms, antennae and weapons are separate
@@ -93,20 +94,20 @@ function getTimeScene(date) {
 
 function PerciSword() {
     return (
-        <group position={[0, -0.26, 0.03]}>
-            <mesh position={[0, 0.34, 0]}>
-                <boxGeometry args={[0.05, 0.52, 0.018]} />
+        <group position={[0, -0.14, 0.03]}>
+            <mesh position={[0, 0.52, 0]}>
+                <boxGeometry args={[0.05, 0.62, 0.018]} />
                 <meshStandardMaterial color={BLADE} roughness={0.3} metalness={0.6} />
             </mesh>
-            <mesh position={[0, 0.06, 0]}>
+            <mesh position={[0, 0.18, 0]}>
                 <boxGeometry args={[0.2, 0.045, 0.05]} />
                 <meshStandardMaterial color={GOLD} roughness={0.4} metalness={0.5} />
             </mesh>
-            <mesh position={[0, -0.02, 0]}>
-                <cylinderGeometry args={[0.026, 0.026, 0.12, 8]} />
+            <mesh position={[0, 0, 0]}>
+                <cylinderGeometry args={[0.026, 0.026, 0.26, 8]} />
                 <meshStandardMaterial color={PERCI_DARK} />
             </mesh>
-            <mesh position={[0, -0.1, 0]}>
+            <mesh position={[0, -0.18, 0]}>
                 <sphereGeometry args={[0.04, 12, 12]} />
                 <meshStandardMaterial color={GOLD} metalness={0.5} roughness={0.4} />
             </mesh>
@@ -170,8 +171,8 @@ function Perci3D({ state, bubble, reduce }) {
 
         // antennae sway, livelier when busy or celebrating
         const antSpeed = state === 'working' || state === 'happy' ? 7 : 2.5;
-        if (antL.current) antL.current.rotation.z = -0.5 + Math.sin(t * antSpeed) * 0.18;
-        if (antR.current) antR.current.rotation.z = 0.5 + Math.sin(t * antSpeed + 1) * 0.18;
+        if (antL.current) antL.current.rotation.z = 0.88 + Math.sin(t * antSpeed) * 0.12;
+        if (antR.current) antR.current.rotation.z = -0.88 + Math.sin(t * antSpeed + 1) * 0.12;
 
         // arms: walking swing, then mood overrides (sword chop / raise, shield guard)
         const swing = speed === 0 ? 0 : Math.sin(w.phase) * 0.45;
@@ -220,7 +221,7 @@ function Perci3D({ state, bubble, reduce }) {
                 </mesh>
 
                 {/* antennae */}
-                {[[antL, -0.15, -0.5], [antR, 0.15, 0.5]].map(([ref, x, tilt]) => (
+                {[[antL, -0.18, 0.88], [antR, 0.18, -0.88]].map(([ref, x, tilt]) => (
                     <group key={x} ref={ref} position={[x, 0.34, 0]} rotation={[0, 0, tilt]}>
                         <mesh position={[0, 0.12, 0]}>
                             <cylinderGeometry args={[0.028, 0.028, 0.22, 8]} />
@@ -250,7 +251,7 @@ function Perci3D({ state, bubble, reduce }) {
                 </group>
             </group>
 
-            <Html position={[0, 1.55, 0]} center distanceFactor={10} zIndexRange={[30, 0]}
+            <Html position={[0, 1.55, 0]} center distanceFactor={10} zIndexRange={[80, 0]}
                 style={{ pointerEvents: 'none' }}>
                 <div className="o-bubble">{bubble}</div>
             </Html>
@@ -292,7 +293,7 @@ function FloatGlyph({ mood, innerRef }) {
     return null;
 }
 
-function DeskPod({ x, z, color, label, tip, mood, onClick, reduce }) {
+function DeskPod({ x, z, color, label, mood, agentId, onClick, reduce }) {
     const bot = useRef();
     const head = useRef();
     const eyes = useRef();
@@ -305,6 +306,7 @@ function DeskPod({ x, z, color, label, tip, mood, onClick, reduce }) {
 
     const glow = mood === 'working' ? color : MOOD_GLOW[mood];
     const eyeColor = mood === 'attention' ? '#f87171' : '#ffd9a0';
+    const labelWidth = Math.max(0.82, label.length * 0.095 + 0.42);
 
     useFrame((s, dt) => {
         if (reduce) return;
@@ -337,7 +339,7 @@ function DeskPod({ x, z, color, label, tip, mood, onClick, reduce }) {
         <group
             position={[x, 0, z]}
             scale={hovered ? 1.04 : 1}
-            onClick={(e) => { e.stopPropagation(); onClick(); }}
+            onClick={(e) => { e.stopPropagation(); onClick(agentId); }}
             onPointerOver={(e) => { e.stopPropagation(); setHovered(true); }}
             onPointerOut={() => setHovered(false)}
         >
@@ -430,13 +432,26 @@ function DeskPod({ x, z, color, label, tip, mood, onClick, reduce }) {
 
             <FloatGlyph mood={mood} innerRef={glyph} />
 
-            <Html position={[0, 0.55, 0.5]} center distanceFactor={11} zIndexRange={[30, 0]}
-                style={{ pointerEvents: 'none' }}>
-                <span className="o-nameplate" data-status={mood} title={tip}>
-                    <span className="o-led" />
+            <Billboard position={[0, 0.55, 0.5]} follow lockX={false} lockY={false} lockZ={false}>
+                <mesh position={[0, 0, -0.01]}>
+                    <planeGeometry args={[labelWidth, 0.23]} />
+                    <meshBasicMaterial color="#050505" transparent opacity={0.52} depthTest depthWrite={false} />
+                </mesh>
+                <mesh position={[-labelWidth / 2 + 0.14, 0, 0.01]}>
+                    <circleGeometry args={[0.035, 14]} />
+                    <meshBasicMaterial color={mood === 'working' ? '#38bdf8' : mood === 'done' ? '#4ade80' : mood === 'attention' ? '#ef4444' : '#6b7280'} depthTest />
+                </mesh>
+                <Text
+                    position={[0.06, -0.002, 0.02]}
+                    fontSize={0.105}
+                    color="#f5e6c8"
+                    anchorX="center"
+                    anchorY="middle"
+                    maxWidth={labelWidth - 0.22}
+                >
                     {label}
-                </span>
-            </Html>
+                </Text>
+            </Billboard>
         </group>
     );
 }
@@ -488,7 +503,7 @@ function Room() {
     );
 }
 
-function OfficeWindow({ scene }) {
+function OfficeWindow({ scene, position = [-5.6, 3.4, -4.94], rotation = [0, 0, 0], scale = 1, showCelestial = true }) {
     const stars = useMemo(
         () => Array.from({ length: 8 }, () => [
             (Math.random() - 0.5) * 2.4,
@@ -506,7 +521,7 @@ function OfficeWindow({ scene }) {
             : [0.62, 0.5, 0.04];
 
     return (
-        <group position={[-5.6, 3.4, -4.94]}>
+        <group position={position} rotation={rotation} scale={scale}>
             <mesh>
                 <planeGeometry args={[3, 1.9]} />
                 <meshStandardMaterial color={scene.sky} emissive={scene.sky} emissiveIntensity={isNight ? 0.08 : 0.18} roughness={0.6} />
@@ -515,10 +530,12 @@ function OfficeWindow({ scene }) {
                 <planeGeometry args={[2.85, 0.72]} />
                 <meshStandardMaterial color={scene.horizon} emissive={scene.horizon} emissiveIntensity={isNight ? 0.04 : 0.28} transparent opacity={0.9} />
             </mesh>
-            <mesh position={isNight ? [0.95, 0.55, 0.04] : sunPosition}>
-                <sphereGeometry args={isNight ? [0.16, 14, 14] : [0.24, 18, 18]} />
-                <meshStandardMaterial color={scene.outsideGlow} emissive={scene.outsideGlow} emissiveIntensity={isNight ? 1.6 : 2.2} />
-            </mesh>
+            {showCelestial && (
+                <mesh position={isNight ? [0.95, 0.55, 0.04] : sunPosition}>
+                    <sphereGeometry args={isNight ? [0.16, 14, 14] : [0.24, 18, 18]} />
+                    <meshStandardMaterial color={scene.outsideGlow} emissive={scene.outsideGlow} emissiveIntensity={isNight ? 1.6 : 2.2} />
+                </mesh>
+            )}
             {stars.map((p, i) => (
                 <mesh key={i} position={p}>
                     <sphereGeometry args={[0.02, 6, 6]} />
@@ -548,7 +565,34 @@ function OfficeWindow({ scene }) {
     );
 }
 
-function WallClock3D() {
+function Door3D() {
+    return (
+        <group position={[10.96, 1.38, -0.3]} rotation={[0, -Math.PI / 2, 0]}>
+            <mesh position={[0, 0.05, 0]}>
+                <boxGeometry args={[1.42, 2.85, 0.08]} />
+                <meshStandardMaterial color="#2b1b17" roughness={0.72} />
+            </mesh>
+            <mesh position={[0, 0.07, 0.05]}>
+                <boxGeometry args={[1.14, 2.48, 0.06]} />
+                <meshStandardMaterial color="#5a351f" roughness={0.86} />
+            </mesh>
+            <mesh position={[0, 0.66, 0.09]}>
+                <boxGeometry args={[0.82, 0.34, 0.035]} />
+                <meshStandardMaterial color="#6f4326" roughness={0.78} />
+            </mesh>
+            <mesh position={[0.42, -0.05, 0.13]} rotation={[Math.PI / 2, 0, 0]}>
+                <cylinderGeometry args={[0.055, 0.055, 0.07, 16]} />
+                <meshStandardMaterial color={GOLD} metalness={0.5} roughness={0.35} />
+            </mesh>
+            <mesh position={[0, -1.38, 0.08]}>
+                <boxGeometry args={[1.42, 0.08, 0.12]} />
+                <meshStandardMaterial color="#1b1220" roughness={0.8} />
+            </mesh>
+        </group>
+    );
+}
+
+function WallClock3D({ position = [5.6, 3.6, -4.9], rotation = [0, 0, 0] }) {
     const hour = useRef();
     const minute = useRef();
     useFrame(() => {
@@ -557,7 +601,7 @@ function WallClock3D() {
         if (minute.current) minute.current.rotation.z = -now.getMinutes() * (Math.PI / 30);
     });
     return (
-        <group position={[5.6, 3.6, -4.9]}>
+        <group position={position} rotation={rotation}>
             <mesh rotation={[Math.PI / 2, 0, 0]}>
                 <cylinderGeometry args={[0.5, 0.5, 0.07, 24]} />
                 <meshStandardMaterial color="#1a1320" roughness={0.6} />
@@ -582,6 +626,33 @@ function WallClock3D() {
                 <sphereGeometry args={[0.04, 10, 10]} />
                 <meshStandardMaterial color="#fbbf24" />
             </mesh>
+        </group>
+    );
+}
+
+function WallTv3D() {
+    /* TV sits flush against the back wall (z ~= -4.94). Keep the live iframe in a
+       projected DOM overlay; transformed/occluded Html can leave embedded video blank. */
+    return (
+        <group position={[5.25, 3.08, -4.94]}>
+            {/* back casing — sits right against the wall */}
+            <mesh position={[0, 0, -0.02]}>
+                <boxGeometry args={[2.55, 1.55, 0.08]} />
+                <meshStandardMaterial color="#151019" roughness={0.72} metalness={0.08} />
+            </mesh>
+            {/* screen face */}
+            <mesh position={[0, 0, 0.03]}>
+                <planeGeometry args={[2.42, 1.42]} />
+                <meshStandardMaterial color="#07070a" emissive="#101622" emissiveIntensity={0.35} />
+            </mesh>
+            <Html
+                center
+                position={[0, 0, 0.04]}
+                distanceFactor={5.3}
+                zIndexRange={[80, 0]}
+            >
+                <RetroTvPlayer className="retro-tv--wall" />
+            </Html>
         </group>
     );
 }
@@ -611,32 +682,381 @@ function HangingLamp({ x, z, offset, reduce, intensity }) {
     );
 }
 
-function Plant3D({ reduce }) {
+function NeonSign3D({ reduce }) {
+    const textMat = useRef();
+    const sharedBorderMat = useMemo(() => new THREE.MeshBasicMaterial({
+        color: '#fbbf24',
+        transparent: true,
+        toneMapped: false,
+        opacity: 0.7
+    }), []);
+
+    useFrame((s) => {
+        if (reduce) return;
+        const t = s.clock.elapsedTime;
+        const cycle = t % 7;
+        let opacity = 1;
+        if (cycle > 1.3 && cycle < 1.5) {
+            opacity = 0.4 + Math.random() * 0.5;
+        } else if (cycle > 4.5 && cycle < 4.62) {
+            opacity = 0.75;
+        }
+        if (textMat.current) textMat.current.opacity = opacity;
+        sharedBorderMat.opacity = opacity * 0.7;
+    });
+
+    return (
+        <group position={[0, 4.05, -4.96]}>
+            {/* The Text */}
+            <Text
+                fontSize={0.48}
+                color="#fbbf24"
+                letterSpacing={0.36}
+                anchorX="center"
+                anchorY="middle"
+            >
+                PERCI HQ
+                <meshBasicMaterial
+                    ref={textMat}
+                    attach="material"
+                    color="#fbbf24"
+                    transparent
+                    toneMapped={false}
+                />
+            </Text>
+
+            {/* The Border Frame Tubes */}
+            <group>
+                <mesh position={[0, 0.36, -0.01]} material={sharedBorderMat}>
+                    <boxGeometry args={[3.2, 0.02, 0.02]} />
+                </mesh>
+                <mesh position={[0, -0.36, -0.01]} material={sharedBorderMat}>
+                    <boxGeometry args={[3.2, 0.02, 0.02]} />
+                </mesh>
+                <mesh position={[-1.6, 0, -0.01]} material={sharedBorderMat}>
+                    <boxGeometry args={[0.02, 0.74, 0.02]} />
+                </mesh>
+                <mesh position={[1.6, 0, -0.01]} material={sharedBorderMat}>
+                    <boxGeometry args={[0.02, 0.74, 0.02]} />
+                </mesh>
+            </group>
+        </group>
+    );
+}
+
+function CeramicPot({ color = '#a85b32', accent = '#f4c27a' }) {
+    return (
+        <group>
+            <mesh position={[0, 0.24, 0]}>
+                <cylinderGeometry args={[0.26, 0.34, 0.48, 18]} />
+                <meshStandardMaterial color={color} roughness={0.58} metalness={0.08} />
+            </mesh>
+            <mesh position={[0, 0.5, 0]}>
+                <torusGeometry args={[0.27, 0.035, 8, 20]} />
+                <meshStandardMaterial color={accent} roughness={0.46} />
+            </mesh>
+            <mesh position={[0, 0.505, 0]}>
+                <cylinderGeometry args={[0.24, 0.24, 0.025, 18]} />
+                <meshStandardMaterial color="#2a1b14" roughness={1} />
+            </mesh>
+        </group>
+    );
+}
+
+function PottedTree({ position, scale = 1, reduce }) {
+    const crown = useRef();
+    useFrame((s) => {
+        if (reduce || !crown.current) return;
+        crown.current.rotation.z = Math.sin(s.clock.elapsedTime * 0.65) * 0.025;
+    });
+
+    return (
+        <group position={position} scale={scale}>
+            <CeramicPot color="#c5793e" accent="#f4d28d" />
+            <mesh position={[0, 1.04, 0]}>
+                <cylinderGeometry args={[0.075, 0.11, 1.16, 10]} />
+                <meshStandardMaterial color="#68411f" roughness={0.86} />
+            </mesh>
+            <group ref={crown} position={[0, 1.72, 0]}>
+                {[
+                    [0, 0.18, 0, 0.5, '#3f8f5a'],
+                    [-0.38, 0, 0.08, 0.42, '#2f7347'],
+                    [0.38, 0.03, -0.04, 0.44, '#4ea86c'],
+                    [-0.1, 0.42, -0.05, 0.38, '#56b978'],
+                    [0.12, -0.18, 0.05, 0.36, '#357a4c'],
+                ].map(([x, y, z, radius, color], i) => (
+                    <mesh key={i} position={[x, y, z]}>
+                        <sphereGeometry args={[radius, 18, 14]} />
+                        <meshStandardMaterial color={color} roughness={0.82} />
+                    </mesh>
+                ))}
+            </group>
+        </group>
+    );
+}
+
+function Plant3D({
+    position = [8.8, 0, 2.4],
+    scale = 1,
+    reduce,
+    potColor = '#a85b32',
+    accent = '#f4c27a',
+    leafColor = '#3f8f5a',
+    leafDark = '#276d47',
+    variant = 'round',
+    swayOffset = 0,
+}) {
     const leaves = useRef();
     useFrame((s) => {
         if (reduce || !leaves.current) return;
-        leaves.current.rotation.z = Math.sin(s.clock.elapsedTime * 0.9) * 0.05;
+        leaves.current.rotation.z = Math.sin(s.clock.elapsedTime * 0.9 + swayOffset) * 0.05;
     });
+
+    const isPalm = variant === 'palm';
+    const isFan = variant === 'fan';
+    const isTall = variant === 'tall';
+    const leafShape = useMemo(() => {
+        const shape = new THREE.Shape();
+        shape.moveTo(0, 0.34);
+        shape.bezierCurveTo(0.2, 0.24, 0.24, -0.12, 0, -0.34);
+        shape.bezierCurveTo(-0.24, -0.12, -0.2, 0.24, 0, 0.34);
+        return shape;
+    }, []);
+
     return (
-        <group position={[8.8, 0, 2.4]}>
-            <mesh position={[0, 0.22, 0]}>
-                <cylinderGeometry args={[0.2, 0.26, 0.44, 12]} />
-                <meshStandardMaterial color="#a85b32" roughness={0.85} />
-            </mesh>
+        <group position={position} scale={scale}>
+            <CeramicPot color={potColor} accent={accent} />
+            {(isTall || isPalm || isFan) && (
+                <mesh position={[0, 0.92, 0]}>
+                    <cylinderGeometry args={(isPalm || isFan) ? [0.035, 0.06, 0.72, 8] : [0.045, 0.065, 0.82, 8]} />
+                    <meshStandardMaterial color="#5b3a21" roughness={0.8} />
+                </mesh>
+            )}
             <group ref={leaves} position={[0, 0.44, 0]}>
-                <mesh position={[0, 0.34, 0]}>
-                    <sphereGeometry args={[0.27, 12, 12]} />
-                    <meshStandardMaterial color="#3f8f5a" roughness={0.8} />
+                {isFan ? (
+                    [-0.72, -0.42, -0.14, 0.14, 0.42, 0.72].map((tilt, i) => (
+                        <group key={tilt} position={[tilt * 0.18, 0.76 + Math.abs(tilt) * 0.08, 0.05]} rotation={[0, 0, tilt]}>
+                            <mesh scale={[0.7, 1.05, 1]}>
+                                <shapeGeometry args={[leafShape]} />
+                                <meshStandardMaterial color={i % 2 ? leafColor : leafDark} roughness={0.78} side={THREE.DoubleSide} />
+                            </mesh>
+                            <mesh position={[0, -0.03, 0.01]} scale={[0.08, 0.82, 1]}>
+                                <shapeGeometry args={[leafShape]} />
+                                <meshStandardMaterial color="#86d99a" roughness={0.82} side={THREE.DoubleSide} />
+                            </mesh>
+                        </group>
+                    ))
+                ) : isPalm ? (
+                    Array.from({ length: 7 }, (_, i) => {
+                        const angle = (i / 7) * Math.PI * 2;
+                        const reach = 0.28 + (i % 2) * 0.08;
+                        return (
+                            <group key={i} position={[Math.cos(angle) * reach, 0.82, Math.sin(angle) * reach]} rotation={[0.78, angle, (i % 2 ? 0.16 : -0.12)]}>
+                                <mesh scale={[0.82, 0.92, 1]}>
+                                    <shapeGeometry args={[leafShape]} />
+                                    <meshStandardMaterial color={i % 2 ? leafColor : leafDark} roughness={0.78} side={THREE.DoubleSide} />
+                                </mesh>
+                                <mesh position={[0, -0.02, 0.01]} scale={[0.13, 0.72, 1]}>
+                                    <shapeGeometry args={[leafShape]} />
+                                    <meshStandardMaterial color="#74c98b" roughness={0.82} side={THREE.DoubleSide} />
+                                </mesh>
+                            </group>
+                        );
+                    })
+                ) : isTall ? (
+                    Array.from({ length: 8 }, (_, i) => {
+                        const angle = (i / 8) * Math.PI * 2;
+                        const y = 0.44 + (i % 3) * 0.16;
+                        return (
+                            <mesh key={i} position={[Math.cos(angle) * 0.2, y, Math.sin(angle) * 0.16]} rotation={[0.7, angle, 0]}>
+                                <sphereGeometry args={[0.2, 14, 10]} />
+                                <meshStandardMaterial color={i % 2 ? leafColor : leafDark} roughness={0.78} />
+                            </mesh>
+                        );
+                    })
+                ) : (
+                    <>
+                        <mesh position={[0, 0.34, 0]}>
+                            <sphereGeometry args={[0.31, 14, 12]} />
+                            <meshStandardMaterial color={leafColor} roughness={0.8} />
+                        </mesh>
+                        <mesh position={[-0.24, 0.16, 0.05]}>
+                            <sphereGeometry args={[0.2, 12, 12]} />
+                            <meshStandardMaterial color={leafDark} roughness={0.8} />
+                        </mesh>
+                        <mesh position={[0.24, 0.2, -0.05]}>
+                            <sphereGeometry args={[0.22, 12, 12]} />
+                            <meshStandardMaterial color="#56b978" roughness={0.8} />
+                        </mesh>
+                    </>
+                )}
+            </group>
+        </group>
+    );
+}
+
+function WallShelf3D({ position, rotation = [0, 0, 0], reduce }) {
+    return (
+        <group position={position} rotation={rotation}>
+            <mesh>
+                <boxGeometry args={[2.25, 0.09, 0.28]} />
+                <meshStandardMaterial color="#5a3c25" roughness={0.8} />
+            </mesh>
+            {[-0.8, -0.3, 0.2, 0.7].map((x, i) => (
+                <mesh key={x} position={[x, 0.2 + (i % 2) * 0.08, 0.15]}>
+                    <boxGeometry args={[0.28, 0.38, 0.16]} />
+                    <meshStandardMaterial color={['#d99b54', '#5f7f96', '#b9553c', '#d8b06a'][i]} roughness={0.75} />
                 </mesh>
-                <mesh position={[-0.2, 0.16, 0.05]}>
-                    <sphereGeometry args={[0.18, 12, 12]} />
-                    <meshStandardMaterial color="#357a4c" roughness={0.8} />
+            ))}
+            <Plant3D position={[1.3, 0.04, 0.16]} scale={0.42} reduce={reduce} potColor="#f0d6aa" accent="#ffffff" leafColor="#66bb7a" leafDark="#3e8650" variant="round" swayOffset={3.3} />
+        </group>
+    );
+}
+
+function WallArt3D({ position, rotation = [0, 0, 0], image, frameColor = '#4a3526', width = 0.62, height = 0.78, depth = 0.04 }) {
+    const texture = useTexture(`/artwork/${image}`);
+    const border = 0.07;
+    const innerW = width - border * 2;
+    const innerH = height - border * 2;
+    return (
+        <group position={position} rotation={rotation}>
+            {/* frame backing */}
+            <mesh>
+                <boxGeometry args={[width, height, depth]} />
+                <meshStandardMaterial color={frameColor} roughness={0.75} />
+            </mesh>
+            {/* inner frame bevel */}
+            <mesh position={[0, 0, depth / 2 + 0.001]}>
+                <boxGeometry args={[innerW + 0.02, innerH + 0.02, 0.01]} />
+                <meshStandardMaterial color="#2a1f14" roughness={0.85} />
+            </mesh>
+            {/* canvas / image */}
+            <mesh position={[0, 0, depth / 2 + 0.008]}>
+                <planeGeometry args={[innerW, innerH]} />
+                <meshStandardMaterial map={texture} roughness={0.65} />
+            </mesh>
+        </group>
+    );
+}
+
+function ThinkerStatue3D({ position = [0, 0, -4.05] }) {
+    return (
+        <group position={position}>
+            <mesh position={[0, 0.14, 0]}>
+                <cylinderGeometry args={[0.62, 0.7, 0.28, 24]} />
+                <meshStandardMaterial color="#64584d" roughness={0.92} />
+            </mesh>
+            <mesh position={[0, 0.34, 0]}>
+                <cylinderGeometry args={[0.5, 0.56, 0.12, 24]} />
+                <meshStandardMaterial color="#7b6c60" roughness={0.84} />
+            </mesh>
+
+            <group position={[0, 0.5, 0.02]}>
+                <mesh position={[0, 0.44, 0]}>
+                    <boxGeometry args={[0.76, 0.12, 0.56]} />
+                    <meshStandardMaterial color="#6c5a4f" roughness={0.88} metalness={0.04} />
                 </mesh>
-                <mesh position={[0.2, 0.2, -0.05]}>
-                    <sphereGeometry args={[0.2, 12, 12]} />
-                    <meshStandardMaterial color="#46a065" roughness={0.8} />
+                <mesh position={[-0.09, 0.8, 0.02]} rotation={[0.15, 0, -0.42]}>
+                    <capsuleGeometry args={[0.11, 0.52, 8, 12]} />
+                    <meshStandardMaterial color="#8f8478" roughness={0.62} metalness={0.18} />
+                </mesh>
+                <mesh position={[0.1, 1.12, 0.1]} rotation={[0.2, 0.22, 0.12]}>
+                    <sphereGeometry args={[0.16, 16, 16]} />
+                    <meshStandardMaterial color="#978a7d" roughness={0.56} metalness={0.2} />
+                </mesh>
+                <mesh position={[0.14, 0.94, 0.19]} rotation={[0.72, 0, 0.82]}>
+                    <capsuleGeometry args={[0.045, 0.26, 6, 10]} />
+                    <meshStandardMaterial color="#918477" roughness={0.6} metalness={0.16} />
+                </mesh>
+                <mesh position={[-0.18, 0.34, 0.08]} rotation={[0.15, 0, -0.2]}>
+                    <capsuleGeometry args={[0.09, 0.56, 8, 12]} />
+                    <meshStandardMaterial color="#877a6e" roughness={0.64} metalness={0.16} />
+                </mesh>
+                <mesh position={[0.16, 0.3, -0.03]} rotation={[0.1, 0, 0.36]}>
+                    <capsuleGeometry args={[0.09, 0.54, 8, 12]} />
+                    <meshStandardMaterial color="#86786c" roughness={0.64} metalness={0.16} />
+                </mesh>
+                <mesh position={[-0.16, 0.68, 0.16]} rotation={[0.56, 0.1, -0.52]}>
+                    <capsuleGeometry args={[0.05, 0.34, 6, 10]} />
+                    <meshStandardMaterial color="#8c8073" roughness={0.6} metalness={0.16} />
                 </mesh>
             </group>
+        </group>
+    );
+}
+
+function WarmOfficeDressing({ reduce }) {
+    return (
+        <group>
+            <PottedTree position={[-9.55, 0, 1.35]} scale={1.08} reduce={reduce} />
+            <Plant3D position={[8.6, 0, 2.7]} scale={1.25} reduce={reduce} potColor="#46637f" accent="#b9d2df" leafColor="#4ea86c" leafDark="#276d47" variant="round" swayOffset={1.5} />
+            <Plant3D position={[-9.1, 0, -3.2]} scale={1.05} reduce={reduce} potColor="#b9553c" accent="#f1b77a" leafColor="#5abf82" leafDark="#2f7a53" variant="tall" swayOffset={2.1} />
+            <Plant3D position={[9.2, 0, -3.25]} scale={1.05} reduce={reduce} potColor="#7c5b96" accent="#d8c3ec" leafColor="#6bbf72" leafDark="#386d44" variant="tall" swayOffset={2.8} />
+
+            {/* low lounge seating keeps the room human without blocking desk sightlines */}
+            <mesh position={[-6.7, 0.24, 4.85]}>
+                <boxGeometry args={[2.2, 0.48, 0.72]} />
+                <meshStandardMaterial color="#283848" roughness={0.82} />
+            </mesh>
+            <mesh position={[-6.7, 0.68, 5.18]}>
+                <boxGeometry args={[2.18, 0.72, 0.16]} />
+                <meshStandardMaterial color="#22303d" roughness={0.85} />
+            </mesh>
+            <mesh position={[-7.25, 0.74, 4.55]} rotation={[0.1, 0, -0.08]}>
+                <boxGeometry args={[0.46, 0.16, 0.42]} />
+                <meshStandardMaterial color="#d99b54" roughness={0.8} />
+            </mesh>
+            <mesh position={[-6.58, 0.76, 4.52]} rotation={[0.08, 0, 0.07]}>
+                <boxGeometry args={[0.5, 0.16, 0.4]} />
+                <meshStandardMaterial color="#5fb083" roughness={0.8} />
+            </mesh>
+
+            {/* moved from under the sign to the empty stretch of right wall behind the door */}
+            <WallArt3D
+                position={[10.94, 3.12, -3.1]}
+                rotation={[0, -Math.PI / 2, 0]}
+                image="FullSizeRender.JPEG"
+                frameColor="#4a3526"
+                width={0.92}
+                height={1.16}
+            />
+            {/* artwork on the right wall, facing inward */}
+            <WallArt3D
+                position={[10.94, 3.12, 3.45]}
+                rotation={[0, -Math.PI / 2, 0]}
+                image="FullSizeRender (7).JPEG"
+                frameColor="#5a3c25"
+                width={3.75}
+                height={3.75}
+            />
+            {/* restored artwork on the back wall, left section */}
+            <WallArt3D
+                position={[-9.5, 3.0, -4.91]}
+                image="artwork-2.jpg"
+                frameColor="#3a2a1c"
+                width={2.2}
+                height={2.2}
+            />
+            {/* large framed image on the left wall, opposite side of the side window */}
+            <WallArt3D
+                position={[-10.94, 3.05, 4.15]}
+                rotation={[0, Math.PI / 2, 0]}
+                image="FullSizeRender (2).JPEG"
+                frameColor="#3a2a1c"
+                width={2.0}
+                height={2.0}
+            />
+            <WallShelf3D position={[-10.72, 2.55, -1]} rotation={[0, Math.PI / 2, 0]} reduce={reduce} />
+            {/* small shelf with plant between the painting and the window */}
+            <group position={[-7.75, 2.4, -4.92]}>
+                <mesh>
+                    <boxGeometry args={[0.8, 0.06, 0.2]} />
+                    <meshStandardMaterial color="#5a3c25" roughness={0.8} />
+                </mesh>
+                <Plant3D position={[0, 0.03, 0.02]} scale={0.35} reduce={reduce} potColor="#c5793e" accent="#f4d28d" leafColor="#3f8f5a" leafDark="#2f7347" variant="round" swayOffset={4.2} />
+            </group>
+
+            <ThinkerStatue3D position={[0, 0, -4.08]} />
         </group>
     );
 }
@@ -678,27 +1098,27 @@ export default function OfficeScene({ desks, perciState, bubble, onDeskClick }) 
 
             <Room />
             <OfficeWindow scene={timeScene} />
-            <WallClock3D />
-            <Plant3D reduce={reduce} />
-            <HangingLamp x={-4.5} z={0.4} offset={0} reduce={reduce} intensity={timeScene.lampIntensity} />
+            <OfficeWindow scene={timeScene} position={[-10.94, 3.0, 1.35]} rotation={[0, Math.PI / 2, 0]} scale={0.7} showCelestial={false} />
+            <Door3D />
+            <WallClock3D position={[-10.72, 3.55, -1]} rotation={[0, Math.PI / 2, 0]} />
+            <WallTv3D />
+            <WarmOfficeDressing reduce={reduce} />
+            <HangingLamp x={-5.2} z={0.4} offset={0} reduce={reduce} intensity={timeScene.lampIntensity} />
             <HangingLamp x={0} z={0.4} offset={1.8} reduce={reduce} intensity={timeScene.lampIntensity} />
-            <HangingLamp x={4.5} z={0.4} offset={3.1} reduce={reduce} intensity={timeScene.lampIntensity} />
+            <HangingLamp x={5.2} z={0.4} offset={3.1} reduce={reduce} intensity={timeScene.lampIntensity} />
 
-            {/* neon sign reuses the 2D CSS (flicker included), pinned to the wall */}
-            <Html transform position={[0, 4, -4.88]} distanceFactor={5} zIndexRange={[30, 0]}
-                style={{ pointerEvents: 'none' }}>
-                <div className="o-neon">PERCI&nbsp;HQ</div>
-            </Html>
+            {/* 3D Neon sign sorted perfectly in WebGL depth, resolving lighting occlusion issues */}
+            <NeonSign3D reduce={reduce} />
 
-            {placed.map(({ agent, mood, color, tip, x, z }) => (
+            {placed.map(({ agent, mood, color, x, z }) => (
                 <DeskPod
                     key={agent.id}
                     x={x}
                     z={z}
                     color={color}
                     label={agent.shortLabel}
-                    tip={tip}
                     mood={mood}
+                    agentId={agent.id}
                     onClick={onDeskClick}
                     reduce={reduce}
                 />

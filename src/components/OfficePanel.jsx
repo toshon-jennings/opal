@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useMode, MODES } from '../context/ModeContext';
+import { useMode } from '../context/ModeContext';
 import { AGENT_DEFINITIONS, ACTIVE_JOB_STATUSES, ATTENTION_JOB_STATUSES } from './AgentsPanel';
 import OfficeScene from './OfficeScene';
 import './OfficePanel.css';
@@ -53,7 +53,7 @@ function perciBubble({ working, attention, done }) {
 }
 
 export default function OfficePanel() {
-    const { openWindow } = useMode();
+    const { openAgentWindow } = useMode();
     const [jobsByAgent, setJobsByAgent] = useState({});
     const [nowMs, setNowMs] = useState(() => Date.now());
     const bridgeAvailable = Boolean(window.electron?.listAgentJobs);
@@ -120,7 +120,7 @@ export default function OfficePanel() {
                     desks={desks}
                     perciState={perciState}
                     bubble={perciBubble(counts)}
-                    onDeskClick={() => openWindow(MODES.AGENTS)}
+                    onDeskClick={(agentId) => openAgentWindow(agentId)}
                 />
                 {!bridgeAvailable && (
                     <div className="o-note">Live agent activity needs the Perci desktop app — showing an idle crew.</div>

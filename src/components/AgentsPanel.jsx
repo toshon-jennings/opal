@@ -390,7 +390,7 @@ function Metric({ label, value }) {
 // ─── Main component ─────────────────────────────────────────────────────────
 
 export default function AgentsPanel() {
-  const { setShowOpenClawDashboard } = useMode();
+  const { setShowOpenClawDashboard, pendingAgentSelection, setPendingAgentSelection } = useMode();
   const [selectedId, setSelectedId] = useState('aider');
   const [jobsByAgent, setJobsByAgent] = useState(() => restorePersistedJobs());
   const [prompt, setPrompt] = useState('');
@@ -495,6 +495,15 @@ export default function AgentsPanel() {
   useEffect(() => {
     setStatusFilter('all');
   }, [selectedId]);
+
+  // Select the agent requested by the caller (e.g. clicking a desk in Perci HQ).
+  useEffect(() => {
+    if (!pendingAgentSelection) return;
+    if (AGENT_DEFINITIONS.some((agent) => agent.id === pendingAgentSelection)) {
+      setSelectedId(pendingAgentSelection);
+    }
+    setPendingAgentSelection(null);
+  }, [pendingAgentSelection, setPendingAgentSelection]);
 
   // Load jobs from API
   const loadJobs = useCallback(async () => {
