@@ -20,7 +20,7 @@ const TILES = [
     { id: MODES.AUTORESEARCH, icon: FlaskConical, title: 'Research', desc: 'Prompt-optimization loops', hue: '#f472b6' },
     { id: MODES.OFFICE, icon: Building2, title: 'Office', desc: 'Visit the crew at Perci HQ', hue: '#fbbf24' },
     { id: MODES.MISSION, icon: ActivitySquare, title: 'Mission', desc: 'Supervise runs and checks', hue: '#60a5fa' },
-    { id: MODES.BUILD, icon: Hammer, title: 'Build', desc: 'Generate and ship projects', hue: '#fb7185' },
+    { id: MODES.BUILD, icon: Hammer, title: 'Build', desc: 'Generate components', hue: '#fb7185' },
     { id: OPENCLAW_WINDOW_ID, icon: Server, title: 'OpenClaw', desc: 'Gateway dashboard', hue: '#ef4444' },
 ];
 
