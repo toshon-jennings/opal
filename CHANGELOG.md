@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.18.6] - 2026-06-10
+### Added
+- **Framed artwork on Office walls** — WallArt3D component with proper texture loading, two pieces placed (right wall and back wall).
+- **Shelf with plant** — small shelf with potted plant between the back wall painting and window.
+
+### Changed
+- Repositioned wall artwork: landscape on right wall, portrait enlarged and centered on back wall left of window.
+
 ## [0.18.0] - 2026-06-10
 ### Added
 - **Dashboard mode** — new Dashboard view with OfficeScene 3D office visualization, accessible via ModeSwitcher alongside existing modes.
