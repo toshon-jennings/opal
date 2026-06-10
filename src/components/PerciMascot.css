@@ -67,6 +67,11 @@
 .perci[data-state="error"] .perci-antennae { animation: perci-sway 0.4s ease-in-out infinite; }
 .perci[data-state="error"] .perci-shield   { animation: perci-shield-guard 0.4s ease-in-out infinite; }
 
+.perci[data-variant="office"] .perci-sword,
+.perci[data-variant="office"] .perci-shield {
+    animation: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
     .perci * { animation: none !important; }
 }

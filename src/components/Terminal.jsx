@@ -8,12 +8,24 @@ import "@xterm/xterm/css/xterm.css";
 
 const DEVICE_ATTRIBUTE_RESPONSE_PATTERN = /\x1b\[\??[\d;]*c/g;
 const PLAIN_DEVICE_ATTRIBUTE_RESPONSE_PATTERN = /^(?:\?1;2c|1;2c)+$/;
+const DUPLICATE_INPUT_WINDOW_MS = 24;
 
 function stripTerminalGeneratedInput(data) {
   const withoutEscapedResponse = data.replace(DEVICE_ATTRIBUTE_RESPONSE_PATTERN, "");
   return PLAIN_DEVICE_ATTRIBUTE_RESPONSE_PATTERN.test(withoutEscapedResponse)
     ? ""
     : withoutEscapedResponse;
+}
+
+function isDuplicateSingleKeyInput(input, lastInputRef) {
+  if (input.length !== 1) return false;
+  const now = Date.now();
+  const last = lastInputRef.current;
+  if (last.value === input && (now - last.at) <= DUPLICATE_INPUT_WINDOW_MS) {
+    return true;
+  }
+  lastInputRef.current = { value: input, at: now };
+  return false;
 }
 
 export default function TerminalPanel({ sessionId = 'default', onClose }) {
@@ -23,6 +35,7 @@ export default function TerminalPanel({ sessionId = 'default', onClose }) {
   const wsRef = useRef(null);
   const outputBufferRef = useRef("");
   const activePortIndexRef = useRef(0);
+  const lastInputRef = useRef({ value: "", at: 0 });
   const [status, setStatus] = useState("connecting");
   const [isFocused, setIsFocused] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
@@ -118,7 +131,7 @@ export default function TerminalPanel({ sessionId = 'default', onClose }) {
     term.onData((data) => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         const input = stripTerminalGeneratedInput(data);
-        if (input) {
+        if (input && !isDuplicateSingleKeyInput(input, lastInputRef)) {
           wsRef.current.send(input);
         }
       }

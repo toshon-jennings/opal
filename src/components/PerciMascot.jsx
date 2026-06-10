@@ -13,13 +13,16 @@ import './PerciMascot.css';
  * @param {number}  [props.size=28]      rendered width in px (height scales)
  * @param {string}  [props.className]
  * @param {string}  [props.title]        accessible label
+ * @param {('classic'|'office')} [props.variant='classic']
  */
-export default function PerciMascot({ state = 'idle', size = 28, className = '', title, ...rest }) {
+export default function PerciMascot({ state = 'idle', size = 28, className = '', title, variant = 'classic', ...rest }) {
     const height = Math.round((size * 300) / 340);
+    const isOffice = variant === 'office';
     return (
         <svg
             className={`perci ${className}`}
             data-state={state}
+            data-variant={variant}
             width={size}
             height={height}
             viewBox="0 0 340 300"
@@ -45,6 +48,27 @@ export default function PerciMascot({ state = 'idle', size = 28, className = '',
                     <circle cx="208" cy="256" r="15" />
                 </g>
 
+                {isOffice && (
+                    <g className="perci-back-gear">
+                        <g transform="rotate(-38 170 166)">
+                            <rect x="164" y="78" width="12" height="168" rx="5" fill="#5B3924" />
+                            <path d="M163 78 L177 78 L173 63 C171.5 59 168.5 59 167 63 Z" fill="#E7E3DB" />
+                            <path
+                                d="M145 240 C145 235 148 234 153 234 C159 234 163 233 165 230 C166.5 228 171.5 228 173 230 C175 233 179 234 185 234 C190 234 193 235 193 240"
+                                fill="none"
+                                stroke="#CD9A3C"
+                                strokeWidth="8"
+                                strokeLinecap="round"
+                            />
+                        </g>
+                        <g transform="rotate(38 170 166)">
+                            <ellipse cx="170" cy="154" rx="34" ry="47" fill="#CD9A3C" />
+                            <ellipse cx="170" cy="154" rx="18" ry="26" fill="#C5692D" />
+                            <text x="170" y="159" textAnchor="middle" fontSize="13" fontWeight="700" fill="#7A3C16">HQ</text>
+                        </g>
+                    </g>
+                )}
+
                 {/* body */}
                 <path
                     d="M170 90 C208 90 243 119 247 160 C250 191 238 221 208 231 C192 236 148 236 132 231 C102 221 90 191 93 160 C97 119 132 90 170 90 Z"
@@ -55,6 +79,12 @@ export default function PerciMascot({ state = 'idle', size = 28, className = '',
                 <g fill="#C5692D" stroke="#C5692D" strokeLinecap="round">
                     <line x1="206" y1="176" x2="247" y2="204" strokeWidth="14" />
                     <line x1="134" y1="178" x2="92" y2="203" strokeWidth="14" />
+                    {isOffice && (
+                        <>
+                            <circle cx="247" cy="204" r="13" />
+                            <circle cx="92" cy="203" r="13" />
+                        </>
+                    )}
                 </g>
 
                 {/* face */}
@@ -72,42 +102,46 @@ export default function PerciMascot({ state = 'idle', size = 28, className = '',
                     strokeLinecap="round"
                 />
 
-                {/* shield = gold { brace */}
-                <g className="perci-shield">
-                    <path
-                        d="M92 164 C80 164 80 176 80 188 C80 197 78 202 68 207 C78 212 80 217 80 226 C80 238 80 250 92 250"
-                        fill="none"
-                        stroke="#CD9A3C"
-                        strokeWidth="11"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                    />
-                    <circle cx="92" cy="206" r="12" fill="#C5692D" />
-                </g>
+                {!isOffice && (
+                    <>
+                        {/* shield = gold { brace } */}
+                        <g className="perci-shield">
+                            <path
+                                d="M92 164 C80 164 80 176 80 188 C80 197 78 202 68 207 C78 212 80 217 80 226 C80 238 80 250 92 250"
+                                fill="none"
+                                stroke="#CD9A3C"
+                                strokeWidth="11"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
+                            <circle cx="92" cy="206" r="12" fill="#C5692D" />
+                        </g>
 
-                {/* sword */}
-                <g className="perci-sword">
-                    <g transform="rotate(10 248 204)">
-                        <path
-                            d="M241 190 L255 190 L249 86 C248.5 82 247.5 82 247 86 L241 190 Z"
-                            fill="#E7E3DB"
-                            stroke="#B9B2A6"
-                            strokeWidth="1.5"
-                            strokeLinejoin="round"
-                        />
-                        <line x1="248" y1="186" x2="248" y2="98" stroke="#F5F2EC" strokeWidth="2" strokeLinecap="round" />
-                        <rect x="244" y="190" width="8" height="38" rx="4" fill="#7A3C16" />
-                        <circle cx="248" cy="230" r="8" fill="#CD9A3C" />
-                        <path
-                            d="M224 192 C224 187 227 186 232 186 C238 186 242 185 244 182 C245.5 180 250.5 180 252 182 C254 185 258 186 264 186 C269 186 272 187 272 192"
-                            fill="none"
-                            stroke="#CD9A3C"
-                            strokeWidth="8"
-                            strokeLinecap="round"
-                        />
-                        <circle cx="248" cy="204" r="11" fill="#C5692D" />
-                    </g>
-                </g>
+                        {/* sword */}
+                        <g className="perci-sword">
+                            <g transform="rotate(10 248 204)">
+                                <path
+                                    d="M241 190 L255 190 L249 86 C248.5 82 247.5 82 247 86 L241 190 Z"
+                                    fill="#E7E3DB"
+                                    stroke="#B9B2A6"
+                                    strokeWidth="1.5"
+                                    strokeLinejoin="round"
+                                />
+                                <line x1="248" y1="186" x2="248" y2="98" stroke="#F5F2EC" strokeWidth="2" strokeLinecap="round" />
+                                <rect x="244" y="190" width="8" height="38" rx="4" fill="#7A3C16" />
+                                <circle cx="248" cy="230" r="8" fill="#CD9A3C" />
+                                <path
+                                    d="M224 192 C224 187 227 186 232 186 C238 186 242 185 244 182 C245.5 180 250.5 180 252 182 C254 185 258 186 264 186 C269 186 272 187 272 192"
+                                    fill="none"
+                                    stroke="#CD9A3C"
+                                    strokeWidth="8"
+                                    strokeLinecap="round"
+                                />
+                                <circle cx="248" cy="204" r="11" fill="#C5692D" />
+                            </g>
+                        </g>
+                    </>
+                )}
             </g>
         </svg>
     );

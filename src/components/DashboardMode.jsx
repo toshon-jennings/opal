@@ -178,7 +178,7 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                         onClick={() => openWindow(MODES.OFFICE)}
                         title="Visit Perci HQ"
                     >
-                        <PerciMascot state={perciState} size={148} title={`Perci is ${perciState}`} />
+                        <PerciMascot state={perciState} size={148} title={`Perci is ${perciState}`} variant="office" />
                         <span className="dash-perci-caption">
                             {perciState === 'error' ? 'A job needs attention'
                                 : perciState === 'working' ? `${jobStats.active} job${jobStats.active === 1 ? '' : 's'} running`

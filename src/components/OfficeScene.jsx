@@ -91,40 +91,36 @@ function getTimeScene(date) {
 
 // ── Sir Perci ────────────────────────────────────────────────────────────
 
-function PerciSword() {
+function PerciBackGear() {
     return (
-        <group position={[0, -0.14, 0.03]}>
-            <mesh position={[0, 0.52, 0]}>
-                <boxGeometry args={[0.05, 0.62, 0.018]} />
-                <meshStandardMaterial color={BLADE} roughness={0.3} metalness={0.6} />
-            </mesh>
-            <mesh position={[0, 0.18, 0]}>
-                <boxGeometry args={[0.2, 0.045, 0.05]} />
-                <meshStandardMaterial color={GOLD} roughness={0.4} metalness={0.5} />
-            </mesh>
-            <mesh position={[0, 0, 0]}>
-                <cylinderGeometry args={[0.026, 0.026, 0.26, 8]} />
-                <meshStandardMaterial color={PERCI_DARK} />
-            </mesh>
-            <mesh position={[0, -0.18, 0]}>
-                <sphereGeometry args={[0.04, 12, 12]} />
-                <meshStandardMaterial color={GOLD} metalness={0.5} roughness={0.4} />
-            </mesh>
-        </group>
-    );
-}
-
-function PerciShield() {
-    return (
-        <group position={[0, -0.26, 0.05]} rotation={[Math.PI / 2, 0, 0]}>
-            <mesh>
-                <cylinderGeometry args={[0.2, 0.2, 0.04, 20]} />
-                <meshStandardMaterial color={GOLD} roughness={0.45} metalness={0.4} />
-            </mesh>
-            <mesh position={[0, 0.03, 0]}>
-                <cylinderGeometry args={[0.07, 0.07, 0.03, 14]} />
-                <meshStandardMaterial color={PERCI} />
-            </mesh>
+        <group position={[0, 0.02, -0.35]}>
+            <group rotation={[0, 0, -0.72]}>
+                <mesh position={[0, 0.15, 0]}>
+                    <boxGeometry args={[0.08, 0.82, 0.028]} />
+                    <meshStandardMaterial color="#5b3924" roughness={0.72} metalness={0.08} />
+                </mesh>
+                <mesh position={[0, 0.6, 0]}>
+                    <boxGeometry args={[0.09, 0.06, 0.034]} />
+                    <meshStandardMaterial color={BLADE} roughness={0.36} metalness={0.45} />
+                </mesh>
+                <mesh position={[0, -0.28, 0]}>
+                    <boxGeometry args={[0.2, 0.045, 0.05]} />
+                    <meshStandardMaterial color={GOLD} roughness={0.4} metalness={0.5} />
+                </mesh>
+            </group>
+            <group rotation={[0, 0, 0.72]}>
+                <mesh position={[0, 0.12, 0.015]} scale={[0.68, 1, 0.16]}>
+                    <sphereGeometry args={[0.24, 20, 12]} />
+                    <meshStandardMaterial color={GOLD} roughness={0.45} metalness={0.35} />
+                </mesh>
+                <mesh position={[0, 0.12, 0.05]} scale={[0.52, 0.72, 0.12]}>
+                    <sphereGeometry args={[0.12, 16, 10]} />
+                    <meshStandardMaterial color={PERCI} roughness={0.52} />
+                </mesh>
+                <Text position={[0, 0.12, 0.075]} fontSize={0.09} color="#3b2414" anchorX="center" anchorY="middle">
+                    HQ
+                </Text>
+            </group>
         </group>
     );
 }
@@ -173,13 +169,13 @@ function Perci3D({ state, bubble, reduce }) {
         if (antL.current) antL.current.rotation.z = 0.88 + Math.sin(t * antSpeed) * 0.12;
         if (antR.current) antR.current.rotation.z = -0.88 + Math.sin(t * antSpeed + 1) * 0.12;
 
-        // arms: walking swing, then mood overrides (sword chop / raise, shield guard)
+        // arms: empty-handed office gesture instead of guard/chop
         const swing = speed === 0 ? 0 : Math.sin(w.phase) * 0.45;
-        if (armL.current) armL.current.rotation.set(swing, 0, 0.45);
-        if (armR.current) armR.current.rotation.set(-swing, 0, -0.45);
-        if (state === 'error' && armL.current) armL.current.rotation.set(-1.15, 0, 0.9);
-        if (state === 'working' && armR.current) armR.current.rotation.x = -0.5 + Math.sin(t * 6) * 0.5;
-        if (state === 'happy' && armR.current) armR.current.rotation.set(0, 0, -2.4);
+        if (armL.current) armL.current.rotation.set(swing * 0.45 + 0.24, 0, 0.78);
+        if (armR.current) armR.current.rotation.set(-swing * 0.35 + 0.46, 0, -0.62);
+        if (state === 'error' && armL.current) armL.current.rotation.set(-0.46, 0, 0.82);
+        if (state === 'working' && armR.current) armR.current.rotation.x = 0.25 + Math.sin(t * 5) * 0.18;
+        if (state === 'happy' && armR.current) armR.current.rotation.set(-0.18, 0, -1.65);
     });
 
     return (
@@ -200,6 +196,7 @@ function Perci3D({ state, bubble, reduce }) {
 
             {/* body carries face, antennae and arms so the bob moves them all */}
             <group ref={body} position={[0, 0.62, 0]}>
+                <PerciBackGear />
                 <mesh scale={[1, 0.95, 0.88]}>
                     <sphereGeometry args={[0.42, 24, 20]} />
                     <meshStandardMaterial color={PERCI} roughness={0.55} />
@@ -220,33 +217,39 @@ function Perci3D({ state, bubble, reduce }) {
                 </mesh>
 
                 {/* antennae */}
-                {[[antL, -0.18, 0.88], [antR, 0.18, -0.88]].map(([ref, x, tilt]) => (
-                    <group key={x} ref={ref} position={[x, 0.34, 0]} rotation={[0, 0, tilt]}>
-                        <mesh position={[0, 0.12, 0]}>
-                            <cylinderGeometry args={[0.028, 0.028, 0.22, 8]} />
+                {[[antL, -0.2, 0.72], [antR, 0.2, -0.72]].map(([ref, x, tilt]) => (
+                    <group key={x} ref={ref} position={[x, 0.35, 0.02]} rotation={[0, 0, tilt]}>
+                        <mesh position={[0, 0.18, 0]}>
+                            <cylinderGeometry args={[0.028, 0.028, 0.34, 8]} />
                             <meshStandardMaterial color={PERCI} roughness={0.6} />
                         </mesh>
-                        <mesh position={[0, 0.27, 0]}>
+                        <mesh position={[0, 0.4, 0]}>
                             <sphereGeometry args={[0.07, 12, 12]} />
                             <meshStandardMaterial color={PERCI} roughness={0.6} />
                         </mesh>
                     </group>
                 ))}
 
-                {/* arms: left bears the shield, right the sword */}
+                {/* arms stay empty; sword and shield are crossed on his back */}
                 <group ref={armL} position={[-0.4, 0.02, 0]}>
                     <mesh position={[0, -0.14, 0]}>
                         <capsuleGeometry args={[0.06, 0.18, 4, 8]} />
                         <meshStandardMaterial color={PERCI} roughness={0.6} />
                     </mesh>
-                    <PerciShield />
+                    <mesh position={[0, -0.29, 0.01]}>
+                        <sphereGeometry args={[0.08, 12, 12]} />
+                        <meshStandardMaterial color={PERCI} roughness={0.6} />
+                    </mesh>
                 </group>
                 <group ref={armR} position={[0.4, 0.02, 0]}>
                     <mesh position={[0, -0.14, 0]}>
                         <capsuleGeometry args={[0.06, 0.18, 4, 8]} />
                         <meshStandardMaterial color={PERCI} roughness={0.6} />
                     </mesh>
-                    <PerciSword />
+                    <mesh position={[0, -0.29, 0.01]}>
+                        <sphereGeometry args={[0.08, 12, 12]} />
+                        <meshStandardMaterial color={PERCI} roughness={0.6} />
+                    </mesh>
                 </group>
             </group>
 
@@ -1180,10 +1183,10 @@ function FloorRadio3D({ position, rotation = [0, 0, 0] }) {
 
 /* A warm wooden side table laden with treats. Built with its long axis along Z
    so it sits flush against the left wall beneath the window. */
-function SnackTable3D({ position, rotation = [0, 0, 0] }) {
+function SnackTable3D({ position, rotation = [0, 0, 0], scale = 1 }) {
     const TOP = 0.795; // tabletop surface height in local space
     return (
-        <group position={position} rotation={rotation}>
+        <group position={position} rotation={rotation} scale={scale}>
             {/* tabletop */}
             <mesh position={[0, 0.76, 0]} castShadow>
                 <boxGeometry args={[0.6, 0.07, 1.8]} />
@@ -1207,92 +1210,174 @@ function SnackTable3D({ position, rotation = [0, 0, 0] }) {
                 <meshStandardMaterial color="#f3ead6" roughness={0.95} />
             </mesh>
 
-            {/* tiered cake on a stand */}
-            <group position={[0, TOP, -0.62]}>
-                <mesh position={[0, 0.05, 0]}>
-                    <cylinderGeometry args={[0.035, 0.05, 0.1, 18]} />
-                    <meshStandardMaterial color="#d9d2c0" roughness={0.5} metalness={0.1} />
+            {/* microchips with thermal paste dip */}
+            <group position={[-0.11, TOP, -0.64]}>
+                <mesh position={[0, 0.018, 0]}>
+                    <boxGeometry args={[0.22, 0.016, 0.3]} />
+                    <meshStandardMaterial color="#182e24" roughness={0.62} />
                 </mesh>
-                <mesh position={[0, 0.105, 0]}>
-                    <cylinderGeometry args={[0.18, 0.18, 0.018, 24]} />
-                    <meshStandardMaterial color="#e8e2d2" roughness={0.4} metalness={0.15} />
+                {[-0.07, 0.02, 0.1].map((z, i) => (
+                    <mesh key={i} position={[i % 2 ? 0.025 : -0.025, 0.035, z]} rotation={[0, 0.12 * i, 0]}>
+                        <boxGeometry args={[0.09, 0.012, 0.055]} />
+                        <meshStandardMaterial color="#263238" roughness={0.5} metalness={0.18} />
+                    </mesh>
+                ))}
+                {[-0.075, -0.025, 0.025, 0.075].map((x) => (
+                    <mesh key={x} position={[x, 0.045, -0.15]}>
+                        <boxGeometry args={[0.012, 0.01, 0.03]} />
+                        <meshStandardMaterial color="#d6b35a" roughness={0.34} metalness={0.65} />
+                    </mesh>
+                ))}
+                <mesh position={[0.14, 0.025, 0.08]}>
+                    <cylinderGeometry args={[0.052, 0.052, 0.022, 18]} />
+                    <meshStandardMaterial color="#d8dde2" roughness={0.35} metalness={0.25} />
                 </mesh>
-                <mesh position={[0, 0.175, 0]}>
-                    <cylinderGeometry args={[0.135, 0.135, 0.12, 24]} />
-                    <meshStandardMaterial color="#fff3e0" roughness={0.85} />
+                <mesh position={[0.14, 0.041, 0.08]}>
+                    <sphereGeometry args={[0.038, 12, 8]} />
+                    <meshStandardMaterial color="#c7cbd1" roughness={0.88} />
                 </mesh>
-                <mesh position={[0, 0.245, 0]}>
-                    <cylinderGeometry args={[0.14, 0.14, 0.025, 24]} />
-                    <meshStandardMaterial color="#f6a8c0" roughness={0.7} />
-                </mesh>
-                {[0, 1, 2, 3, 4].map((i) => {
-                    const a = (i / 5) * Math.PI * 2;
-                    return (
-                        <mesh key={i} position={[Math.cos(a) * 0.09, 0.27, Math.sin(a) * 0.09]}>
-                            <sphereGeometry args={[0.018, 10, 10]} />
-                            <meshStandardMaterial color="#b3263b" roughness={0.5} />
-                        </mesh>
-                    );
-                })}
             </group>
 
-            {/* bowl of fruit */}
-            <group position={[0, TOP, 0.02]}>
-                <mesh position={[0, 0.06, 0]}>
-                    <cylinderGeometry args={[0.17, 0.1, 0.12, 22]} />
-                    <meshStandardMaterial color="#caa06a" roughness={0.5} metalness={0.1} />
+            {/* data crunch trail mix */}
+            <group position={[0.12, TOP, -0.31]}>
+                <mesh position={[0, 0.055, 0]}>
+                    <cylinderGeometry args={[0.13, 0.08, 0.11, 20]} />
+                    <meshStandardMaterial color="#b9854e" roughness={0.54} metalness={0.08} />
                 </mesh>
                 {[
-                    [0.06, 0.12, 0.03, '#e8852b'],
-                    [-0.06, 0.12, -0.02, '#d23b2e'],
-                    [0.02, 0.12, -0.07, '#8bbf3f'],
-                    [-0.02, 0.16, 0.04, '#7d4fa0'],
-                    [0.08, 0.14, -0.05, '#e8b23b'],
+                    [-0.045, 0.12, -0.025, '#5fb6d8'],
+                    [0.02, 0.13, 0.03, '#e0c15d'],
+                    [0.06, 0.115, -0.02, '#ec6f48'],
+                    [-0.01, 0.155, -0.055, '#a36bd4'],
                 ].map(([x, y, z, color], i) => (
-                    <mesh key={i} position={[x, y, z]}>
-                        <sphereGeometry args={[0.05, 14, 14]} />
-                        <meshStandardMaterial color={color} roughness={0.6} />
+                    <mesh key={i} position={[x, y, z]} rotation={[0.3 * i, 0.4 * i, 0]}>
+                        <boxGeometry args={[0.045, 0.045, 0.045]} />
+                        <meshStandardMaterial color={color} roughness={0.58} />
                     </mesh>
+                ))}
+                {['0', '1'].map((label, i) => (
+                    <Text
+                        key={label}
+                        position={[i ? 0.038 : -0.052, 0.18, i ? 0.008 : -0.035]}
+                        rotation={[-Math.PI / 2, 0, i ? 0.4 : -0.2]}
+                        fontSize={0.055}
+                        color="#17202a"
+                        anchorX="center"
+                        anchorY="middle"
+                    >
+                        {label}
+                    </Text>
                 ))}
             </group>
 
-            {/* plate of macarons */}
-            <group position={[0, TOP, 0.64]}>
+            {/* HTTP cookies */}
+            <group position={[-0.12, TOP, 0.02]}>
                 <mesh position={[0, 0.008, 0]}>
-                    <cylinderGeometry args={[0.16, 0.16, 0.016, 24]} />
+                    <cylinderGeometry args={[0.14, 0.14, 0.016, 24]} />
                     <meshStandardMaterial color="#f0f0ee" roughness={0.35} metalness={0.1} />
                 </mesh>
                 {[
-                    [0.07, 0.02, '#f6a8c0'],
-                    [-0.07, 0.02, '#a3d39c'],
-                    [0.02, -0.07, '#f4d06a'],
-                    [-0.03, 0.07, '#caa6e0'],
-                    [0, 0.045, '#f29b6b'],
-                ].map(([x, z, color], i) => (
-                    <mesh key={i} position={[x, 0.035, z]} rotation={[Math.PI / 2, 0, 0]}>
-                        <torusGeometry args={[0.032, 0.018, 10, 18]} />
-                        <meshStandardMaterial color={color} roughness={0.7} />
+                    [-0.045, 0.045],
+                    [0.055, 0.035],
+                    [0, -0.055],
+                ].map(([x, z], i) => (
+                    <group key={i} position={[x, 0.031, z]}>
+                        <mesh rotation={[Math.PI / 2, 0, 0]}>
+                            <cylinderGeometry args={[0.044, 0.044, 0.018, 18]} />
+                            <meshStandardMaterial color="#bc7a39" roughness={0.72} />
+                        </mesh>
+                        {[-0.016, 0.014, 0.004].map((dot, j) => (
+                            <mesh key={j} position={[dot, 0.012, j === 1 ? 0.012 : -0.014]}>
+                                <sphereGeometry args={[0.006, 8, 8]} />
+                                <meshStandardMaterial color="#44291a" roughness={0.45} />
+                            </mesh>
+                        ))}
+                    </group>
+                ))}
+            </group>
+
+            {/* SPAM queue filler */}
+            <group position={[0.13, TOP, 0.18]} rotation={[0, -0.2, 0]}>
+                <mesh position={[0, 0.045, 0]}>
+                    <boxGeometry args={[0.14, 0.09, 0.09]} />
+                    <meshStandardMaterial color="#d95b54" roughness={0.42} metalness={0.15} />
+                </mesh>
+                <Text position={[0, 0.062, 0.048]} fontSize={0.034} color="#fff3d0" anchorX="center" anchorY="middle">
+                    SPAM
+                </Text>
+            </group>
+
+            {/* Raspberry Pi bite */}
+            <group position={[-0.11, TOP, 0.41]}>
+                <mesh position={[0, 0.018, 0]}>
+                    <boxGeometry args={[0.17, 0.016, 0.12]} />
+                    <meshStandardMaterial color="#237446" roughness={0.52} />
+                </mesh>
+                <mesh position={[0.015, 0.044, -0.002]}>
+                    <sphereGeometry args={[0.034, 12, 10]} />
+                    <meshStandardMaterial color="#d0283b" roughness={0.48} />
+                </mesh>
+                {[-0.052, 0.054].map((x) => (
+                    <mesh key={x} position={[x, 0.036, 0.04]}>
+                        <boxGeometry args={[0.035, 0.022, 0.03]} />
+                        <meshStandardMaterial color="#d7d8d6" roughness={0.3} metalness={0.45} />
                     </mesh>
                 ))}
             </group>
 
-            {/* two teacups on saucers */}
-            {[-0.28, 0.32].map((z) => (
-                <group key={z} position={[0.12, TOP, z]}>
-                    <mesh position={[0, 0.008, 0]}>
-                        <cylinderGeometry args={[0.06, 0.06, 0.012, 18]} />
-                        <meshStandardMaterial color="#f0f0ee" roughness={0.35} metalness={0.1} />
+            {/* Java and liquid nitrogen */}
+            <group position={[0.12, TOP, 0.55]}>
+                <mesh position={[-0.055, 0.008, 0.01]}>
+                    <cylinderGeometry args={[0.06, 0.06, 0.012, 18]} />
+                    <meshStandardMaterial color="#f0f0ee" roughness={0.35} metalness={0.1} />
+                </mesh>
+                <mesh position={[-0.055, 0.06, 0.01]}>
+                    <cylinderGeometry args={[0.043, 0.036, 0.09, 18]} />
+                    <meshStandardMaterial color="#efe7d5" roughness={0.36} />
+                </mesh>
+                <mesh position={[-0.003, 0.062, 0.01]} rotation={[0, 0, Math.PI / 2]}>
+                    <torusGeometry args={[0.019, 0.006, 8, 14]} />
+                    <meshStandardMaterial color="#efe7d5" roughness={0.36} />
+                </mesh>
+                <mesh position={[-0.055, 0.108, 0.01]}>
+                    <cylinderGeometry args={[0.038, 0.038, 0.008, 18]} />
+                    <meshStandardMaterial color="#3b2414" roughness={0.72} />
+                </mesh>
+                <Text position={[-0.055, 0.062, 0.054]} fontSize={0.028} color="#5b321f" anchorX="center" anchorY="middle">
+                    JAVA
+                </Text>
+                {[0, 1, 2].map((i) => (
+                    <mesh key={i} position={[-0.085 + i * 0.03, 0.16 + i * 0.02, 0.012]}>
+                        <sphereGeometry args={[0.012, 8, 8]} />
+                        <meshStandardMaterial color="#d8d2c4" transparent opacity={0.55} roughness={0.2} />
                     </mesh>
-                    <mesh position={[0, 0.04, 0]}>
-                        <cylinderGeometry args={[0.042, 0.032, 0.06, 18]} />
-                        <meshStandardMaterial color="#fbfbf9" roughness={0.3} metalness={0.1} />
+                ))}
+
+                <mesh position={[0.08, 0.075, -0.01]}>
+                    <cylinderGeometry args={[0.045, 0.05, 0.15, 18]} />
+                    <meshStandardMaterial color="#bac9d8" roughness={0.22} metalness={0.65} />
+                </mesh>
+                <mesh position={[0.08, 0.155, -0.01]}>
+                    <cylinderGeometry args={[0.04, 0.04, 0.018, 18]} />
+                    <meshStandardMaterial color="#e7f6ff" roughness={0.18} metalness={0.35} />
+                </mesh>
+                {[0, 1, 2].map((i) => (
+                    <mesh key={i} position={[0.06 + i * 0.02, 0.19 + i * 0.018, -0.01]}>
+                        <sphereGeometry args={[0.015 + i * 0.004, 10, 8]} />
+                        <meshStandardMaterial color="#aee7ff" transparent opacity={0.45} roughness={0.08} />
                     </mesh>
-                    <mesh position={[0.05, 0.04, 0]} rotation={[0, 0, Math.PI / 2]}>
-                        <torusGeometry args={[0.018, 0.006, 8, 14]} />
-                        <meshStandardMaterial color="#fbfbf9" roughness={0.3} metalness={0.1} />
-                    </mesh>
-                </group>
-            ))}
+                ))}
+            </group>
+
+            <group position={[0, TOP + 0.16, 0.78]}>
+                <mesh>
+                    <boxGeometry args={[0.38, 0.2, 0.02]} />
+                    <meshStandardMaterial color="#1f2933" roughness={0.58} metalness={0.08} />
+                </mesh>
+                <Text position={[0, 0.02, 0.014]} fontSize={0.048} color="#f6c45f" anchorX="center" anchorY="middle">
+                    AI SNACKS
+                </Text>
+            </group>
         </group>
     );
 }
@@ -1495,8 +1580,8 @@ function WarmOfficeDressing({ reduce }) {
                 height={2.0}
             />
             <WallShelf3D position={[-10.72, 2.55, -1]} rotation={[0, Math.PI / 2, 0]} reduce={reduce} />
-            {/* snack table tucked beneath the left-wall window */}
-            <SnackTable3D position={[-10.6, 0, 1.35]} />
+            {/* snack table near the left-wall window */}
+            <SnackTable3D position={[-9.35, 0, 3.05]} scale={1.35} />
             {/* comic covers in glass cases on the back wall, beneath the PERCI HQ sign */}
             <ComicCase3D
                 position={[-0.55, 3.0, -4.96]}
