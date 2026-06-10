@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Html, ContactShadows, useCursor, useTexture, Text, Billboard } from '@react-three/drei';
-import RetroTvPlayer from './RetroTvPlayer';
 
 /* Perci HQ rendered as a real 3D room (react-three-fiber). Sir Perci is a
  * rigged primitive model — legs, arms, antennae and weapons are separate
@@ -630,9 +629,101 @@ function WallClock3D({ position = [5.6, 3.6, -4.9], rotation = [0, 0, 0] }) {
     );
 }
 
-function WallTv3D() {
-    /* TV sits flush against the back wall (z ~= -4.94). Keep the live iframe in a
-       projected DOM overlay; transformed/occluded Html can leave embedded video blank. */
+function LiveTvScreen({ reduce }) {
+    const texture = useMemo(() => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 288;
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.minFilter = THREE.LinearFilter;
+        tex.magFilter = THREE.LinearFilter;
+        return tex;
+    }, []);
+
+    useEffect(() => () => texture.dispose(), [texture]);
+
+    useFrame((state) => {
+        const canvas = texture.image;
+        const ctx = canvas.getContext('2d');
+        const t = reduce ? 0 : state.clock.elapsedTime;
+
+        ctx.fillStyle = '#06111f';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+        gradient.addColorStop(0, '#09234a');
+        gradient.addColorStop(0.58, '#071624');
+        gradient.addColorStop(1, '#133c36');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.save();
+        ctx.translate(-(t * 18) % 96, (t * 7) % 48);
+        for (let y = -48; y < canvas.height + 48; y += 48) {
+            for (let x = -96; x < canvas.width + 96; x += 96) {
+                const twinkle = 0.42 + Math.sin(t * 1.7 + x * 0.04 + y * 0.03) * 0.22;
+                ctx.fillStyle = `rgba(245, 230, 200, ${twinkle})`;
+                ctx.beginPath();
+                ctx.arc(x + 22, y + 16, 1.4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = `rgba(152, 206, 255, ${twinkle * 0.8})`;
+                ctx.beginPath();
+                ctx.arc(x + 68, y + 34, 1.1, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        ctx.restore();
+
+        ctx.fillStyle = '#9ad2ff';
+        ctx.beginPath();
+        ctx.arc(382, 96 + Math.sin(t * 0.6) * 5, 42, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = 'rgba(245, 230, 200, 0.42)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.ellipse(374, 108, 98, 28, -0.45 + Math.sin(t * 0.3) * 0.08, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = '#b7d8c6';
+        ctx.beginPath();
+        ctx.ellipse(250, 300, 390, 122, -0.08 + Math.sin(t * 0.2) * 0.02, Math.PI, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = 'rgba(30, 82, 86, 0.72)';
+        ctx.beginPath();
+        ctx.ellipse(250 + Math.sin(t * 0.25) * 16, 298, 300, 72, -0.1, Math.PI, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = 'rgba(245, 230, 200, 0.88)';
+        ctx.font = '700 20px Outfit, system-ui, sans-serif';
+        ctx.letterSpacing = '2px';
+        ctx.fillText('LIVE FEED', 24, 254);
+
+        ctx.fillStyle = '#ef4444';
+        ctx.beginPath();
+        ctx.arc(144 + Math.sin(t * 5) * 2, 248, 5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = 'rgba(255,255,255,0.05)';
+        for (let y = 0; y < canvas.height; y += 6) {
+            ctx.fillRect(0, y, canvas.width, 2);
+        }
+
+        texture.needsUpdate = true;
+    });
+
+    return (
+        <mesh position={[0, 0, 0.045]}>
+            <planeGeometry args={[2.22, 1.2]} />
+            <meshBasicMaterial map={texture} toneMapped={false} />
+        </mesh>
+    );
+}
+
+function WallTv3D({ reduce }) {
+    /* Keep the TV screen in WebGL, not a DOM iframe, so desks and agents depth-sort over it. */
     return (
         <group position={[5.25, 3.08, -4.94]}>
             {/* back casing — sits right against the wall */}
@@ -645,14 +736,17 @@ function WallTv3D() {
                 <planeGeometry args={[2.42, 1.42]} />
                 <meshStandardMaterial color="#07070a" emissive="#101622" emissiveIntensity={0.35} />
             </mesh>
-            <Html
-                center
-                position={[0, 0, 0.04]}
-                distanceFactor={5.3}
-                zIndexRange={[80, 0]}
-            >
-                <RetroTvPlayer className="retro-tv--wall" />
-            </Html>
+            <LiveTvScreen reduce={reduce} />
+            <mesh position={[0, -0.64, 0.07]}>
+                <boxGeometry args={[2.2, 0.2, 0.05]} />
+                <meshStandardMaterial color="#0e0c12" roughness={0.8} />
+            </mesh>
+            <Text position={[-0.58, -0.64, 0.105]} fontSize={0.06} color="#f5e6c8" anchorX="center" anchorY="middle" letterSpacing={0.12}>
+                LIVE FEED
+            </Text>
+            <Text position={[0.35, -0.64, 0.105]} fontSize={0.055} color="#f5e6c8" anchorX="center" anchorY="middle">
+                STREAMING
+            </Text>
         </group>
     );
 }
@@ -939,47 +1033,68 @@ function WallArt3D({ position, rotation = [0, 0, 0], image, frameColor = '#4a352
     );
 }
 
-function ThinkerStatue3D({ position = [0, 0, -4.05] }) {
+function OliveTree3D({ position = [0, 0, -4.05], reduce }) {
+    const crown = useRef();
+    useFrame((s) => {
+        if (reduce || !crown.current) return;
+        crown.current.rotation.z = Math.sin(s.clock.elapsedTime * 0.55 + position[0] * 0.2) * 0.02;
+    });
+
     return (
         <group position={position}>
-            <mesh position={[0, 0.14, 0]}>
-                <cylinderGeometry args={[0.62, 0.7, 0.28, 24]} />
-                <meshStandardMaterial color="#64584d" roughness={0.92} />
+            <CeramicPot color="#7a8a68" accent="#d9d2b4" />
+            <mesh position={[0, 1.14, 0]}>
+                <cylinderGeometry args={[0.065, 0.11, 1.48, 12]} />
+                <meshStandardMaterial color="#6c563f" roughness={0.92} />
             </mesh>
-            <mesh position={[0, 0.34, 0]}>
-                <cylinderGeometry args={[0.5, 0.56, 0.12, 24]} />
-                <meshStandardMaterial color="#7b6c60" roughness={0.84} />
+            <mesh position={[0.02, 1.92, 0.01]} rotation={[0.06, 0, -0.08]}>
+                <cylinderGeometry args={[0.04, 0.07, 0.52, 12]} />
+                <meshStandardMaterial color="#705b43" roughness={0.92} />
+            </mesh>
+            <mesh position={[0, 1.82, 0]}>
+                <sphereGeometry args={[0.085, 12, 12]} />
+                <meshStandardMaterial color="#6f5942" roughness={0.92} />
+            </mesh>
+            <mesh position={[0.02, 2.17, 0.01]}>
+                <sphereGeometry args={[0.06, 12, 12]} />
+                <meshStandardMaterial color="#735d45" roughness={0.92} />
+            </mesh>
+            <mesh position={[-0.12, 2.28, 0.01]} rotation={[0.18, 0, -0.42]}>
+                <cylinderGeometry args={[0.018, 0.03, 0.42, 10]} />
+                <meshStandardMaterial color="#705b43" roughness={0.92} />
+            </mesh>
+            <mesh position={[0.12, 2.32, -0.02]} rotation={[-0.12, 0.06, 0.3]}>
+                <cylinderGeometry args={[0.016, 0.028, 0.38, 10]} />
+                <meshStandardMaterial color="#765f46" roughness={0.92} />
             </mesh>
 
-            <group position={[0, 0.5, 0.02]}>
-                <mesh position={[0, 0.44, 0]}>
-                    <boxGeometry args={[0.76, 0.12, 0.56]} />
-                    <meshStandardMaterial color="#6c5a4f" roughness={0.88} metalness={0.04} />
-                </mesh>
-                <mesh position={[-0.09, 0.8, 0.02]} rotation={[0.15, 0, -0.42]}>
-                    <capsuleGeometry args={[0.11, 0.52, 8, 12]} />
-                    <meshStandardMaterial color="#8f8478" roughness={0.62} metalness={0.18} />
-                </mesh>
-                <mesh position={[0.1, 1.12, 0.1]} rotation={[0.2, 0.22, 0.12]}>
-                    <sphereGeometry args={[0.16, 16, 16]} />
-                    <meshStandardMaterial color="#978a7d" roughness={0.56} metalness={0.2} />
-                </mesh>
-                <mesh position={[0.14, 0.94, 0.19]} rotation={[0.72, 0, 0.82]}>
-                    <capsuleGeometry args={[0.045, 0.26, 6, 10]} />
-                    <meshStandardMaterial color="#918477" roughness={0.6} metalness={0.16} />
-                </mesh>
-                <mesh position={[-0.18, 0.34, 0.08]} rotation={[0.15, 0, -0.2]}>
-                    <capsuleGeometry args={[0.09, 0.56, 8, 12]} />
-                    <meshStandardMaterial color="#877a6e" roughness={0.64} metalness={0.16} />
-                </mesh>
-                <mesh position={[0.16, 0.3, -0.03]} rotation={[0.1, 0, 0.36]}>
-                    <capsuleGeometry args={[0.09, 0.54, 8, 12]} />
-                    <meshStandardMaterial color="#86786c" roughness={0.64} metalness={0.16} />
-                </mesh>
-                <mesh position={[-0.16, 0.68, 0.16]} rotation={[0.56, 0.1, -0.52]}>
-                    <capsuleGeometry args={[0.05, 0.34, 6, 10]} />
-                    <meshStandardMaterial color="#8c8073" roughness={0.6} metalness={0.16} />
-                </mesh>
+            <group ref={crown} position={[0, 2.28, 0]}>
+                {[
+                    [0, 0.48, 0.02, 0.56, 0.4, 0.44, '#7f9365'],
+                    [-0.36, 0.24, 0.06, 0.42, 0.3, 0.36, '#708458'],
+                    [0.4, 0.28, -0.04, 0.46, 0.32, 0.38, '#87986d'],
+                    [-0.16, 0.82, -0.02, 0.36, 0.26, 0.3, '#93a57a'],
+                    [0.22, 0.94, 0.04, 0.34, 0.24, 0.28, '#6e8157'],
+                    [-0.02, 1.18, 0, 0.28, 0.2, 0.24, '#9aaa83'],
+                    [0.08, 0.16, 0.16, 0.32, 0.24, 0.26, '#778c60'],
+                ].map(([x, y, z, sx, sy, sz, color], i) => (
+                    <mesh key={i} position={[x, y, z]} scale={[sx, sy, sz]}>
+                        <sphereGeometry args={[1, 18, 14]} />
+                        <meshStandardMaterial color={color} roughness={0.86} />
+                    </mesh>
+                ))}
+                {[
+                    [-0.18, 0.68, 0.18],
+                    [0.28, 0.62, 0.14],
+                    [0.06, 1.02, 0.12],
+                    [-0.08, 0.38, -0.16],
+                    [0.18, 0.24, -0.12],
+                ].map(([x, y, z], i) => (
+                    <mesh key={`olive-${i}`} position={[x, y, z]}>
+                        <sphereGeometry args={[0.035, 10, 10]} />
+                        <meshStandardMaterial color="#3f4630" roughness={0.7} />
+                    </mesh>
+                ))}
             </group>
         </group>
     );
@@ -988,7 +1103,7 @@ function ThinkerStatue3D({ position = [0, 0, -4.05] }) {
 function WarmOfficeDressing({ reduce }) {
     return (
         <group>
-            <PottedTree position={[-9.55, 0, 1.35]} scale={1.08} reduce={reduce} />
+            <PottedTree position={[-7.35, 0, 1.05]} scale={1.08} reduce={reduce} />
             <Plant3D position={[8.6, 0, 2.7]} scale={1.25} reduce={reduce} potColor="#46637f" accent="#b9d2df" leafColor="#4ea86c" leafDark="#276d47" variant="round" swayOffset={1.5} />
             <Plant3D position={[-9.1, 0, -3.2]} scale={1.05} reduce={reduce} potColor="#b9553c" accent="#f1b77a" leafColor="#5abf82" leafDark="#2f7a53" variant="tall" swayOffset={2.1} />
             <Plant3D position={[9.2, 0, -3.25]} scale={1.05} reduce={reduce} potColor="#7c5b96" accent="#d8c3ec" leafColor="#6bbf72" leafDark="#386d44" variant="tall" swayOffset={2.8} />
@@ -1056,7 +1171,7 @@ function WarmOfficeDressing({ reduce }) {
                 <Plant3D position={[0, 0.03, 0.02]} scale={0.35} reduce={reduce} potColor="#c5793e" accent="#f4d28d" leafColor="#3f8f5a" leafDark="#2f7347" variant="round" swayOffset={4.2} />
             </group>
 
-            <ThinkerStatue3D position={[0, 0, -4.08]} />
+            <OliveTree3D position={[-10.05, 0, -4.1]} reduce={reduce} />
         </group>
     );
 }
@@ -1101,7 +1216,7 @@ export default function OfficeScene({ desks, perciState, bubble, onDeskClick }) 
             <OfficeWindow scene={timeScene} position={[-10.94, 3.0, 1.35]} rotation={[0, Math.PI / 2, 0]} scale={0.7} showCelestial={false} />
             <Door3D />
             <WallClock3D position={[-10.72, 3.55, -1]} rotation={[0, Math.PI / 2, 0]} />
-            <WallTv3D />
+            <WallTv3D reduce={reduce} />
             <WarmOfficeDressing reduce={reduce} />
             <HangingLamp x={-5.2} z={0.4} offset={0} reduce={reduce} intensity={timeScene.lampIntensity} />
             <HangingLamp x={0} z={0.4} offset={1.8} reduce={reduce} intensity={timeScene.lampIntensity} />
