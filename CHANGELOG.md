@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.18.0] - 2026-06-10
+### Added
+- **Dashboard mode** — new Dashboard view with OfficeScene 3D office visualization, accessible via ModeSwitcher alongside existing modes.
+- **Office scene** — interactive 3D office environment rendered in the Dashboard mode.
+
+### Changed
+- ModeSwitcher updated to include Dashboard mode toggle.
+- ModeContext extended for dashboard state management.
+- App.jsx, Dock.jsx, OfficePanel.jsx/CSS updated for new layout integration.
+
 ## [0.16.0] - 2026-06-07
 ### Added
 - New **window + dock system** for non-Chat modes — Cowork, Code, Agents, Mission, Build, and OpenClaw open as floating, draggable, resizable windows with macOS traffic-light controls, 8-way resize, double-click maximize, and a bottom dock with whirlpool-minimize and domino chip-in animations.
