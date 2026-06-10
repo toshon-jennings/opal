@@ -629,7 +629,22 @@ function WallClock3D({ position = [5.6, 3.6, -4.9], rotation = [0, 0, 0] }) {
     );
 }
 
+/* The TV alternates Orbit's and Perci's looping splash clips with a crossfade,
+   falling back to the canvas starfield below if the videos can't load or motion
+   is reduced. */
+const TV_VIDEO_SOURCES = [
+    '/videos/Character_space_walk_animation_202605131326.mp4', // Orbit
+    '/videos/perci-splash.mp4', // Perci
+];
+const TV_SWITCH_MS = 12000; // dwell on each clip before crossfading
+const TV_FADE_SPEED = 2.2; // higher = quicker crossfade
+
 function LiveTvScreen({ reduce }) {
+    const [videoReady, setVideoReady] = useState(false);
+    const [activeIndex, setActiveIndex] = useState(0);
+    const matRefs = [useRef(null), useRef(null)];
+    const fadeRef = useRef(0); // eased toward activeIndex (0 → clip 0, 1 → clip 1)
+
     const texture = useMemo(() => {
         const canvas = document.createElement('canvas');
         canvas.width = 512;
@@ -641,9 +656,70 @@ function LiveTvScreen({ reduce }) {
         return tex;
     }, []);
 
+    const videoTextures = useMemo(() => {
+        if (reduce || typeof document === 'undefined') return null;
+        return TV_VIDEO_SOURCES.map((src) => {
+            const video = document.createElement('video');
+            video.src = src;
+            video.loop = true;
+            video.muted = true;
+            video.playsInline = true;
+            video.crossOrigin = 'anonymous';
+            const tex = new THREE.VideoTexture(video);
+            tex.colorSpace = THREE.SRGBColorSpace;
+            tex.minFilter = THREE.LinearFilter;
+            tex.magFilter = THREE.LinearFilter;
+            return tex;
+        });
+    }, [reduce]);
+
     useEffect(() => () => texture.dispose(), [texture]);
 
-    useFrame((state) => {
+    useEffect(() => {
+        if (!videoTextures) return undefined;
+        let readyCount = 0;
+        const cleanups = videoTextures.map((tex) => {
+            const video = tex.image;
+            const onReady = () => {
+                video.play().catch(() => {});
+                readyCount += 1;
+                if (readyCount >= videoTextures.length) setVideoReady(true);
+            };
+            const onError = () => setVideoReady(false);
+            video.addEventListener('canplay', onReady);
+            video.addEventListener('error', onError);
+            return () => {
+                video.removeEventListener('canplay', onReady);
+                video.removeEventListener('error', onError);
+                video.pause();
+                video.removeAttribute('src');
+                video.load();
+                tex.dispose();
+            };
+        });
+        return () => cleanups.forEach((fn) => fn());
+    }, [videoTextures]);
+
+    // Alternate between the two clips once both are playing.
+    useEffect(() => {
+        if (!videoReady) return undefined;
+        const id = setInterval(() => {
+            setActiveIndex((i) => (i === 0 ? 1 : 0));
+        }, TV_SWITCH_MS);
+        return () => clearInterval(id);
+    }, [videoReady]);
+
+    const useVideo = videoReady && videoTextures;
+
+    useFrame((state, delta) => {
+        if (useVideo) {
+            // Ease the crossfade toward the active clip; VideoTextures self-refresh.
+            fadeRef.current += (activeIndex - fadeRef.current) * Math.min(1, delta * TV_FADE_SPEED);
+            const f = fadeRef.current;
+            if (matRefs[0].current) matRefs[0].current.opacity = 1 - f;
+            if (matRefs[1].current) matRefs[1].current.opacity = f;
+            return;
+        }
         const canvas = texture.image;
         const ctx = canvas.getContext('2d');
         const t = reduce ? 0 : state.clock.elapsedTime;
@@ -715,10 +791,27 @@ function LiveTvScreen({ reduce }) {
     });
 
     return (
-        <mesh position={[0, 0, 0.045]}>
-            <planeGeometry args={[2.22, 1.2]} />
-            <meshBasicMaterial map={texture} toneMapped={false} />
-        </mesh>
+        <group position={[0, 0, 0.045]}>
+            {!useVideo && (
+                <mesh>
+                    <planeGeometry args={[2.22, 1.2]} />
+                    <meshBasicMaterial map={texture} toneMapped={false} />
+                </mesh>
+            )}
+            {useVideo && videoTextures.map((tex, i) => (
+                <mesh key={i} position={[0, 0, i * 0.001]}>
+                    <planeGeometry args={[2.22, 1.2]} />
+                    <meshBasicMaterial
+                        ref={matRefs[i]}
+                        map={tex}
+                        toneMapped={false}
+                        transparent
+                        depthWrite={false}
+                        opacity={i === 0 ? 1 : 0}
+                    />
+                </mesh>
+            ))}
+        </group>
     );
 }
 
@@ -1108,6 +1201,48 @@ function WallArt3D({ position, rotation = [0, 0, 0], image, frameColor = '#4a352
     );
 }
 
+/* Comic cover in a thick wall-mounted glass display case. Sizes are real-world
+ * comic dimensions (room scale is 1 unit = 1 m), so the slabs read true-to-life. */
+function ComicCase3D({ position, rotation = [0, 0, 0], image, comicWidth = 0.2, comicHeight = 0.265, scale = 1 }) {
+    const texture = useTexture(`/artwork/${image}`);
+    const caseW = comicWidth + 0.07;
+    const caseH = comicHeight + 0.08;
+    const caseD = 0.07;
+    return (
+        <group position={position} rotation={rotation} scale={scale}>
+            {/* wall-mount back plate */}
+            <mesh position={[0, 0, 0.012]}>
+                <boxGeometry args={[caseW + 0.025, caseH + 0.025, 0.024]} />
+                <meshStandardMaterial color="#1d242c" roughness={0.55} metalness={0.35} />
+            </mesh>
+            {/* archival mat behind the comic */}
+            <mesh position={[0, 0, 0.032]}>
+                <boxGeometry args={[caseW - 0.018, caseH - 0.018, 0.016]} />
+                <meshStandardMaterial color="#efeadd" roughness={0.6} />
+            </mesh>
+            {/* the comic itself */}
+            <mesh position={[0, 0, 0.042]}>
+                <planeGeometry args={[comicWidth, comicHeight]} />
+                <meshStandardMaterial map={texture} roughness={0.5} />
+            </mesh>
+            {/* thick glass enclosure */}
+            <mesh position={[0, 0, 0.024 + caseD / 2]}>
+                <boxGeometry args={[caseW, caseH, caseD]} />
+                <meshPhysicalMaterial
+                    color="#cfe6f2"
+                    transparent
+                    opacity={0.16}
+                    roughness={0.05}
+                    metalness={0}
+                    clearcoat={1}
+                    clearcoatRoughness={0.06}
+                    depthWrite={false}
+                />
+            </mesh>
+        </group>
+    );
+}
+
 function OliveTree3D({ position = [0, 0, -4.05], rotation = [0, 0, 0], reduce }) {
     const crown = useRef();
     useFrame((s) => {
@@ -1238,6 +1373,21 @@ function WarmOfficeDressing({ reduce }) {
                 height={2.0}
             />
             <WallShelf3D position={[-10.72, 2.55, -1]} rotation={[0, Math.PI / 2, 0]} reduce={reduce} />
+            {/* comic covers in glass cases on the back wall, beneath the PERCI HQ sign */}
+            <ComicCase3D
+                position={[-0.55, 3.0, -4.96]}
+                image="marv-amazing.webp"
+                comicWidth={0.199}
+                comicHeight={0.264}
+                scale={2.8}
+            />
+            <ComicCase3D
+                position={[0.55, 3.0, -4.96]}
+                image="dc-action.png"
+                comicWidth={0.2}
+                comicHeight={0.267}
+                scale={2.8}
+            />
             {/* small shelf with plant between the painting and the window */}
             <group position={[-7.75, 2.4, -4.92]}>
                 <mesh>
