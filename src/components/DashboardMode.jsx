@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     MessageSquare, Users, Code, Bot, FlaskConical, Building2, ActivitySquare, Hammer,
-    Plus, ArrowUpRight, Server, Sparkles, CheckCircle2, AlertTriangle, Layers,
+    Plus, ArrowUpRight, Server, Sparkles, CheckCircle2, AlertTriangle, Layers, Settings,
 } from 'lucide-react';
 import { useMode, MODES, OPENCLAW_WINDOW_ID } from '../context/ModeContext';
 import { useChat } from '../context/ChatContext';
@@ -21,7 +21,7 @@ const TILES = [
     { id: MODES.OFFICE, icon: Building2, title: 'Office', desc: 'Visit the crew at Perci HQ', hue: '#fbbf24' },
     { id: MODES.MISSION, icon: ActivitySquare, title: 'Mission', desc: 'Supervise runs and checks', hue: '#60a5fa' },
     { id: MODES.BUILD, icon: Hammer, title: 'Build', desc: 'Generate and ship projects', hue: '#fb7185' },
-    { id: OPENCLAW_WINDOW_ID, icon: Server, title: 'OpenClaw', desc: 'Gateway dashboard', hue: '#ef4444' },
+    { id: OPENCLAW_WINDOW_ID, icon: Server, logo: '/openclaw-logo.svg', title: 'OpenClaw', desc: 'Gateway dashboard', hue: '#ef4444' },
 ];
 
 const AGENT_LABELS = Object.fromEntries(AGENT_DEFINITIONS.map((a) => [a.id, a.shortLabel]));
@@ -52,7 +52,7 @@ function jobTone(status) {
     return 'done';
 }
 
-export default function DashboardMode({ openClawStatus }) {
+export default function DashboardMode({ openClawStatus, onOpenSettings }) {
     const { openWindow, windows } = useMode();
     const { chats, createNewChat, switchToChat, userName } = useChat();
     const [now, setNow] = useState(() => new Date());
@@ -100,6 +100,23 @@ export default function DashboardMode({ openClawStatus }) {
         [chats]
     );
 
+    // Live gateway summary for the OpenClaw tile, from the 30s health poll in App.jsx.
+    const openClawDesc = useMemo(() => {
+        if (openClawStatus?.state === 'checking') return 'Checking gateway…';
+        if (openClawStatus?.state !== 'online') return 'Gateway offline';
+        const health = openClawStatus?.result?.health;
+        if (!health) return 'Gateway online';
+        const agents = health.agents?.length ?? 0;
+        const active = health.tasks?.active ?? 0;
+        const parts = [
+            `${agents} agent${agents === 1 ? '' : 's'}`,
+            `${active} active task${active === 1 ? '' : 's'}`,
+        ];
+        if (health.tasks?.failures) parts.push(`${health.tasks.failures} failed`);
+        if (health.runtimeVersion) parts.push(`v${health.runtimeVersion}`);
+        return parts.join(' · ');
+    }, [openClawStatus]);
+
     const perciState = jobStats.attention > 0 ? 'error' : jobStats.active > 0 ? 'working' : 'idle';
     const openIds = useMemo(() => new Set(windows.map((w) => w.modeId)), [windows]);
 
@@ -146,7 +163,14 @@ export default function DashboardMode({ openClawStatus }) {
                                 <Bot size={15} />
                                 Send an agent
                             </button>
+                            {onOpenSettings && (
+                                <button type="button" className="dash-cta dash-cta-ghost" onClick={onOpenSettings}>
+                                    <Settings size={15} />
+                                    Settings
+                                </button>
+                            )}
                         </div>
+                        <p className="dash-version">v{__APP_VERSION__}</p>
                     </div>
                     <button
                         type="button"
@@ -168,7 +192,7 @@ export default function DashboardMode({ openClawStatus }) {
                     <section className="dash-launch">
                         <h2 className="dash-section-title">Launchpad</h2>
                         <div className="dash-tiles">
-                            {TILES.map(({ id, icon: Icon, title, desc, hue }, i) => (
+                            {TILES.map(({ id, icon: Icon, logo, title, desc, hue }, i) => (
                                 <button
                                     key={id}
                                     type="button"
@@ -176,14 +200,16 @@ export default function DashboardMode({ openClawStatus }) {
                                     style={{ '--tile': hue, '--i': i }}
                                     onClick={() => openWindow(id)}
                                 >
-                                    <span className="dash-tile-icon"><Icon size={20} /></span>
+                                    <span className="dash-tile-icon">
+                                        {logo ? <img src={logo} alt="" className="dash-tile-logo" /> : <Icon size={20} />}
+                                    </span>
                                     <span className="dash-tile-name">
                                         {title}
                                         {id === OPENCLAW_WINDOW_ID && (
                                             <span className={`dash-dot ${openClawStatus?.state === 'online' ? 'is-online' : 'is-off'}`} />
                                         )}
                                     </span>
-                                    <span className="dash-tile-desc">{desc}</span>
+                                    <span className="dash-tile-desc">{id === OPENCLAW_WINDOW_ID ? openClawDesc : desc}</span>
                                     {openIds.has(id) && <span className="dash-tile-open">open</span>}
                                     {id === MODES.AGENTS && jobStats.active > 0 && (
                                         <span className="dash-tile-badge">{jobStats.active}</span>

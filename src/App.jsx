@@ -11,6 +11,7 @@ import AgentsPanel from './components/AgentsPanel';
 import AutoresearchPanel from './components/AutoresearchPanel';
 import OfficePanel from './components/OfficePanel';
 import DashboardMode from './components/DashboardMode';
+import { SettingsModal } from './components/SettingsModal';
 import DesktopHost from './components/windows/DesktopHost';
 import Dock from './components/windows/Dock';
 import { ModeGuideModal } from './components/ModeGuideModal';
@@ -93,6 +94,7 @@ function AppContent() {
     const [openClawDashboardIssue, setOpenClawDashboardIssue] = useState(null);
     const [isRestartingOpenClaw, setIsRestartingOpenClaw] = useState(false);
     const [showModeGuide, setShowModeGuide] = useState(false);
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [hermesError, setHermesError] = useState(null);
     const [terminalCommand, setTerminalCommand] = useState('');
     const [openClawDashboardTab, setOpenClawDashboardTab] = useState('gateway');
@@ -937,13 +939,17 @@ function AppContent() {
                 <div className={`flex-1 min-h-0 overflow-hidden relative${windows.length ? ' perci-dock-reserved' : ''}`}>
                     {/* The dashboard is the always-mounted base; every mode floats as a window on top. */}
                     <ModeErrorBoundary>
-                        <DashboardMode openClawStatus={openClawStatus} />
+                        <DashboardMode
+                            openClawStatus={openClawStatus}
+                            onOpenSettings={() => setIsSettingsOpen(true)}
+                        />
                     </ModeErrorBoundary>
 
                     <DesktopHost renderContent={renderWindowContent} />
                     <Dock />
 
                     <ModeGuideModal isOpen={showModeGuide} onClose={() => setShowModeGuide(false)} />
+                    <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
 
                 </div>
 

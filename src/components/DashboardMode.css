@@ -128,6 +128,16 @@
     flex-wrap: wrap;
 }
 
+.dash-version {
+    margin-top: 12px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    user-select: none;
+}
+
 .dash-cta {
     display: inline-flex;
     align-items: center;
@@ -266,6 +276,12 @@
     background: color-mix(in srgb, var(--tile) 14%, transparent);
     border: 1px solid color-mix(in srgb, var(--tile) 28%, transparent);
     margin-bottom: 6px;
+}
+
+.dash-tile-logo {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
 }
 
 .dash-tile-name {

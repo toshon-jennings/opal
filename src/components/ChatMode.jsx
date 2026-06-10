@@ -11,6 +11,7 @@ import { LLMFactory } from '../lib/llm/clients';
 import { IntelligentSearchTool } from '../lib/IntelligentSearchTool';
 import { SearchProgress } from './SearchProgress';
 import { useMode, MODES } from '../context/ModeContext';
+import { useTheme } from '../context/ThemeContext';
 import { normalizeAssistantSpacing } from '../lib/textFormatting';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -22,6 +23,7 @@ import PerciMascot from './PerciMascot';
 import { PermissionsDropdown } from './PermissionsDropdown';
 import LivePreviewPanel from './LivePreviewPanel';
 import { ProviderModelPicker } from './ProviderModelPicker';
+import chatHeroBackground from '../assets/chat-hero-background.jpeg';
 import {
     buildIntegrationToolsPrompt,
     executeIntegrationTool,
@@ -510,6 +512,7 @@ function ProjectDetailPage({
 
 function ChatMode() {
     const { setCurrentMode } = useMode();
+    const { isDarkMode } = useTheme();
     const {
         messages,
         addMessage,
@@ -1643,14 +1646,28 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                         composer={projectComposer}
                     />
                 ) : (
-                    <>
-                        <div className="flex-1 min-h-0 overflow-y-auto px-4 md:px-6 py-6 md:py-8 flex flex-col gap-4 max-w-3xl mx-auto w-full">
+                    <div className="relative flex-1 min-h-0 flex flex-col overflow-hidden">
+                        <div
+                            className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-20"
+                            style={{
+                                backgroundImage: `url(${chatHeroBackground})`,
+                                filter: isDarkMode
+                                    ? 'grayscale(1) saturate(0.6) brightness(1.15)'
+                                    : 'saturate(0.72) brightness(1.18) contrast(0.9)'
+                            }}
+                        />
+                        <div className="pointer-events-none absolute inset-0 bg-[var(--bg-primary)]/55" />
+                        <div className="relative flex-1 min-h-0 overflow-y-auto px-4 md:px-6 py-6 md:py-8 flex flex-col gap-4 max-w-3xl mx-auto w-full">
                             {messages.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center h-full text-center space-y-6">
-                                    <h2 className="flex items-center justify-center gap-3 text-3xl md:text-4xl font-light text-[var(--text-primary)]" style={{ fontFamily: "'Georgia', 'Tiempos Text', serif" }}>
-                                        <PerciMascot state="idle" size={40} aria-hidden="true" />
-                                        {getGreeting()}{userName ? `, ${userName}` : ''}
-                                    </h2>
+                                <div className="flex h-full items-center justify-center">
+                                    <div className="w-full px-6 py-14 md:px-10">
+                                        <div className="flex flex-col items-center justify-center text-center">
+                                            <h2 className="flex items-center justify-center gap-3 text-3xl md:text-4xl font-light text-[var(--text-primary)]" style={{ fontFamily: "'Georgia', 'Tiempos Text', serif" }}>
+                                                <PerciMascot state="idle" size={40} aria-hidden="true" />
+                                                {getGreeting()}{userName ? `, ${userName}` : ''}
+                                            </h2>
+                                        </div>
+                                    </div>
                                 </div>
                             ) : (
                                 messages.map((msg, idx) => (
@@ -1781,7 +1798,7 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                                             </div>
                                         )}
                                     </div>
-                                </div>
+                                    </div>
                             )}
                             {isLoading && (!isStreaming || (!streamingMessage && !streamingThinking)) && (
                                 <div className="flex gap-3 md:gap-4 py-6 px-4 bg-[var(--bg-secondary)] rounded-lg animate-fade-in">
@@ -1818,7 +1835,7 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                         </div>
 
                         {/* Input Area - Claude style */}
-                        <div className="p-4 md:p-6 max-w-3xl mx-auto w-full">
+                        <div className="relative p-4 md:p-6 max-w-3xl mx-auto w-full">
                     <input
                         ref={imageInputRef}
                         type="file"
@@ -1964,8 +1981,8 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                             </div>
                         </div>
                     </div>
-                        </div>
-                    </>
+                    </div>
+                    </div>
                 )}
             </main>
             {!isArtifactOpen && (
