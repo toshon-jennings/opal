@@ -1007,6 +1007,81 @@ function WallShelf3D({ position, rotation = [0, 0, 0], reduce }) {
     );
 }
 
+function FloorRadio3D({ position, rotation = [0, 0, 0] }) {
+    return (
+        <group position={position} rotation={rotation}>
+            <mesh position={[0, 0.82, 0]}>
+                <boxGeometry args={[1.18, 1.64, 0.42]} />
+                <meshStandardMaterial color="#5a3c25" roughness={0.82} />
+            </mesh>
+            <mesh position={[0, 0.82, 0.13]}>
+                <boxGeometry args={[1, 1.48, 0.08]} />
+                <meshStandardMaterial color="#3b281d" roughness={0.9} />
+            </mesh>
+            <mesh position={[0, 1.52, 0.14]}>
+                <boxGeometry args={[0.9, 0.12, 0.06]} />
+                <meshStandardMaterial color="#7a5436" roughness={0.78} />
+            </mesh>
+            <mesh position={[0, 0.14, 0.18]}>
+                <boxGeometry args={[0.96, 0.12, 0.06]} />
+                <meshStandardMaterial color="#3a2619" roughness={0.9} />
+            </mesh>
+            {[-0.46, 0.46].map((x) => (
+                <mesh key={x} position={[x, 0.18, 0]}>
+                    <boxGeometry args={[0.1, 0.36, 0.36]} />
+                    <meshStandardMaterial color="#4a311f" roughness={0.84} />
+                </mesh>
+            ))}
+            <mesh position={[0, 0.86, 0.19]}>
+                <boxGeometry args={[0.82, 0.86, 0.03]} />
+                <meshStandardMaterial color="#9a7a50" roughness={0.96} />
+            </mesh>
+            {[-0.24, -0.08, 0.08, 0.24].map((x) => (
+                <mesh key={x} position={[x, 0.86, 0.205]}>
+                    <boxGeometry args={[0.035, 0.82, 0.02]} />
+                    <meshStandardMaterial color="#6f4f2f" roughness={0.84} />
+                </mesh>
+            ))}
+            <mesh position={[0, 1.22, 0.19]}>
+                <boxGeometry args={[0.54, 0.3, 0.035]} />
+                <meshStandardMaterial color="#2b1d16" roughness={0.78} />
+            </mesh>
+            <mesh position={[0, 1.22, 0.215]}>
+                <circleGeometry args={[0.11, 20]} />
+                <meshStandardMaterial color="#c6a46b" roughness={0.5} metalness={0.25} />
+            </mesh>
+            <mesh position={[0, 0.44, 0.21]}>
+                <boxGeometry args={[0.42, 0.16, 0.03]} />
+                <meshStandardMaterial color="#c6a46b" roughness={0.55} metalness={0.2} />
+            </mesh>
+            {[-0.18, 0, 0.18].map((x) => (
+                <mesh key={x} position={[x, 0.44, 0.235]}>
+                    <cylinderGeometry args={[0.03, 0.03, 0.03, 16]} />
+                    <meshStandardMaterial color="#d7bf8a" roughness={0.4} metalness={0.35} />
+                </mesh>
+            ))}
+
+            <group position={[0.26, 1.62, 0.02]} scale={0.36}>
+                <CeramicPot color="#6e8a58" accent="#d9d2b4" />
+                {[
+                    [0, 0.68, 0.02, 0.52, 0.38, 0.44, '#5f8b57'],
+                    [-0.24, 0.52, 0.08, 0.34, 0.28, 0.3, '#4d7748'],
+                    [0.26, 0.56, -0.04, 0.36, 0.3, 0.32, '#6e9c65'],
+                    [-0.08, 0.86, -0.02, 0.3, 0.24, 0.28, '#7fb173'],
+                    [0.12, 0.94, 0.06, 0.28, 0.22, 0.24, '#567f4d'],
+                    [0.02, 0.42, 0.16, 0.24, 0.18, 0.2, '#6b995f'],
+                ].map(([x, y, z, sx, sy, sz, color], i) => (
+                    <mesh key={i} position={[x, y, z]} scale={[sx, sy, sz]}>
+                        <sphereGeometry args={[0.34, 14, 14]} />
+                        <meshStandardMaterial color={color} roughness={0.82} />
+                    </mesh>
+                ))}
+            </group>
+
+        </group>
+    );
+}
+
 function WallArt3D({ position, rotation = [0, 0, 0], image, frameColor = '#4a3526', width = 0.62, height = 0.78, depth = 0.04 }) {
     const texture = useTexture(`/artwork/${image}`);
     const border = 0.07;
@@ -1033,7 +1108,7 @@ function WallArt3D({ position, rotation = [0, 0, 0], image, frameColor = '#4a352
     );
 }
 
-function OliveTree3D({ position = [0, 0, -4.05], reduce }) {
+function OliveTree3D({ position = [0, 0, -4.05], rotation = [0, 0, 0], reduce }) {
     const crown = useRef();
     useFrame((s) => {
         if (reduce || !crown.current) return;
@@ -1041,7 +1116,7 @@ function OliveTree3D({ position = [0, 0, -4.05], reduce }) {
     });
 
     return (
-        <group position={position}>
+        <group position={position} rotation={rotation}>
             <CeramicPot color="#7a8a68" accent="#d9d2b4" />
             <mesh position={[0, 1.14, 0]}>
                 <cylinderGeometry args={[0.065, 0.11, 1.48, 12]} />
@@ -1105,8 +1180,8 @@ function WarmOfficeDressing({ reduce }) {
         <group>
             <PottedTree position={[-7.35, 0, 1.05]} scale={1.08} reduce={reduce} />
             <Plant3D position={[8.6, 0, 2.7]} scale={1.25} reduce={reduce} potColor="#46637f" accent="#b9d2df" leafColor="#4ea86c" leafDark="#276d47" variant="round" swayOffset={1.5} />
-            <Plant3D position={[-9.1, 0, -3.2]} scale={1.05} reduce={reduce} potColor="#b9553c" accent="#f1b77a" leafColor="#5abf82" leafDark="#2f7a53" variant="tall" swayOffset={2.1} />
-            <Plant3D position={[9.2, 0, -3.25]} scale={1.05} reduce={reduce} potColor="#7c5b96" accent="#d8c3ec" leafColor="#6bbf72" leafDark="#386d44" variant="tall" swayOffset={2.8} />
+            <Plant3D position={[-10.2, 0, -4.15]} scale={1.05} reduce={reduce} potColor="#b9553c" accent="#f1b77a" leafColor="#5abf82" leafDark="#2f7a53" variant="tall" swayOffset={2.1} />
+            <Plant3D position={[8.95, 0, -4.15]} scale={1.05} reduce={reduce} potColor="#7c5b96" accent="#d8c3ec" leafColor="#6bbf72" leafDark="#386d44" variant="tall" swayOffset={2.8} />
 
             {/* low lounge seating keeps the room human without blocking desk sightlines */}
             <mesh position={[-6.7, 0.24, 4.85]}>
@@ -1135,6 +1210,7 @@ function WarmOfficeDressing({ reduce }) {
                 width={0.92}
                 height={1.16}
             />
+            <FloorRadio3D position={[10.8, 0, -3.1]} rotation={[0, -Math.PI / 2, 0]} />
             {/* artwork on the right wall, facing inward */}
             <WallArt3D
                 position={[10.94, 3.12, 3.45]}
@@ -1171,7 +1247,7 @@ function WarmOfficeDressing({ reduce }) {
                 <Plant3D position={[0, 0.03, 0.02]} scale={0.35} reduce={reduce} potColor="#c5793e" accent="#f4d28d" leafColor="#3f8f5a" leafDark="#2f7347" variant="round" swayOffset={4.2} />
             </group>
 
-            <OliveTree3D position={[-10.05, 0, -4.1]} reduce={reduce} />
+            <OliveTree3D position={[-2.85, 0, -4.12]} rotation={[0, Math.PI, 0]} reduce={reduce} />
         </group>
     );
 }
