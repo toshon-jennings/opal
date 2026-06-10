@@ -49,6 +49,21 @@ const TIME_SCENES = {
         starOpacity: 0,
         body: 'day',
     },
+    lateNoon: {
+        sky: '#5a9fd4',
+        horizon: '#e8d4a8',
+        outsideGlow: '#d4a86a',
+        fog: '#232e3d',
+        background: '#1a2130',
+        ambient: '#ffe8c8',
+        ambientIntensity: 0.88,
+        sunColor: '#ffe0a0',
+        sunIntensity: 1.5,
+        lampIntensity: 6,
+        pointIntensity: 5,
+        starOpacity: 0,
+        body: 'lateNoon',
+    },
     dusk: {
         sky: '#7750a5',
         horizon: '#f28f62',
@@ -84,12 +99,25 @@ const TIME_SCENES = {
 function getTimeScene(date) {
     const hour = date.getHours() + date.getMinutes() / 60;
     if (hour >= 5 && hour < 7) return TIME_SCENES.dawn;
-    if (hour >= 7 && hour < 17) return TIME_SCENES.day;
+    if (hour >= 7 && hour < 15) return TIME_SCENES.day;
+    if (hour >= 15 && hour < 17) return TIME_SCENES.lateNoon;
     if (hour >= 17 && hour < 20.5) return TIME_SCENES.dusk;
     return TIME_SCENES.night;
 }
 
 // ── Sir Perci ────────────────────────────────────────────────────────────
+
+/* Shield = gold { brace }, traced from the 2D mascot's SVG path
+   (M92 164 C... 68 207 ... 92 250) and swept as a tube. */
+const BRACE_GEOMETRY = (() => {
+    const v = (x, y) => new THREE.Vector3(x, y, 0);
+    const path = new THREE.CurvePath();
+    path.add(new THREE.CubicBezierCurve3(v(0.084, 0.3), v(0, 0.3), v(0, 0.216), v(0, 0.133)));
+    path.add(new THREE.CubicBezierCurve3(v(0, 0.133), v(0, 0.07), v(-0.014, 0.035), v(-0.084, 0)));
+    path.add(new THREE.CubicBezierCurve3(v(-0.084, 0), v(-0.014, -0.035), v(0, -0.07), v(0, -0.133)));
+    path.add(new THREE.CubicBezierCurve3(v(0, -0.133), v(0, -0.216), v(0, -0.3), v(0.084, -0.3)));
+    return new THREE.TubeGeometry(path, 48, 0.038, 8, false);
+})();
 
 function PerciBackGear() {
     return (
@@ -109,17 +137,16 @@ function PerciBackGear() {
                 </mesh>
             </group>
             <group rotation={[0, 0, 0.72]}>
-                <mesh position={[0, 0.12, 0.015]} scale={[0.68, 1, 0.16]}>
-                    <sphereGeometry args={[0.24, 20, 12]} />
+                <mesh geometry={BRACE_GEOMETRY} position={[0, 0.12, 0.03]}>
                     <meshStandardMaterial color={GOLD} roughness={0.45} metalness={0.35} />
                 </mesh>
-                <mesh position={[0, 0.12, 0.05]} scale={[0.52, 0.72, 0.12]}>
-                    <sphereGeometry args={[0.12, 16, 10]} />
-                    <meshStandardMaterial color={PERCI} roughness={0.52} />
-                </mesh>
-                <Text position={[0, 0.12, 0.075]} fontSize={0.09} color="#3b2414" anchorX="center" anchorY="middle">
-                    HQ
-                </Text>
+                {/* round end caps, like the SVG's strokeLinecap */}
+                {[0.3, -0.3].map((y) => (
+                    <mesh key={y} position={[0.084, 0.12 + y, 0.03]}>
+                        <sphereGeometry args={[0.038, 10, 10]} />
+                        <meshStandardMaterial color={GOLD} roughness={0.45} metalness={0.35} />
+                    </mesh>
+                ))}
             </group>
         </group>
     );
@@ -171,11 +198,11 @@ function Perci3D({ state, bubble, reduce }) {
 
         // arms: empty-handed office gesture instead of guard/chop
         const swing = speed === 0 ? 0 : Math.sin(w.phase) * 0.45;
-        if (armL.current) armL.current.rotation.set(swing * 0.45 + 0.24, 0, 0.78);
-        if (armR.current) armR.current.rotation.set(-swing * 0.35 + 0.46, 0, -0.62);
-        if (state === 'error' && armL.current) armL.current.rotation.set(-0.46, 0, 0.82);
+        if (armL.current) armL.current.rotation.set(swing * 0.45 + 0.24, 0, -0.78);
+        if (armR.current) armR.current.rotation.set(-swing * 0.35 + 0.46, 0, 0.62);
+        if (state === 'error' && armL.current) armL.current.rotation.set(-0.46, 0, -0.82);
         if (state === 'working' && armR.current) armR.current.rotation.x = 0.25 + Math.sin(t * 5) * 0.18;
-        if (state === 'happy' && armR.current) armR.current.rotation.set(-0.18, 0, -1.65);
+        if (state === 'happy' && armR.current) armR.current.rotation.set(-0.18, 0, 1.65);
     });
 
     return (
@@ -231,22 +258,22 @@ function Perci3D({ state, bubble, reduce }) {
                 ))}
 
                 {/* arms stay empty; sword and shield are crossed on his back */}
-                <group ref={armL} position={[-0.4, 0.02, 0]}>
-                    <mesh position={[0, -0.14, 0]}>
-                        <capsuleGeometry args={[0.06, 0.18, 4, 8]} />
+                <group ref={armL} position={[-0.42, 0.04, 0]} rotation={[0.24, 0, -0.78]}>
+                    <mesh position={[0, -0.12, 0]}>
+                        <capsuleGeometry args={[0.06, 0.13, 4, 8]} />
                         <meshStandardMaterial color={PERCI} roughness={0.6} />
                     </mesh>
-                    <mesh position={[0, -0.29, 0.01]}>
+                    <mesh position={[0, -0.24, 0.01]}>
                         <sphereGeometry args={[0.08, 12, 12]} />
                         <meshStandardMaterial color={PERCI} roughness={0.6} />
                     </mesh>
                 </group>
-                <group ref={armR} position={[0.4, 0.02, 0]}>
-                    <mesh position={[0, -0.14, 0]}>
-                        <capsuleGeometry args={[0.06, 0.18, 4, 8]} />
+                <group ref={armR} position={[0.42, 0.04, 0]} rotation={[0.46, 0, 0.62]}>
+                    <mesh position={[0, -0.12, 0]}>
+                        <capsuleGeometry args={[0.06, 0.13, 4, 8]} />
                         <meshStandardMaterial color={PERCI} roughness={0.6} />
                     </mesh>
-                    <mesh position={[0, -0.29, 0.01]}>
+                    <mesh position={[0, -0.24, 0.01]}>
                         <sphereGeometry args={[0.08, 12, 12]} />
                         <meshStandardMaterial color={PERCI} roughness={0.6} />
                     </mesh>
@@ -460,7 +487,75 @@ function DeskPod({ x, z, color, label, mood, agentId, onClick, reduce }) {
 
 // ── Room dressing ────────────────────────────────────────────────────────
 
+/* Aged brick texture drawn once to a canvas: staggered bricks with tone
+   jitter, a few sooty/recessed ones, water streaks and grime at the floor. */
+function useAgedBrickTexture() {
+    const texture = useMemo(() => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1024;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+
+        // mortar
+        ctx.fillStyle = '#392d31';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const tones = ['#6b3a2e', '#5d332a', '#75453a', '#52302a', '#7d5043', '#643d33'];
+        const bw = 76, bh = 25, gap = 5;
+        for (let row = 0; row * (bh + gap) < canvas.height + bh; row++) {
+            const y = row * (bh + gap);
+            const offset = row % 2 ? -(bw + gap) / 2 : 0;
+            for (let col = 0; offset + col * (bw + gap) < canvas.width; col++) {
+                const x = offset + col * (bw + gap);
+                const r = Math.random();
+                // the odd brick is soot-blackened or crumbled back to mortar depth
+                ctx.fillStyle = r > 0.96 ? '#2e2024' : r > 0.92 ? '#3c2624' : tones[(Math.random() * tones.length) | 0];
+                ctx.fillRect(x, y + (Math.random() * 2 - 1), bw - Math.random() * 4, bh);
+                // worn edge shading for a little relief
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+                ctx.fillRect(x, y + bh - 3, bw, 3);
+                ctx.fillStyle = 'rgba(255, 235, 210, 0.05)';
+                ctx.fillRect(x, y, bw, 2);
+                // occasional pale efflorescence blotch
+                if (Math.random() > 0.85) {
+                    ctx.fillStyle = `rgba(214, 200, 178, ${0.04 + Math.random() * 0.07})`;
+                    ctx.beginPath();
+                    ctx.ellipse(x + Math.random() * bw, y + Math.random() * bh, 14 + Math.random() * 18, 6 + Math.random() * 8, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+
+        // long water stains bleeding down from random spots near the top
+        for (let i = 0; i < 7; i++) {
+            const x = Math.random() * canvas.width;
+            const w = 16 + Math.random() * 30;
+            const h = 120 + Math.random() * 260;
+            const streak = ctx.createLinearGradient(0, 0, 0, h);
+            streak.addColorStop(0, 'rgba(16, 10, 14, 0.34)');
+            streak.addColorStop(1, 'rgba(16, 10, 14, 0)');
+            ctx.fillStyle = streak;
+            ctx.fillRect(x, 0, w, h);
+        }
+
+        // grime rising from the floor
+        const grime = ctx.createLinearGradient(0, canvas.height, 0, canvas.height * 0.55);
+        grime.addColorStop(0, 'rgba(14, 9, 12, 0.5)');
+        grime.addColorStop(1, 'rgba(14, 9, 12, 0)');
+        ctx.fillStyle = grime;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.anisotropy = 4;
+        return tex;
+    }, []);
+    useEffect(() => () => texture.dispose(), [texture]);
+    return texture;
+}
+
 function Room() {
+    const brick = useAgedBrickTexture();
     const strips = useMemo(() => Array.from({ length: 9 }, (_, i) => (i - 4) * 2.4), []);
     return (
         <group>
@@ -488,9 +583,10 @@ function Room() {
                 <planeGeometry args={[22, 6.5]} />
                 <meshStandardMaterial color="#2c1f31" roughness={0.95} />
             </mesh>
+            {/* left wall: aged brick */}
             <mesh position={[-11, 3.25, 0.5]} rotation={[0, Math.PI / 2, 0]}>
                 <planeGeometry args={[13, 6.5]} />
-                <meshStandardMaterial color="#241a2b" roughness={0.95} />
+                <meshStandardMaterial map={brick} roughness={0.95} />
             </mesh>
             <mesh position={[11, 3.25, 0.5]} rotation={[0, -Math.PI / 2, 0]}>
                 <planeGeometry args={[13, 6.5]} />
@@ -1092,10 +1188,10 @@ function WallShelf3D({ position, rotation = [0, 0, 0], reduce }) {
     return (
         <group position={position} rotation={rotation}>
             <mesh>
-                <boxGeometry args={[2.25, 0.09, 0.28]} />
+                <boxGeometry args={[2.8, 0.09, 0.28]} />
                 <meshStandardMaterial color="#5a3c25" roughness={0.8} />
             </mesh>
-            {[-0.8, -0.3, 0.2, 0.7].map((x, i) => (
+            {[-1.05, -0.55, -0.05, 0.45].map((x, i) => (
                 <mesh key={x} position={[x, 0.2 + (i % 2) * 0.08, 0.15]}>
                     <boxGeometry args={[0.28, 0.38, 0.16]} />
                     <meshStandardMaterial color={['#d99b54', '#5f7f96', '#b9553c', '#d8b06a'][i]} roughness={0.75} />
