@@ -636,7 +636,6 @@ const TV_VIDEO_SOURCES = [
     '/videos/Character_space_walk_animation_202605131326.mp4', // Orbit
     '/videos/perci-splash.mp4', // Perci
 ];
-const TV_SWITCH_MS = 12000; // dwell on each clip before crossfading
 const TV_FADE_SPEED = 2.2; // higher = quicker crossfade
 
 function LiveTvScreen({ reduce }) {
@@ -661,7 +660,7 @@ function LiveTvScreen({ reduce }) {
         return TV_VIDEO_SOURCES.map((src) => {
             const video = document.createElement('video');
             video.src = src;
-            video.loop = true;
+            video.loop = false; // play once, then hand off to the other clip
             video.muted = true;
             video.playsInline = true;
             video.crossOrigin = 'anonymous';
@@ -681,7 +680,6 @@ function LiveTvScreen({ reduce }) {
         const cleanups = videoTextures.map((tex) => {
             const video = tex.image;
             const onReady = () => {
-                video.play().catch(() => {});
                 readyCount += 1;
                 if (readyCount >= videoTextures.length) setVideoReady(true);
             };
@@ -700,14 +698,19 @@ function LiveTvScreen({ reduce }) {
         return () => cleanups.forEach((fn) => fn());
     }, [videoTextures]);
 
-    // Alternate between the two clips once both are playing.
+    // Play the active clip from the start; when it ends, hand off to the other.
     useEffect(() => {
-        if (!videoReady) return undefined;
-        const id = setInterval(() => {
-            setActiveIndex((i) => (i === 0 ? 1 : 0));
-        }, TV_SWITCH_MS);
-        return () => clearInterval(id);
-    }, [videoReady]);
+        if (!videoReady || !videoTextures) return undefined;
+        const video = videoTextures[activeIndex].image;
+        video.currentTime = 0;
+        video.play().catch(() => {});
+        const onEnded = () => setActiveIndex((i) => (i === 0 ? 1 : 0));
+        video.addEventListener('ended', onEnded);
+        return () => {
+            video.removeEventListener('ended', onEnded);
+            video.pause();
+        };
+    }, [videoReady, activeIndex, videoTextures]);
 
     const useVideo = videoReady && videoTextures;
 
@@ -1175,6 +1178,125 @@ function FloorRadio3D({ position, rotation = [0, 0, 0] }) {
     );
 }
 
+/* A warm wooden side table laden with treats. Built with its long axis along Z
+   so it sits flush against the left wall beneath the window. */
+function SnackTable3D({ position, rotation = [0, 0, 0] }) {
+    const TOP = 0.795; // tabletop surface height in local space
+    return (
+        <group position={position} rotation={rotation}>
+            {/* tabletop */}
+            <mesh position={[0, 0.76, 0]} castShadow>
+                <boxGeometry args={[0.6, 0.07, 1.8]} />
+                <meshStandardMaterial color="#6b4a2f" roughness={0.78} />
+            </mesh>
+            {/* apron */}
+            <mesh position={[0, 0.7, 0]}>
+                <boxGeometry args={[0.5, 0.06, 1.7]} />
+                <meshStandardMaterial color="#543a24" roughness={0.85} />
+            </mesh>
+            {/* legs */}
+            {[[-0.24, -0.82], [0.24, -0.82], [-0.24, 0.82], [0.24, 0.82]].map(([x, z]) => (
+                <mesh key={`${x},${z}`} position={[x, 0.36, z]}>
+                    <boxGeometry args={[0.06, 0.72, 0.06]} />
+                    <meshStandardMaterial color="#543a24" roughness={0.85} />
+                </mesh>
+            ))}
+            {/* cream runner cloth */}
+            <mesh position={[0, TOP + 0.012, 0]}>
+                <boxGeometry args={[0.46, 0.02, 1.62]} />
+                <meshStandardMaterial color="#f3ead6" roughness={0.95} />
+            </mesh>
+
+            {/* tiered cake on a stand */}
+            <group position={[0, TOP, -0.62]}>
+                <mesh position={[0, 0.05, 0]}>
+                    <cylinderGeometry args={[0.035, 0.05, 0.1, 18]} />
+                    <meshStandardMaterial color="#d9d2c0" roughness={0.5} metalness={0.1} />
+                </mesh>
+                <mesh position={[0, 0.105, 0]}>
+                    <cylinderGeometry args={[0.18, 0.18, 0.018, 24]} />
+                    <meshStandardMaterial color="#e8e2d2" roughness={0.4} metalness={0.15} />
+                </mesh>
+                <mesh position={[0, 0.175, 0]}>
+                    <cylinderGeometry args={[0.135, 0.135, 0.12, 24]} />
+                    <meshStandardMaterial color="#fff3e0" roughness={0.85} />
+                </mesh>
+                <mesh position={[0, 0.245, 0]}>
+                    <cylinderGeometry args={[0.14, 0.14, 0.025, 24]} />
+                    <meshStandardMaterial color="#f6a8c0" roughness={0.7} />
+                </mesh>
+                {[0, 1, 2, 3, 4].map((i) => {
+                    const a = (i / 5) * Math.PI * 2;
+                    return (
+                        <mesh key={i} position={[Math.cos(a) * 0.09, 0.27, Math.sin(a) * 0.09]}>
+                            <sphereGeometry args={[0.018, 10, 10]} />
+                            <meshStandardMaterial color="#b3263b" roughness={0.5} />
+                        </mesh>
+                    );
+                })}
+            </group>
+
+            {/* bowl of fruit */}
+            <group position={[0, TOP, 0.02]}>
+                <mesh position={[0, 0.06, 0]}>
+                    <cylinderGeometry args={[0.17, 0.1, 0.12, 22]} />
+                    <meshStandardMaterial color="#caa06a" roughness={0.5} metalness={0.1} />
+                </mesh>
+                {[
+                    [0.06, 0.12, 0.03, '#e8852b'],
+                    [-0.06, 0.12, -0.02, '#d23b2e'],
+                    [0.02, 0.12, -0.07, '#8bbf3f'],
+                    [-0.02, 0.16, 0.04, '#7d4fa0'],
+                    [0.08, 0.14, -0.05, '#e8b23b'],
+                ].map(([x, y, z, color], i) => (
+                    <mesh key={i} position={[x, y, z]}>
+                        <sphereGeometry args={[0.05, 14, 14]} />
+                        <meshStandardMaterial color={color} roughness={0.6} />
+                    </mesh>
+                ))}
+            </group>
+
+            {/* plate of macarons */}
+            <group position={[0, TOP, 0.64]}>
+                <mesh position={[0, 0.008, 0]}>
+                    <cylinderGeometry args={[0.16, 0.16, 0.016, 24]} />
+                    <meshStandardMaterial color="#f0f0ee" roughness={0.35} metalness={0.1} />
+                </mesh>
+                {[
+                    [0.07, 0.02, '#f6a8c0'],
+                    [-0.07, 0.02, '#a3d39c'],
+                    [0.02, -0.07, '#f4d06a'],
+                    [-0.03, 0.07, '#caa6e0'],
+                    [0, 0.045, '#f29b6b'],
+                ].map(([x, z, color], i) => (
+                    <mesh key={i} position={[x, 0.035, z]} rotation={[Math.PI / 2, 0, 0]}>
+                        <torusGeometry args={[0.032, 0.018, 10, 18]} />
+                        <meshStandardMaterial color={color} roughness={0.7} />
+                    </mesh>
+                ))}
+            </group>
+
+            {/* two teacups on saucers */}
+            {[-0.28, 0.32].map((z) => (
+                <group key={z} position={[0.12, TOP, z]}>
+                    <mesh position={[0, 0.008, 0]}>
+                        <cylinderGeometry args={[0.06, 0.06, 0.012, 18]} />
+                        <meshStandardMaterial color="#f0f0ee" roughness={0.35} metalness={0.1} />
+                    </mesh>
+                    <mesh position={[0, 0.04, 0]}>
+                        <cylinderGeometry args={[0.042, 0.032, 0.06, 18]} />
+                        <meshStandardMaterial color="#fbfbf9" roughness={0.3} metalness={0.1} />
+                    </mesh>
+                    <mesh position={[0.05, 0.04, 0]} rotation={[0, 0, Math.PI / 2]}>
+                        <torusGeometry args={[0.018, 0.006, 8, 14]} />
+                        <meshStandardMaterial color="#fbfbf9" roughness={0.3} metalness={0.1} />
+                    </mesh>
+                </group>
+            ))}
+        </group>
+    );
+}
+
 function WallArt3D({ position, rotation = [0, 0, 0], image, frameColor = '#4a3526', width = 0.62, height = 0.78, depth = 0.04 }) {
     const texture = useTexture(`/artwork/${image}`);
     const border = 0.07;
@@ -1373,6 +1495,8 @@ function WarmOfficeDressing({ reduce }) {
                 height={2.0}
             />
             <WallShelf3D position={[-10.72, 2.55, -1]} rotation={[0, Math.PI / 2, 0]} reduce={reduce} />
+            {/* snack table tucked beneath the left-wall window */}
+            <SnackTable3D position={[-10.6, 0, 1.35]} />
             {/* comic covers in glass cases on the back wall, beneath the PERCI HQ sign */}
             <ComicCase3D
                 position={[-0.55, 3.0, -4.96]}
