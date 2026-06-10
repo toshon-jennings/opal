@@ -9,6 +9,8 @@ const GLYPHS = {
     [MODES.COWORK]: 'CW',
     [MODES.CODE]: 'CD',
     [MODES.AGENTS]: 'AG',
+    [MODES.AUTORESEARCH]: 'AR',
+    [MODES.OFFICE]: 'HQ',
     [MODES.MISSION]: 'MC',
     [MODES.BUILD]: 'BD',
     [OPENCLAW_WINDOW_ID]: 'OC',

@@ -86,8 +86,8 @@ Watch models think in real-time. Collapsible reasoning sections show the AI's th
 ### Installation
 
 ```bash
-git clone https://github.com/toshon-jennings/opal.git
-cd opal
+git clone https://github.com/toshon-jennings/perci.git
+cd perci
 npm install
 npm run dev
 ```
@@ -178,6 +178,11 @@ Key architectural communities:
 See `docs/architecture/GRAPH_ANALYSIS_2026-06-07.md` for the full breakdown.
 
 ---
+
+## Credits & Upstream
+
+- **[Open-claude](https://github.com/Damienchakma/Open-claude)** by Damien Chakma — the original fork source. Perci's core chat, thinking UI, and artifact system started here.
+- **[OpenClaw](https://github.com/openclaw/openclaw)** — the local AI gateway that Perci integrates with for persistent agent memory, cross-session continuity, and local model access. Perci shells out to the `openclaw` CLI; the dashboard and agent bridge are custom-built on top.
 
 ## License
 

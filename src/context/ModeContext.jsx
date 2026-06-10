@@ -17,6 +17,8 @@ export const MODES = {
     CODE: 'code',      // Code editor interface (Legacy/Direct)
     BUILD: 'build',    // Advanced build/deploy interface (future)
     AGENTS: 'agents',  // AI agent control center
+    AUTORESEARCH: 'autoresearch', // Karpathy prompt-optimization loop monitor
+    OFFICE: 'office',  // Animated agent office scene (Perci HQ)
 };
 
 // Non-mode windows (surfaces that open as windows but aren't in the MODES enum).
@@ -30,6 +32,8 @@ export const WINDOW_TITLES = {
     [MODES.AGENTS]: 'Agents',
     [MODES.MISSION]: 'Mission Control',
     [MODES.BUILD]: 'Build',
+    [MODES.AUTORESEARCH]: 'Autoresearch',
+    [MODES.OFFICE]: 'Perci HQ',
     [OPENCLAW_WINDOW_ID]: 'OpenClaw',
     [YOUTUBE_WINDOW_ID]: 'YouTube',
 };

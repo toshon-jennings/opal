@@ -4,7 +4,7 @@ import { useMode } from '../context/ModeContext';
 
 // ─── Agent definitions ─────────────────────────────────────────────────────
 
-const AGENT_DEFINITIONS = [
+export const AGENT_DEFINITIONS = [
   {
     id: 'aider',
     requestType: 'aider',
@@ -214,9 +214,9 @@ function resolveModelInput(agentId, raw) {
   return { value: text, matched: false, source: 'verbatim' };
 }
 
-const ACTIVE_JOB_STATUSES = new Set(['pending', 'claimed', 'running', 'retry_queued']);
+export const ACTIVE_JOB_STATUSES = new Set(['pending', 'claimed', 'running', 'retry_queued']);
 const COMPLETED_JOB_STATUSES = new Set(['completed']);
-const ATTENTION_JOB_STATUSES = new Set(['failed', 'cancelled', 'blocked', 'denied']);
+export const ATTENTION_JOB_STATUSES = new Set(['failed', 'cancelled', 'blocked', 'denied']);
 
 const JOB_FILTERS = [
   { id: 'all', label: 'All' },

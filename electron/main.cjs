@@ -15,6 +15,25 @@ installRedactedConsole();
 // "name" is lowercase ("perci"), so override it to the product name.
 app.setName('Perci');
 
+// Enrich process.env.PATH with common CLI locations, especially on macOS
+if (process.platform === 'darwin' || process.platform === 'linux') {
+  const home = app.getPath('home');
+  const extraPaths = [
+    path.join(home, '.local', 'bin'),
+    path.join(home, 'bin'),
+    '/opt/homebrew/bin',
+    '/usr/local/bin'
+  ];
+  const currentPath = process.env.PATH || '';
+  const pathParts = currentPath.split(path.delimiter);
+  for (const extra of extraPaths) {
+    if (!pathParts.includes(extra)) {
+      pathParts.push(extra);
+    }
+  }
+  process.env.PATH = pathParts.join(path.delimiter);
+}
+
 // Renderer crash log — written to userData so it survives packaged builds.
 // Path is logged on startup so users can find it after a blank-screen failure.
 let rendererLogPath = null;

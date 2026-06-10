@@ -8,6 +8,8 @@ import CoworkMode from './components/CoworkMode';
 import MissionControl from './components/MissionControl';
 import BuildMode from './components/BuildMode';
 import AgentsPanel from './components/AgentsPanel';
+import AutoresearchPanel from './components/AutoresearchPanel';
+import OfficePanel from './components/OfficePanel';
 import DesktopHost from './components/windows/DesktopHost';
 import Dock from './components/windows/Dock';
 import { ModeGuideModal } from './components/ModeGuideModal';
@@ -473,6 +475,8 @@ function AppContent() {
             case MODES.COWORK: return <CoworkMode />;
             case MODES.CODE: return <CodeMode />;
             case MODES.AGENTS: return <AgentsPanel />;
+            case MODES.AUTORESEARCH: return <AutoresearchPanel />;
+            case MODES.OFFICE: return <OfficePanel />;
             case MODES.BUILD: return <BuildMode />;
             case MODES.MISSION:
                 return (
