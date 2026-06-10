@@ -10,6 +10,7 @@ import BuildMode from './components/BuildMode';
 import AgentsPanel from './components/AgentsPanel';
 import AutoresearchPanel from './components/AutoresearchPanel';
 import OfficePanel from './components/OfficePanel';
+import DashboardMode from './components/DashboardMode';
 import DesktopHost from './components/windows/DesktopHost';
 import Dock from './components/windows/Dock';
 import { ModeGuideModal } from './components/ModeGuideModal';
@@ -117,7 +118,7 @@ function AppContent() {
                 console.log('Menu action received:', action);
                 switch (action) {
                     case 'new-chat':
-                        setCurrentMode(MODES.CHAT);
+                        setCurrentMode(MODES.CHAT); // opens/focuses the Chat window
                         createNewChat();
                         break;
                     case 'switch-mode-chat':
@@ -472,6 +473,7 @@ function AppContent() {
 
     const renderWindowContent = (modeId) => {
         switch (modeId) {
+            case MODES.CHAT: return <ChatMode />;
             case MODES.COWORK: return <CoworkMode />;
             case MODES.CODE: return <CodeMode />;
             case MODES.AGENTS: return <AgentsPanel />;
@@ -933,9 +935,9 @@ function AppContent() {
             {/* Mode-Specific UI */}
             <main className="app-main relative flex-1 min-h-0 overflow-hidden flex flex-col">
                 <div className={`flex-1 min-h-0 overflow-hidden relative${windows.length ? ' perci-dock-reserved' : ''}`}>
-                    {/* Chat is the always-mounted base; other modes float as windows on top. */}
+                    {/* The dashboard is the always-mounted base; every mode floats as a window on top. */}
                     <ModeErrorBoundary>
-                        <ChatMode />
+                        <DashboardMode openClawStatus={openClawStatus} />
                     </ModeErrorBoundary>
 
                     <DesktopHost renderContent={renderWindowContent} />

@@ -52,6 +52,8 @@
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
+    "@react-three/drei": "^9.122.0",
+    "@react-three/fiber": "^8.18.0",
     "@webcontainer/api": "^1.6.1",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
@@ -71,6 +73,7 @@
     "remark-gfm": "^4.0.1",
     "streamdown": "^1.6.9",
     "tailwind-merge": "^2.2.1",
+    "three": "^0.184.0",
     "ws": "^8.20.0",
     "xlsx": "^0.18.5"
   },

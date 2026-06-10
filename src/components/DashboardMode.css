@@ -1,0 +1,517 @@
+/* Home dashboard — the always-mounted desktop behind the windows.
+ *
+ * Builds on the app theme variables (light + dark both work); the only fixed
+ * colors are the per-tile accent tints set inline via `--tile`. Entrance is a
+ * single staggered rise keyed off `--i`. */
+
+.dash-root {
+    position: relative;
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg-primary);
+}
+
+/* ── ambient backdrop ───────────────────────────────────────────────── */
+
+.dash-bg {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.dash-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(70px);
+    opacity: 0.5;
+    animation: dash-drift 24s ease-in-out infinite;
+}
+
+.dash-orb-1 {
+    width: 480px;
+    height: 480px;
+    top: -180px;
+    left: -120px;
+    background: radial-gradient(circle, rgba(var(--accent-rgb), 0.32), transparent 70%);
+}
+
+.dash-orb-2 {
+    width: 380px;
+    height: 380px;
+    bottom: -140px;
+    right: -80px;
+    background: radial-gradient(circle, rgba(var(--accent-rgb), 0.22), transparent 70%);
+    animation-delay: -8s;
+}
+
+.dash-orb-3 {
+    width: 260px;
+    height: 260px;
+    top: 30%;
+    right: 22%;
+    background: radial-gradient(circle, rgba(96, 165, 250, 0.14), transparent 70%);
+    animation-delay: -15s;
+}
+
+@keyframes dash-drift {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(40px, -30px) scale(1.08); }
+}
+
+.dash-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(var(--accent-rgb), 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(var(--accent-rgb), 0.05) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse 75% 65% at 50% 35%, black 25%, transparent 75%);
+}
+
+/* ── layout ─────────────────────────────────────────────────────────── */
+
+.dash-scroll {
+    position: relative;
+    height: 100%;
+    overflow-y: auto;
+    padding: clamp(20px, 4vh, 48px) clamp(20px, 5vw, 72px) 96px;
+    max-width: 1480px;
+    margin: 0 auto;
+}
+
+/* ── hero ───────────────────────────────────────────────────────────── */
+
+.dash-hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 32px;
+    animation: dash-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.dash-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+}
+
+.dash-clock {
+    margin-top: 4px;
+    font-family: 'Outfit', system-ui, sans-serif;
+    font-size: clamp(56px, 9vw, 108px);
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+    background: linear-gradient(120deg, var(--text-primary) 30%, var(--accent) 85%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.dash-greeting {
+    margin-top: 10px;
+    font-size: clamp(15px, 1.7vw, 19px);
+    color: var(--text-secondary);
+}
+
+.dash-hero-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 22px;
+    flex-wrap: wrap;
+}
+
+.dash-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 18px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: 'Outfit', system-ui, sans-serif;
+    color: white;
+    background: linear-gradient(135deg, var(--accent), var(--accent-cyan));
+    box-shadow: 0 4px 20px var(--accent-glow);
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.dash-cta:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px var(--accent-glow);
+}
+
+.dash-cta-ghost {
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    box-shadow: none;
+}
+
+.dash-cta-ghost:hover {
+    border-color: var(--accent);
+    box-shadow: 0 4px 18px var(--accent-glow);
+}
+
+.dash-perci {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 18px 22px 14px;
+    border-radius: 24px;
+    background: rgba(var(--accent-rgb), 0.06);
+    border: 1px solid rgba(var(--accent-rgb), 0.18);
+    cursor: pointer;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.dash-perci:hover {
+    transform: translateY(-3px);
+    border-color: rgba(var(--accent-rgb), 0.45);
+}
+
+.dash-perci-caption {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+}
+
+/* ── body grid ──────────────────────────────────────────────────────── */
+
+.dash-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+    gap: 28px;
+    margin-top: clamp(24px, 4vh, 44px);
+    align-items: start;
+}
+
+@media (max-width: 1080px) {
+    .dash-body { grid-template-columns: 1fr; }
+}
+
+.dash-section-title {
+    font-family: 'Outfit', system-ui, sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+}
+
+/* ── launchpad tiles ────────────────────────────────────────────────── */
+
+.dash-launch { animation: dash-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.08s both; }
+
+.dash-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 14px;
+    margin-top: 14px;
+}
+
+.dash-tile {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 18px 16px 14px;
+    border-radius: 18px;
+    text-align: left;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    cursor: pointer;
+    animation: dash-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: calc(0.1s + var(--i) * 0.045s);
+    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.dash-tile::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--tile) 14%, transparent), transparent 55%);
+    opacity: 0.8;
+    transition: opacity 0.18s ease;
+}
+
+.dash-tile:hover {
+    transform: translateY(-4px);
+    border-color: color-mix(in srgb, var(--tile) 55%, transparent);
+    box-shadow: 0 10px 30px color-mix(in srgb, var(--tile) 18%, transparent);
+}
+
+.dash-tile:hover::before { opacity: 1; }
+
+.dash-tile-icon {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    color: var(--tile);
+    background: color-mix(in srgb, var(--tile) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--tile) 28%, transparent);
+    margin-bottom: 6px;
+}
+
+.dash-tile-name {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Outfit', system-ui, sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.dash-tile-desc {
+    position: relative;
+    font-size: 11.5px;
+    line-height: 1.45;
+    color: var(--text-tertiary);
+}
+
+.dash-tile-arrow {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    color: var(--text-tertiary);
+    opacity: 0;
+    transform: translate(-4px, 4px);
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.dash-tile:hover .dash-tile-arrow {
+    opacity: 1;
+    transform: translate(0, 0);
+    color: var(--tile);
+}
+
+.dash-tile-open {
+    position: absolute;
+    bottom: 12px;
+    right: 14px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+}
+
+.dash-tile-badge {
+    position: absolute;
+    top: 12px;
+    right: 36px;
+    min-width: 20px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: white;
+    background: var(--tile);
+}
+
+.dash-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+}
+
+.dash-dot.is-online { background: #34d399; box-shadow: 0 0 8px rgba(52, 211, 153, 0.8); }
+.dash-dot.is-off { background: var(--text-tertiary); }
+
+/* ── rail cards ─────────────────────────────────────────────────────── */
+
+.dash-rail {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.dash-card {
+    padding: 18px;
+    border-radius: 18px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    animation: dash-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: calc(0.12s + var(--i) * 0.06s);
+}
+
+.dash-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.dash-link {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+}
+
+.dash-link:hover { text-decoration: underline; }
+
+.dash-pulse {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.dash-pulse-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    padding: 10px 4px;
+    border-radius: 12px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+}
+
+.dash-pulse-stat strong {
+    font-family: 'Outfit', system-ui, sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.dash-pulse-stat span {
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+}
+
+.dash-pulse-stat[data-tone="active"] strong { color: var(--accent); }
+.dash-pulse-stat[data-tone="done"] strong { color: #34d399; }
+.dash-pulse-stat[data-tone="attention"] strong { color: #f87171; }
+
+.dash-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.dash-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 11px;
+    text-align: left;
+    transition: background 0.15s ease;
+}
+
+.dash-row:hover { background: var(--bg-hover); }
+
+.dash-row-icon {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+
+.dash-row-icon.is-active { color: var(--accent); background: rgba(var(--accent-rgb), 0.12); }
+.dash-row-icon.is-done { color: #34d399; background: rgba(52, 211, 153, 0.12); }
+.dash-row-icon.is-attention { color: #f87171; background: rgba(248, 113, 113, 0.12); }
+.dash-row-icon.is-chat { color: var(--accent); background: rgba(var(--accent-rgb), 0.12); }
+
+.dash-row-main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+}
+
+.dash-row-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dash-row-sub {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dash-row-time {
+    flex-shrink: 0;
+    font-size: 10.5px;
+    color: var(--text-tertiary);
+}
+
+.dash-empty {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-tertiary);
+    padding: 6px 2px;
+}
+
+/* ── system strip ───────────────────────────────────────────────────── */
+
+.dash-system {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px 14px;
+}
+
+.dash-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 11px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+}
+
+.dash-chip.is-online { color: #34d399; border-color: rgba(52, 211, 153, 0.35); }
+.dash-chip.is-checking { color: var(--text-tertiary); }
+.dash-chip.is-off { color: #f87171; border-color: rgba(248, 113, 113, 0.3); }
+
+/* ── shared ─────────────────────────────────────────────────────────── */
+
+@keyframes dash-rise {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 760px) {
+    .dash-hero { flex-direction: column-reverse; align-items: flex-start; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dash-root * { animation: none !important; transition: none !important; }
+}

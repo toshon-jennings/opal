@@ -11,6 +11,7 @@ import {
 const ModeContext = createContext();
 
 export const MODES = {
+    DASHBOARD: 'dashboard', // Always-mounted home dashboard (the "desktop")
     CHAT: 'chat',      // Normal conversation interface
     COWORK: 'cowork',  // Session-based task interface (Claude style)
     MISSION: 'mission', // Agent run supervision and inspection
@@ -27,6 +28,7 @@ export const YOUTUBE_WINDOW_ID = 'youtube';
 
 // Titles shown in window headers and dock chips for each windowed surface.
 export const WINDOW_TITLES = {
+    [MODES.CHAT]: 'Chat',
     [MODES.COWORK]: 'Cowork',
     [MODES.CODE]: 'Code',
     [MODES.AGENTS]: 'Agents',
@@ -134,12 +136,12 @@ function normalizeOpenClawConfig(config) {
 }
 
 export function ModeProvider({ children }) {
-    const [currentMode, setActiveMode] = useState(MODES.CHAT);
+    const [currentMode, setActiveMode] = useState(MODES.DASHBOARD);
     const electronPersistenceReadyRef = useRef(!hasElectronStore());
 
     // ── Window system ──────────────────────────────────────────────
-    // Chat is the always-mounted base "desktop". The other modes open as
-    // floating windows on top, tracked here and surfaced by the bottom dock.
+    // The dashboard is the always-mounted base "desktop". Every mode (Chat
+    // included) opens as a floating window on top, surfaced by the bottom dock.
     // The open set is persisted so windows survive a reload; per-mode geometry is
     // remembered separately so reopening a closed window restores its size.
     const [windows, setWindows] = useState(() => hydrateWindows(readJsonStorage('perci_open_windows', [])));
@@ -180,7 +182,7 @@ export function ModeProvider({ children }) {
 
     const topVisibleId = (list) => {
         const visible = list.filter(w => w.state !== 'minimized');
-        if (!visible.length) return MODES.CHAT;
+        if (!visible.length) return MODES.DASHBOARD;
         return visible.reduce((a, b) => (b.z > a.z ? b : a), visible[0]).id;
     };
 
@@ -193,7 +195,7 @@ export function ModeProvider({ children }) {
     }, []);
 
     const openWindow = useCallback((modeId) => {
-        if (modeId === MODES.CHAT) return;
+        if (modeId === MODES.DASHBOARD) return;
         const nextZ = ++zCounterRef.current;
         setActiveMode(modeId);
         setWindows(ws => {
@@ -224,11 +226,11 @@ export function ModeProvider({ children }) {
         openWindow(YOUTUBE_WINDOW_ID);
     }, [openWindow]);
 
-    // setCurrentMode keeps its existing call sites working: Chat reveals the
-    // desktop (minimizing windows); every other mode opens/focuses its window.
+    // setCurrentMode keeps its existing call sites working: Dashboard reveals
+    // the desktop (minimizing windows); every other mode opens/focuses its window.
     const setCurrentMode = useCallback((modeId) => {
-        if (modeId === MODES.CHAT) {
-            setActiveMode(MODES.CHAT);
+        if (modeId === MODES.DASHBOARD) {
+            setActiveMode(MODES.DASHBOARD);
             setWindows(ws => ws.map(w => (w.state === 'minimized' ? w : { ...w, state: 'minimized' })));
             return;
         }

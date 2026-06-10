@@ -1,18 +1,19 @@
 import { useMode, MODES } from '../context/ModeContext';
-import { MessageSquare, Code, Users, ActivitySquare, Hammer, Bot, FlaskConical, Building2 } from 'lucide-react';
+import { Home, MessageSquare, Code, Users, ActivitySquare, Hammer, Bot, FlaskConical, Building2 } from 'lucide-react';
 
 export default function ModeSwitcher() {
     const { currentMode, setCurrentMode } = useMode();
 
     const modes = [
+        { id: MODES.DASHBOARD, icon: Home,      label: 'Home' },
         { id: MODES.CHAT,   icon: MessageSquare, label: 'Chat' },
         { id: MODES.COWORK, icon: Users,         label: 'Cowork' },
         { id: MODES.CODE,   icon: Code,          label: 'Code' },
         { id: MODES.AGENTS, icon: Bot,           label: 'Agents' },
-        { id: MODES.AUTORESEARCH, icon: FlaskConical, label: 'Research' },
-        { id: MODES.OFFICE, icon: Building2,     label: 'Office' },
         { id: MODES.MISSION, icon: ActivitySquare, label: 'Mission' },
         { id: MODES.BUILD,  icon: Hammer,        label: 'Build' },
+        { id: MODES.AUTORESEARCH, icon: FlaskConical, label: 'Research' },
+        { id: MODES.OFFICE, icon: Building2,     label: 'Office' },
     ];
 
     return (
