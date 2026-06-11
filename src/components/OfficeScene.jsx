@@ -100,8 +100,8 @@ function getTimeScene(date) {
     const hour = date.getHours() + date.getMinutes() / 60;
     if (hour >= 5 && hour < 7) return TIME_SCENES.dawn;
     if (hour >= 7 && hour < 15) return TIME_SCENES.day;
-    if (hour >= 15 && hour < 17) return TIME_SCENES.lateNoon;
-    if (hour >= 17 && hour < 20.5) return TIME_SCENES.dusk;
+    if (hour >= 15 && hour < 20.5) return TIME_SCENES.lateNoon;
+    if (hour >= 20.5 && hour < 21.5) return TIME_SCENES.dusk;
     return TIME_SCENES.night;
 }
 
@@ -616,7 +616,9 @@ function OfficeWindow({ scene, position = [-5.6, 3.4, -4.94], rotation = [0, 0, 
         ? [-0.92, -0.08, 0.04]
         : scene.body === 'dusk'
             ? [0.95, -0.02, 0.04]
-            : [0.62, 0.5, 0.04];
+            : scene.body === 'lateNoon'
+                ? [0.78, 0.22, 0.04]
+                : [0.62, 0.5, 0.04];
 
     return (
         <group position={position} rotation={rotation} scale={scale}>
@@ -624,9 +626,14 @@ function OfficeWindow({ scene, position = [-5.6, 3.4, -4.94], rotation = [0, 0, 
                 <planeGeometry args={[3, 1.9]} />
                 <meshStandardMaterial color={scene.sky} emissive={scene.sky} emissiveIntensity={isNight ? 0.08 : 0.18} roughness={0.6} />
             </mesh>
-            <mesh position={[0, -0.52, 0.025]}>
-                <planeGeometry args={[2.85, 0.72]} />
-                <meshStandardMaterial color={scene.horizon} emissive={scene.horizon} emissiveIntensity={isNight ? 0.04 : 0.28} transparent opacity={0.9} />
+            {/* horizon glow — full-width gradient that fades from warm horizon to sky */}
+            <mesh position={[0, -0.55, 0.025]}>
+                <planeGeometry args={[3, 1.2]} />
+                <meshBasicMaterial color={scene.horizon} transparent opacity={0.45} depthWrite={false} />
+            </mesh>
+            <mesh position={[0, -0.85, 0.02]}>
+                <planeGeometry args={[3, 0.6]} />
+                <meshBasicMaterial color={scene.sky} transparent opacity={0.6} depthWrite={false} />
             </mesh>
             {showCelestial && (
                 <mesh position={isNight ? [0.95, 0.55, 0.04] : sunPosition}>
