@@ -33,5 +33,34 @@ contextBridge.exposeInMainWorld('electron', {
   writeOpenClawDiary: (content) => ipcRenderer.invoke('openclaw:write-diary', content),
   discoverModelProviders: () => ipcRenderer.invoke('models:discover-providers'),
   startJanServer: (options) => ipcRenderer.invoke('models:start-jan-server', options),
-  openHermesApp: (appPath) => ipcRenderer.invoke('hermes:open-app', appPath),
+  getHermesStatus: () => ipcRenderer.invoke('hermes:status'),
+  runHermesTask: (opts) => ipcRenderer.invoke('hermes:run', opts),
+  cancelHermesRun: () => ipcRenderer.invoke('hermes:run-cancel'),
+  onHermesRunEvent: (callback) => {
+    const listener = (event, evt) => callback(evt);
+    ipcRenderer.on('hermes:run-event', listener);
+    return () => ipcRenderer.removeListener('hermes:run-event', listener);
+  },
+  startHermesLogs: () => ipcRenderer.invoke('hermes:logs-start'),
+  stopHermesLogs: () => ipcRenderer.invoke('hermes:logs-stop'),
+  onHermesLogEvent: (callback) => {
+    const listener = (event, evt) => callback(evt);
+    ipcRenderer.on('hermes:log-event', listener);
+    return () => ipcRenderer.removeListener('hermes:log-event', listener);
+  },
+  listHermesSessions: (opts) => ipcRenderer.invoke('hermes:sessions', opts),
+  getHermesInsights: (opts) => ipcRenderer.invoke('hermes:insights', opts),
+  getHermesDashboardStatus: () => ipcRenderer.invoke('hermes:dashboard-status'),
+  startHermesDashboard: () => ipcRenderer.invoke('hermes:dashboard-start'),
+  startHermesChat: (opts) => ipcRenderer.invoke('hermes:chat-start', opts),
+  sendHermesChat: (opts) => ipcRenderer.invoke('hermes:chat-send', opts),
+  stopHermesChat: () => ipcRenderer.invoke('hermes:chat-stop'),
+  // Lighthouse port scanning
+  lighthouseScan: () => ipcRenderer.invoke('lighthouse:scan'),
+  lighthouseCheckPort: (port) => ipcRenderer.invoke('lighthouse:check-port', { port }),
+  lighthouseSuggestPort: () => ipcRenderer.invoke('lighthouse:suggest-port'),
+  lighthouseProcessDetails: (pid) => ipcRenderer.invoke('lighthouse:process-details', { pid }),
+  lighthouseKillProcess: (pid) => ipcRenderer.invoke('lighthouse:kill-process', { pid }),
+  lighthouseFindReferences: (oldPort, newPort) => ipcRenderer.invoke('lighthouse:find-references', { oldPort, newPort }),
+  lighthouseApplyFix: (filePath, lineNumber, newLine, oldLine) => ipcRenderer.invoke('lighthouse:apply-fix', { filePath, lineNumber, newLine, oldLine }),
 });

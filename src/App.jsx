@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, Component } from 'react';
 import perciLogo from './assets/perci-logo.png';
-import { useMode, MODES, OPENCLAW_WINDOW_ID, YOUTUBE_WINDOW_ID } from './context/ModeContext';
+import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID } from './context/ModeContext';
 import ModeSwitcher from './components/ModeSwitcher';
 import ChatMode from './components/ChatMode';
 import CodeMode from './components/CodeMode';
@@ -10,6 +10,8 @@ import BuildMode from './components/BuildMode';
 import AgentsPanel from './components/AgentsPanel';
 import AutoresearchPanel from './components/AutoresearchPanel';
 import OfficePanel from './components/OfficePanel';
+import HermesMode from './components/HermesMode';
+import LighthouseMode from './components/LighthouseMode';
 import DashboardMode from './components/DashboardMode';
 import { SettingsModal } from './components/SettingsModal';
 import DesktopHost from './components/windows/DesktopHost';
@@ -19,9 +21,9 @@ import { BuildModeProvider } from './context/BuildModeContext'; // Keeping origi
 import { BuildProvider } from './context/BuildContext';
 import { ChatProvider } from './context/ChatContext';
 
-import hermesLogo from './assets/hermes.png';
+import nousLogo from './assets/nousresearch.png';
 import openClawLogo from './assets/openclaw-color.png';
-import { Moon, Sun, Lock, Unlock, Plus, Terminal as TerminalIcon, Server, RefreshCw, ExternalLink, Bot, AlertCircle, BookOpen } from 'lucide-react';
+import { Moon, Sun, Monitor, Lock, Unlock, Plus, Terminal as TerminalIcon, Server, RefreshCw, ExternalLink, AlertCircle, BookOpen } from 'lucide-react';
 import { useTheme, ThemeProvider } from './context/ThemeContext';
 import { useChat } from './context/ChatContext';
 import TerminalPanel from './components/Terminal';
@@ -84,10 +86,10 @@ function AppContent() {
         showGlobalTerminal,
         setShowGlobalTerminal,
         openClawConfig,
-        hermesAppPath,
     } = useMode();
     const openClawWindowOpen = windows.some(w => w.id === OPENCLAW_WINDOW_ID && w.state !== 'minimized');
-    const { isDarkMode, toggleTheme } = useTheme();
+    const hermesWindowOpen = windows.some(w => w.id === HERMES_WINDOW_ID && w.state !== 'minimized');
+    const { isDarkMode, themeMode, cycleThemeMode } = useTheme();
     const { isIncognitoMode, toggleIncognitoMode, createNewChat } = useChat();
     const [openClawStatus, setOpenClawStatus] = useState({ state: 'idle' });
     const [openClawFrameKey, setOpenClawFrameKey] = useState(0);
@@ -95,7 +97,6 @@ function AppContent() {
     const [isRestartingOpenClaw, setIsRestartingOpenClaw] = useState(false);
     const [showModeGuide, setShowModeGuide] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-    const [hermesError, setHermesError] = useState(null);
     const [terminalCommand, setTerminalCommand] = useState('');
     const [openClawDashboardTab, setOpenClawDashboardTab] = useState('gateway');
     const [diaryContent, setDiaryContent] = useState('');
@@ -198,16 +199,6 @@ function AppContent() {
         if (!activeOpenClawDashboardUrl) return;
         setOpenClawDashboardIssue(null);
         openWindow(OPENCLAW_WINDOW_ID);
-    };
-
-    const launchHermesApp = async () => {
-        if (!window.electron?.openHermesApp) return;
-        setHermesError(null);
-        const result = await window.electron.openHermesApp(hermesAppPath || undefined);
-        if (!result?.ok) {
-            setHermesError(result?.error || 'Could not open Mercury.');
-            setTimeout(() => setHermesError(null), 6000);
-        }
     };
 
     const openOpenClawExternally = () => {
@@ -482,6 +473,7 @@ function AppContent() {
             case MODES.AUTORESEARCH: return <AutoresearchPanel />;
             case MODES.OFFICE: return <OfficePanel />;
             case MODES.BUILD: return <BuildMode />;
+            case MODES.LIGHTHOUSE: return <LighthouseMode />;
             case MODES.MISSION:
                 return (
                     <MissionControl
@@ -491,6 +483,7 @@ function AppContent() {
                     />
                 );
             case OPENCLAW_WINDOW_ID: return renderOpenClawWindow();
+            case HERMES_WINDOW_ID: return <HermesMode />;
             case YOUTUBE_WINDOW_ID:
                 if (!youtubeUrl) return null;
                 // Desktop: load the full /watch page in a <webview> (its own
@@ -887,32 +880,16 @@ function AppContent() {
                         )}
                     </button>
 
-                    <div className="relative">
-                        <button
-                            onClick={launchHermesApp}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all text-[11px] uppercase tracking-wider mercury-branded ${
-                                hermesError
-                                    ? 'mercury-branded-error'
-                                    : ''
-                            }`}
-                            title="MERCURY for Hermes Agent"
-                        >
-                            {hermesError ? <AlertCircle size={14} /> : <img src={hermesLogo} alt="Mercury" className="h-4 w-4" />}
-                            <span className="hidden xl:inline">Mercury</span>
-                        </button>
-                        {hermesError && (
-                            <div className="absolute right-0 top-full mt-2 z-50 w-72 rounded-lg border border-red-500/30 bg-[var(--bg-secondary)] shadow-lg p-3">
-                                <p className="text-xs text-red-400 leading-relaxed">{hermesError}</p>
-                                <a
-                                    href="https://github.com/fathah/hermes-desktop"
-                                    onClick={e => { e.preventDefault(); window.electron?.openExternal?.('https://github.com/fathah/hermes-desktop'); }}
-                                    className="mt-2 inline-flex items-center gap-1 text-xs text-[var(--accent)] hover:underline"
-                                >
-                                    Get Mercury <ExternalLink size={11} />
-                                </a>
-                            </div>
-                        )}
-                    </div>
+                    <button
+                        onClick={() => openWindow(HERMES_WINDOW_ID)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all text-[11px] uppercase tracking-wider hermes-branded ${
+                            hermesWindowOpen ? 'active' : ''
+                        }`}
+                        title="Hermes Agent"
+                    >
+                        <img src={nousLogo} alt="Hermes" className="h-4 w-4 rounded-full bg-white object-cover ring-1 ring-[var(--border)]" />
+                        <span className="hidden xl:inline">Hermes</span>
+                    </button>
 
                     <button onClick={() => setShowGlobalTerminal(v => !v)} className={`p-1.5 rounded-md transition-colors ${showGlobalTerminal ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'}`} title="Toggle Terminal">
                         <TerminalIcon size={18} />
@@ -924,8 +901,12 @@ function AppContent() {
                         </button>
                     )}
 
-                    <button onClick={toggleTheme} className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-md transition-colors" title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}>
-                        {isDarkMode ? <Moon size={18} /> : <Sun size={18} />}
+                    <button
+                        onClick={cycleThemeMode}
+                        className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-md transition-colors"
+                        title={`Theme: ${themeMode}. Click to cycle modes.`}
+                    >
+                        {themeMode === 'system' ? <Monitor size={18} /> : (isDarkMode ? <Moon size={18} /> : <Sun size={18} />)}
                     </button>
 
                     <button onClick={toggleIncognitoMode} className={`p-1.5 rounded-md transition-colors ${isIncognitoMode ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'}`} title={isIncognitoMode ? "Disable Incognito Mode" : "Enable Incognito Mode"}>

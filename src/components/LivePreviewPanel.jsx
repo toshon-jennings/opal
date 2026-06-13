@@ -1,15 +1,23 @@
 import { ExternalLink, Globe, RefreshCw } from 'lucide-react';
 
 export default function LivePreviewPanel({ previewUrl = '', onRefresh, title = 'Preview' }) {
+    const hasPreview = Boolean(previewUrl);
+
     return (
-        <aside className="layout-transition hidden xl:flex h-full w-[520px] min-w-[420px] max-w-[48vw] shrink-0 flex-col border-l border-[var(--border)] bg-[var(--bg-primary)]">
-            <div className="flex h-12 items-center justify-between border-b border-[var(--border)] bg-[var(--bg-secondary)]/40 px-4">
+        <aside
+            className={`layout-transition hidden xl:flex h-full shrink-0 flex-col border-l border-[var(--border)] bg-[var(--bg-primary)] ${
+                hasPreview ? 'w-[520px] min-w-[420px] max-w-[48vw]' : 'w-[4rem] min-w-[4rem] max-w-[4rem]'
+            }`}
+        >
+            <div className={`flex h-12 items-center border-b border-[var(--border)] bg-[var(--bg-secondary)]/40 ${hasPreview ? 'justify-between px-4' : 'justify-center px-2'}`}>
                 <div className="flex min-w-0 items-center gap-2">
                     <Globe size={14} className="shrink-0 text-[var(--accent)]" />
-                    <span className="truncate text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">{title}</span>
+                    {hasPreview && (
+                        <span className="truncate text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">{title}</span>
+                    )}
                 </div>
-                <div className="flex items-center gap-1">
-                    {previewUrl && (
+                {hasPreview && (
+                    <div className="flex items-center gap-1">
                         <button
                             type="button"
                             onClick={onRefresh}
@@ -18,8 +26,6 @@ export default function LivePreviewPanel({ previewUrl = '', onRefresh, title = '
                         >
                             <RefreshCw size={14} />
                         </button>
-                    )}
-                    {previewUrl && (
                         <a
                             href={previewUrl}
                             target="_blank"
@@ -29,11 +35,11 @@ export default function LivePreviewPanel({ previewUrl = '', onRefresh, title = '
                         >
                             <ExternalLink size={14} />
                         </a>
-                    )}
-                </div>
+                    </div>
+                )}
             </div>
-            <div className="relative flex-1 bg-white">
-                {previewUrl ? (
+            <div className={`relative flex-1 ${hasPreview ? 'bg-white' : 'bg-[var(--bg-secondary)]/20'}`}>
+                {hasPreview ? (
                     <iframe
                         key={previewUrl}
                         src={previewUrl}
@@ -43,7 +49,14 @@ export default function LivePreviewPanel({ previewUrl = '', onRefresh, title = '
                         referrerPolicy="no-referrer"
                     />
                 ) : (
-                    <div className="absolute inset-0 bg-[var(--bg-primary)]" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <span
+                            className="select-none text-[10px] font-semibold uppercase tracking-[0.28em] text-[var(--text-tertiary)]"
+                            style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+                        >
+                            Preview
+                        </span>
+                    </div>
                 )}
             </div>
         </aside>

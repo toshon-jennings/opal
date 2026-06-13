@@ -27,7 +27,6 @@ const PERSISTED_KEYS = [
     'selected_provider',
     'selected_model',
     'openclaw_config',
-    'hermes_app_path',
     'lm_studio_url',
     'jan_url',
     ...API_KEY_STORAGE_KEYS

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Key, Globe, RefreshCw, ChevronDown, Check, Wifi, WifiOff, User, ScrollText, Search, Server, ExternalLink, Plus, Trash2, Bot } from 'lucide-react';
+import { X, Key, Globe, RefreshCw, ChevronDown, Check, Wifi, WifiOff, User, ScrollText, Search, Server, Plus, Trash2, Monitor, Moon, Sun } from 'lucide-react';
 import { useChat } from '../context/ChatContext';
 import { useMode } from '../context/ModeContext';
+import { useTheme } from '../context/ThemeContext';
 
-import hermesLogo from '../assets/hermes.png';
 import openclawLogo from '../assets/openclaw-color.png';
 
 const LOCAL_PROVIDER_NAMES = {
@@ -15,7 +15,6 @@ const LOCAL_PROVIDER_NAMES = {
 };
 
 const LOCAL_IMAGE_PATHS = {
-    hermes: hermesLogo,
     openclaw: openclawLogo,
 };
 
@@ -90,9 +89,8 @@ export function SettingsModal({ isOpen, onClose }) {
         openClawConfig,
         setOpenClawConfig,
         setShowOpenClawDashboard,
-        hermesAppPath,
-        setHermesAppPath,
     } = useMode();
+    const { themeMode, setThemeMode, resolvedTheme } = useTheme();
 
     const [modelSearch, setModelSearch] = useState('');
     const [editingName, setEditingName] = useState('');
@@ -429,6 +427,64 @@ export function SettingsModal({ isOpen, onClose }) {
                         <p className="text-xs text-[var(--text-tertiary)]">
                             Used in greetings and referenced by AI models.
                         </p>
+                    </Section>
+
+                    <Section title="Appearance" icon={Monitor} defaultOpen={true}>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                            {[
+                                {
+                                    id: 'system',
+                                    label: 'System',
+                                    description: `Follow your device automatically (${resolvedTheme})`,
+                                    icon: Monitor,
+                                },
+                                {
+                                    id: 'light',
+                                    label: 'Light',
+                                    description: 'Always use the light theme',
+                                    icon: Sun,
+                                },
+                                {
+                                    id: 'dark',
+                                    label: 'Dark',
+                                    description: 'Always use the dark theme',
+                                    icon: Moon,
+                                },
+                            ].map(option => {
+                                const Icon = option.icon;
+                                const isSelected = themeMode === option.id;
+
+                                return (
+                                    <button
+                                        key={option.id}
+                                        type="button"
+                                        onClick={() => setThemeMode(option.id)}
+                                        className={`rounded-xl border p-3.5 text-left transition-colors ${
+                                            isSelected
+                                                ? 'border-[var(--accent)] bg-[var(--accent)]/6'
+                                                : 'border-[var(--border)] bg-[var(--bg-tertiary)]/40 hover:bg-[var(--bg-hover)]'
+                                        }`}
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <Icon size={15} className={isSelected ? 'text-[var(--accent)]' : 'text-[var(--text-secondary)]'} />
+                                                    <span className="text-sm font-semibold text-[var(--text-primary)]">{option.label}</span>
+                                                </div>
+                                                <p className="mt-2 text-xs leading-relaxed text-[var(--text-tertiary)]">
+                                                    {option.description}
+                                                </p>
+                                            </div>
+                                            {isSelected && (
+                                                <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[var(--accent)] text-white">
+                                                    <Check size={12} />
+                                                </span>
+                                            )}
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </Section>
 
                     {/* Custom Instructions */}
@@ -957,21 +1013,6 @@ export function SettingsModal({ isOpen, onClose }) {
                                 </div>
                             </div>
                         )}
-                    </Section>
-
-                    <Section title="Mercury" icon={Bot} defaultOpen={false}>
-                        <p className="text-xs text-[var(--text-tertiary)] leading-relaxed">
-                            Path to the Mercury desktop app. Leave blank to use the default location.
-                        </p>
-                        <label className="block space-y-1">
-                            <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">App Path</span>
-                            <input
-                                value={hermesAppPath}
-                                onChange={e => setHermesAppPath(e.target.value)}
-                                placeholder="/Applications/Mercury.app"
-                                className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-xs font-mono text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-                            />
-                        </label>
                     </Section>
 
                     {/* Bottom padding */}

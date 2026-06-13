@@ -853,7 +853,7 @@ html.dark .openclaw-branded.active {
   background-color: #2a2a2a;
 }
 
-.mercury-branded {
+.hermes-branded {
   background-color: white;
   color: var(--text-primary);
   border: 1px solid rgba(var(--border-rgb), 0.12);
@@ -862,30 +862,30 @@ html.dark .openclaw-branded.active {
   transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
-html.dark .mercury-branded {
+html.dark .hermes-branded {
   background-color: black;
 }
 
-.mercury-branded:hover {
+.hermes-branded:hover {
   background-color: rgba(var(--border-rgb), 0.1);
   border-color: rgba(var(--border-rgb), 0.25);
 }
 
-html.dark .mercury-branded:hover {
+html.dark .hermes-branded:hover {
   background-color: #1a1a1a;
 }
 
-.mercury-branded.active {
+.hermes-branded.active {
   background-color: rgba(var(--border-rgb), 0.15);
   color: var(--text-primary);
   border: none;
 }
 
-html.dark .mercury-branded.active {
+html.dark .hermes-branded.active {
   background-color: #2a2a2a;
 }
 
-.mercury-branded img {
+.hermes-branded img {
   border-radius: 50%;
 }
 
@@ -1188,4 +1188,56 @@ html.dark .mercury-branded.active {
   inset: 0;
   z-index: 100000;
   background: transparent;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Hermes surface
+   Amber "dispatch console" identity layered on Perci's tokens:
+   a faint amber atmosphere in the header and an overshoot-spring
+   underline on the tab strip. ───────────────────────────────── */
+
+.hermes-header {
+  background:
+    radial-gradient(120% 220% at 0% 0%, rgba(234, 179, 8, 0.10), transparent 48%),
+    radial-gradient(80% 180% at 100% 0%, rgba(234, 179, 8, 0.04), transparent 55%),
+    var(--bg-secondary);
+}
+
+.hermes-tab {
+  position: relative;
+}
+.hermes-tab::after {
+  content: '';
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: #eab308;
+  opacity: 0;
+  transform: scaleX(0);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.15s ease;
+}
+.hermes-tab.active::after {
+  opacity: 1;
+  transform: scaleX(1);
+  box-shadow: 0 0 10px rgba(234, 179, 8, 0.55);
+}
+
+/* Console empty state: a soft amber pool of light behind the badge. */
+.hermes-empty {
+  background: radial-gradient(42% 38% at 50% 42%, rgba(234, 179, 8, 0.06), transparent 70%);
+}
+
+.hermes-run-card {
+  transition: border-color 0.2s ease, box-shadow 0.25s ease;
+}
+.hermes-run-card:hover {
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(234, 179, 8, 0.12);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hermes-tab::after { transition: none; }
+  .hermes-run-card { transition: none; }
 }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ArrowUpToLine, Minus, Maximize2, Minimize2, X } from 'lucide-react';
-import { useMode, MODES, OPENCLAW_WINDOW_ID, YOUTUBE_WINDOW_ID } from '../../context/ModeContext';
+import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID } from '../../context/ModeContext';
 import WindowContextMenu from './WindowContextMenu';
 
 // Two-letter glyphs for dock chips (mirrors the Orbit/Odysseus dock aesthetic).
@@ -15,6 +15,7 @@ const GLYPHS = {
     [MODES.MISSION]: 'MC',
     [MODES.BUILD]: 'BD',
     [OPENCLAW_WINDOW_ID]: 'OC',
+    [HERMES_WINDOW_ID]: 'HM',
     [YOUTUBE_WINDOW_ID]: 'YT',
 };
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal as TerminalIcon, X, Copy, RefreshCw } from 'lucide-react';
@@ -28,7 +28,10 @@ function isDuplicateSingleKeyInput(input, lastInputRef) {
   return false;
 }
 
-export default function TerminalPanel({ sessionId = 'default', onClose }) {
+// `embedded` hides the built-in chrome so a host (e.g. the Hermes multitab
+// terminal) can own the tab strip; it then drives the panel through the ref
+// ({ reset, reconnect, focus }) and `onStatusChange`.
+const TerminalPanel = forwardRef(function TerminalPanel({ sessionId = 'default', onClose, embedded = false, onStatusChange }, ref) {
   const { isDarkMode } = useTheme();
   const terminalRef = useRef(null);
   const termInstanceRef = useRef(null);
@@ -40,12 +43,32 @@ export default function TerminalPanel({ sessionId = 'default', onClose }) {
   const [isFocused, setIsFocused] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
 
+  const onStatusChangeRef = useRef(onStatusChange);
+  onStatusChangeRef.current = onStatusChange;
+  useEffect(() => { onStatusChangeRef.current?.(status); }, [status]);
+
+  const retryTimerRef = useRef(null);
+
+  // Detach handlers before closing so a stale socket's close/error can't
+  // schedule a reconnect: a second client on the same PTY session makes the
+  // server broadcast every output chunk twice, garbling the terminal.
+  const dropSocket = useCallback(() => {
+    clearTimeout(retryTimerRef.current);
+    const old = wsRef.current;
+    if (old) {
+      old.onopen = old.onclose = old.onerror = old.onmessage = null;
+      try { old.close(); } catch { /* already closed */ }
+      wsRef.current = null;
+    }
+  }, []);
+
   const connect = useCallback(() => {
     const container = terminalRef.current;
     if (!container || !termInstanceRef.current) return;
 
+    dropSocket();
     setStatus("connecting");
-    
+
     const ports = getTerminalPortCandidates();
     const port = ports[activePortIndexRef.current] || ports[0];
     const wsUrl = buildTerminalWsUrl(port, sessionId);
@@ -55,6 +78,7 @@ export default function TerminalPanel({ sessionId = 'default', onClose }) {
     const term = termInstanceRef.current;
 
     ws.onopen = () => {
+      if (wsRef.current !== ws) return;
       rememberTerminalPort(port);
       ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
       setStatus("connected");
@@ -63,17 +87,20 @@ export default function TerminalPanel({ sessionId = 'default', onClose }) {
     };
 
     ws.onclose = () => {
+      if (wsRef.current !== ws) return;
       setStatus("disconnected");
       term.writeln("\r\n\x1b[31m[System]\x1b[0m Terminal server connection lost.");
     };
 
     ws.onerror = (err) => {
+      if (wsRef.current !== ws) return;
       console.error('Terminal WebSocket error:', err);
       if (activePortIndexRef.current < ports.length - 1) {
         activePortIndexRef.current += 1;
         setRetryCount(count => count + 1);
+        ws.onclose = null;
         ws.close();
-        setTimeout(connect, 100);
+        retryTimerRef.current = setTimeout(connect, 100);
         return;
       }
       setStatus("error");
@@ -81,11 +108,12 @@ export default function TerminalPanel({ sessionId = 'default', onClose }) {
     };
 
     ws.onmessage = (event) => {
+      if (wsRef.current !== ws) return;
       if (typeof event.data === "string") {
         term.write(event.data);
       }
     };
-  }, [sessionId]);
+  }, [sessionId, dropSocket]);
 
   useEffect(() => {
     const container = terminalRef.current;
@@ -116,11 +144,12 @@ export default function TerminalPanel({ sessionId = 'default', onClose }) {
     term.open(container);
     termInstanceRef.current = term;
     
-    setTimeout(() => {
+    // Fit before connecting so the PTY spawns at the real size instead of
+    // 80x24 (a TUI's first paint at the wrong width never redraws cleanly).
+    const connectTimer = setTimeout(() => {
         try { fitAddon.fit(); } catch (e) {}
+        connect();
     }, 100);
-
-    connect();
 
     term.onResize(({ cols, rows }) => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -157,16 +186,18 @@ export default function TerminalPanel({ sessionId = 'default', onClose }) {
     window.addEventListener("resize", handleResize);
 
     return () => {
+      clearTimeout(connectTimer);
       if (textarea) {
         textarea.removeEventListener("focus", handleTerminalFocus);
         textarea.removeEventListener("blur", handleTerminalBlur);
       }
       resizeObserver.disconnect();
       window.removeEventListener("resize", handleResize);
-      wsRef.current?.close();
+      dropSocket();
+      termInstanceRef.current = null;
       term.dispose();
     };
-  }, [isDarkMode, connect]);
+  }, [isDarkMode, connect, dropSocket]);
 
   const handleReset = () => {
     wsRef.current?.send('\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l\x1b[?1015l\x1b[?1l\x1b[?1049l\x1b[?25h\x1b[0m');
@@ -179,8 +210,15 @@ export default function TerminalPanel({ sessionId = 'default', onClose }) {
     connect();
   };
 
+  useImperativeHandle(ref, () => ({
+    reset: handleReset,
+    reconnect: handleReconnect,
+    focus: () => termInstanceRef.current?.focus(),
+  }));
+
   return (
     <div className={`flex flex-col h-full w-full ${isDarkMode ? 'bg-[#0C0C0D]' : 'bg-white'} overflow-hidden`}>
+      {!embedded && (
       <div className="flex items-center justify-between px-4 py-2 bg-[var(--bg-secondary)] border-b border-[var(--border)] shrink-0">
         <div className="flex items-center gap-3">
           <div
@@ -219,9 +257,12 @@ export default function TerminalPanel({ sessionId = 'default', onClose }) {
           )}
         </div>
       </div>
-      <div className="flex-1 min-h-0 px-2 pt-2 pb-6 overflow-hidden">
+      )}
+      <div className={`flex-1 min-h-0 px-2 pt-2 overflow-hidden ${embedded ? 'pb-2' : 'pb-6'}`}>
         <div ref={terminalRef} className="h-full w-full overflow-hidden" />
       </div>
     </div>
   );
-}
+});
+
+export default TerminalPanel;

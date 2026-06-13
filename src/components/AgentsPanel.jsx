@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Bot, RefreshCw, Send, FolderOpen, Clock, CheckCircle2, AlertTriangle, XCircle, Hourglass, Copy, Check, ChevronRight, TerminalSquare, Search } from 'lucide-react';
-import { useMode } from '../context/ModeContext';
+import { useMode, HERMES_WINDOW_ID } from '../context/ModeContext';
 
 // ─── Agent definitions ─────────────────────────────────────────────────────
 
@@ -70,7 +70,7 @@ export const AGENT_DEFINITIONS = [
     requestType: 'hermes',
     label: 'Hermes',
     shortLabel: 'Hermes',
-    detail: 'Spec creation and project planning through the local Hermes CLI.',
+    detail: 'Nous Research\'s tool-calling agent — headless one-shot tasks through the local Hermes CLI.',
     status: 'ready',
     capabilities: ['prompt', 'project_directory', 'advanced'],
     defaultPrompt: 'Describe the project or feature spec Hermes should create or revise.',
@@ -390,7 +390,7 @@ function Metric({ label, value }) {
 // ─── Main component ─────────────────────────────────────────────────────────
 
 export default function AgentsPanel() {
-  const { setShowOpenClawDashboard, pendingAgentSelection, setPendingAgentSelection } = useMode();
+  const { setShowOpenClawDashboard, openWindow, pendingAgentSelection, setPendingAgentSelection } = useMode();
   const [selectedId, setSelectedId] = useState('aider');
   const [jobsByAgent, setJobsByAgent] = useState(() => restorePersistedJobs());
   const [prompt, setPrompt] = useState('');
@@ -449,9 +449,9 @@ export default function AgentsPanel() {
   );
 
   const activeSelectedJob = selectedJobs.find((job) => isActiveStatus(job.status) && !isStaleJob(job)) ?? null;
-  // OpenClaw now runs gateway agent turns through the job queue like a CLI
-  // agent, but also keeps a dashboard shortcut (isSpecializedAgent).
-  const isSpecializedAgent = selectedAgent.id === 'openclaw';
+  // OpenClaw and Hermes run through the job queue like CLI agents, but also
+  // keep a shortcut to their dedicated window (isSpecializedAgent).
+  const isSpecializedAgent = selectedAgent.id === 'openclaw' || selectedAgent.id === 'hermes';
   const isCliAgent = Boolean(selectedAgent.requestType);
 
   const hasAnyActiveJob = useMemo(
@@ -624,7 +624,8 @@ export default function AgentsPanel() {
 
   function launchSpecializedAgent() {
     setNotice(null);
-    setShowOpenClawDashboard(true);
+    if (selectedAgent.id === 'hermes') openWindow(HERMES_WINDOW_ID);
+    else setShowOpenClawDashboard(true);
   }
 
   // ── Render helpers ───────────────────────────────────────────────────────
@@ -904,14 +905,18 @@ export default function AgentsPanel() {
                       offer a dashboard shortcut for long-running workflows. */}
                   {isSpecializedAgent && (
                     <div className="flex items-center justify-between gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2">
-                      <span className="text-xs text-[var(--text-tertiary)]">Sends a turn to the OpenClaw gateway agent.</span>
+                      <span className="text-xs text-[var(--text-tertiary)]">
+                        {selectedAgent.id === 'hermes'
+                          ? 'Runs a headless one-shot through the local Hermes CLI.'
+                          : 'Sends a turn to the OpenClaw gateway agent.'}
+                      </span>
                       <button
                         type="button"
                         onClick={() => void launchSpecializedAgent()}
                         className="micro-interaction flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-[var(--border)] text-[var(--text-secondary)] text-xs font-medium hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-colors shrink-0"
                       >
                         <TerminalSquare size={13} />
-                        Dashboard
+                        {selectedAgent.id === 'hermes' ? 'Open window' : 'Dashboard'}
                       </button>
                     </div>
                   )}

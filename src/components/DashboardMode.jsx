@@ -2,11 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     MessageSquare, Users, Code, Bot, FlaskConical, Building2, ActivitySquare, Hammer,
     Plus, ArrowUpRight, Server, Sparkles, CheckCircle2, AlertTriangle, Layers, Settings,
+    Radar,
 } from 'lucide-react';
 import { useMode, MODES, OPENCLAW_WINDOW_ID } from '../context/ModeContext';
 import { useChat } from '../context/ChatContext';
 import PerciMascot from './PerciMascot';
 import { AGENT_DEFINITIONS, ACTIVE_JOB_STATUSES, ATTENTION_JOB_STATUSES } from './AgentsPanel';
+import lhLogo from '../assets/lh-logo.png';
 import './DashboardMode.css';
 
 const JOBS_POLL_MS = 10000;
@@ -21,6 +23,7 @@ const TILES = [
     { id: MODES.OFFICE, icon: Building2, title: 'Office', desc: 'Visit the crew at Perci HQ', hue: '#fbbf24' },
     { id: MODES.MISSION, icon: ActivitySquare, title: 'Mission', desc: 'Supervise runs and checks', hue: '#60a5fa' },
     { id: MODES.BUILD, icon: Hammer, title: 'Build', desc: 'Generate and ship projects', hue: '#fb7185' },
+    { id: MODES.LIGHTHOUSE, icon: Radar, logo: lhLogo, title: 'Lighthouse', desc: 'Scan ports and find conflicts', hue: '#ffbf45' },
     { id: OPENCLAW_WINDOW_ID, icon: Server, logo: '/openclaw-logo.svg', title: 'OpenClaw', desc: 'Gateway dashboard', hue: '#ef4444' },
 ];
 
@@ -178,7 +181,7 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                         onClick={() => openWindow(MODES.OFFICE)}
                         title="Visit Perci HQ"
                     >
-                        <PerciMascot state={perciState} size={148} title={`Perci is ${perciState}`} variant="office" />
+                        <PerciMascot state={perciState} size={148} title={`Perci is ${perciState}`} variant="classic" />
                         <span className="dash-perci-caption">
                             {perciState === 'error' ? 'A job needs attention'
                                 : perciState === 'working' ? `${jobStats.active} job${jobStats.active === 1 ? '' : 's'} running`

@@ -756,6 +756,7 @@ function createWindow() {
     if (mainWindow === win) {
       mainWindow = null;
       stopOpenClawLogStream();
+      stopHermesLogStream();
     }
   });
 
@@ -812,6 +813,11 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   stopOpenClawLogStream();
+  stopHermesLogStream();
+  if (hermesActiveRun) {
+    try { hermesActiveRun.child.kill('SIGTERM'); } catch { /* already gone */ }
+    hermesActiveRun = null;
+  }
   if (terminalServerProcess) {
     terminalServerProcess.kill();
   }
@@ -1060,12 +1066,12 @@ function extractJsonObject(text) {
   return null;
 }
 
-// Run an `openclaw` CLI command and resolve its stdout/stderr/exit code.
+// Run a local CLI command and resolve its stdout/stderr/exit code.
 // Args are passed as an array (never a shell string) so caller-supplied values
-// like profile URLs/tokens cannot inject. The token is never logged.
-function runOpenClaw(args, timeoutMs = 10000) {
+// like profile URLs/tokens cannot inject. Tokens are never logged.
+function runCli(command, args, timeoutMs = 10000) {
   return new Promise((resolve) => {
-    const child = spawn('openclaw', args, { stdio: ['ignore', 'pipe', 'pipe'], env: process.env });
+    const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'], env: process.env });
     let stdout = '';
     let stderr = '';
     const timer = setTimeout(() => { child.kill('SIGKILL'); }, timeoutMs);
@@ -1075,6 +1081,9 @@ function runOpenClaw(args, timeoutMs = 10000) {
     child.on('close', code => { clearTimeout(timer); resolve({ ok: code === 0, code, stdout, stderr }); });
   });
 }
+
+const runOpenClaw = (args, timeoutMs = 10000) => runCli('openclaw', args, timeoutMs);
+const runHermes = (args, timeoutMs = 15000) => runCli('hermes', args, timeoutMs);
 
 // Profile-aware rich health via the Gateway RPC (`gateway call status`). Unlike
 // test-connection's TCP probe, this returns a structured summary (runtime, task
@@ -1411,30 +1420,324 @@ ipcMain.handle('models:start-jan-server', async (event, options = {}) => {
   });
 });
 
-ipcMain.handle('hermes:open-app', async (event, customPath) => {
-  const os = require('os');
-  const candidates = [
-    customPath,
-    '/Applications/Mercury.app',
-    '/Applications/Hermes Agent.app',
-    path.join(os.homedir(), 'Applications', 'Mercury.app'),
-    path.join(os.homedir(), 'hermes-desktop', 'build', 'Hermes Agent.app'),
-    path.join(os.homedir(), 'hermes-desktop', 'build', 'Mercury.app'),
-    path.join(os.homedir(), 'Applications', 'Hermes Agent.app'),
-  ].filter(Boolean);
+// ─── Hermes Agent bridge ────────────────────────────────────────────────────
+// Perci's Hermes window talks to the local `hermes` CLI the way the OpenClaw
+// window talks to `openclaw`: arg arrays (never shell strings), parsed output.
 
-  for (const candidate of candidates) {
-    try {
-      const stat = await fs.stat(candidate);
-      if (stat) {
-        const err = await shell.openPath(candidate);
-        if (!err) return { ok: true, path: candidate };
+const HERMES_DASHBOARD_URL = 'http://127.0.0.1:9119';
+
+// Parse `hermes status` (human-formatted ◆ sections) into a compact summary.
+// Redacted API-key fragments are deliberately dropped — only provider counts
+// and booleans cross the IPC boundary.
+function parseHermesStatus(text) {
+  const summary = {
+    model: null, provider: null, gatewayRunning: false,
+    keysConfigured: 0, keysTotal: 0, platformsConfigured: 0,
+    scheduledJobs: null, activeSessions: null
+  };
+  let section = '';
+  for (const raw of (text || '').split('\n')) {
+    const sectionMatch = raw.match(/^◆\s+(.+)$/);
+    if (sectionMatch) { section = sectionMatch[1].trim(); continue; }
+    const line = raw.trim();
+    if (!line) continue;
+    if (section === 'Environment') {
+      const m = line.match(/^(Model|Provider):\s+(.+)$/);
+      if (m) summary[m[1].toLowerCase()] = m[2].trim();
+    } else if (section === 'API Keys') {
+      if (/[✓✗]/.test(line) && !line.startsWith('Auth file') && !line.startsWith('Error')) {
+        summary.keysTotal += 1;
+        if (line.includes('✓')) summary.keysConfigured += 1;
       }
-    } catch {
-      // not found at this path, try next
+    } else if (section === 'Messaging Platforms') {
+      if (line.includes('✓')) summary.platformsConfigured += 1;
+    } else if (section === 'Gateway Service') {
+      const m = line.match(/^Status:\s+(.+)$/);
+      if (m) summary.gatewayRunning = m[1].includes('✓');
+    } else if (section === 'Scheduled Jobs') {
+      const m = line.match(/^Jobs:\s+(.+)$/);
+      if (m) summary.scheduledJobs = m[1].trim();
+    } else if (section === 'Sessions') {
+      const m = line.match(/^Active:\s+(\d+)/);
+      if (m) summary.activeSessions = Number(m[1]);
     }
   }
-  return { ok: false, error: 'Mercury app not found. Set the path in Settings > Mercury.' };
+  return summary;
+}
+
+ipcMain.handle('hermes:status', async () => {
+  const version = await runHermes(['--version'], 10000);
+  if (!version.ok) {
+    return { ok: false, error: version.error || version.stderr.trim() || 'Hermes CLI was not found. Install it or add hermes to PATH.' };
+  }
+  const versionLine = version.stdout.split('\n').map(l => l.trim()).find(Boolean) || 'Hermes Agent';
+  const status = await runHermes(['status'], 30000);
+  return {
+    ok: true,
+    version: versionLine,
+    ...(status.ok ? parseHermesStatus(status.stdout) : {}),
+    statusError: status.ok ? null : (status.error || status.stderr.trim() || null)
+  };
+});
+
+// One run at a time: `hermes -z` one-shots print only the final response, so
+// the renderer pairs this with the live log stream for in-flight visibility.
+let hermesActiveRun = null; // { id, child }
+
+function sendHermesRunEvent(evt) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('hermes:run-event', evt);
+  }
+}
+
+ipcMain.handle('hermes:run', async (event, { prompt, model, workingDirectory } = {}) => {
+  const text = typeof prompt === 'string' ? prompt.trim() : '';
+  if (!text) return { ok: false, error: 'Missing prompt.' };
+  if (hermesActiveRun) return { ok: false, error: 'Hermes is already working on a task. Cancel it or wait for it to finish.' };
+  const requestedModel = typeof model === 'string' ? model.trim() : '';
+  if (requestedModel && !SAFE_MODEL_PATTERN.test(requestedModel)) {
+    return { ok: false, error: 'Model name contains unsupported characters.' };
+  }
+
+  const args = ['-z', text];
+  if (requestedModel) args.push('-m', requestedModel);
+  const cwd = typeof workingDirectory === 'string' && workingDirectory.trim() ? workingDirectory.trim() : (process.env.HOME || '/tmp');
+  const id = `hermes-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+  const child = spawn('hermes', args, { cwd, env: process.env, stdio: ['ignore', 'pipe', 'pipe'], shell: false });
+  hermesActiveRun = { id, child };
+  let stdout = '';
+  let stderr = '';
+  let cancelled = false;
+  child.stdout.on('data', chunk => { stdout += chunk.toString(); });
+  child.stderr.on('data', chunk => { stderr += chunk.toString(); });
+  child.on('error', err => {
+    hermesActiveRun = null;
+    sendHermesRunEvent({ id, type: 'failed', error: err.message, finishedAt: new Date().toISOString() });
+  });
+  child.on('close', (code, signal) => {
+    if (!hermesActiveRun) return; // spawn error already reported
+    cancelled = cancelled || hermesActiveRun.cancelled === true;
+    hermesActiveRun = null;
+    const output = stdout.trim();
+    const finishedAt = new Date().toISOString();
+    if (cancelled || signal) {
+      sendHermesRunEvent({ id, type: 'cancelled', finishedAt });
+    } else if (code !== 0 && !output) {
+      const error = stderr.trim().split('\n').filter(Boolean).slice(-3).join('\n') || `hermes exited with code ${code}.`;
+      sendHermesRunEvent({ id, type: 'failed', error, finishedAt });
+    } else {
+      sendHermesRunEvent({ id, type: 'done', output, finishedAt, exitCode: code });
+    }
+  });
+  return { ok: true, id, startedAt: new Date().toISOString() };
+});
+
+ipcMain.handle('hermes:run-cancel', async () => {
+  if (!hermesActiveRun) return { ok: false, error: 'No active Hermes run.' };
+  try {
+    hermesActiveRun.cancelled = true;
+    hermesActiveRun.child.kill('SIGTERM');
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+// --- Interactive chat (`hermes chat -q`) ---
+// Turn-based chat with context carryover. Each turn runs
+// `hermes chat -q <message> --resume <session-id>` so Hermes keeps full
+// conversation memory. The long-lived state is the session UUID, not a process.
+let hermesChatSession = null; // { sessionId, model }
+
+ipcMain.handle('hermes:chat-start', async (event, { model, workingDirectory } = {}) => {
+  // If a session already exists, return it so the UI can resume seamlessly.
+  if (hermesChatSession) return { ok: true, sessionId: hermesChatSession.sessionId, resumed: true };
+  const requestedModel = typeof model === 'string' ? model.trim() : '';
+  if (requestedModel && !SAFE_MODEL_PATTERN.test(requestedModel)) {
+    return { ok: false, error: 'Model name contains unsupported characters.' };
+  }
+  // Session ID comes from hermes itself — captured on first turn. No synthetic
+  // IDs. We store the model/cwd now and defer session creation until the first
+  // message is sent.
+  const sid = `pending-${Date.now()}`;
+  hermesChatSession = { sessionId: sid, realSessionId: null, model: requestedModel, cwd: workingDirectory, hasHistory: false };
+  return { ok: true, sessionId: sid };
+});
+
+// Send a message in the active chat session. Runs `hermes chat -q` with
+// --resume after the first turn so context carries forward.
+ipcMain.handle('hermes:chat-send', async (event, { text } = {}) => {
+  if (!hermesChatSession) return { ok: false, error: 'No chat session is running. Start one first.' };
+  const msg = typeof text === 'string' ? text.trim() : '';
+  if (!msg) return { ok: false, error: 'Message is empty.' };
+  const { model, cwd, realSessionId } = hermesChatSession;
+  const args = ['chat', '-q', msg, '--source', 'panel', '-Q'];
+  if (model) args.push('-m', model);
+  if (realSessionId) args.push('--resume', realSessionId);
+  if (cwd) args.push('--workdir', cwd);
+  hermesChatSession.hasHistory = true;
+  try {
+    const result = await runHermes(args, 300000); // 5-min timeout for long turns
+    if (!result.ok) return { ok: false, error: result.error || result.stderr.trim() || 'Hermes chat turn failed.' };
+    let output = result.stdout.trim();
+    // First turn: capture the real session ID from the output footer
+    if (!realSessionId) {
+      const m = output.match(/hermes --resume (\S+)/);
+      if (m) {
+        hermesChatSession.realSessionId = m[1];
+        hermesChatSession.sessionId = m[1];
+      }
+      // Strip the footer line(s) so it doesn't clutter the chat
+      output = output.replace(/\n?Resume this session with:\s*\n?\s*hermes --resume \S+\s*/, '').trim();
+    }
+    return { ok: true, output, sessionId: hermesChatSession.sessionId };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle('hermes:chat-stop', async () => {
+  hermesChatSession = null;
+  return { ok: true };
+});
+// Same shape as the OpenClaw log tailer: one long-lived child, parsed lines
+// forwarded as compact events, auto-restart unless explicitly stopped.
+let hermesLogChild = null;
+let hermesLogStopped = true;
+let hermesLogRestartTimer = null;
+
+function forwardHermesLogEvent(evt) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('hermes:log-event', evt);
+  }
+}
+
+// agent.log lines look like:
+// `2026-06-11 22:04:41,963 INFO [session_id] component.path: message`
+const HERMES_LOG_LINE = /^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),\d+\s+(\w+)\s+(?:\[([^\]]+)\]\s+)?([\w.-]+):\s?(.*)$/;
+
+function startHermesLogStream() {
+  if (hermesLogChild) return;
+  hermesLogStopped = false;
+  const child = spawn('hermes', ['logs', '-f', '-n', '20'], { stdio: ['ignore', 'pipe', 'pipe'], env: process.env });
+  hermesLogChild = child;
+  let buffer = '';
+  child.stdout.on('data', chunk => {
+    buffer += chunk.toString();
+    const lines = buffer.split('\n');
+    buffer = lines.pop();
+    for (const line of lines) {
+      const m = line.match(HERMES_LOG_LINE);
+      if (!m) continue; // file headers and wrapped continuation lines
+      forwardHermesLogEvent({
+        type: 'log',
+        time: m[1],
+        level: m[2],
+        session: m[3] || null,
+        component: m[4],
+        message: m[5].slice(0, 400)
+      });
+    }
+  });
+  child.on('error', err => {
+    forwardHermesLogEvent({ type: 'stream-error', level: 'ERROR', message: err.message });
+  });
+  child.on('close', () => {
+    hermesLogChild = null;
+    if (!hermesLogStopped) {
+      clearTimeout(hermesLogRestartTimer);
+      hermesLogRestartTimer = setTimeout(() => startHermesLogStream(), 2000);
+    }
+  });
+}
+
+function stopHermesLogStream() {
+  hermesLogStopped = true;
+  clearTimeout(hermesLogRestartTimer);
+  if (hermesLogChild) {
+    hermesLogChild.kill();
+    hermesLogChild = null;
+  }
+}
+
+ipcMain.handle('hermes:logs-start', async () => { startHermesLogStream(); return { ok: true }; });
+ipcMain.handle('hermes:logs-stop', async () => { stopHermesLogStream(); return { ok: true }; });
+
+// `hermes sessions list` prints a fixed-width table; slice rows on the header's
+// column offsets so truncated titles/previews can't break parsing.
+function parseHermesSessionsTable(text) {
+  const lines = (text || '').split('\n');
+  const headerIdx = lines.findIndex(l => /^Title\s+/.test(l) && l.includes('ID'));
+  if (headerIdx === -1) return [];
+  const header = lines[headerIdx];
+  const offsets = ['Title', 'Preview', 'Last Active', 'ID'].map(name => header.indexOf(name));
+  if (offsets.some(o => o === -1)) return [];
+  const rows = [];
+  for (const line of lines.slice(headerIdx + 1)) {
+    if (!line.trim() || /^─+$/.test(line.trim())) continue;
+    const cell = i => line.slice(offsets[i], offsets[i + 1] ?? undefined).trim();
+    const id = cell(3);
+    if (!id) continue;
+    rows.push({ title: cell(0), preview: cell(1), lastActive: cell(2), id });
+  }
+  return rows;
+}
+
+ipcMain.handle('hermes:sessions', async (event, { limit } = {}) => {
+  const cappedLimit = Math.max(1, Math.min(Number(limit) || 20, 100));
+  const [list, stats] = await Promise.all([
+    runHermes(['sessions', 'list', '--limit', String(cappedLimit)], 20000),
+    runHermes(['sessions', 'stats'], 20000)
+  ]);
+  if (!list.ok) {
+    return { ok: false, error: list.error || list.stderr.trim() || 'Could not list Hermes sessions.' };
+  }
+  const statsText = stats.ok ? stats.stdout : '';
+  const statField = (label) => statsText.match(new RegExp(`${label}:\\s+(.+)`))?.[1]?.trim() || null;
+  return {
+    ok: true,
+    sessions: parseHermesSessionsTable(list.stdout),
+    stats: {
+      totalSessions: statField('Total sessions'),
+      totalMessages: statField('Total messages'),
+      databaseSize: statField('Database size')
+    }
+  };
+});
+
+ipcMain.handle('hermes:insights', async (event, { days } = {}) => {
+  const cappedDays = Math.max(1, Math.min(Number(days) || 30, 365));
+  const result = await runHermes(['insights', '--days', String(cappedDays)], 60000);
+  if (!result.ok) {
+    return { ok: false, error: result.error || result.stderr.trim() || 'Could not load Hermes insights.' };
+  }
+  return { ok: true, days: cappedDays, text: result.stdout.replace(/^\n+/, '') };
+});
+
+// The dashboard serves HTML, so requestJson reports a JSON parse failure even
+// when it's up — any HTTP status at all means something is listening.
+ipcMain.handle('hermes:dashboard-status', async () => {
+  const probe = await requestJson(HERMES_DASHBOARD_URL, 2500);
+  return { ok: true, running: Boolean(probe.status), url: HERMES_DASHBOARD_URL };
+});
+
+ipcMain.handle('hermes:dashboard-start', async () => {
+  const probe = await requestJson(HERMES_DASHBOARD_URL, 2500);
+  if (probe.status) return { ok: true, running: true, url: HERMES_DASHBOARD_URL };
+
+  const child = spawn('hermes', ['dashboard', '--no-open'], { stdio: 'ignore', env: process.env, detached: true });
+  child.on('error', () => {});
+  child.unref();
+
+  // First launch may build the web UI, so poll generously (up to 90 s).
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < 90000) {
+    await new Promise(r => setTimeout(r, 1500));
+    const poll = await requestJson(HERMES_DASHBOARD_URL, 2000);
+    if (poll.status) return { ok: true, running: true, url: HERMES_DASHBOARD_URL };
+  }
+  return { ok: false, running: false, url: HERMES_DASHBOARD_URL, error: 'The Hermes dashboard did not become reachable. Try running `hermes dashboard` in a terminal.' };
 });
 
 // ─── Agent Jobs ─────────────────────────────────────────────────────────────
@@ -1460,7 +1763,7 @@ function getAgentCommand(agentId) {
     opencode: 'opencode',
     perci_code: 'perci',
     qwen_code: 'qwen',
-    // hermes and openclaw are special — not spawned as local CLIs
+    // hermes and openclaw have dedicated branches in agent-jobs:queue
   };
   return commandMap[agentId] || null;
 }
@@ -1518,9 +1821,52 @@ ipcMain.handle('agent-jobs:queue', async (event, { agent, prompt, working_direct
     return { ok: false, error: 'Model name contains unsupported characters.' };
   }
 
-  // Hermes and OpenClaw are special — not local CLI agents
+  // Hermes runs headless one-shots (`hermes -z`): stdout is the final reply.
   if (agent === 'hermes') {
-    return { ok: false, error: 'Use the Mercury app for Hermes. Launch it from the Agents page or Settings.' };
+    const jobId = generateJobId();
+    const startedAt = new Date().toISOString();
+    const jobRecord = {
+      id: jobId, agent, type: agent, status: 'running', prompt,
+      working_directory: working_directory || null, model: requestedModel || null, source: 'agents_page',
+      created_at: startedAt, started_at: startedAt, completed_at: null,
+      exit_code: null, output: '', output_kind: null, childProcess: null,
+    };
+    const args = ['-z', prompt];
+    if (requestedModel) args.push('-m', requestedModel);
+    const child = spawn('hermes', args, {
+      cwd: working_directory || process.env.HOME || '/tmp',
+      env: { ...process.env }, stdio: ['ignore', 'pipe', 'pipe'], shell: false
+    });
+    jobRecord.childProcess = child;
+
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', chunk => { stdout += chunk.toString(); });
+    child.stderr.on('data', chunk => { stderr += chunk.toString(); });
+    child.on('error', err => {
+      jobRecord.completed_at = new Date().toISOString();
+      jobRecord.status = 'failed';
+      jobRecord.output_kind = 'error';
+      jobRecord.output = `Process error: ${err.message}`;
+    });
+    child.on('close', code => {
+      jobRecord.completed_at = new Date().toISOString();
+      const text = stdout.trim();
+      if (code === 0 && text) {
+        jobRecord.output = text;
+        jobRecord.output_kind = 'output';
+        jobRecord.status = 'completed';
+        jobRecord.exit_code = 0;
+      } else {
+        jobRecord.status = 'failed';
+        jobRecord.exit_code = code;
+        jobRecord.output_kind = 'error';
+        jobRecord.output = stderr.trim().split('\n').filter(Boolean).slice(-4).join('\n') || text || 'No reply from Hermes.';
+      }
+    });
+
+    agentJobs.set(jobId, { childProcess: child, job: jobRecord });
+    return { ok: true, job: serializeJob(jobRecord) };
   }
   // OpenClaw runs a gateway agent turn (session bridging) rather than a local
   // CLI. Spawn `openclaw agent --json` (arg array, no shell — prompt is user
@@ -1601,6 +1947,22 @@ ipcMain.handle('agent-jobs:queue', async (event, { agent, prompt, working_direct
   const cwd = working_directory || process.env.HOME || '/tmp';
   const modelFlag = getAgentModelFlag(agent);
   const spawnArgs = requestedModel && modelFlag ? [modelFlag, requestedModel] : [];
+
+  // Agents that accept a -p/--prompt flag for non-interactive use.
+  // These CLIs run headlessly: prompt is passed as a flag, output goes to
+  // stdout, and the process exits when done.  All other agents are treated as
+  // interactive terminal CLIs that read their prompt from stdin.
+  const PROMPT_FLAG_AGENTS = new Set(['copilot']);
+  const usesPromptFlag = PROMPT_FLAG_AGENTS.has(agent);
+
+  if (usesPromptFlag) {
+    spawnArgs.push('-p', prompt);
+    // Copilot needs these to run without interactive TTY prompts.
+    if (agent === 'copilot') {
+      spawnArgs.push('--allow-all-tools', '--no-ask-user');
+    }
+  }
+
   const child = spawn(command, spawnArgs, {
     cwd,
     env: { ...process.env },
@@ -1612,6 +1974,15 @@ ipcMain.handle('agent-jobs:queue', async (event, { agent, prompt, working_direct
   jobRecord.childProcess = child;
   jobRecord.status = 'running';
   jobRecord.started_at = new Date().toISOString();
+
+  // For interactive agents that read from stdin, send the prompt and close
+  // stdin so the process knows there is no more input.
+  if (!usesPromptFlag && prompt) {
+    try {
+      child.stdin.write(prompt + '\n');
+      child.stdin.end();
+    } catch (_) { /* stdin may already be closed */ }
+  }
 
   // Capture stdout
   child.stdout.on('data', (chunk) => {
@@ -1735,5 +2106,390 @@ ipcMain.handle('write-file', async (event, { filePath, content }) => {
   } catch (err) {
     console.error('Error writing file:', err);
     throw err;
+  }
+});
+
+// ── Lighthouse IPC handlers ──────────────────────────────────────────────
+
+function execCmd(cmd, timeout = 10000) {
+  try {
+    return spawnSync('/bin/sh', ['-c', cmd], {
+      timeout,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).stdout || '';
+  } catch {
+    return '';
+  }
+}
+
+// Parse one IPv4/IPv6 host:port token from lsof's `n` field.
+function parseHostPort(n) {
+  let host, portStr;
+  if (n[0] === '[') { const i = n.indexOf(']'); host = n.slice(1, i); portStr = n.slice(i + 2); }
+  else { const cp = n.lastIndexOf(':'); host = n.slice(0, cp); portStr = n.slice(cp + 1); }
+  return { host, port: parseInt(portStr, 10) };
+}
+
+function normalizeBind(host, family) {
+  if (host === '*' || host === '') return family === 'IPv6' ? '::' : '0.0.0.0';
+  return host;
+}
+
+// Single lsof pass over TCP+UDP, IPv4+IPv6, all states. Returns { listeners, all }.
+function scanSockets() {
+  const output = execCmd('lsof -nP -iTCP -iUDP -F pcftPnT');
+  const all = [];
+  let pid = null, cmd = '';
+  let fam = null, proto = null, name = null, state = null;
+  const flushFile = () => {
+    if (name != null) {
+      const isConn = name.indexOf('->') >= 0;
+      const local = isConn ? name.split('->')[0] : name;
+      const { host, port } = parseHostPort(local);
+      if (!isNaN(port) && port > 0 && port <= 65535) {
+        all.push({
+          pid, process_name: cmd,
+          protocol: proto || 'TCP', family: fam || 'IPv4',
+          bind_address: normalizeBind(host, fam), port,
+          state: state || (proto === 'UDP' ? 'UDP' : null),
+          conn: isConn,
+        });
+      }
+    }
+    fam = proto = name = state = null;
+  };
+  for (const line of output.split('\n')) {
+    if (!line) continue;
+    const tag = line[0], val = line.slice(1);
+    if (tag === 'p') { flushFile(); pid = parseInt(val, 10) || null; cmd = ''; }
+    else if (tag === 'c') { cmd = val; }
+    else if (tag === 'f') { flushFile(); }
+    else if (tag === 't') { fam = val; }
+    else if (tag === 'P') { proto = val; }
+    else if (tag === 'n') { name = val; }
+    else if (tag === 'T') { if (val.startsWith('ST=')) state = val.slice(3); }
+  }
+  flushFile();
+  const listeners = all.filter(s => !s.conn && (s.protocol === 'UDP' || s.state === 'LISTEN'));
+  const seen = new Set();
+  const deduped = listeners.filter(s => {
+    const k = `${s.port}-${s.protocol}-${s.bind_address}-${s.pid}`;
+    if (seen.has(k)) return false; seen.add(k); return true;
+  });
+  deduped.sort((a, b) => a.port - b.port || String(a.bind_address).localeCompare(String(b.bind_address)));
+  return { listeners: deduped, all };
+}
+
+function suggestFree(start, end, liveUsed, declaredUsed) {
+  for (let c = start; c <= end; c++) if (!liveUsed.has(c) && !declaredUsed.has(c)) return c;
+  for (let c = start; c <= end; c++) if (!liveUsed.has(c)) return c;
+  return null;
+}
+
+const PROCESS_NAME_MAP = {
+  'com.docke': 'Docker Desktop', 'Docker': 'Docker Desktop', 'docker': 'Docker',
+  'ControlCe': 'AirPlay Receiver', 'rapportd': 'AirPlay / Handoff', 'LM Studio': 'LM Studio',
+  'node': 'Node.js', 'node.exe': 'Node.js', 'next-server': 'Next.js', 'next-dev': 'Next.js (dev)',
+  'vite': 'Vite', 'python3': 'Python', 'python': 'Python', 'ollama': 'Ollama', 'Ollama': 'Ollama',
+  'keybase': 'Keybase', 'kbfs': 'Keybase FS', 'Raycast': 'Raycast', 'Electron': 'Perci',
+  'Antigravi': 'Antigravity', 'app_inkwe': 'Inkweasel', 'language_': 'Language Server',
+  'lmlink-co': 'LM Link', 'sshd': 'SSH', 'postgres': 'PostgreSQL', 'redis-server': 'Redis', 'nginx': 'nginx',
+};
+
+function friendlyProcessName(raw) {
+  if (!raw) return '—';
+  if (PROCESS_NAME_MAP[raw]) return PROCESS_NAME_MAP[raw];
+  const base = raw.replace(/\d+(\.\d+)*$/, '').toLowerCase();
+  if (base === 'python') return 'Python';
+  if (base === 'node') return 'Node.js';
+  if (raw.length > 9 && PROCESS_NAME_MAP[raw.slice(0, 9)]) return PROCESS_NAME_MAP[raw.slice(0, 9)];
+  return raw.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+// Reconcile live listeners against PORTMASTER declarations.
+function detectConflicts(listeners, entries) {
+  const conflicts = [];
+  const liveUsed = new Set(listeners.map(l => l.port));
+  const declaredUsed = new Set(entries.map(e => e.port));
+  const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const STOP = new Set(['app', 'com', 'the', 'backend', 'desktop', 'server', 'agent', 'service', 'daemon', 'run', 'serve', 'dev', 'api', 'node', 'python', 'main']);
+  const tokens = (s) => String(s || '').toLowerCase().split(/[^a-z0-9]+/).filter(t => t.length >= 3 && !STOP.has(t));
+  const related = (a, b) => {
+    const na = norm(a), nb = norm(b);
+    if (na && nb && (na.includes(nb) || nb.includes(na))) return true;
+    const tb = new Set(tokens(b));
+    return tokens(a).some(t => tb.has(t));
+  };
+
+  const byPort = {};
+  for (const e of entries) (byPort[e.port] = byPort[e.port] || []).push(e);
+  for (const portKey of Object.keys(byPort)) {
+    const group = byPort[portKey];
+    const owners = [...new Set(group.map(e => norm(e.managed_by) || norm(e.service)).filter(Boolean))];
+    if (owners.length > 1) {
+      const a = group[0];
+      const b = group.find(e => (norm(e.managed_by) || norm(e.service)) !== (norm(a.managed_by) || norm(a.service))) || group[1];
+      const liveDup = listeners.find(l => l.port === Number(portKey) && l.pid);
+      conflicts.push({
+        port: Number(portKey), kind: 'duplicate_declaration',
+        process_a: a.managed_by || a.service, pid_a: null,
+        process_b: b.managed_by || b.service, pid_b: null,
+        suggestion: suggestFree(3000, 3999, liveUsed, declaredUsed),
+        explanation: `Port ${portKey} is declared to two different owners ("${a.managed_by || a.service}" and "${b.managed_by || b.service}") across PORTMASTER.md files${liveDup ? `, and is currently held by "${friendlyProcessName(liveDup.process_name)}" (PID ${liveDup.pid})` : ''}.`,
+      });
+    }
+  }
+  for (const l of listeners) {
+    const decl = entries.find(e => e.port === l.port);
+    if (!decl) continue;
+    const declaredOwner = decl.managed_by || decl.service;
+    if (declaredOwner && !related(declaredOwner, l.process_name) && !related(declaredOwner, friendlyProcessName(l.process_name))) {
+      conflicts.push({
+        port: l.port, kind: 'owner_mismatch',
+        process_a: l.process_name, pid_a: l.pid,
+        process_b: declaredOwner, pid_b: null,
+        suggestion: suggestFree(3000, 3999, liveUsed, declaredUsed),
+        explanation: `Port ${l.port} is declared for "${declaredOwner}" but is actually held by "${friendlyProcessName(l.process_name)}" (PID ${l.pid}).`,
+      });
+    }
+  }
+  // Attach every distinct live process bound to each conflicting port, so the
+  // resolve UI can let the user choose which to kill (not a pre-picked one).
+  const procsByPort = {};
+  for (const l of listeners) {
+    if (!l.pid) continue;
+    const arr = (procsByPort[l.port] = procsByPort[l.port] || []);
+    if (!arr.some(p => p.pid === l.pid)) arr.push({ pid: l.pid, name: l.process_name });
+  }
+  for (const c of conflicts) c.processes = procsByPort[c.port] || [];
+
+  const seen = new Set();
+  return conflicts.filter(c => { const k = `${c.port}-${c.kind}`; if (seen.has(k)) return false; seen.add(k); return true; });
+}
+
+// Find config-file references to a port across the user's repos (read-only).
+function findPortReferences(oldPort, newPort) {
+  const home = app.getPath('home');
+  const refs = [];
+  const NAME_RE = /(^package\.json$|^\.env|^vite\.config\.|\.config\.(js|ts|cjs|mjs)$|^docker-compose.*\.ya?ml$|\.toml$|^PORTMASTER\.md$)/;
+  const detectRe = new RegExp(`(?<![0-9])${oldPort}(?![0-9])`);
+  const replaceRe = new RegExp(`(?<![0-9])${oldPort}(?![0-9])`, 'g'); // all occurrences on the line
+  // Deployment-platform markers — NOT limited to Vercel/Supabase. Memoized per dir.
+  const PLATFORM_MARKERS = {
+    '.vercel/project.json': 'Vercel', 'vercel.json': 'Vercel',
+    'netlify.toml': 'Netlify', '.netlify/state.json': 'Netlify',
+    'fly.toml': 'Fly.io', 'railway.json': 'Railway', 'railway.toml': 'Railway',
+    'render.yaml': 'Render', 'render.yml': 'Render',
+    'wrangler.toml': 'Cloudflare', 'firebase.json': 'Firebase',
+    'Procfile': 'Heroku', 'app.json': 'Heroku', 'app.yaml': 'App Engine',
+    'serverless.yml': 'Serverless', 'serverless.yaml': 'Serverless',
+    'supabase/config.toml': 'Supabase', 'amplify': 'Amplify',
+  };
+  const platformCache = {};
+  const projectPlatforms = (fileDir) => {
+    if (platformCache[fileDir] !== undefined) return platformCache[fileDir];
+    const found = new Set();
+    let dir = fileDir;
+    for (let i = 0; i < 6 && dir && dir !== '/'; i++) {
+      for (const marker in PLATFORM_MARKERS) {
+        if (fsSync.existsSync(path.join(dir, marker))) found.add(PLATFORM_MARKERS[marker]);
+      }
+      if (dir === home) break;
+      dir = path.dirname(dir);
+    }
+    return (platformCache[fileDir] = [...found]);
+  };
+  const REMOTE_VALUE_RE = /https?:\/\/(?!localhost|127\.0\.0\.1|0\.0\.0\.0)|[a-z0-9-]+\.[a-z]{2,}(:\d+)?\/|(_URL|_URI|_KEY|_TOKEN|_SECRET|_DSN|PASSWORD|CONNECTION_?STRING)\s*[=:]/i;
+  const scanFile = (full) => {
+    try {
+      const envFile = /^\.env/.test(path.basename(full));
+      const platforms = projectPlatforms(path.dirname(full));
+      const lines = fsSync.readFileSync(full, 'utf8').split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        if (!detectRe.test(lines[i])) continue;
+        let risk = 'low', reason = '';
+        if (envFile) {
+          risk = 'high';
+          reason = platforms.length
+            ? `Env file in a ${platforms.join('/')}-linked project — the remote may hold this value too`
+            : 'Env file — values here are commonly synced to a deployment platform';
+        } else if (REMOTE_VALUE_RE.test(lines[i])) {
+          risk = 'high'; reason = 'Line carries a remote URL / credential — may be synced externally';
+        } else if (platforms.length) {
+          risk = 'medium'; reason = `In a ${platforms.join('/')}-linked project`;
+        }
+        refs.push({
+          file_path: full, line_number: i + 1,
+          old_line: lines[i], new_line: lines[i].replace(replaceRe, String(newPort)),
+          old_port: oldPort, new_port: newPort,
+          env_file: envFile, platforms, risk, reason,
+        });
+      }
+    } catch { /* skip */ }
+  };
+  const SKIP = new Set(['node_modules', '.git', 'dist', 'build', 'release', '.next', '.cache',
+    'Library', 'Applications', 'Downloads', 'Music', 'Movies', 'Pictures', 'Public']);
+  const walk = (dir, depth) => {
+    if (depth <= 0 || !fsSync.existsSync(dir)) return;
+    let items; try { items = fsSync.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const it of items) {
+      if (it.isDirectory()) { if (!SKIP.has(it.name) && !it.name.startsWith('.')) walk(path.join(dir, it.name), depth - 1); }
+      else if (NAME_RE.test(it.name)) scanFile(path.join(dir, it.name));
+    }
+  };
+  scanFile(path.join(home, '.config/agent-rules/PORTMASTER.md'));
+  walk(home, 4);
+  const seen = new Set();
+  const rank = { high: 0, medium: 1, low: 2 };
+  return refs
+    .filter(r => { const k = `${r.file_path}:${r.line_number}`; if (seen.has(k)) return false; seen.add(k); return true; })
+    .sort((a, b) => (rank[a.risk] - rank[b.risk]) || a.file_path.localeCompare(b.file_path))
+    .slice(0, 50);
+}
+
+function loadPortmasters() {
+  const os = require('os');
+  const home = app.getPath('home');
+  const files = [];
+  const check = (p) => {
+    try {
+      if (fsSync.existsSync(p)) files.push(p);
+    } catch { /* skip */ }
+  };
+  check(path.join(home, '.config', 'agent-rules', 'PORTMASTER.md'));
+  const walk = (dir, maxDepth) => {
+    if (maxDepth <= 0) return;
+    let entries = [];
+    try {
+      entries = fsSync.readdirSync(dir, { withFileTypes: true });
+    } catch { return; }
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full, maxDepth - 1);
+      else if (entry.name === 'PORTMASTER.md') files.push(full);
+    }
+  };
+  for (const d of ['projects', 'code', 'dev', 'workspace', 'src']) {
+    walk(path.join(home, d), 4);
+  }
+  const entries = [];
+  for (const f of [...new Set(files)]) {
+    try {
+      const content = fsSync.readFileSync(f, 'utf8');
+      const tableRe = /\|\s*(\d+)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|/;
+      for (const line of content.split('\n')) {
+        const m = tableRe.exec(line);
+        if (m) {
+          entries.push({
+            port: parseInt(m[1], 10),
+            service: m[2].trim(),
+            protocol: m[3].trim(),
+            bind: m[4].trim(),
+            managed_by: m[5].trim(),
+            notes: m[6].trim(),
+            source_file: f,
+          });
+        }
+      }
+    } catch { /* skip */ }
+  }
+  return { files: [...new Set(files)], entries };
+}
+
+ipcMain.handle('lighthouse:scan', async () => {
+  const { listeners } = scanSockets();
+  const { files, entries } = loadPortmasters();
+  const declared = new Set(entries.map(e => e.port));
+  for (const p of listeners) {
+    const pm = entries.find(e => e.port === p.port);
+    if (pm) {
+      p.service_name = pm.service;
+      p.managed_by = pm.managed_by;
+    }
+    p.exposed = (p.bind_address === '0.0.0.0' || p.bind_address === '::');
+    p.undeclared = !declared.has(p.port);
+    p.source = 'Live';
+  }
+  const conflicts = detectConflicts(listeners, entries);
+  const now = new Date();
+  const last_scan = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+  return { ports: listeners, conflicts, portmaster_files: files, portmaster_entries: entries, last_scan, status: conflicts.length > 0 ? 'warning' : 'ok' };
+});
+
+ipcMain.handle('lighthouse:check-port', async (event, { port } = {}) => {
+  const { listeners, all } = scanSockets();
+  const entry = listeners.find(p => p.port === port);
+  const liveUsed = new Set(listeners.map(p => p.port));
+  const declared = new Set(loadPortmasters().entries.map(e => e.port));
+  const suggestion = entry ? suggestFree(port + 1, 65535, liveUsed, declared) : null;
+  const transient = !entry ? all.find(s => s.port === port && s.protocol === 'TCP' && s.state && s.state !== 'LISTEN') : null;
+  return {
+    port, in_use: !!entry,
+    process: entry ? entry.process_name : (transient ? transient.process_name : null),
+    pid: entry ? entry.pid : (transient ? transient.pid : null),
+    bind: entry ? entry.bind_address : null,
+    protocol: entry ? entry.protocol : null,
+    transient_state: transient ? transient.state : null,
+    suggestion,
+  };
+});
+
+ipcMain.handle('lighthouse:suggest-port', async (event, { rangeStart, rangeEnd } = {}) => {
+  const { listeners } = scanSockets();
+  const liveUsed = new Set(listeners.map(p => p.port));
+  const declared = new Set(loadPortmasters().entries.map(e => e.port));
+  return suggestFree(rangeStart || 3000, rangeEnd || 3999, liveUsed, declared) || (rangeStart || 3000);
+});
+
+ipcMain.handle('lighthouse:find-references', async (event, { oldPort, newPort } = {}) => {
+  return findPortReferences(oldPort, newPort);
+});
+
+ipcMain.handle('lighthouse:apply-fix', async (event, { filePath, lineNumber, newLine, oldLine } = {}) => {
+  try {
+    const lines = fsSync.readFileSync(filePath, 'utf8').split('\n');
+    const idx = lineNumber - 1;
+    if (idx < 0 || idx >= lines.length) return { ok: false, error: 'Line out of range' };
+    if (oldLine != null && lines[idx] !== oldLine) return { ok: false, error: 'File changed since preview; skipped for safety' };
+    lines[idx] = newLine;
+    fsSync.writeFileSync(filePath, lines.join('\n'));
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
+ipcMain.handle('lighthouse:process-details', async (event, { pid } = {}) => {
+  const safePid = Number.parseInt(pid, 10);
+  if (!Number.isInteger(safePid) || safePid <= 0) {
+    return { error: 'Invalid process id' };
+  }
+
+  const ppid = execCmd(`ps -o ppid= -p ${safePid}`).trim();
+  const parent_pid = ppid ? parseInt(ppid, 10) : null;
+  const parent_name = parent_pid ? execCmd(`ps -o comm= -p ${parent_pid}`).trim() : '';
+  const parent_command = parent_pid ? execCmd(`ps -o command= -p ${parent_pid}`).trim() : '';
+  let working_dir = '';
+  for (const line of execCmd(`lsof -a -d cwd -p ${safePid} -Fn`).split('\n')) {
+    if (line[0] === 'n') { working_dir = line.slice(1); break; }
+  }
+  return {
+    pid: safePid,
+    parent_pid,
+    parent_name,
+    parent_command,
+    start_time: execCmd(`ps -o lstart= -p ${safePid}`).trim(),
+    working_dir,
+    command: execCmd(`ps -o command= -p ${safePid}`).trim(),
+  };
+});
+
+ipcMain.handle('lighthouse:kill-process', async (event, { pid } = {}) => {
+  try {
+    execCmd(`kill -9 ${pid}`);
+    return { ok: true, message: `Killed ${pid}` };
+  } catch (e) {
+    return { ok: false, error: e.message };
   }
 });

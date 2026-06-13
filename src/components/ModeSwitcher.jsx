@@ -1,5 +1,5 @@
 import { useMode, MODES } from '../context/ModeContext';
-import { Home, MessageSquare, Code, Users, ActivitySquare, Hammer, Bot, FlaskConical, Building2 } from 'lucide-react';
+import { Home, MessageSquare, Code, Users, ActivitySquare, Hammer, Bot, FlaskConical, Building2, Radar } from 'lucide-react';
 
 export default function ModeSwitcher() {
     const { currentMode, setCurrentMode } = useMode();
@@ -14,6 +14,7 @@ export default function ModeSwitcher() {
         { id: MODES.BUILD,  icon: Hammer,        label: 'Build' },
         { id: MODES.AUTORESEARCH, icon: FlaskConical, label: 'Research' },
         { id: MODES.OFFICE, icon: Building2,     label: 'Office' },
+        { id: MODES.LIGHTHOUSE, icon: Radar,     label: 'Ports' },
     ];
 
     return (

@@ -20,10 +20,12 @@ export const MODES = {
     AGENTS: 'agents',  // AI agent control center
     AUTORESEARCH: 'autoresearch', // Karpathy prompt-optimization loop monitor
     OFFICE: 'office',  // Animated agent office scene (Perci HQ)
+    LIGHTHOUSE: 'lighthouse', // Port scanning and conflict detection
 };
 
 // Non-mode windows (surfaces that open as windows but aren't in the MODES enum).
 export const OPENCLAW_WINDOW_ID = 'openclaw';
+export const HERMES_WINDOW_ID = 'hermes';
 export const YOUTUBE_WINDOW_ID = 'youtube';
 
 // Titles shown in window headers and dock chips for each windowed surface.
@@ -36,13 +38,15 @@ export const WINDOW_TITLES = {
     [MODES.BUILD]: 'Build',
     [MODES.AUTORESEARCH]: 'Autoresearch',
     [MODES.OFFICE]: 'Perci HQ',
+    [MODES.LIGHTHOUSE]: 'Lighthouse',
     [OPENCLAW_WINDOW_ID]: 'OpenClaw',
+    [HERMES_WINDOW_ID]: 'Hermes',
     [YOUTUBE_WINDOW_ID]: 'YouTube',
 };
 
 // Windows whose content is an Electron <webview>; CSS transforms can make webviews
 // flicker, so these minimize with a plain fade instead of the whirlpool spin.
-const NO_WHIRLPOOL_IDS = new Set([OPENCLAW_WINDOW_ID, YOUTUBE_WINDOW_ID]);
+const NO_WHIRLPOOL_IDS = new Set([OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID]);
 
 const WINDOW_DEFAULTS = { width: 960, height: 640, minWidth: 420, minHeight: 300, cascade: 34 };
 const DOCK_RESERVED_HEIGHT = 64;
@@ -390,10 +394,6 @@ export function ModeProvider({ children }) {
     const [openClawConfig, setOpenClawConfig] = useState(() => (
         normalizeOpenClawConfig(readJsonStorage('openclaw_config', DEFAULT_OPENCLAW_CONFIG))
     ));
-    const [hermesAppPath, setHermesAppPath] = useState(() =>
-        readStringStorage('hermes_app_path', '')
-    );
-
     useEffect(() => {
         if (!hasElectronStore()) return;
 
@@ -405,10 +405,6 @@ export function ModeProvider({ children }) {
                 if (typeof electronData?.openclaw_config === 'string') {
                     localStorage.setItem('openclaw_config', electronData.openclaw_config);
                     setOpenClawConfig(normalizeOpenClawConfig(readJsonStorage('openclaw_config', DEFAULT_OPENCLAW_CONFIG)));
-                }
-                if (typeof electronData?.hermes_app_path === 'string') {
-                    localStorage.setItem('hermes_app_path', electronData.hermes_app_path);
-                    setHermesAppPath(electronData.hermes_app_path);
                 }
             } catch (err) {
                 console.error('Failed to hydrate agent configs:', err);
@@ -430,15 +426,6 @@ export function ModeProvider({ children }) {
             }).catch(err => console.error('Failed to persist OpenClaw config:', err));
         }
     }, [openClawConfig]);
-
-    useEffect(() => {
-        localStorage.setItem('hermes_app_path', hermesAppPath);
-        if (electronPersistenceReadyRef.current) {
-            saveElectronPersistence({
-                hermes_app_path: hermesAppPath
-            }).catch(err => console.error('Failed to persist Hermes app path:', err));
-        }
-    }, [hermesAppPath]);
 
     useEffect(() => {
         if (!window.electron?.getOpenClawLocalProfile) return;
@@ -486,9 +473,7 @@ export function ModeProvider({ children }) {
             showOpenClawDashboard,
             setShowOpenClawDashboard,
             openClawConfig,
-            setOpenClawConfig,
-            hermesAppPath,
-            setHermesAppPath
+            setOpenClawConfig
         }}>
             {children}
         </ModeContext.Provider>
