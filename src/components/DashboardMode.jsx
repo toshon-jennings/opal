@@ -15,8 +15,8 @@ import './DashboardMode.css';
 
 const JOBS_POLL_MS = 10000;
 
-// Launchpad tiles — every windowed surface, each with its own accent tint.
-const TILES = [
+// Native Perci surfaces — first-class workspace modes.
+const NATIVE_TILES = [
     { id: MODES.CHAT, icon: MessageSquare, title: 'Chat', desc: 'Converse with any model', hue: '#f97316' },
     { id: MODES.COWORK, icon: Users, title: 'Cowork', desc: 'Session-based deep work', hue: '#22d3ee' },
     { id: MODES.CODE, icon: Code, title: 'Code', desc: 'Edit and run your repos', hue: '#a78bfa' },
@@ -26,9 +26,15 @@ const TILES = [
     { id: MODES.OFFICE, icon: Building2, title: 'Office', desc: 'Visit the crew at Perci HQ', hue: '#fbbf24' },
     { id: MODES.MISSION, icon: ActivitySquare, title: 'Mission', desc: 'Supervise runs and checks', hue: '#60a5fa' },
     { id: MODES.BUILD, icon: Hammer, title: 'Build', desc: 'Generate and ship projects', hue: '#fb7185' },
+];
+
+// OS-level tools and external runtimes. Bars belongs here when its Perci
+// surface is wired, not in the native Perci app group.
+const SYSTEM_TILES = [
     { id: MODES.LIGHTHOUSE, icon: Radar, logo: lhLogo, title: 'Lighthouse', desc: 'Scan ports and find conflicts', hue: '#ffbf45' },
     { id: OPENCLAW_WINDOW_ID, icon: Server, logo: '/openclaw-logo.svg', title: 'OpenClaw', desc: 'Gateway dashboard', hue: '#ef4444' },
     { id: HERMES_WINDOW_ID, icon: null, logo: hermesLogo, title: 'Hermes', desc: 'CLI agent — chat, console, sessions', hue: '#eab308', artwork: true },
+    // { id: MODES.BARS, icon: Layers, logo: null, title: 'BARS', desc: 'Idea tracker', hue: '#f59e0b' },
 ];
 
 const AGENT_LABELS = Object.fromEntries(AGENT_DEFINITIONS.map((a) => [a.id, a.shortLabel]));
@@ -208,14 +214,42 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                 {/* ── Body: launchpad + live rail ── */}
                 <div className="dash-body">
                     <section className="dash-launch">
-                        <h2 className="dash-section-title">Launchpad</h2>
-                        <div className="dash-tiles">
-                            {TILES.map(({ id, icon: Icon, logo, title, desc, hue, artwork }, i) => (
+                        <div className="dash-launch-group">
+                            <h2 className="dash-section-title">Perci native</h2>
+                            <div className="dash-tiles">
+                                {NATIVE_TILES.map(({ id, icon: Icon, logo, title, desc, hue }, i) => (
                                 <button
                                     key={id}
                                     type="button"
-                                    className={`dash-tile${artwork ? ' dash-tile-hero' : ''}`}
+                                    className="dash-tile"
                                     style={{ '--tile': hue, '--i': i }}
+                                    onClick={() => openWindow(id)}
+                                >
+                                    <span className="dash-tile-icon">
+                                        {logo ? <img src={logo} alt="" className="dash-tile-logo" /> : <Icon size={20} />}
+                                    </span>
+                                    <span className="dash-tile-name">
+                                        {title}
+                                    </span>
+                                    <span className="dash-tile-desc">{desc}</span>
+                                    {openIds.has(id) && <span className="dash-tile-open">open</span>}
+                                    {id === MODES.AGENTS && jobStats.active > 0 && (
+                                        <span className="dash-tile-badge">{jobStats.active}</span>
+                                    )}
+                                    <ArrowUpRight size={14} className="dash-tile-arrow" />
+                                </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="dash-launch-group">
+                            <div className="dash-tiles dash-tiles-system">
+                                {SYSTEM_TILES.map(({ id, icon: Icon, logo, title, desc, hue, artwork }, i) => (
+                                <button
+                                    key={id}
+                                    type="button"
+                                    className={`dash-tile dash-tile-system${artwork ? ' dash-tile-hero' : ''}`}
+                                    style={{ '--tile': hue, '--i': i + NATIVE_TILES.length }}
                                     onClick={() => openWindow(id)}
                                 >
                                     {artwork && <span className="dash-tile-art" aria-hidden="true" />}
@@ -230,12 +264,10 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                                     </span>
                                     <span className="dash-tile-desc">{id === OPENCLAW_WINDOW_ID ? openClawDesc : desc}</span>
                                     {openIds.has(id) && <span className="dash-tile-open">open</span>}
-                                    {id === MODES.AGENTS && jobStats.active > 0 && (
-                                        <span className="dash-tile-badge">{jobStats.active}</span>
-                                    )}
                                     <ArrowUpRight size={14} className="dash-tile-arrow" />
                                 </button>
-                            ))}
+                                ))}
+                            </div>
                         </div>
                     </section>
 

@@ -1,0 +1,3 @@
+# NoteTitle
+
+[[Note Two]]

@@ -672,7 +672,7 @@ function createMenu() {
         { type: 'separator' },
         { role: 'reload' },
         { role: 'forceReload' },
-        { role: 'toggleDevTools' },
+        ...(isDev ? [{ role: 'toggleDevTools' }] : []),
         { type: 'separator' },
         { role: 'resetZoom' },
         { role: 'zoomIn' },
@@ -725,6 +725,7 @@ function createWindow() {
       contextIsolation: true,
       webSecurity: true,
       webviewTag: true,
+      devTools: isDev,
     },
   });
 
@@ -941,8 +942,9 @@ async function writeAppData(data) {
   return decryptAppData(payload);
 }
 
-// Toggle DevTools
+// Toggle DevTools (dev builds only)
 ipcMain.on('toggle-devtools', (event) => {
+  if (!isDev) return;
   event.sender.toggleDevTools();
 });
 

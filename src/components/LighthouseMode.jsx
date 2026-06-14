@@ -368,6 +368,7 @@ export default function LighthouseMode() {
                   <li>Helps you spot port conflicts quickly</li>
                   <li>Suggests nearby free ports when a port is already in use</li>
                 </ul>
+                <p className="lh-guide-link"><a href="https://github.com/toshon-jennings/PORTMASTER-md" target="_blank" rel="noopener">What is PORTMASTER.md?</a></p>
               </section>
               <section className="lh-guide-section">
                 <h3>How to use the main table</h3>

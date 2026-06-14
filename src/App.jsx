@@ -927,7 +927,7 @@ function AppContent() {
                         <TerminalIcon size={18} />
                     </button>
 
-                    {window.electron && (
+                    {window.electron && import.meta.env.DEV && (
                         <button onClick={() => window.electron.toggleDevTools()} className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-md transition-colors" title="Toggle DevTools">
                             <div className="w-4 h-4 border border-current rounded-sm flex items-center justify-center text-[10px] font-bold">D</div>
                         </button>

@@ -346,24 +346,115 @@ export default function NotesMode() {
         }
     };
 
-    const renderMarkdownComponents = {
+    const renderMarkdownComponents = useMemo(() => ({
+        h1: ({ children }) => (
+            <h1 className="text-2xl font-bold border-b border-[var(--border)] pb-2 mt-6 mb-4 text-[var(--text-primary)] tracking-tight">
+                {children}
+            </h1>
+        ),
+        h2: ({ children }) => (
+            <h2 className="text-xl font-bold mt-6 mb-3 text-[var(--text-primary)] tracking-tight">
+                {children}
+            </h2>
+        ),
+        h3: ({ children }) => (
+            <h3 className="text-lg font-bold mt-5 mb-2 text-[var(--accent)] tracking-tight">
+                {children}
+            </h3>
+        ),
+        h4: ({ children }) => (
+            <h4 className="text-base font-semibold mt-4 mb-2 text-[var(--text-secondary)]">
+                {children}
+            </h4>
+        ),
+        p: ({ children }) => (
+            <p className="text-sm leading-6 text-[var(--text-secondary)] mb-4 font-normal">
+                {children}
+            </p>
+        ),
+        ul: ({ children }) => (
+            <ul className="list-disc pl-5 mb-4 space-y-1.5 text-sm text-[var(--text-secondary)]">
+                {children}
+            </ul>
+        ),
+        ol: ({ children }) => (
+            <ol className="list-decimal pl-5 mb-4 space-y-1.5 text-sm text-[var(--text-secondary)]">
+                {children}
+            </ol>
+        ),
+        li: ({ children }) => (
+            <li className="leading-relaxed mb-0.5">
+                {children}
+            </li>
+        ),
+        blockquote: ({ children }) => (
+            <blockquote className="border-l-4 border-[var(--accent)] pl-4 py-1 my-4 bg-[var(--bg-tertiary)] rounded-r text-[var(--text-secondary)] italic">
+                {children}
+            </blockquote>
+        ),
+        code: ({ className, children, ...props }) => {
+            const isBlock = className && className.startsWith('language-') || String(children).includes('\n');
+            return isBlock ? (
+                <pre className="bg-[var(--bg-tertiary)] border border-[var(--border)] rounded-lg p-3.5 my-4 overflow-x-auto font-mono text-xs text-[var(--text-primary)]">
+                    <code className={className} {...props}>{children}</code>
+                </pre>
+            ) : (
+                <code className="bg-[var(--bg-tertiary)] px-1.5 py-0.5 rounded text-xs font-mono border border-[var(--border)] text-[var(--accent-cyan)]" {...props}>
+                    {children}
+                </code>
+            );
+        },
         a: ({ href, children }) => {
             const label = children?.toString() || href;
             
-            if (href && href.endsWith('.md')) {
-                const noteName = href.replace(/\.md$/, '');
-                const targetFile = notesList.find(f => f.toLowerCase() === href.toLowerCase() || f.toLowerCase() === `${noteName.toLowerCase()}.md`);
-                
-                if (targetFile) {
-                    return (
-                        <button
-                            onClick={() => handleSelectNote(targetFile)}
-                            className="text-[var(--accent)] hover:underline font-semibold bg-transparent border-0 p-0 cursor-pointer inline-flex items-center gap-0.5"
-                        >
-                            {label}
-                            <Link2 size={11} className="opacity-60" />
-                        </button>
-                    );
+            if (href) {
+                const decodedHref = decodeURIComponent(href);
+                if (decodedHref.endsWith('.md')) {
+                    const noteName = decodedHref.replace(/\.md$/, '');
+                    const targetFile = notesList.find(f => f.toLowerCase() === decodedHref.toLowerCase() || f.toLowerCase() === `${noteName.toLowerCase()}.md`);
+                    
+                    if (targetFile) {
+                        return (
+                            <a
+                                href="#"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    handleSelectNote(targetFile);
+                                }}
+                                className="text-[var(--accent)] hover:underline font-semibold bg-transparent border-0 p-0 cursor-pointer inline-flex items-center gap-0.5"
+                            >
+                                {label}
+                                <Link2 size={11} className="opacity-60" />
+                            </a>
+                        );
+                    } else {
+                        // Broken link / Uncreated note - show in red and offer to create
+                        return (
+                            <a
+                                href="#"
+                                onClick={async (e) => {
+                                    e.preventDefault();
+                                    const newName = `${noteName}.md`;
+                                    const filePath = `${notesFolder}/${newName}`;
+                                    const initText = `# ${noteName}\n\n`;
+                                    try {
+                                        await window.electron.writeFile(filePath, initText);
+                                        setFilesMap(prev => ({ ...prev, [newName]: initText }));
+                                        setNotesList(prev => [...prev, newName].sort());
+                                        setActiveNote(newName);
+                                        setUnsavedContent(initText);
+                                        setIsDirty(false);
+                                    } catch (err) {
+                                        console.error('Failed to create wiki note:', err);
+                                    }
+                                }}
+                                className="text-rose-400 hover:underline border-b border-dashed border-rose-400 bg-transparent border-0 p-0 cursor-pointer inline-flex items-center gap-0.5"
+                                title="Note does not exist. Click to create."
+                            >
+                                {label}?
+                            </a>
+                        );
+                    }
                 }
             }
             return (
@@ -377,69 +468,17 @@ export default function NotesMode() {
                     <ExternalLink size={11} className="opacity-60" />
                 </a>
             );
-        },
-        text: ({ value }) => {
-            const wikiRegex = /\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g;
-            if (!wikiRegex.test(value)) return value;
-
-            wikiRegex.lastIndex = 0;
-            const parts = [];
-            let lastIndex = 0;
-            let match;
-
-            while ((match = wikiRegex.exec(value)) !== null) {
-                const before = value.substring(lastIndex, match.index);
-                if (before) parts.push(before);
-
-                const targetTitle = match[1].trim();
-                const displayLabel = match[2] ? match[2].trim() : targetTitle;
-                const targetFile = notesList.find(f => f.replace(/\.md$/, '').toLowerCase() === targetTitle.toLowerCase());
-
-                if (targetFile) {
-                    parts.push(
-                        <button
-                            key={match.index}
-                            onClick={() => handleSelectNote(targetFile)}
-                            className="text-[var(--accent)] hover:underline font-semibold bg-transparent border-0 p-0 cursor-pointer inline-flex items-center gap-0.5"
-                        >
-                            {displayLabel}
-                        </button>
-                    );
-                } else {
-                    parts.push(
-                        <button
-                            key={match.index}
-                            onClick={async () => {
-                                const newName = `${targetTitle}.md`;
-                                const filePath = `${notesFolder}/${newName}`;
-                                const initText = `# ${targetTitle}\n\n`;
-                                try {
-                                    await window.electron.writeFile(filePath, initText);
-                                    setFilesMap(prev => ({ ...prev, [newName]: initText }));
-                                    setNotesList(prev => [...prev, newName].sort());
-                                    setActiveNote(newName);
-                                    setUnsavedContent(initText);
-                                    setIsDirty(false);
-                                } catch (e) {
-                                    console.error('Failed to create wiki note:', e);
-                                }
-                            }}
-                            className="text-rose-400 hover:underline border-b border-dashed border-rose-400 bg-transparent border-0 p-0 cursor-pointer inline-flex items-center gap-0.5"
-                            title="Note does not exist. Click to create."
-                        >
-                            {displayLabel}?
-                        </button>
-                    );
-                }
-                lastIndex = wikiRegex.lastIndex;
-            }
-
-            const after = value.substring(lastIndex);
-            if (after) parts.push(after);
-
-            return <>{parts}</>;
         }
-    };
+    }), [notesList, notesFolder, filesMap, activeNote, isDirty, unsavedContent]);
+
+    const preprocessMarkdown = useCallback((text) => {
+        if (!text) return '';
+        return text.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (match, noteName, label) => {
+            const cleanName = noteName.trim();
+            const displayLabel = label ? label.trim() : cleanName;
+            return `[${displayLabel}](${encodeURIComponent(cleanName)}.md)`;
+        });
+    }, []);
 
     const filteredNotes = useMemo(() => {
         if (!searchQuery) return notesList;
@@ -695,7 +734,7 @@ export default function NotesMode() {
                                         remarkPlugins={[remarkGfm]}
                                         components={renderMarkdownComponents}
                                     >
-                                        {unsavedContent}
+                                        {preprocessMarkdown(unsavedContent)}
                                     </ReactMarkdown>
                                 </div>
                             )}

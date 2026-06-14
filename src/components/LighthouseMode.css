@@ -743,6 +743,20 @@
   line-height: 1.8;
 }
 
+.lh-guide-link {
+  margin-top: 8px;
+  font-size: 11px;
+}
+
+.lh-guide-link a {
+  color: var(--lh-amber-strong);
+  text-decoration: none;
+}
+
+.lh-guide-link a:hover {
+  text-decoration: underline;
+}
+
 /* ── Misc ─────────────────────────────────────────────────────────── */
 .lh-muted {
   color: var(--lh-text-muted);
