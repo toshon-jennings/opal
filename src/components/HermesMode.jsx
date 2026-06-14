@@ -51,6 +51,360 @@ function StatusChip({ icon: Icon, label, tone = 'neutral' }) {
     );
 }
 
+function InsightsDashboard({ text, insightDays }) {
+    // 1. Parse text
+    const sections = {};
+    const lines = text.split('\n');
+    let currentSection = null;
+    let sectionLines = [];
+    
+    for (let line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        
+        // Match headers
+        if (trimmed.startsWith('📋') || trimmed.startsWith('🤖') || trimmed.startsWith('📱') || 
+            trimmed.startsWith('🔧') || trimmed.startsWith('🧠') || trimmed.startsWith('📅') || 
+            trimmed.startsWith('🏆') || trimmed.startsWith('📊')) {
+            if (currentSection) {
+                sections[currentSection] = sectionLines;
+            }
+            currentSection = trimmed;
+            sectionLines = [];
+        } else if (currentSection && !trimmed.startsWith('───')) {
+            sectionLines.push(trimmed);
+        }
+    }
+    if (currentSection) {
+        sections[currentSection] = sectionLines;
+    }
+
+    // Try parsing overview stats
+    const overview = {};
+    let hasOverview = false;
+    const overviewHeaderKey = Object.keys(sections).find(k => k.includes('Overview'));
+    if (overviewHeaderKey && sections[overviewHeaderKey]) {
+        hasOverview = true;
+        const overviewText = sections[overviewHeaderKey].join('\n');
+        const regex = /([A-Za-z \t\/]+):\s*([^ \t\r\n]+(?:[ \t][^ \t\r\n]+)*)/g;
+        let match;
+        while ((match = regex.exec(overviewText)) !== null) {
+            overview[match[1].trim()] = match[2].trim();
+        }
+    }
+
+
+    // Fallback if we couldn't parse the overview section properly
+    if (!hasOverview || Object.keys(overview).length === 0) {
+        return <pre className="overflow-auto whitespace-pre rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-4 font-mono text-[11px] leading-5 text-[var(--text-secondary)]">{text}</pre>;
+    }
+
+    // Parse models
+    const models = [];
+    const modelsHeaderKey = Object.keys(sections).find(k => k.includes('Models Used'));
+    if (modelsHeaderKey && sections[modelsHeaderKey]) {
+        sections[modelsHeaderKey].forEach((line, idx) => {
+            if (idx === 0) return;
+            const parts = line.split(/\s{2,}/);
+            if (parts.length >= 2) {
+                models.push({
+                    name: parts[0],
+                    sessions: parts[1],
+                    tokens: parts[2] || '0'
+                });
+            }
+        });
+    }
+
+    // Parse tools
+    const tools = [];
+    const toolsHeaderKey = Object.keys(sections).find(k => k.includes('Top Tools'));
+    if (toolsHeaderKey && sections[toolsHeaderKey]) {
+        sections[toolsHeaderKey].forEach((line, idx) => {
+            if (idx === 0) return;
+            if (line.startsWith('...')) return;
+            const parts = line.split(/\s{2,}/);
+            if (parts.length >= 2) {
+                tools.push({
+                    name: parts[0],
+                    calls: parts[1],
+                    pct: parts[2] || '0%'
+                });
+            }
+        });
+    }
+
+    // Parse activity patterns
+    const activity = [];
+    let peakHours = '';
+    let activeDays = '';
+    let bestStreak = '';
+    const activityHeaderKey = Object.keys(sections).find(k => k.includes('Activity Patterns'));
+    if (activityHeaderKey && sections[activityHeaderKey]) {
+        sections[activityHeaderKey].forEach(line => {
+            if (line.startsWith('Peak hours:')) {
+                peakHours = line.replace('Peak hours:', '').trim();
+            } else if (line.startsWith('Active days:')) {
+                activeDays = line.replace('Active days:', '').trim();
+            } else if (line.startsWith('Best streak:')) {
+                bestStreak = line.replace('Best streak:', '').trim();
+            } else {
+                const parts = line.split(/\s+/);
+                if (parts.length >= 2) {
+                    const countStr = parts[parts.length - 1];
+                    const count = parseInt(countStr, 10);
+                    if (!Number.isNaN(count)) {
+                        activity.push({
+                            day: parts[0],
+                            count: count,
+                            bar: parts.slice(1, parts.length - 1).join(' ')
+                        });
+                    }
+                }
+            }
+        });
+    }
+
+    // Parse notable sessions
+    const notable = [];
+    const notableHeaderKey = Object.keys(sections).find(k => k.includes('Notable Sessions'));
+    if (notableHeaderKey && sections[notableHeaderKey]) {
+        sections[notableHeaderKey].forEach(line => {
+            const parts = line.split(/\s{2,}/);
+            if (parts.length >= 2) {
+                notable.push({
+                    label: parts[0],
+                    value: parts[1],
+                    session: parts[2] || ''
+                });
+            }
+        });
+    }
+
+    // Find stats values
+    const statSessions = overview['Sessions'] || '0';
+    const statMessages = overview['Messages'] || '0';
+    const statTools = overview['Tool calls'] || '0';
+    const statTokens = overview['Total tokens'] || overview['Total Tokens'] || '0';
+    const statActiveTime = overview['Active time'] || '0';
+    const statAvgSession = overview['Avg session'] || '0';
+    
+    // Find max count for activity bar scaling
+    const maxActivityCount = activity.length > 0 ? Math.max(...activity.map(a => a.count)) : 1;
+    // Find max tool calls for bar scaling
+    const maxToolCalls = tools.length > 0 ? parseInt(tools[0].calls.replace(/,/g, ''), 10) || 1 : 1;
+
+    return (
+        <div className="space-y-6 pb-8">
+            {/* Top Row Overview Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-4 shadow-sm">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500">
+                            <MessageSquare size={18} />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">Sessions</p>
+                            <p className="text-lg font-bold text-[var(--text-primary)] mt-0.5">{statSessions}</p>
+                        </div>
+                    </div>
+                    <div className="mt-3 flex justify-between text-[11px] text-[var(--text-secondary)] border-t border-[var(--border)] pt-2.5">
+                        <span>Avg Messages</span>
+                        <span className="font-medium">{overview['Avg msgs/session'] || '—'}</span>
+                    </div>
+                </div>
+
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-4 shadow-sm">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500">
+                            <Activity size={18} />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">Messages</p>
+                            <p className="text-lg font-bold text-[var(--text-primary)] mt-0.5">{statMessages}</p>
+                        </div>
+                    </div>
+                    <div className="mt-3 flex justify-between text-[11px] text-[var(--text-secondary)] border-t border-[var(--border)] pt-2.5">
+                        <span>User / Assistant</span>
+                        <span className="font-medium">{overview['User messages'] || '—'} / {parseInt(statMessages.replace(/,/g,''),10) - parseInt((overview['User messages'] || '0').replace(/,/g,''),10) || '—'}</span>
+                    </div>
+                </div>
+
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-4 shadow-sm">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500">
+                            <Terminal size={18} />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">Tool Calls</p>
+                            <p className="text-lg font-bold text-[var(--text-primary)] mt-0.5">{statTools}</p>
+                        </div>
+                    </div>
+                    <div className="mt-3 flex justify-between text-[11px] text-[var(--text-secondary)] border-t border-[var(--border)] pt-2.5">
+                        <span>Active Time</span>
+                        <span className="font-medium">{statActiveTime}</span>
+                    </div>
+                </div>
+
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-4 shadow-sm">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500">
+                            <Zap size={18} />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">Total Tokens</p>
+                            <p className="text-lg font-bold text-[var(--text-primary)] mt-0.5 truncate" title={statTokens}>{statTokens}</p>
+                        </div>
+                    </div>
+                    <div className="mt-3 flex justify-between text-[11px] text-[var(--text-secondary)] border-t border-[var(--border)] pt-2.5">
+                        <span>Avg Session</span>
+                        <span className="font-medium">{statAvgSession}</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Grid for details */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Left Side: Top Tools and Activity */}
+                <div className="space-y-6">
+                    {/* Top Tools */}
+                    {tools.length > 0 && (
+                        <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5 shadow-sm">
+                            <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)] border-b border-[var(--border)] pb-2 mb-4 flex items-center justify-between">
+                                <span>Top Tools Used</span>
+                                <span className="text-[10px] font-normal text-[var(--text-tertiary)] normal-case">By total calls</span>
+                            </h3>
+                            <div className="space-y-3.5">
+                                {tools.slice(0, 6).map(tool => {
+                                    const callsNum = parseInt(tool.calls.replace(/,/g, ''), 10) || 0;
+                                    const pctWidth = maxToolCalls > 0 ? (callsNum / maxToolCalls) * 100 : 0;
+                                    return (
+                                        <div key={tool.name} className="space-y-1.5">
+                                            <div className="flex items-center justify-between text-xs">
+                                                <span className="font-mono font-medium text-[var(--text-primary)]">{tool.name}</span>
+                                                <span className="text-[var(--text-secondary)]">{tool.calls} calls <span className="text-[var(--text-tertiary)]">({tool.pct})</span></span>
+                                            </div>
+                                            <div className="h-1.5 w-full rounded-full bg-[var(--border)]/40 overflow-hidden">
+                                                <div 
+                                                    className="h-full rounded-full bg-amber-500/80 transition-all duration-500" 
+                                                    style={{ width: `${Math.max(3, pctWidth)}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Activity Patterns */}
+                    {activity.length > 0 && (
+                        <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5 shadow-sm">
+                            <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)] border-b border-[var(--border)] pb-2 mb-4">
+                                Activity Patterns
+                            </h3>
+                            <div className="space-y-3">
+                                {activity.map(act => {
+                                    const pctWidth = maxActivityCount > 0 ? (act.count / maxActivityCount) * 100 : 0;
+                                    return (
+                                        <div key={act.day} className="flex items-center gap-3 text-xs">
+                                            <span className="w-8 font-medium text-[var(--text-secondary)]">{act.day}</span>
+                                            <div className="flex-1 h-5 flex items-center">
+                                                <div 
+                                                    className="h-3 rounded bg-amber-500/20 border-l-2 border-amber-500 flex items-center justify-end px-2 text-[9px] font-semibold text-amber-500 font-mono shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+                                                    style={{ width: `${Math.max(10, pctWidth)}%`, minWidth: '32px' }}
+                                                >
+                                                    {act.count}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            {(peakHours || activeDays || bestStreak) && (
+                                <div className="mt-4 pt-3 border-t border-[var(--border)] grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                                    {activeDays && (
+                                        <div>
+                                            <span className="text-[var(--text-tertiary)] block text-[10px] uppercase font-semibold">Active Days</span>
+                                            <span className="text-[var(--text-primary)] font-medium">{activeDays}</span>
+                                        </div>
+                                    )}
+                                    {bestStreak && (
+                                        <div>
+                                            <span className="text-[var(--text-tertiary)] block text-[10px] uppercase font-semibold">Best Streak</span>
+                                            <span className="text-[var(--text-primary)] font-medium">{bestStreak}</span>
+                                        </div>
+                                    )}
+                                    {peakHours && (
+                                        <div className="sm:col-span-1">
+                                            <span className="text-[var(--text-tertiary)] block text-[10px] uppercase font-semibold">Peak Hours</span>
+                                            <span className="text-[var(--text-primary)] font-medium truncate block" title={peakHours}>{peakHours}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {/* Right Side: Models Used and Notable Sessions */}
+                <div className="space-y-6">
+                    {/* Models Used */}
+                    {models.length > 0 && (
+                        <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5 shadow-sm">
+                            <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)] border-b border-[var(--border)] pb-2 mb-4">
+                                Models Used
+                            </h3>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-xs">
+                                    <thead>
+                                        <tr className="text-[var(--text-tertiary)] font-medium border-b border-[var(--border)]/60">
+                                            <th className="pb-2 font-semibold">Model</th>
+                                            <th className="pb-2 text-right font-semibold">Sessions</th>
+                                            <th className="pb-2 text-right font-semibold">Tokens</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-[var(--border)]/40">
+                                        {models.slice(0, 7).map(m => (
+                                            <tr key={m.name} className="hover:bg-[var(--bg-hover)]/20">
+                                                <td className="py-2.5 font-mono text-[11px] text-[var(--text-primary)]">{m.name}</td>
+                                                <td className="py-2.5 text-right text-[var(--text-secondary)]">{m.sessions}</td>
+                                                <td className="py-2.5 text-right text-[var(--text-secondary)] font-mono text-[11px]">{m.tokens}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Notable Sessions */}
+                    {notable.length > 0 && (
+                        <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5 shadow-sm">
+                            <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)] border-b border-[var(--border)] pb-2 mb-4">
+                                Notable Sessions
+                            </h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {notable.map((item, idx) => (
+                                    <div key={idx} className="rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] p-3">
+                                        <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)] block">{item.label}</span>
+                                        <span className="text-sm font-bold text-amber-500 mt-1 block">{item.value}</span>
+                                        {item.session && (
+                                            <span className="text-[9px] font-mono text-[var(--text-tertiary)] block mt-1.5 truncate" title={item.session}>
+                                                ID: {item.session.replace(/[()]/g, '')}
+                                            </span>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function HermesMode() {
     const isDesktop = Boolean(window.electron?.getHermesStatus);
 
@@ -285,7 +639,7 @@ export default function HermesMode() {
             {/* Console */}
             {activeTab === 'console' && (
                 <div className="flex min-h-0 flex-1">
-                    <div className="flex min-w-0 flex-1 flex-col">
+                    <div className="flex min-w-0 flex-1 flex-col console-page-container">
                         {vitals.length > 0 && (
                             <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-[var(--border)] px-4 py-2">
                                 {vitals.map(v => <StatusChip key={v.label} {...v} />)}
@@ -525,11 +879,50 @@ export default function HermesMode() {
                     </div>
                     <div className="min-h-0 flex-1 overflow-auto p-4">
                         {insights.state === 'error' && !insights.byDays[insightDays] ? (
-                            <p className="font-mono text-xs text-red-400">{insights.error}</p>
-                        ) : insights.byDays[insightDays] ? (
-                            <pre className="overflow-auto whitespace-pre rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-4 font-mono text-[11px] leading-5 text-[var(--text-secondary)]">{insights.byDays[insightDays]}</pre>
+                            <div className="flex h-full items-center justify-center py-12">
+                                <div className="max-w-sm text-center space-y-3">
+                                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10 text-red-400">
+                                        <XCircle size={22} />
+                                    </div>
+                                    <h4 className="text-sm font-semibold text-[var(--text-primary)]">Failed to load insights</h4>
+                                    <p className="font-mono text-xs text-red-400 max-w-xs break-words">{insights.error}</p>
+                                </div>
+                            </div>
+                        ) : insights.byDays[insightDays] && insights.byDays[insightDays].trim() ? (
+                            <InsightsDashboard text={insights.byDays[insightDays]} insightDays={insightDays} />
+                        ) : insights.state === 'ready' || (insights.byDays[insightDays] != null && !insights.byDays[insightDays].trim()) ? (
+                            <div className="flex h-full items-center justify-center py-12">
+                                <div className="max-w-sm text-center space-y-3">
+                                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--border)]/30 text-[var(--text-tertiary)]">
+                                        <BarChart3 size={20} />
+                                    </div>
+                                    <h4 className="text-sm font-semibold text-[var(--text-primary)]">No activity found</h4>
+                                    <p className="text-xs text-[var(--text-tertiary)] max-w-xs leading-relaxed">
+                                        There is no usage data recorded for the last {insightDays} days. Run some tasks in Chat or Console to generate insights.
+                                    </p>
+                                </div>
+                            </div>
                         ) : (
-                            <p className="text-xs text-[var(--text-tertiary)]">Analyzing the last {insightDays} days…</p>
+                            <div className="flex h-full items-center justify-center py-12">
+                                <div className="max-w-sm text-center space-y-4">
+                                    <div className="relative mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/10 text-amber-500 shadow-[0_0_36px_rgba(234,179,8,0.15)] animate-pulse">
+                                        <BarChart3 size={24} />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-sm font-semibold text-[var(--text-primary)]">Analyzing usage history</h4>
+                                        <p className="mt-1 text-xs text-[var(--text-tertiary)]">
+                                            Summarizing tasks, tokens, and agent performance for the last {insightDays} days…
+                                        </p>
+                                    </div>
+                                    {/* Shimmering simulated report lines */}
+                                    <div className="mx-auto max-w-[280px] space-y-2.5 pt-2">
+                                        <div className="h-2 w-full rounded bg-[var(--border)] opacity-30 animate-pulse" />
+                                        <div className="h-2 w-[85%] rounded bg-[var(--border)] opacity-30 animate-pulse" style={{ animationDelay: '0.15s' }} />
+                                        <div className="h-2 w-[90%] rounded bg-[var(--border)] opacity-30 animate-pulse" style={{ animationDelay: '0.3s' }} />
+                                        <div className="h-2 w-[70%] rounded bg-[var(--border)] opacity-30 animate-pulse" style={{ animationDelay: '0.45s' }} />
+                                    </div>
+                                </div>
+                            </div>
                         )}
                     </div>
                 </div>

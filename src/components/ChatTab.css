@@ -474,3 +474,32 @@
 .chat-messages::-webkit-scrollbar-thumb:hover {
   background: var(--text-tertiary);
 }
+
+/* ── Chat Page Background ────────────────────────────────────────────────── */
+
+.chat-page-container {
+  position: relative;
+  z-index: 1;
+}
+
+.chat-page-container::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url('/artwork/design-01kv2y38zh-1781436378.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.05;
+  pointer-events: none;
+  z-index: -1;
+  /* Premium vignette fade-out at the edges */
+  mask-image: radial-gradient(circle at center, black 30%, transparent 90%);
+  -webkit-mask-image: radial-gradient(circle at center, black 30%, transparent 90%);
+}
+
+.dark .chat-page-container::before {
+  opacity: 0.07;
+  filter: invert(1) brightness(1.2) contrast(1.1);
+}
+

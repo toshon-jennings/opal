@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
     AlertTriangle,
@@ -821,8 +821,8 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
                                 </div>
                             ))}
                         </div>
-	                    </Panel>
-	                    </div>
+                    </Panel>
+                    </div>
 
                         <Panel
                             title="Transit Map"
@@ -998,16 +998,75 @@ function TransitGraph({ graph, runs = [], onNodeClick, selectedNodeId, compact =
 
     return (
         <div>
-            <div className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg-primary)]">
+            <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-primary)] shadow-sm">
                 <svg
                     viewBox={`0 0 ${graph.width} ${graph.height}`}
-                    className={compact ? 'h-[420px] w-full' : 'h-[260px] w-full'}
+                    className={compact ? 'h-[420px] w-full overflow-visible' : 'h-[260px] w-full overflow-visible'}
                 >
                     <defs>
-                        <filter id="nodeShadow" x="-20%" y="-20%" width="140%" height="140%">
-                            <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.18" />
+                        {/* Node Gradients for Premium 3D Glossy Aesthetic */}
+                        <linearGradient id="grad-completed" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor="#10b981" />
+                            <stop offset="100%" stopColor="#047857" />
+                        </linearGradient>
+                        <linearGradient id="grad-running" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor="#0ea5e9" />
+                            <stop offset="100%" stopColor="#0369a1" />
+                        </linearGradient>
+                        <linearGradient id="grad-blocked" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor="#ef4444" />
+                            <stop offset="100%" stopColor="#b91c1c" />
+                        </linearGradient>
+                        <linearGradient id="grad-file" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor="#fbbf24" />
+                            <stop offset="100%" stopColor="#b45309" />
+                        </linearGradient>
+                        <linearGradient id="grad-memory" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor="#a78bfa" />
+                            <stop offset="100%" stopColor="#6d28d9" />
+                        </linearGradient>
+                        <linearGradient id="grad-control" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor="#60a5fa" />
+                            <stop offset="100%" stopColor="#1d4ed8" />
+                        </linearGradient>
+                        <linearGradient id="grad-origin" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor="#f97316" />
+                            <stop offset="100%" stopColor="#c2410c" />
+                        </linearGradient>
+                        <linearGradient id="grad-general" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor="#a1a1aa" />
+                            <stop offset="100%" stopColor="#4b5563" />
+                        </linearGradient>
+
+                        {/* Drop Shadows */}
+                        <filter id="nodeShadow" x="-30%" y="-30%" width="160%" height="160%">
+                            <feDropShadow dx="0" dy="3" stdDeviation="3" floodOpacity="0.25" />
                         </filter>
                     </defs>
+                    <style>{`
+                        @keyframes svg-flow {
+                            to {
+                                stroke-dashoffset: -40;
+                            }
+                        }
+                        .svg-flow-path {
+                            stroke-dasharray: 6 12;
+                            animation: svg-flow 1.5s linear infinite;
+                        }
+                        .svg-flow-path-slow {
+                            stroke-dasharray: 4 16;
+                            animation: svg-flow 4s linear infinite;
+                        }
+                        .pulse-glow {
+                            animation: pulse-glow-anim 2s ease-in-out infinite;
+                        }
+                        @keyframes pulse-glow-anim {
+                            0%, 100% { opacity: 0.15; transform: scale(1); }
+                            50% { opacity: 0.35; transform: scale(1.3); }
+                        }
+                    `}</style>
+                    
+                    {/* Render connection lines (edges) */}
                     {edges.map((edge, index) => {
                         const from = byId.get(edge.from);
                         const to = byId.get(edge.to);
@@ -1015,44 +1074,125 @@ function TransitGraph({ graph, runs = [], onNodeClick, selectedNodeId, compact =
                         const midX = (from.x + to.x) / 2;
                         const path = `M ${from.x} ${from.y} C ${midX} ${from.y}, ${midX} ${to.y}, ${to.x} ${to.y}`;
                         const isRelated = activeSelected && (edge.from === activeSelected || edge.to === activeSelected);
+                        const strokeColor = getLineColor(edge.label);
+                        
                         return (
-                            <path
-                                key={`${edge.from}-${edge.to}-${index}`}
-                                d={path}
-                                fill="none"
-                                stroke={getLineColor(edge.label)}
-                                strokeWidth={isRelated ? 4 : 3}
-                                strokeLinecap="round"
-                                opacity={activeSelected && !isRelated ? 0.2 : 0.75}
-                            />
+                            <g key={`${edge.from}-${edge.to}-${index}`}>
+                                {/* Background thin dashed guide path */}
+                                <path
+                                    d={path}
+                                    fill="none"
+                                    stroke="var(--border)"
+                                    strokeWidth={1}
+                                    strokeDasharray="3, 3"
+                                    opacity={0.25}
+                                />
+                                {/* Main structural connection line */}
+                                <path
+                                    d={path}
+                                    fill="none"
+                                    stroke={strokeColor}
+                                    strokeWidth={isRelated ? 4.5 : 2.5}
+                                    strokeLinecap="round"
+                                    opacity={activeSelected ? (isRelated ? 0.85 : 0.08) : 0.45}
+                                    className="transition-all duration-300"
+                                />
+                                {/* Glow and particle flow along the active/related path */}
+                                {isRelated && (
+                                    <path
+                                        d={path}
+                                        fill="none"
+                                        stroke={strokeColor}
+                                        strokeWidth={isRelated ? 2.5 : 1.5}
+                                        strokeLinecap="round"
+                                        opacity={0.9}
+                                        className="svg-flow-path"
+                                    />
+                                )}
+                                {/* Slow idle particle flow if nothing is selected */}
+                                {!activeSelected && (
+                                    <path
+                                        d={path}
+                                        fill="none"
+                                        stroke={strokeColor}
+                                        strokeWidth={1.2}
+                                        strokeLinecap="round"
+                                        opacity={0.3}
+                                        className="svg-flow-path-slow"
+                                    />
+                                )}
+                            </g>
                         );
                     })}
+
+                    {/* Render nodes (subway stations) */}
                     {nodes.map(node => {
                         const isSelected = node.id === activeSelected;
                         const isHovered = node.id === hoveredId;
                         const isDimmed = activeSelected && !isSelected;
-                        const r = node.type === 'origin' ? 10 : 8;
+                        const isRunning = node.status === 'running';
+                        const r = node.type === 'origin' ? 12 : 10;
+                        const glowColor = getNodeColor(node);
+                        const NodeIcon = getNodeIcon(node);
+
                         return (
                             <g
                                 key={node.id}
                                 transform={`translate(${node.x}, ${node.y})`}
-                                style={{ cursor: 'pointer' }}
                                 onClick={() => handleNodeClick(node)}
                                 onMouseEnter={() => setHoveredId(node.id)}
                                 onMouseLeave={() => setHoveredId(null)}
-                                opacity={isDimmed ? 0.3 : 1}
+                                opacity={isDimmed ? 0.35 : 1}
+                                style={{ cursor: 'pointer', transition: 'opacity 0.3s ease' }}
                             >
-                                {(isSelected || isHovered) && (
-                                    <circle r={r + 6} fill={getNodeColor(node)} opacity="0.2" />
-                                )}
-                                <circle r={r} fill={getNodeColor(node)} filter="url(#nodeShadow)" />
-                                <circle r={node.type === 'origin' ? 4 : 3} fill="var(--bg-primary)" opacity="0.85" />
+                                {/* Inner group scaled around local origin (0,0) */}
+                                <g
+                                    style={{
+                                        transform: `scale(${isSelected ? 1.08 : (isHovered ? 1.05 : 1)})`,
+                                        transformOrigin: '0px 0px',
+                                        transition: 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+                                    }}
+                                >
+                                    {/* Outer pulsing ring */}
+                                    {(isSelected || isHovered || isRunning) && (
+                                        <circle
+                                            r={r + (isSelected ? 5 : (isHovered ? 3 : 2))}
+                                            fill={glowColor}
+                                            opacity={isSelected ? 0.22 : (isHovered ? 0.14 : 0.12)}
+                                            className={isRunning ? 'pulse-glow' : 'transition-all duration-300'}
+                                            style={{ transformOrigin: '0px 0px' }}
+                                        />
+                                    )}
+                                    {/* Main station node circle */}
+                                    <circle
+                                        r={r}
+                                        fill={getNodeGradient(node)}
+                                        filter="url(#nodeShadow)"
+                                        stroke="var(--bg-primary)"
+                                        strokeWidth={1.5}
+                                    />
+                                    {/* Node Icon */}
+                                    {NodeIcon && (
+                                        <g transform="translate(-6, -6)" className="pointer-events-none opacity-90 text-white">
+                                            <NodeIcon size={12} strokeWidth={2.5} stroke="#ffffff" />
+                                        </g>
+                                    )}
+                                </g>
+                                {/* Label Text with outline */}
                                 <text
                                     x="0"
-                                    y="22"
+                                    y={r + 14}
                                     textAnchor="middle"
-                                    className="fill-[var(--text-secondary)]"
-                                    style={{ fontSize: 10, fontWeight: isSelected ? 700 : 600, pointerEvents: 'none' }}
+                                    className="fill-[var(--text-primary)] select-none pointer-events-none font-semibold"
+                                    paintOrder="stroke"
+                                    stroke="var(--bg-primary)"
+                                    strokeWidth="3.5"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    style={{
+                                        fontSize: 9.5,
+                                        letterSpacing: '0.01em',
+                                    }}
                                 >
                                     {truncateLabel(node.label)}
                                 </text>
@@ -1062,7 +1202,7 @@ function TransitGraph({ graph, runs = [], onNodeClick, selectedNodeId, compact =
                 </svg>
             </div>
             {!onNodeClick && selectedNode && (
-                <div className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] p-3">
+                <div className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] p-3 shadow-sm">
                     <NodeDetail node={selectedNode} run={selectedRun} />
                 </div>
             )}
@@ -1074,40 +1214,70 @@ function NodeDetail({ node, run }) {
     if (!node) return null;
     const meta = run ? (STATUS_META[run.status] || STATUS_META.waiting) : null;
     const StatusIcon = meta?.icon;
+    const nodeColor = getNodeColor(node);
+
     return (
-        <div className="space-y-2">
-            <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-[var(--text-primary)]">{node.label}</span>
-                {meta && (
-                    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${meta.color} ${meta.bg} ${meta.border}`}>
+        <div className="space-y-4">
+            {/* Header with visual accent line */}
+            <div className="relative pl-3">
+                <div 
+                    className="absolute left-0 top-0 bottom-0 w-1 rounded-full" 
+                    style={{ background: nodeColor }}
+                />
+                <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">{node.type}</span>
+                    <span className="text-sm font-bold text-[var(--text-primary)] leading-tight break-all">{node.label}</span>
+                </div>
+            </div>
+
+            {meta && (
+                <div className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)]/50 p-2">
+                    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${meta.color} ${meta.bg} ${meta.border}`}>
                         <StatusIcon size={10} />
                         {meta.label}
                     </span>
-                )}
-                <span className="ml-auto text-[11px] uppercase tracking-wide text-[var(--text-tertiary)]">{node.type}</span>
-            </div>
-            {run?.objective && (
-                <p className="text-xs leading-5 text-[var(--text-secondary)]">{run.objective}</p>
-            )}
-            {node.type === 'file' && node.path && (
-                <code className="block text-xs text-[var(--text-secondary)] font-mono">{node.path}</code>
-            )}
-            {node.type === 'memory' && node.count !== undefined && (
-                <p className="text-xs text-[var(--text-secondary)]">{node.count} memory entries loaded</p>
-            )}
-            {run?.files?.length > 0 && (
-                <div className="flex flex-wrap gap-1 pt-1">
-                    {run.files.slice(0, 6).map(f => (
-                        <span key={f} className="inline-flex items-center gap-1 rounded border border-[var(--border)] bg-[var(--bg-secondary)] px-1.5 py-0.5 text-[10px] font-mono text-[var(--text-tertiary)]">
-                            <FileCode size={9} />
-                            {f.split('/').pop()}
-                        </span>
-                    ))}
-                    {run.files.length > 6 && <span className="text-[10px] text-[var(--text-tertiary)]">+{run.files.length - 6} more</span>}
+                    {node.updatedAt && (
+                        <span className="text-[10px] text-[var(--text-tertiary)] ml-auto">{formatTime(node.updatedAt)}</span>
+                    )}
                 </div>
             )}
-            {node.updatedAt && (
-                <p className="text-[11px] text-[var(--text-tertiary)]">{formatTime(node.updatedAt)}</p>
+
+            {run?.objective && (
+                <div className="space-y-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Objective</span>
+                    <p className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)]/30 p-2.5 text-xs leading-relaxed text-[var(--text-secondary)] italic">
+                        &ldquo;{run.objective}&rdquo;
+                    </p>
+                </div>
+            )}
+
+            {node.type === 'file' && node.path && (
+                <div className="space-y-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">File Path</span>
+                    <code className="block rounded border border-[var(--border)] bg-[var(--bg-secondary)] p-2 text-xs text-[var(--text-secondary)] font-mono break-all leading-normal">
+                        {node.path}
+                    </code>
+                </div>
+            )}
+
+            {node.type === 'memory' && node.count !== undefined && (
+                <div className="rounded-lg border border-purple-500/10 bg-purple-500/5 p-3 text-xs text-purple-400">
+                    Loaded <strong className="text-purple-300 font-semibold">{node.count}</strong> memory entries for orchestration validation.
+                </div>
+            )}
+
+            {run?.files?.length > 0 && (
+                <div className="space-y-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Files Touched</span>
+                    <div className="flex flex-col gap-1 max-h-40 overflow-y-auto pr-1">
+                        {run.files.map(f => (
+                            <div key={f} className="flex items-center gap-1.5 rounded border border-[var(--border)] bg-[var(--bg-secondary)]/50 px-2 py-1 text-[10px] font-mono text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-all">
+                                <FileCode size={10} className="text-[var(--text-tertiary)]" />
+                                <span className="truncate">{f.split('/').pop()}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
             )}
         </div>
     );
@@ -1115,6 +1285,8 @@ function NodeDetail({ node, run }) {
 
 function TransitMapModal({ graph, runs, onClose }) {
     const [selectedNode, setSelectedNode] = useState(null);
+    const [showFiles, setShowFiles] = useState(true);
+    const [showMemory, setShowMemory] = useState(true);
     const overlayRef = useRef(null);
 
     useEffect(() => {
@@ -1123,83 +1295,205 @@ function TransitMapModal({ graph, runs, onClose }) {
         return () => window.removeEventListener('keydown', handleKey);
     }, [onClose]);
 
+    // Filter nodes and edges based on toggles
+    const filteredGraph = useMemo(() => {
+        let filteredNodes = graph.nodes;
+        if (!showFiles) {
+            filteredNodes = filteredNodes.filter(n => n.type !== 'file');
+        }
+        if (!showMemory) {
+            filteredNodes = filteredNodes.filter(n => n.type !== 'memory');
+        }
+        const nodeIds = new Set(filteredNodes.map(n => n.id));
+        const filteredEdges = (graph.edges || []).filter(e => nodeIds.has(e.from) && nodeIds.has(e.to));
+        return { ...graph, nodes: filteredNodes, edges: filteredEdges };
+    }, [graph, showFiles, showMemory]);
+
+    // Clear selection if the node is filtered out
+    useEffect(() => {
+        if (selectedNode) {
+            const exists = filteredGraph.nodes.some(n => n.id === selectedNode.id);
+            if (!exists) setSelectedNode(null);
+        }
+    }, [filteredGraph, selectedNode]);
+
     const selectedRun = selectedNode?.id?.startsWith('run-')
         ? runs.find(r => `run-${r.id}` === selectedNode.id)
         : null;
 
     const LEGEND = [
-        { color: '#34d399', label: 'Completed' },
-        { color: '#38bdf8', label: 'Running' },
-        { color: '#f87171', label: 'Blocked' },
+        { color: 'var(--accent)', label: 'Prompt' },
+        { color: '#10b981', label: 'Completed' },
+        { color: '#0ea5e9', label: 'Running' },
+        { color: '#ef4444', label: 'Blocked' },
         { color: '#fbbf24', label: 'File' },
         { color: '#a78bfa', label: 'Memory' },
-        { color: '#60a5fa', label: 'Control' },
-        { color: 'var(--accent)', label: 'General' },
+        { color: '#3b82f6', label: 'Control' },
     ];
 
     return createPortal(
         <div
             ref={overlayRef}
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 md:p-6"
             onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
         >
-            <div className="relative flex h-[90vh] w-[95vw] max-w-6xl flex-col rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] shadow-2xl overflow-hidden">
-                <div className="flex items-center gap-3 border-b border-[var(--border)] px-5 py-3">
-                    <GitBranch size={16} className="text-[var(--accent)]" />
-                    <h2 className="text-sm font-semibold text-[var(--text-primary)]">Transit Map</h2>
-                    <p className="text-xs text-[var(--text-tertiary)]">Click any node to inspect it</p>
+            <div className="relative flex h-[90vh] w-[95vw] max-w-6xl flex-col rounded-2xl border border-[var(--glass-border)] bg-[var(--glass-bg)] backdrop-blur-xl shadow-2xl overflow-hidden transition-all duration-300">
+                <div className="flex flex-wrap items-center gap-3 border-b border-[var(--border)] px-5 py-3.5 bg-[var(--bg-secondary)]/20">
+                    <div className="flex items-center gap-2">
+                        <GitBranch size={16} className="text-[var(--accent)] animate-pulse-subtle" />
+                        <h2 className="text-sm font-bold text-[var(--text-primary)]">Transit Map</h2>
+                    </div>
+                    
+                    {/* Live Lane Filters */}
+                    <div className="flex items-center gap-2 border-l border-[var(--border)] pl-4">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Lanes:</span>
+                        <button
+                            type="button"
+                            onClick={() => setShowFiles(prev => !prev)}
+                            className={`flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold border transition-all ${
+                                showFiles 
+                                    ? 'bg-[var(--accent)]/15 text-[var(--accent)] border-[var(--accent)]/30 shadow-sm' 
+                                    : 'bg-[var(--bg-primary)] text-[var(--text-tertiary)] border-[var(--border)] hover:text-[var(--text-secondary)]'
+                            }`}
+                        >
+                            <FileCode size={10} />
+                            Files
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setShowMemory(prev => !prev)}
+                            className={`flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold border transition-all ${
+                                showMemory 
+                                    ? 'bg-[var(--accent)]/15 text-[var(--accent)] border-[var(--accent)]/30 shadow-sm' 
+                                    : 'bg-[var(--bg-primary)] text-[var(--text-tertiary)] border-[var(--border)] hover:text-[var(--text-secondary)]'
+                            }`}
+                        >
+                            <History size={10} />
+                            Memory
+                        </button>
+                    </div>
+
                     <button
                         type="button"
                         onClick={onClose}
-                        className="ml-auto rounded border border-[var(--border)] bg-[var(--bg-primary)] p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+                        className="ml-auto rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-all"
                     >
                         <X size={14} />
                     </button>
                 </div>
 
                 <div className="flex flex-1 overflow-hidden">
-                    <div className="flex-1 overflow-auto p-4">
+                    <div className="flex-1 overflow-auto p-5 space-y-4">
                         <TransitGraph
-                            graph={graph}
+                            graph={filteredGraph}
                             runs={runs}
                             onNodeClick={setSelectedNode}
                             selectedNodeId={selectedNode?.id}
                             compact
                         />
-                        <div className="mt-3 flex flex-wrap gap-3">
+                        
+                        {/* Legend */}
+                        <div className="flex flex-wrap gap-4 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)]/30 p-3">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] flex-shrink-0 self-center mr-1">Legend:</span>
                             {LEGEND.map(item => (
                                 <div key={item.label} className="flex items-center gap-1.5">
-                                    <span className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ background: item.color }} />
-                                    <span className="text-[11px] text-[var(--text-tertiary)]">{item.label}</span>
+                                    <span className="h-2.5 w-2.5 rounded-full border border-white/5 flex-shrink-0 shadow-sm" style={{ background: item.color }} />
+                                    <span className="text-[11px] font-medium text-[var(--text-secondary)]">{item.label}</span>
                                 </div>
                             ))}
                         </div>
+                        
                         <MissionPulsePanel runs={runs} selectedNode={selectedNode} selectedRun={selectedRun} />
                     </div>
 
-                    <div className="w-72 flex-shrink-0 border-l border-[var(--border)] overflow-y-auto">
+                    {/* Sidebar Inspector Panel */}
+                    <div className="w-76 flex-shrink-0 border-l border-[var(--border)] bg-[var(--bg-secondary)]/45 overflow-y-auto">
                         {selectedNode ? (
-                            <div className="p-4 space-y-4">
+                            <div className="p-5 space-y-5">
                                 <NodeDetail node={selectedNode} run={selectedRun} />
                                 {selectedRun && (
-                                    <div className="space-y-2">
-                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Edges from this run</p>
-                                        {(graph.edges || [])
-                                            .filter(e => e.from === selectedNode.id || e.to === selectedNode.id)
-                                            .map((e, i) => (
-                                                <div key={i} className="flex items-center gap-1.5 text-[11px] text-[var(--text-secondary)]">
-                                                    <span className="font-mono text-[10px] text-[var(--text-tertiary)]">{e.from === selectedNode.id ? '→' : '←'}</span>
-                                                    <span>{e.from === selectedNode.id ? e.to : e.from}</span>
-                                                    <span className="ml-auto rounded border border-[var(--border)] px-1 py-0.5 text-[10px]">{e.label}</span>
-                                                </div>
-                                            ))}
+                                    <div className="space-y-3 pt-3 border-t border-[var(--border)]">
+                                        <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Transit Connections</p>
+                                        <div className="space-y-1.5">
+                                            {(filteredGraph.edges || [])
+                                                .filter(e => e.from === selectedNode.id || e.to === selectedNode.id)
+                                                .map((e, i) => {
+                                                    const isFrom = e.from === selectedNode.id;
+                                                    const partnerId = isFrom ? e.to : e.from;
+                                                    const partnerNode = filteredGraph.nodes.find(n => n.id === partnerId);
+                                                    const partnerLabel = partnerNode?.label || partnerId;
+                                                    const partnerColor = partnerNode ? getNodeColor(partnerNode) : 'var(--accent)';
+                                                    return (
+                                                        <div key={i} className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)]/40 p-2 hover:bg-[var(--bg-hover)] transition-all">
+                                                            <div 
+                                                                className="h-2 w-2 rounded-full flex-shrink-0"
+                                                                style={{ background: partnerColor }}
+                                                            />
+                                                            <div className="flex flex-col min-w-0">
+                                                                <span className="text-[10px] text-[var(--text-tertiary)] font-medium">
+                                                                    {isFrom ? 'Output to:' : 'Input from:'}
+                                                                </span>
+                                                                <span className="text-[11px] font-semibold text-[var(--text-primary)] truncate">
+                                                                    {partnerLabel}
+                                                                </span>
+                                                            </div>
+                                                            <span className="ml-auto rounded-full bg-[var(--bg-secondary)] border border-[var(--border)] px-1.5 py-0.5 text-[9px] text-[var(--text-tertiary)] font-semibold uppercase tracking-wider">
+                                                                {e.label}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                })}
+                                        </div>
                                     </div>
                                 )}
                             </div>
                         ) : (
-                            <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
-                                <GitBranch size={28} className="text-[var(--text-tertiary)] opacity-40" />
-                                <p className="text-xs text-[var(--text-tertiary)]">Select a node to see its details</p>
+                            <div className="flex h-full flex-col p-5 space-y-4">
+                                <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)]/30 p-4 space-y-3">
+                                    <div className="flex items-center gap-2">
+                                        <div className="relative flex h-2 w-2">
+                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                        </div>
+                                        <span className="text-xs font-bold text-[var(--text-primary)]">System Overview</span>
+                                    </div>
+                                    <div className="space-y-2 text-[11px] text-[var(--text-secondary)]">
+                                        <div className="flex justify-between items-center">
+                                            <span>Active Operations:</span>
+                                            <span className="font-semibold text-[var(--text-primary)] rounded bg-[var(--bg-primary)] px-1.5 py-0.5 border border-[var(--border)]">
+                                                {runs.filter(r => ['running', 'waiting'].includes(r.status)).length}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span>Completed Steps:</span>
+                                            <span className="font-semibold text-[var(--text-primary)] rounded bg-[var(--bg-primary)] px-1.5 py-0.5 border border-[var(--border)]">
+                                                {runs.filter(r => r.status === 'completed').length}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span>Blocked Steps:</span>
+                                            <span className="font-semibold text-rose-500 rounded bg-rose-500/10 px-1.5 py-0.5 border border-rose-500/20">
+                                                {runs.filter(r => r.status === 'blocked').length}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span>OpenClaw Telemetry:</span>
+                                            <span className="font-semibold text-emerald-500 rounded bg-emerald-500/10 px-1.5 py-0.5 border border-emerald-500/20">
+                                                Online
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center p-6 border border-dashed border-[var(--border)] rounded-xl bg-[var(--bg-secondary)]/10">
+                                    <div className="p-3 bg-[var(--bg-primary)] rounded-full border border-[var(--border)] shadow-sm">
+                                        <GitBranch size={22} className="text-[var(--accent)] opacity-80 animate-pulse-subtle" />
+                                    </div>
+                                    <p className="text-xs text-[var(--text-secondary)] font-bold">Telemetry Inspector</p>
+                                    <p className="text-[11px] text-[var(--text-tertiary)] max-w-[200px] leading-relaxed">
+                                        Click any transit node or connection path to inspect live variables, objectives, and file mutations.
+                                    </p>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -1234,7 +1528,7 @@ function MissionPulsePanel({ runs = [], selectedNode, selectedRun }) {
                     <div className="mb-3 flex items-center justify-between gap-3">
                         <div>
                             <div className="flex items-center gap-2">
-                                <Sparkles size={14} className="text-[var(--accent)]" />
+                                <Sparkles size={14} className="text-[var(--accent)] animate-pulse" />
                                 <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-primary)]">Mission Pulse</h3>
                             </div>
                             <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">Live orchestration flow across active run lanes</p>
@@ -1283,13 +1577,13 @@ function MissionPulsePanel({ runs = [], selectedNode, selectedRun }) {
                     <PulseMetric icon={ShieldCheck} label="Validate" value={validationCount} />
                     <PulseMetric icon={FileCode} label="Files" value={fileTouchCount} />
                     <PulseMetric icon={CheckCircle2} label="Done" value={completedCount} />
-                    <div className="col-span-2 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)]/70 p-3">
-                        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
-                            <History size={12} />
+                    <div className="col-span-2 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)]/70 p-3 shadow-inner">
+                        <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">
+                            <History size={12} className="text-[var(--accent)]" />
                             Selected signal
                         </div>
-                        <p className="mt-2 truncate text-sm font-medium text-[var(--text-primary)]">{selectedLabel}</p>
-                        <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">{selectedStatus}</p>
+                        <p className="mt-2 truncate text-xs font-semibold text-[var(--text-primary)]">{selectedLabel}</p>
+                        <p className="mt-1 text-[10px] text-[var(--text-tertiary)] font-mono uppercase">{selectedStatus}</p>
                     </div>
                 </div>
             </div>
@@ -1299,31 +1593,64 @@ function MissionPulsePanel({ runs = [], selectedNode, selectedRun }) {
 
 function PulseMetric({ icon: Icon, label, value }) {
     return (
-        <div className="micro-interaction rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)]/70 p-3">
-            <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-[var(--text-tertiary)]">
-                <Icon size={12} />
+        <div className="micro-interaction rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)]/40 p-3 hover:bg-[var(--bg-secondary)]/80 transition-all duration-300 ease-out hover:border-[var(--accent)]/30 group">
+            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">
+                <Icon size={12} className="transition-transform duration-300 group-hover:scale-110 group-hover:text-[var(--accent)]" />
                 {label}
             </div>
-            <div className="mt-1 text-lg font-semibold text-[var(--text-primary)]">{value}</div>
+            <div className="mt-1 text-lg font-bold text-[var(--text-primary)]">{value}</div>
         </div>
     );
 }
 
 function getNodeColor(node) {
-    if (node.status === 'blocked') return '#f87171';
-    if (node.status === 'completed') return '#34d399';
-    if (node.status === 'running') return '#38bdf8';
+    if (node.status === 'blocked') return '#ef4444';
+    if (node.status === 'completed') return '#10b981';
+    if (node.status === 'running') return '#0ea5e9';
     if (node.type === 'memory') return '#a78bfa';
     if (node.type === 'file') return '#fbbf24';
-    if (node.type === 'control') return '#60a5fa';
+    if (node.type === 'control') return '#3b82f6';
+    if (node.type === 'origin') return 'var(--accent)';
     return 'var(--accent)';
 }
 
 function getLineColor(label) {
-    if (label === 'failed' || label === 'blocked') return '#f87171';
-    if (label === 'passed' || label === 'candidate') return '#34d399';
+    if (label === 'failed' || label === 'blocked') return '#ef4444';
+    if (label === 'passed' || label === 'candidate') return '#10b981';
     if (label === 'touches') return '#fbbf24';
     return 'var(--accent)';
+}
+
+function getNodeGradient(node) {
+    if (node.status === 'blocked') return 'url(#grad-blocked)';
+    if (node.status === 'completed') return 'url(#grad-completed)';
+    if (node.status === 'running') return 'url(#grad-running)';
+    if (node.type === 'memory') return 'url(#grad-memory)';
+    if (node.type === 'file') return 'url(#grad-file)';
+    if (node.type === 'control') return 'url(#grad-control)';
+    if (node.type === 'origin') return 'url(#grad-origin)';
+    if (node.type === 'terminal' || node.type === 'cowork' || node.type === 'code' || node.type === 'build' || node.type === 'gateway') {
+        if (node.status === 'completed') return 'url(#grad-completed)';
+        if (node.status === 'running') return 'url(#grad-running)';
+        if (node.status === 'blocked') return 'url(#grad-blocked)';
+        return 'url(#grad-control)';
+    }
+    return 'url(#grad-general)';
+}
+
+function getNodeIcon(node) {
+    switch (node.type) {
+        case 'origin': return Sparkles;
+        case 'control': return ShieldCheck;
+        case 'memory': return History;
+        case 'terminal': return TerminalSquare;
+        case 'cowork': return Bot;
+        case 'code': return FileCode;
+        case 'build': return Server;
+        case 'gateway': return Server;
+        case 'file': return FileCode;
+        default: return GitBranch;
+    }
 }
 
 function truncateLabel(label = '') {

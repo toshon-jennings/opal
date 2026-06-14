@@ -284,7 +284,7 @@ export default function ChatTab({ isDesktop }) {
   // If desktop but session not started, show a start prompt
   if (isDesktop && !started) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col justify-center">
+      <div className="flex min-h-0 flex-1 flex-col justify-center chat-page-container">
         <div className="chat-start-prompt">
           <div className="chat-start-icon">
             <NousBadge size="h-14 w-14" />
@@ -304,7 +304,7 @@ export default function ChatTab({ isDesktop }) {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col chat-page-container">
       {/* Session header */}
       <div className="chat-session-bar">
         <div className="chat-session-info">

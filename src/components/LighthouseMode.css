@@ -105,7 +105,7 @@
 
 .lh-topbar-left {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 12px;
 }
 
@@ -127,6 +127,7 @@
 .lh-logo-copy {
   display: flex;
   flex-direction: column;
+  width: min-content;
 }
 
 .lh-title {
