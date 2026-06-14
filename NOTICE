@@ -13,6 +13,19 @@ The original MIT license terms apply to the portions of this software derived
 from Open Claude. The full text of the MIT License is included in the LICENSE
 file in this repository.
 
+## OpenClaw
+
+- **Project:** OpenClaw
+- **Repository:** https://github.com/openclaw/openclaw
+- **Website:** https://openclaw.ai
+- **License:** MIT License
+
+Perci integrates with OpenClaw: it embeds the OpenClaw Control UI (served by the
+local OpenClaw gateway) and communicates with the `openclaw` CLI. OpenClaw is a
+separate work, installed independently, and its MIT license applies to it. Perci
+does not vendor OpenClaw source code. Credit and thanks to the OpenClaw project
+and its contributors.
+
 ---
 
 All other components, including but not limited to Autoresearch mode, Office

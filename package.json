@@ -1,7 +1,7 @@
 {
   "name": "perci",
   "private": true,
-  "version": "0.18.7",
+  "version": "0.19.0",
   "description": "A desktop AI workspace for chat, coding, coworking, and agent tools.",
   "author": "Toshon Jennings",
   "main": "electron/main.cjs",
