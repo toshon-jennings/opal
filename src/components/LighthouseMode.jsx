@@ -560,7 +560,7 @@ export default function LighthouseMode() {
           <section className="lh-section">
             <div className="lh-section-header lh-section-compact">
               <div>
-                <h2>PORTMASTER.md Files</h2>
+                <h2>PORTMASTER.md Files <a href="https://github.com/toshon-jennings/PORTMASTER-md" target="_blank" rel="noopener" className="lh-pm-link">What is this?</a></h2>
                 <p className="lh-section-subtitle">Registered port ledgers found across local workspaces.</p>
               </div>
             </div>

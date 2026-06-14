@@ -294,6 +294,19 @@
   margin: 0;
 }
 
+.lh-pm-link {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--lh-amber-strong);
+  text-decoration: none;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.lh-pm-link:hover {
+  text-decoration: underline;
+}
+
 .lh-section-subtitle {
   font-size: 12px;
   color: var(--lh-text-muted);
