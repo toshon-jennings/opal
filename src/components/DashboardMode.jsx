@@ -8,6 +8,7 @@ import { useMode, MODES, OPENCLAW_WINDOW_ID } from '../context/ModeContext';
 import { useChat } from '../context/ChatContext';
 import PerciMascot from './PerciMascot';
 import { AGENT_DEFINITIONS, ACTIVE_JOB_STATUSES, ATTENTION_JOB_STATUSES } from './AgentsPanel';
+import OnboardingCard, { hasOnboardingBeenSeen } from './OnboardingCard';
 import lhLogo from '../assets/lh-logo.png';
 import './DashboardMode.css';
 
@@ -60,6 +61,7 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
     const { chats, createNewChat, switchToChat, userName } = useChat();
     const [now, setNow] = useState(() => new Date());
     const [jobs, setJobs] = useState([]);
+    const [showOnboarding, setShowOnboarding] = useState(() => !hasOnboardingBeenSeen());
     const bridgeAvailable = Boolean(window.electron?.listAgentJobs);
 
     // Clock tick
@@ -224,6 +226,15 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                     </section>
 
                     <aside className="dash-rail">
+                        {/* Onboarding walkthrough */}
+                        {showOnboarding && (
+                            <OnboardingCard
+                                onComplete={() => setShowOnboarding(false)}
+                                onOpenSettings={onOpenSettings}
+                                onOpenMode={(modeId) => openWindow(modeId)}
+                            />
+                        )}
+
                         {/* Agent pulse */}
                         <div className="dash-card" style={{ '--i': 2 }}>
                             <div className="dash-card-head">

@@ -1,0 +1,264 @@
+/* Onboarding card — styled to match the dashboard rail cards.
+   Uses the same design tokens (--accent, --bg-secondary, --border, etc.)
+   and the Outfit family for titles. */
+
+.ob-card {
+    position: relative;
+    padding: 20px 22px;
+    border-radius: 18px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    animation: dash-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.05s both;
+    overflow: hidden;
+}
+
+/* subtle accent glow along the top edge */
+.ob-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 18px;
+    pointer-events: none;
+    background:
+        linear-gradient(180deg, rgba(var(--accent-rgb), 0.07) 0%, transparent 40%);
+    mask-image: linear-gradient(180deg, black 0%, transparent 100%);
+}
+
+/* ── close button ──────────────────────────────────────────────────── */
+
+.ob-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    color: var(--text-tertiary);
+    background: transparent;
+    border: 1px solid transparent;
+    transition: all 0.15s ease;
+    z-index: 1;
+}
+
+.ob-close:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+    border-color: var(--border);
+}
+
+/* ── header ────────────────────────────────────────────────────────── */
+
+.ob-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 14px;
+    padding-right: 32px;
+}
+
+.ob-icon-wrap {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    color: var(--accent);
+    background: rgba(var(--accent-rgb), 0.1);
+    border: 1px solid rgba(var(--accent-rgb), 0.22);
+}
+
+.ob-header-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.ob-title {
+    font-family: 'Outfit', system-ui, sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.ob-step-count {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+}
+
+/* ── body ──────────────────────────────────────────────────────────── */
+
+.ob-body {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    margin: 0 0 16px;
+}
+
+/* ── action button ─────────────────────────────────────────────────── */
+
+.ob-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    margin-bottom: 16px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: 'Outfit', system-ui, sans-serif;
+    color: var(--accent);
+    background: rgba(var(--accent-rgb), 0.08);
+    border: 1px solid rgba(var(--accent-rgb), 0.25);
+    transition: all 0.15s ease;
+}
+
+.ob-action:hover {
+    background: rgba(var(--accent-rgb), 0.15);
+    border-color: rgba(var(--accent-rgb), 0.45);
+}
+
+/* ── mode chips ────────────────────────────────────────────────────── */
+
+.ob-modes {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 6px;
+    margin-bottom: 16px;
+}
+
+.ob-mode-chip {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 10px;
+    border-radius: 10px;
+    font-size: 11.5px;
+    text-align: left;
+    color: var(--text-secondary);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    transition: all 0.15s ease;
+}
+
+.ob-mode-chip:hover {
+    color: var(--text-primary);
+    border-color: var(--accent);
+    background: rgba(var(--accent-rgb), 0.06);
+}
+
+.ob-mode-chip svg:first-child {
+    flex-shrink: 0;
+    color: var(--text-tertiary);
+}
+
+.ob-mode-chip:hover svg:first-child {
+    color: var(--accent);
+}
+
+.ob-mode-label {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.ob-mode-desc {
+    flex: 1;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ob-mode-link {
+    flex-shrink: 0;
+    opacity: 0;
+    color: var(--accent);
+    transition: opacity 0.15s ease;
+}
+
+.ob-mode-chip:hover .ob-mode-link {
+    opacity: 1;
+}
+
+/* ── footer: dots + nav ────────────────────────────────────────────── */
+
+.ob-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+}
+
+.ob-dots {
+    display: flex;
+    gap: 5px;
+}
+
+.ob-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--border);
+    transition: all 0.2s ease;
+}
+
+.ob-dot.is-active {
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent-glow);
+    transform: scale(1.3);
+}
+
+.ob-dot.is-done {
+    background: var(--accent);
+    opacity: 0.45;
+}
+
+.ob-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ob-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 14px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: 'Outfit', system-ui, sans-serif;
+    transition: all 0.15s ease;
+}
+
+.ob-btn-prev {
+    color: var(--text-tertiary);
+    background: transparent;
+    border: 1px solid transparent;
+}
+
+.ob-btn-prev:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+}
+
+.ob-btn-next {
+    color: white;
+    background: linear-gradient(135deg, var(--accent), var(--accent-cyan));
+    border: 1px solid transparent;
+    box-shadow: 0 4px 14px var(--accent-glow);
+}
+
+.ob-btn-next:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px var(--accent-glow);
+}

@@ -17,13 +17,14 @@ import { SettingsModal } from './components/SettingsModal';
 import DesktopHost from './components/windows/DesktopHost';
 import Dock from './components/windows/Dock';
 import { ModeGuideModal } from './components/ModeGuideModal';
+import { OpenClawModelsPanel } from './components/OpenClawModelsPanel';
 import { BuildModeProvider } from './context/BuildModeContext'; // Keeping original context for now, but primary logic will be in BuildContext
 import { BuildProvider } from './context/BuildContext';
 import { ChatProvider } from './context/ChatContext';
 
 import nousLogo from './assets/nousresearch.png';
 import openClawLogo from './assets/openclaw-color.png';
-import { Moon, Sun, Monitor, Lock, Unlock, Plus, Terminal as TerminalIcon, Server, RefreshCw, ExternalLink, AlertCircle, BookOpen } from 'lucide-react';
+import { Moon, Sun, Monitor, Lock, Unlock, Plus, Terminal as TerminalIcon, Server, RefreshCw, ExternalLink, AlertCircle, BookOpen, Cpu } from 'lucide-react';
 import { useTheme, ThemeProvider } from './context/ThemeContext';
 import { useChat } from './context/ChatContext';
 import TerminalPanel from './components/Terminal';
@@ -99,6 +100,15 @@ function AppContent() {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [terminalCommand, setTerminalCommand] = useState('');
     const [openClawDashboardTab, setOpenClawDashboardTab] = useState('gateway');
+    // Always land on the chat (Gateway) tab when the OpenClaw window (re)opens, so
+    // switching to Models/Diary never "sticks" as the default view.
+    const wasOpenClawOpenRef = useRef(false);
+    useEffect(() => {
+        if (openClawWindowOpen && !wasOpenClawOpenRef.current) {
+            setOpenClawDashboardTab('gateway');
+        }
+        wasOpenClawOpenRef.current = openClawWindowOpen;
+    }, [openClawWindowOpen]);
     const [diaryContent, setDiaryContent] = useState('');
     const [diaryLastSaved, setDiaryLastSaved] = useState(null);
     const [diarySaving, setDiarySaving] = useState(false);
@@ -210,6 +220,15 @@ function AppContent() {
         }
     };
 
+    const openOpenClawRepo = () => {
+        const url = 'https://github.com/openclaw/openclaw';
+        if (window.electron?.openExternal) {
+            window.electron.openExternal(url);
+        } else {
+            window.open(url, '_blank', 'noopener,noreferrer');
+        }
+    };
+
     const restartOpenClawGateway = async () => {
         if (!window.electron?.restartOpenClawGateway || isRestartingOpenClaw) return;
         setIsRestartingOpenClaw(true);
@@ -298,6 +317,14 @@ function AppContent() {
                                 )}
 
                                 <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={openOpenClawRepo}
+                                        className="hidden sm:inline-flex items-center gap-1 px-2 py-1.5 rounded-md text-[11px] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+                                        title="OpenClaw is open-source (MIT) — view on GitHub"
+                                    >
+                                        Powered by OpenClaw
+                                        <ExternalLink size={11} />
+                                    </button>
                                     <span className={`hidden sm:inline text-xs ${openClawStatus.state === 'online' ? 'text-emerald-500' : openClawStatus.state === 'checking' ? 'text-[var(--text-secondary)]' : 'text-red-400'}`}>
                                         {openClawStatus.state === 'online'
                                             ? 'Gateway reachable'
@@ -338,6 +365,7 @@ function AppContent() {
                             <div className="shrink-0 flex items-center border-b border-[var(--border)] bg-[var(--bg-secondary)] px-2">
                                 {[
                                     { id: 'gateway', label: 'Gateway', icon: <Server size={12} /> },
+                                    { id: 'models', label: 'Models', icon: <Cpu size={12} /> },
                                     { id: 'diary', label: "User's Diary", icon: <BookOpen size={12} /> },
                                 ].map(tab => (
                                     <button
@@ -355,7 +383,9 @@ function AppContent() {
                                 ))}
                             </div>
 
-                            {openClawDashboardTab === 'diary' ? (
+                            {openClawDashboardTab === 'models' ? (
+                                <OpenClawModelsPanel />
+                            ) : openClawDashboardTab === 'diary' ? (
                                 <div className="flex-1 min-h-0 flex flex-col bg-[var(--bg-primary)]">
                                     <div className="flex-1 min-h-0 relative">
                                         <textarea
