@@ -375,6 +375,18 @@ export default function LighthouseMode() {
                   <li>Click Scan to refresh the live machine state</li>
                   <li>Use the filter buttons to narrow results by source</li>
                   <li>Click any column header to sort ascending or descending</li>
+                  <li>Service and Managed By are especially useful for alphabetical review</li>
+                </ul>
+              </section>
+              <section className="lh-guide-section">
+                <h3>What the columns mean</h3>
+                <ul>
+                  <li><strong>Port</strong>: the listening port number</li>
+                  <li><strong>Bind</strong>: where the service is listening, such as 127.0.0.1 or 0.0.0.0</li>
+                  <li><strong>Service</strong>: known service or project name when available</li>
+                  <li><strong>Process</strong>: live process name currently listening</li>
+                  <li><strong>Source</strong>: whether the row came from a live scan, Docker, PORTMASTER, or project config</li>
+                  <li><strong>Managed By</strong>: the owning runtime, app, or tool when known</li>
                 </ul>
               </section>
               <section className="lh-guide-section">
@@ -382,6 +394,22 @@ export default function LighthouseMode() {
                 <ul>
                   <li>Enter a port number to see if it is currently in use</li>
                   <li>Use Suggest Free to find the next available port in the app-server range</li>
+                </ul>
+              </section>
+              <section className="lh-guide-section">
+                <h3>Conflict workflow</h3>
+                <ol>
+                  <li>Scan the machine</li>
+                  <li>Open the Conflicts section if warnings appear</li>
+                  <li>Review the affected processes and suggested replacement port</li>
+                  <li>Open the related config or PORTMASTER entry and update intentionally</li>
+                </ol>
+              </section>
+              <section className="lh-guide-section">
+                <h3>Keyboard shortcuts</h3>
+                <ul>
+                  <li><strong>Escape</strong>: close the guide modal</li>
+                  <li><strong>Enter</strong> on Guide or Scan buttons: activate them</li>
                 </ul>
               </section>
             </div>
