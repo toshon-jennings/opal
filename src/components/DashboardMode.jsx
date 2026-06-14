@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     MessageSquare, Users, Code, Bot, FlaskConical, Building2, ActivitySquare, Hammer,
     Plus, ArrowUpRight, Server, Sparkles, CheckCircle2, AlertTriangle, Layers, Settings,
-    Radar,
+    Radar, BookOpen,
 } from 'lucide-react';
 import { useMode, MODES, OPENCLAW_WINDOW_ID } from '../context/ModeContext';
 import { useChat } from '../context/ChatContext';
@@ -172,6 +172,16 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                                 <button type="button" className="dash-cta dash-cta-ghost" onClick={onOpenSettings}>
                                     <Settings size={15} />
                                     Settings
+                                </button>
+                            )}
+                            {!showOnboarding && (
+                                <button
+                                    type="button"
+                                    className="dash-cta dash-cta-ghost dash-cta-icon-only"
+                                    onClick={() => setShowOnboarding(true)}
+                                    title="Show onboarding walkthrough"
+                                >
+                                    <BookOpen size={15} />
                                 </button>
                             )}
                         </div>

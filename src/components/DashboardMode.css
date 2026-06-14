@@ -170,6 +170,13 @@
     box-shadow: 0 4px 18px var(--accent-glow);
 }
 
+.dash-cta-icon-only {
+    padding: 9px !important;
+    width: 38px;
+    height: 38px;
+    justify-content: center;
+}
+
 .dash-perci {
     flex-shrink: 0;
     display: flex;
