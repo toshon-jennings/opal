@@ -7,39 +7,9 @@ import { useTheme } from '../context/ThemeContext';
 
 import openclawLogo from '../assets/openclaw-color.png';
 
-const LOCAL_PROVIDER_NAMES = {
-    ollama: 'Ollama',
-    lmstudio: 'LM Studio',
-    jan: 'Jan',
-    openclaw: 'OpenClaw'
-};
-
 const LOCAL_IMAGE_PATHS = {
     openclaw: openclawLogo,
 };
-
-function getProviderStatusLabel(status) {
-    switch (status) {
-        case 'ready':
-            return 'Ready';
-        case 'running-empty':
-            return 'Running';
-        case 'installed-stopped':
-            return 'Start required';
-        case 'installed-empty':
-            return 'No models';
-        case 'not-installed':
-            return 'Not installed';
-        default:
-            return 'Offline';
-    }
-}
-
-function getProviderStatusClass(status) {
-    if (status === 'ready') return 'text-emerald-500';
-    if (status === 'installed-stopped' || status === 'running-empty') return 'text-amber-500';
-    return 'text-[var(--text-tertiary)]';
-}
 
 // Collapsible section wrapper
 function Section({ title, icon: Icon, defaultOpen = true, children }) {
@@ -74,6 +44,8 @@ export function SettingsModal({ isOpen, onClose }) {
         updateProvider,
         updateModel,
         availableModels,
+        addCustomModel,
+        removeCustomModel,
         isLoadingModels,
         refreshModels,
         userName,
@@ -93,6 +65,8 @@ export function SettingsModal({ isOpen, onClose }) {
     const { themeMode, setThemeMode, resolvedTheme } = useTheme();
 
     const [modelSearch, setModelSearch] = useState('');
+    const [customModelId, setCustomModelId] = useState('');
+    const [customModelName, setCustomModelName] = useState('');
     const [editingName, setEditingName] = useState('');
     const [editingInstructions, setEditingInstructions] = useState('');
     const [testingProfileId, setTestingProfileId] = useState(null);
@@ -279,6 +253,13 @@ export function SettingsModal({ isOpen, onClose }) {
           )
         : currentProviderModels;
 
+    const selectedProviderMeta = providers.find(p => p.id === selectedProvider) || null;
+    const discoveryById = (providerDiscovery?.providers || []).reduce((acc, p) => {
+        acc[p.id] = p;
+        return acc;
+    }, {});
+    const janDiscovery = discoveryById['jan'];
+
     const handleSaveName = () => {
         if (editingName.trim() !== userName) setUserName(editingName.trim());
     };
@@ -299,9 +280,13 @@ export function SettingsModal({ isOpen, onClose }) {
         await loadProviderDiscovery();
     };
 
-    const handleUseProvider = async (providerId) => {
-        updateProvider(providerId);
-        refreshModels();
+    const handleAddCustomModel = () => {
+        const id = customModelId.trim();
+        if (!id || !selectedProvider) return;
+        addCustomModel(selectedProvider, id, customModelName.trim());
+        updateModel(id);
+        setCustomModelId('');
+        setCustomModelName('');
     };
 
     const handleStartJan = async (modelId) => {
@@ -501,16 +486,13 @@ export function SettingsModal({ isOpen, onClose }) {
                         </p>
                     </Section>
 
-                    <Section title="Connect Models" icon={Server} defaultOpen={true}>
+                    {/* Models — providers, keys, model list & custom models in one place */}
+                    <Section title="Models" icon={Server} defaultOpen={true}>
                         <div className="flex items-start justify-between gap-3">
-                            <div>
-                                <p className="text-xs text-[var(--text-tertiary)] leading-relaxed">
-                                    Perci checks common local model servers and lets you connect hosted providers from one place.
-                                </p>
-                                {setupMessage && (
-                                    <p className="mt-1 text-xs text-[var(--accent)]">{setupMessage}</p>
-                                )}
-                            </div>
+                            <p className="text-xs text-[var(--text-tertiary)] leading-relaxed">
+                                Pick a provider, add its key (or connect a local server), then choose a model.
+                                Not seeing your model? Add it by id at the bottom.
+                            </p>
                             <button
                                 type="button"
                                 onClick={handleRefreshModelSetup}
@@ -518,323 +500,301 @@ export function SettingsModal({ isOpen, onClose }) {
                                 className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[var(--border)] text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] disabled:opacity-50 transition-colors"
                             >
                                 <RefreshCw size={13} className={isDiscoveringProviders || isLoadingModels ? 'animate-spin' : ''} />
-                                Check
+                                Refresh
                             </button>
                         </div>
+                        {setupMessage && (
+                            <p className="text-xs text-[var(--accent)]">{setupMessage}</p>
+                        )}
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                            {(providerDiscovery?.providers || []).map(provider => {
-                                const canUse = provider.status === 'ready' && ['ollama', 'lmstudio', 'jan'].includes(provider.id);
-                                const canStartJan = provider.id === 'jan' && provider.status === 'installed-stopped' && provider.models?.length > 0;
-                                const firstJanModel = provider.models?.[0]?.id;
-                                return (
-                                    <div key={provider.id} className="rounded-xl border border-[var(--border)] bg-[var(--bg-tertiary)]/40 p-3.5 space-y-3">
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div className="min-w-0">
-                                                <div className="flex items-center gap-2">
-                                                    <Server size={14} className={getProviderStatusClass(provider.status)} />
-                                                    <span className="text-sm font-semibold text-[var(--text-primary)]">
-                                                        {provider.name || LOCAL_PROVIDER_NAMES[provider.id] || provider.id}
-                                                    </span>
-                                                </div>
-                                                <div className="mt-1 text-xs text-[var(--text-tertiary)] truncate">
-                                                    {provider.endpoint || 'Local provider'}
-                                                </div>
-                                            </div>
-                                            <span className={`shrink-0 text-xs font-medium ${getProviderStatusClass(provider.status)}`}>
-                                                {getProviderStatusLabel(provider.status)}
-                                            </span>
-                                        </div>
-
-                                        <div className="text-xs text-[var(--text-secondary)]">
-                                            {provider.modelCount > 0
-                                                ? `${provider.modelCount} model${provider.modelCount === 1 ? '' : 's'} found`
-                                                : provider.error || 'No models found'}
-                                        </div>
-
-                                        {provider.models?.length > 0 && (
-                                            <div className="max-h-20 overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--bg-primary)]">
-                                                {provider.models.slice(0, 6).map(model => (
-                                                    <div key={model.id} className="px-2.5 py-1.5 text-xs text-[var(--text-secondary)] border-b border-[var(--border)] last:border-b-0 truncate">
-                                                        {model.name || model.id}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-
-                                        <div className="flex items-center justify-end gap-2">
-                                            {canStartJan && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleStartJan(firstJanModel)}
-                                                    disabled={Boolean(startingJanModel)}
-                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[var(--accent)] text-white text-xs font-medium hover:bg-[var(--accent-hover)] disabled:opacity-50 transition-colors"
-                                                >
-                                                    <RefreshCw size={13} className={startingJanModel ? 'animate-spin' : ''} />
-                                                    Start Jan
-                                                </button>
-                                            )}
-                                            {canUse && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleUseProvider(provider.id)}
-                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[var(--border)] text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
-                                                >
-                                                    <Check size={13} />
-                                                    Use
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
-                            {[
-                                { id: 'openrouter', name: 'OpenRouter' },
-                                { id: 'anthropic', name: 'Anthropic' },
-                                { id: 'mistral', name: 'Mistral' },
-                                { id: 'openai', name: 'OpenAI' },
-                                { id: 'groq', name: 'Groq' },
-                                { id: 'gemini', name: 'Gemini' },
-                            ].map(provider => {
-                                const hasKey = Boolean(apiKeys[provider.id]);
+                        {/* Provider grid — single, always selectable */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+                            {providers.map(provider => {
+                                const models = availableModels[provider.id] || [];
+                                const hasKey = !provider.needsKey || Boolean(apiKeys[provider.id]);
+                                const isAvailable = provider.needsKey ? hasKey : models.length > 0;
+                                const isSelected = selectedProvider === provider.id;
+                                const statusText = provider.needsKey
+                                    ? (hasKey ? (models.length ? `${models.length} models` : 'Key set') : 'Needs key')
+                                    : (models.length ? `${models.length} models` : 'Offline');
                                 return (
                                     <button
                                         key={provider.id}
                                         type="button"
-                                        onClick={() => hasKey && updateProvider(provider.id)}
-                                        className={`rounded-xl border p-3 text-left transition-colors ${hasKey ? 'border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10' : 'border-[var(--border)] bg-[var(--bg-tertiary)]/40 hover:bg-[var(--bg-hover)]'}`}
-                                    >
-                                        <div className="flex items-center justify-between gap-2">
-                                            <span className="text-sm font-medium text-[var(--text-primary)]">{provider.name}</span>
-                                            <span className={`text-xs ${hasKey ? 'text-emerald-500' : 'text-[var(--text-tertiary)]'}`}>
-                                                {hasKey ? 'Key set' : 'Needs key'}
-                                            </span>
-                                        </div>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </Section>
-
-                    {/* Provider & Model */}
-                    <Section title="Model Selection" icon={Globe} defaultOpen={true}>
-                        <div className="flex justify-end -mt-1 mb-1">
-                            <button
-                                onClick={refreshModels}
-                                disabled={isLoadingModels}
-                                className="flex items-center gap-1 text-xs text-[var(--accent)] hover:text-[var(--accent-hover)] disabled:opacity-50 transition-colors"
-                            >
-                                <RefreshCw size={13} className={isLoadingModels ? 'animate-spin' : ''} />
-                                Refresh
-                            </button>
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-6">
-                            {providers.map(provider => {
-                                const models = availableModels[provider.id] || [];
-                                const isAvailable = provider.needsKey ? !!apiKeys[provider.id] : models.length > 0;
-                                const isSelected = selectedProvider === provider.id;
-                                return (
-                                    <button
-                                        key={provider.id}
-                                        onClick={() => isAvailable && updateProvider(provider.id)}
-                                        disabled={!isAvailable}
-                                        className={`p-3.5 rounded-lg border transition-colors relative ${
+                                        onClick={() => updateProvider(provider.id)}
+                                        className={`p-3 rounded-lg border text-left transition-colors relative ${
                                             isSelected
                                                 ? 'border-[var(--accent)] bg-[var(--accent)]/5'
                                                 : 'border-[var(--border)] hover:border-[var(--accent)]/30'
-                                        } ${!isAvailable ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        }`}
                                     >
                                         {provider.badge && (
-                                            <span className="absolute top-1.5 left-1/2 -translate-x-1/2 text-[9px] font-semibold tracking-wide uppercase text-violet-400 bg-violet-500/10 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                                            <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[9px] font-semibold tracking-wide uppercase text-violet-400 bg-violet-500/10 px-1.5 py-0.5 rounded-full whitespace-nowrap">
                                                 {provider.badge}
                                             </span>
                                         )}
-                                        <div className={`flex flex-col items-center gap-2 ${provider.badge ? 'mt-4' : ''}`}>
-                                            <div className={`w-9 h-9 rounded-full bg-${provider.color}-500/20 flex items-center justify-center`}>
-                                                {provider.local
-                                                    ? (isAvailable ? <Wifi size={18} className={`text-${provider.color}-500`} /> : <WifiOff size={18} className="text-gray-500" />)
-                                                    : <Globe size={18} className={isAvailable ? `text-${provider.color}-500` : 'text-gray-500'} />
-                                                }
-                                            </div>
-                                            <span className="font-medium text-sm text-[var(--text-primary)]">{provider.name}</span>
+                                        <div className="flex items-center gap-2">
+                                            {provider.local
+                                                ? (isAvailable ? <Wifi size={15} className={`text-${provider.color}-500`} /> : <WifiOff size={15} className="text-gray-500" />)
+                                                : <Globe size={15} className={isAvailable ? `text-${provider.color}-500` : 'text-gray-500'} />
+                                            }
+                                            <span className="font-medium text-sm text-[var(--text-primary)] truncate">{provider.name}</span>
                                             {isSelected && (
-                                                <div className="absolute top-2 right-2 w-4 h-4 bg-[var(--accent)] rounded-full flex items-center justify-center">
-                                                    <Check size={10} className="text-white" />
-                                                </div>
+                                                <Check size={13} className="ml-auto flex-shrink-0 text-[var(--accent)]" />
                                             )}
-                                            {provider.local && (
-                                                <span className="text-xs text-[var(--text-tertiary)]">
-                                                    {isAvailable ? `${models.length} models` : 'Offline'}
-                                                </span>
-                                            )}
+                                        </div>
+                                        <div className={`mt-1.5 text-xs ${isAvailable ? 'text-emerald-500' : 'text-[var(--text-tertiary)]'}`}>
+                                            {statusText}
                                         </div>
                                     </button>
                                 );
                             })}
                         </div>
 
-                        {selectedProvider === 'lmstudio' && (
-                            <div className="mb-6 p-4 rounded-xl border border-pink-500/20 bg-pink-500/5 animate-in fade-in slide-in-from-top-2 duration-300">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <Server size={14} className="text-pink-500" />
-                                    <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">LM Studio Configuration</span>
+                        {/* Selected provider: key / local server config, model list, custom models */}
+                        {selectedProviderMeta && (
+                            <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-tertiary)]/30 p-4 space-y-4">
+                                <div className="flex items-center justify-between gap-2">
+                                    <span className="text-sm font-semibold text-[var(--text-primary)]">{selectedProviderMeta.name}</span>
                                 </div>
-                                <div className="space-y-2">
-                                    <label className="block text-xs text-[var(--text-tertiary)] mb-1">Base URL (Local API Server)</label>
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="text"
-                                            value={lmStudioUrl}
-                                            onChange={e => setLmStudioUrl(e.target.value)}
-                                            className="flex-1 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-sm font-mono text-[var(--text-primary)] outline-none focus:border-pink-500/50 transition-colors"
-                                            placeholder="http://localhost:1234"
-                                        />
-                                        <button
-                                            onClick={refreshModels}
-                                            className="px-3 py-2 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border border-[var(--border)] rounded-lg text-xs font-medium text-[var(--text-secondary)] transition-colors"
-                                        >
-                                            Connect
-                                        </button>
-                                    </div>
-                                    <p className="text-[10px] text-[var(--text-tertiary)] mt-1">
-                                        Use http://localhost:1234 when LM Studio is running on this Mac; its LAN "Reachable @" address can change between networks.
-                                    </p>
-                                </div>
-                            </div>
-                        )}
 
-                        {selectedProvider === 'jan' && (
-                            <div className="mb-6 p-4 rounded-xl border border-teal-500/20 bg-teal-500/5 animate-in fade-in slide-in-from-top-2 duration-300">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <Server size={14} className="text-teal-500" />
-                                    <span className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">Jan Configuration</span>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="block text-xs text-[var(--text-tertiary)] mb-1">Base URL (Local API Server)</label>
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="text"
-                                            value={janUrl}
-                                            onChange={e => setJanUrl(e.target.value)}
-                                            className="flex-1 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-sm font-mono text-[var(--text-primary)] outline-none focus:border-teal-500/50 transition-colors"
-                                            placeholder="http://127.0.0.1:6767"
-                                        />
-                                        <button
-                                            onClick={handleRefreshModelSetup}
-                                            className="px-3 py-2 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border border-[var(--border)] rounded-lg text-xs font-medium text-[var(--text-secondary)] transition-colors"
-                                        >
-                                            Connect
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Expanded Model List */}
-                        <div className={`transition-all duration-300 ${selectedProvider ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
-                            {currentProviderModels.length > 0 ? (
-                                <div className="space-y-2">
-                                    {currentProviderModels.length > 8 && (
-                                        <div className="relative mb-2">
-                                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] pointer-events-none" />
+                                {/* Hosted provider: API key */}
+                                {selectedProviderMeta.needsKey && (
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">
+                                            {selectedProviderMeta.name} API key
+                                        </label>
+                                        <div className="relative">
                                             <input
-                                                type="text"
-                                                value={modelSearch}
-                                                onChange={e => setModelSearch(e.target.value)}
-                                                placeholder={`Search ${currentProviderModels.length} models...`}
-                                                className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg-tertiary)] text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] outline-none focus:border-[var(--accent)] transition-colors"
+                                                type="password"
+                                                value={apiKeys[selectedProvider] || ''}
+                                                onChange={e => updateApiKey(selectedProvider, e.target.value)}
+                                                className={`w-full px-4 py-2.5 rounded-xl border transition-all outline-none text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] ${
+                                                    apiKeys[selectedProvider]
+                                                        ? 'border-[var(--accent)]/40 bg-[var(--accent)]/5 focus:ring-2 ring-[var(--accent)]'
+                                                        : 'border-[var(--border)] bg-[var(--bg-primary)] focus:ring-2 ring-[var(--accent)]'
+                                                }`}
+                                                placeholder={`${selectedProviderMeta.name} API key`}
                                             />
-                                        </div>
-                                    )}
-
-                                    {selectedModelObj && (
-                                        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--accent)]/10 border border-[var(--accent)]/30 mb-2">
-                                            <Check size={14} className="text-[var(--accent)] flex-shrink-0" />
-                                            <span className="text-sm font-medium text-[var(--text-primary)] truncate">{selectedModelObj.name}</span>
-                                            {selectedModelObj.contextWindow && (
-                                                <span className="ml-auto flex-shrink-0 text-xs text-[var(--text-tertiary)]">
-                                                    {(selectedModelObj.contextWindow / 1000).toFixed(0)}K ctx
-                                                </span>
+                                            {apiKeys[selectedProvider] && (
+                                                <div className="absolute right-3 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-emerald-400" title="Key set" />
                                             )}
                                         </div>
-                                    )}
+                                    </div>
+                                )}
 
-                                    <div className="border border-[var(--border)] rounded-xl overflow-hidden" style={{ maxHeight: '220px', overflowY: 'auto' }}>
-                                        {filteredModels.length === 0 ? (
-                                            <div className="px-4 py-8 text-center text-sm text-[var(--text-tertiary)]">
-                                                No models match "{modelSearch}"
-                                            </div>
-                                        ) : filteredModels.map(model => (
+                                {/* LM Studio config */}
+                                {selectedProvider === 'lmstudio' && (
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">Base URL (Local API Server)</label>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                value={lmStudioUrl}
+                                                onChange={e => setLmStudioUrl(e.target.value)}
+                                                className="flex-1 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-sm font-mono text-[var(--text-primary)] outline-none focus:border-[var(--accent)] transition-colors"
+                                                placeholder="http://localhost:1234"
+                                            />
                                             <button
-                                                key={model.id}
-                                                onClick={() => updateModel(model.id)}
-                                                className={`w-full px-4 py-2.5 text-left flex items-center justify-between gap-3 transition-colors hover:bg-[var(--bg-hover)] ${
-                                                    model.id === selectedModel ? 'bg-[var(--accent)]/8' : ''
-                                                }`}
+                                                onClick={refreshModels}
+                                                className="px-3 py-2 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border border-[var(--border)] rounded-lg text-xs font-medium text-[var(--text-secondary)] transition-colors"
                                             >
-                                                <div className="min-w-0">
-                                                    <div className="text-sm font-medium text-[var(--text-primary)] truncate">{model.name}</div>
-                                                    {model.contextWindow && (
-                                                        <div className="text-xs text-[var(--text-tertiary)]">
-                                                            {(model.contextWindow / 1000).toFixed(0)}K tokens
+                                                Connect
+                                            </button>
+                                        </div>
+                                        <p className="text-[10px] text-[var(--text-tertiary)]">
+                                            Use http://localhost:1234 when LM Studio is running on this Mac.
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* Jan config */}
+                                {selectedProvider === 'jan' && (
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">Base URL (Local API Server)</label>
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                value={janUrl}
+                                                onChange={e => setJanUrl(e.target.value)}
+                                                className="flex-1 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-sm font-mono text-[var(--text-primary)] outline-none focus:border-[var(--accent)] transition-colors"
+                                                placeholder="http://127.0.0.1:6767"
+                                            />
+                                            {janDiscovery?.status === 'installed-stopped' && janDiscovery?.models?.length > 0 ? (
+                                                <button
+                                                    onClick={() => handleStartJan(janDiscovery.models[0]?.id)}
+                                                    disabled={Boolean(startingJanModel)}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[var(--accent)] text-white text-xs font-medium hover:bg-[var(--accent-hover)] disabled:opacity-50 transition-colors"
+                                                >
+                                                    <RefreshCw size={13} className={startingJanModel ? 'animate-spin' : ''} />
+                                                    Start Jan
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={handleRefreshModelSetup}
+                                                    className="px-3 py-2 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border border-[var(--border)] rounded-lg text-xs font-medium text-[var(--text-secondary)] transition-colors"
+                                                >
+                                                    Connect
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Ollama hint */}
+                                {selectedProvider === 'ollama' && currentProviderModels.length === 0 && (
+                                    <p className="text-xs text-[var(--text-tertiary)]">
+                                        Start Ollama on this machine, then hit Refresh to load its models.
+                                    </p>
+                                )}
+
+                                {/* Model list */}
+                                {currentProviderModels.length > 0 ? (
+                                    <div className="space-y-2">
+                                        {currentProviderModels.length > 8 && (
+                                            <div className="relative">
+                                                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] pointer-events-none" />
+                                                <input
+                                                    type="text"
+                                                    value={modelSearch}
+                                                    onChange={e => setModelSearch(e.target.value)}
+                                                    placeholder={`Search ${currentProviderModels.length} models...`}
+                                                    className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg-primary)] text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] outline-none focus:border-[var(--accent)] transition-colors"
+                                                />
+                                            </div>
+                                        )}
+
+                                        {selectedModelObj && (
+                                            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--accent)]/10 border border-[var(--accent)]/30">
+                                                <Check size={14} className="text-[var(--accent)] flex-shrink-0" />
+                                                <span className="text-sm font-medium text-[var(--text-primary)] truncate">{selectedModelObj.name}</span>
+                                                {selectedModelObj.contextWindow && (
+                                                    <span className="ml-auto flex-shrink-0 text-xs text-[var(--text-tertiary)]">
+                                                        {(selectedModelObj.contextWindow / 1000).toFixed(0)}K ctx
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        <div className="border border-[var(--border)] rounded-xl overflow-hidden" style={{ maxHeight: '220px', overflowY: 'auto' }}>
+                                            {filteredModels.length === 0 ? (
+                                                <div className="px-4 py-8 text-center text-sm text-[var(--text-tertiary)]">
+                                                    No models match "{modelSearch}"
+                                                </div>
+                                            ) : filteredModels.map(model => (
+                                                <div
+                                                    key={model.id}
+                                                    className={`flex items-center transition-colors hover:bg-[var(--bg-hover)] ${
+                                                        model.id === selectedModel ? 'bg-[var(--accent)]/8' : ''
+                                                    }`}
+                                                >
+                                                    <button
+                                                        onClick={() => updateModel(model.id)}
+                                                        className="flex-1 min-w-0 px-4 py-2.5 text-left flex items-center justify-between gap-3"
+                                                    >
+                                                        <div className="min-w-0">
+                                                            <div className="text-sm font-medium text-[var(--text-primary)] truncate flex items-center gap-1.5">
+                                                                {model.name}
+                                                                {model.custom && (
+                                                                    <span className="text-[9px] font-semibold uppercase tracking-wide text-[var(--accent)] bg-[var(--accent)]/10 px-1.5 py-0.5 rounded-full">Custom</span>
+                                                                )}
+                                                            </div>
+                                                            {model.contextWindow && (
+                                                                <div className="text-xs text-[var(--text-tertiary)]">
+                                                                    {(model.contextWindow / 1000).toFixed(0)}K tokens
+                                                                </div>
+                                                            )}
                                                         </div>
+                                                        {model.id === selectedModel && (
+                                                            <Check size={15} className="flex-shrink-0 text-[var(--accent)]" />
+                                                        )}
+                                                    </button>
+                                                    {model.custom && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removeCustomModel(selectedProvider, model.id)}
+                                                            title="Remove custom model"
+                                                            className="px-3 py-2.5 text-[var(--text-tertiary)] hover:text-red-400 transition-colors"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
                                                     )}
                                                 </div>
-                                                {model.id === selectedModel && (
-                                                    <Check size={15} className="flex-shrink-0 text-[var(--accent)]" />
-                                                )}
-                                            </button>
-                                        ))}
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
-                            ) : (
-                                <div className="px-4 py-8 rounded-xl border border-dashed border-[var(--border)] text-center">
-                                    <p className="text-sm text-[var(--text-secondary)]">
-                                        {selectedProvider === 'ollama' || selectedProvider === 'lmstudio' || selectedProvider === 'jan'
-                                            ? `Start ${selectedProvider === 'ollama' ? 'Ollama' : selectedProvider === 'lmstudio' ? 'LM Studio' : 'Jan'} to see available models`
-                                            : 'Add an API key to see available models'
-                                        }
+                                ) : (
+                                    <div className="px-4 py-6 rounded-xl border border-dashed border-[var(--border)] text-center">
+                                        <p className="text-sm text-[var(--text-secondary)]">
+                                            {selectedProviderMeta.needsKey
+                                                ? 'Add an API key above to load models — or add one manually below.'
+                                                : 'No models found yet — start the server and Refresh, or add one manually below.'}
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* Add custom model */}
+                                <div className="pt-3 border-t border-[var(--border)] space-y-2">
+                                    <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">Add a model manually</label>
+                                    <div className="flex flex-col sm:flex-row gap-2">
+                                        <input
+                                            type="text"
+                                            value={customModelId}
+                                            onChange={e => setCustomModelId(e.target.value)}
+                                            onKeyDown={e => { if (e.key === 'Enter') handleAddCustomModel(); }}
+                                            placeholder="model id (e.g. claude-opus-4-8)"
+                                            className="flex-1 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-sm font-mono text-[var(--text-primary)] outline-none focus:border-[var(--accent)] transition-colors"
+                                        />
+                                        <input
+                                            type="text"
+                                            value={customModelName}
+                                            onChange={e => setCustomModelName(e.target.value)}
+                                            onKeyDown={e => { if (e.key === 'Enter') handleAddCustomModel(); }}
+                                            placeholder="Display name (optional)"
+                                            className="flex-1 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)] transition-colors"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={handleAddCustomModel}
+                                            disabled={!customModelId.trim()}
+                                            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-[var(--accent)] text-white text-xs font-medium hover:bg-[var(--accent-hover)] disabled:opacity-50 transition-colors"
+                                        >
+                                            <Plus size={14} />
+                                            Add
+                                        </button>
+                                    </div>
+                                    <p className="text-[10px] text-[var(--text-tertiary)]">
+                                        Adds the model id to {selectedProviderMeta.name} and selects it. Use this for models your provider supports that aren't auto-listed.
                                     </p>
                                 </div>
-                            )}
-                        </div>
-                    </Section>
-                    {/* API Keys */}
-                    <Section title="API Keys" icon={Key} defaultOpen={true}>
-                        {[
-                            { id: 'openrouter', label: 'OpenRouter' },
-                            { id: 'anthropic',  label: 'Anthropic (Claude)' },
-                            { id: 'mistral',    label: 'Mistral' },
-                            { id: 'openai',     label: 'OpenAI' },
-                            { id: 'groq',       label: 'Groq' },
-                            { id: 'gemini',     label: 'Gemini' },
-                            { id: 'github',     label: 'GitHub Token' },
-                        ].map(({ id, label }) => (
-                            <div key={id} className="space-y-1.5">
-                                <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">
-                                    {label}
-                                </label>
-                                <div className="relative">
-                                    <input
-                                        type="password"
-                                        value={apiKeys[id] || ''}
-                                        onChange={e => updateApiKey(id, e.target.value)}
-                                        className={`w-full px-4 py-2.5 rounded-xl border transition-all outline-none text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] ${
-                                            apiKeys[id]
-                                                ? 'border-[var(--accent)]/40 bg-[var(--accent)]/5 focus:ring-2 ring-[var(--accent)]'
-                                                : 'border-[var(--border)] bg-[var(--bg-tertiary)] focus:ring-2 ring-[var(--accent)]'
-                                        }`}
-                                        placeholder={`${label} API key`}
-                                    />
-                                    {apiKeys[id] && (
-                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-emerald-400" title="Key set" />
-                                    )}
-                                </div>
                             </div>
-                        ))}
+                        )}
+                    </Section>
+
+                    {/* GitHub access token (not a model provider) */}
+                    <Section title="GitHub" icon={Key} defaultOpen={false}>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">
+                                GitHub Token
+                            </label>
+                            <div className="relative">
+                                <input
+                                    type="password"
+                                    value={apiKeys.github || ''}
+                                    onChange={e => updateApiKey('github', e.target.value)}
+                                    className={`w-full px-4 py-2.5 rounded-xl border transition-all outline-none text-sm text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] ${
+                                        apiKeys.github
+                                            ? 'border-[var(--accent)]/40 bg-[var(--accent)]/5 focus:ring-2 ring-[var(--accent)]'
+                                            : 'border-[var(--border)] bg-[var(--bg-tertiary)] focus:ring-2 ring-[var(--accent)]'
+                                    }`}
+                                    placeholder="GitHub personal access token"
+                                />
+                                {apiKeys.github && (
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-emerald-400" title="Token set" />
+                                )}
+                            </div>
+                            <p className="text-[10px] text-[var(--text-tertiary)]">Used for GitHub integrations, not for model access.</p>
+                        </div>
                     </Section>
 
                     <Section title="OpenClaw" icon={Server} defaultOpen={false}>

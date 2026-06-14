@@ -127,12 +127,11 @@
 .lh-logo-copy {
   display: flex;
   flex-direction: column;
-  width: min-content;
 }
 
 .lh-title {
   font-family: "Futura", "Avenir Next", "Century Gothic", ui-sans-serif, sans-serif;
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 600;
   color: #fff8e7;
   letter-spacing: 0.07em;
@@ -143,7 +142,7 @@
 }
 
 .lh-subtitle {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--lh-text-muted);
 }
 

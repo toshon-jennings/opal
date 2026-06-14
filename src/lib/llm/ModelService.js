@@ -564,7 +564,11 @@ export class ModelService {
         }
 
         const catalog = [
-            { id: 'claude-opus-4-5',       name: 'Claude Opus 4.5',       contextWindow: 200000 },
+            { id: 'claude-opus-4-8',        name: 'Claude Opus 4.8',       contextWindow: 200000 },
+            { id: 'claude-sonnet-4-6',      name: 'Claude Sonnet 4.6',     contextWindow: 200000 },
+            { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku 4.5',   contextWindow: 200000 },
+            { id: 'claude-fable-5',         name: 'Claude Fable 5',        contextWindow: 200000 },
+            { id: 'claude-opus-4-5',        name: 'Claude Opus 4.5',       contextWindow: 200000 },
             { id: 'claude-sonnet-4-5',      name: 'Claude Sonnet 4.5',     contextWindow: 200000 },
             { id: 'claude-haiku-3-5',       name: 'Claude Haiku 3.5',      contextWindow: 200000 },
             { id: 'claude-opus-4-0',        name: 'Claude Opus 4',         contextWindow: 200000 },

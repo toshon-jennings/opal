@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { ModelService, getModelCapabilities } from '../lib/llm/ModelService';
 import {
     API_KEY_STORAGE_KEYS,
@@ -64,6 +64,22 @@ function nonEmptyApiKeysToStorageSnapshot(keys) {
         }
         return snapshot;
     }, {});
+}
+
+// Merge user-added custom models into the fetched model map (dedupe by id)
+function mergeCustomModels(fetchedModels, customModels) {
+    if (!customModels || Object.keys(customModels).length === 0) {
+        return fetchedModels;
+    }
+    const merged = { ...fetchedModels };
+    for (const [provider, models] of Object.entries(customModels)) {
+        if (!Array.isArray(models) || models.length === 0) continue;
+        const base = merged[provider] || [];
+        const existingIds = new Set(base.map(m => m.id));
+        const extras = models.filter(m => m && m.id && !existingIds.has(m.id));
+        merged[provider] = extras.length ? [...base, ...extras] : base;
+    }
+    return merged;
 }
 
 export function ChatProvider({ children }) {
@@ -412,6 +428,26 @@ export function ChatProvider({ children }) {
         mistral: []
     });
 
+    // User-added custom models, persisted and merged into availableModels.
+    // Shape: { [provider]: [{ id, name, custom: true }] }
+    const [customModels, setCustomModels] = useState(() => {
+        const parsed = readJsonStorage('custom_models', null);
+        return parsed && typeof parsed === 'object' ? parsed : {};
+    });
+
+    useEffect(() => {
+        const serialized = serializeJson(customModels);
+        localStorage.setItem('custom_models', serialized);
+        if (electronPersistenceReadyRef.current) {
+            saveElectronPersistence({ custom_models: serialized }).catch(err => console.error('Failed to persist custom models:', err));
+        }
+    }, [customModels]);
+
+    const combinedModels = useMemo(
+        () => mergeCustomModels(availableModels, customModels),
+        [availableModels, customModels]
+    );
+
     // Current model capabilities
     const [currentModelCapabilities, setCurrentModelCapabilities] = useState({
         text: true,
@@ -465,7 +501,7 @@ export function ChatProvider({ children }) {
             saveElectronPersistence({ selected_provider: provider }).catch(err => console.error('Failed to persist selected provider:', err));
         }
         // Auto-select first model if current selection is from different provider
-        const modelsForProvider = availableModels[provider];
+        const modelsForProvider = combinedModels[provider];
         if (modelsForProvider && modelsForProvider.length > 0) {
             if (!selectedModel || !modelsForProvider.find(m => m.id === selectedModel)) {
                 updateModel(modelsForProvider[0].id);
@@ -481,6 +517,30 @@ export function ChatProvider({ children }) {
         }
     };
 
+    const addCustomModel = useCallback((provider, modelId, name) => {
+        const id = (modelId || '').trim();
+        if (!provider || !id) return;
+        setCustomModels(prev => {
+            const existing = prev[provider] || [];
+            if (existing.some(m => m.id === id)) return prev;
+            const entry = { id, name: (name || '').trim() || id, custom: true };
+            return { ...prev, [provider]: [...existing, entry] };
+        });
+    }, []);
+
+    const removeCustomModel = useCallback((provider, modelId) => {
+        setCustomModels(prev => {
+            const existing = prev[provider];
+            if (!existing) return prev;
+            const next = existing.filter(m => m.id !== modelId);
+            if (next.length === existing.length) return prev;
+            const updated = { ...prev };
+            if (next.length) updated[provider] = next;
+            else delete updated[provider];
+            return updated;
+        });
+    }, []);
+
     const fetchModels = useCallback(async () => {
         setIsLoadingModels(true);
         try {
@@ -488,8 +548,10 @@ export function ChatProvider({ children }) {
             setAvailableModels(models);
 
             // Auto-select a model if none is selected, or if the stored model
-            // is no longer present in the freshly-loaded list (e.g. after a refresh)
-            const allModelIds = Object.values(models).flat().map(m => m.id);
+            // is no longer present in the freshly-loaded list (e.g. after a refresh).
+            // User-added custom models count as valid so a refresh never deselects them.
+            const customModelIds = Object.values(customModels).flat().map(m => m.id);
+            const allModelIds = [...Object.values(models).flat().map(m => m.id), ...customModelIds];
             const storedModelStillValid = selectedModel && allModelIds.includes(selectedModel);
             if (!storedModelStillValid) {
                 for (const provider of ['openrouter', 'groq', 'openai', 'anthropic', 'mistral', 'gemini', 'ollama', 'lmstudio', 'jan']) {
@@ -505,7 +567,7 @@ export function ChatProvider({ children }) {
         } finally {
             setIsLoadingModels(false);
         }
-    }, [apiKeys, selectedModel, lmStudioUrl, janUrl]);
+    }, [apiKeys, selectedModel, lmStudioUrl, janUrl, customModels]);
 
     // Fetch models on mount and whenever API keys or local model endpoints change
     useEffect(() => {
@@ -573,7 +635,9 @@ export function ChatProvider({ children }) {
             selectedModel,
             updateProvider,
             updateModel,
-            availableModels,
+            availableModels: combinedModels,
+            addCustomModel,
+            removeCustomModel,
             isLoadingModels,
             fetchModels,
             refreshModels,
