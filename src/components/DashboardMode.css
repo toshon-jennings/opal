@@ -539,105 +539,39 @@
     .dash-root * { animation: none !important; transition: none !important; }
 }
 
-/* ── Hermes hero card ──────────────────────────────────────────────── */
+/* ── Hermes hero tile (Launchpad) ──────────────────────────────────── */
 
-.dash-card-hero {
-    padding: 0 !important;
+.dash-tile-hero {
     overflow: hidden;
-    position: relative;
 }
 
-.dash-card-hero-inner {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    padding: 0;
-    border: none;
-    background: none;
-    text-align: left;
-    cursor: pointer;
-    overflow: hidden;
-    border-radius: 18px;
-}
-
-.dash-card-hero-art {
+.dash-tile-art {
     position: absolute;
     inset: 0;
     background-image: url('/artwork/design-01kv2y38zh-1781436378.png');
     background-size: cover;
     background-position: center;
-    opacity: 0.06;
+    opacity: 0.08;
     pointer-events: none;
     z-index: 0;
-    mask-image: radial-gradient(circle at center, black 30%, transparent 90%);
-    -webkit-mask-image: radial-gradient(circle at center, black 30%, transparent 90%);
+    mask-image: radial-gradient(circle at center, black 20%, transparent 85%);
+    -webkit-mask-image: radial-gradient(circle at center, black 20%, transparent 85%);
 }
 
-.dash-card-hero-inner:hover .dash-card-hero-art {
-    opacity: 0.1;
+.dash-tile-hero:hover .dash-tile-art {
+    opacity: 0.14;
 }
 
-.dash-card-hero-content {
+.dash-tile-hero .dash-tile-icon,
+.dash-tile-hero .dash-tile-name,
+.dash-tile-hero .dash-tile-desc,
+.dash-tile-hero .dash-tile-arrow,
+.dash-tile-hero .dash-tile-open,
+.dash-tile-hero .dash-tile-badge {
     position: relative;
     z-index: 1;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 16px 18px;
 }
 
-.dash-card-hero-logo {
-    flex-shrink: 0;
-    display: grid;
-    place-items: center;
-    width: 42px;
-    height: 42px;
-    border-radius: 12px;
-    background: rgba(234, 179, 8, 0.1);
-    border: 1px solid rgba(234, 179, 8, 0.25);
-    overflow: hidden;
-}
-
-.dash-card-hero-logo img {
-    width: 26px;
-    height: 26px;
-    object-fit: contain;
-}
-
-.dash-card-hero-text {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    flex: 1;
-    min-width: 0;
-}
-
-.dash-card-hero-text strong {
-    font-family: 'Outfit', system-ui, sans-serif;
-    font-size: 15px;
-    font-weight: 700;
-    color: var(--text-primary);
-}
-
-.dash-card-hero-text span {
-    font-size: 11.5px;
-    color: var(--text-tertiary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.dash-card-hero-arrow {
-    flex-shrink: 0;
-    color: var(--text-tertiary);
-    opacity: 0;
-    transform: translate(-4px, 4px);
-    transition: opacity 0.18s ease, transform 0.18s ease;
-}
-
-.dash-card-hero-inner:hover .dash-card-hero-arrow {
-    opacity: 1;
-    transform: translate(0, 0);
-    color: #eab308;
+.dash-tile-hero::before {
+    z-index: 1;
 }

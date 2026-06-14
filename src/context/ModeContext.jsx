@@ -21,6 +21,7 @@ export const MODES = {
     AUTORESEARCH: 'autoresearch', // Karpathy prompt-optimization loop monitor
     OFFICE: 'office',  // Animated agent office scene (Perci HQ)
     LIGHTHOUSE: 'lighthouse', // Port scanning and conflict detection
+    NOTES: 'notes',    // Markdown wiki notes with backlinks
 };
 
 // Non-mode windows (surfaces that open as windows but aren't in the MODES enum).
@@ -39,6 +40,7 @@ export const WINDOW_TITLES = {
     [MODES.AUTORESEARCH]: 'Autoresearch',
     [MODES.OFFICE]: 'Perci HQ',
     [MODES.LIGHTHOUSE]: 'Lighthouse',
+    [MODES.NOTES]: 'Workspace Notes',
     [OPENCLAW_WINDOW_ID]: 'OpenClaw',
     [HERMES_WINDOW_ID]: 'Hermes',
     [YOUTUBE_WINDOW_ID]: 'YouTube',

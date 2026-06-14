@@ -14,6 +14,7 @@ const GLYPHS = {
     [MODES.OFFICE]: 'HQ',
     [MODES.MISSION]: 'MC',
     [MODES.BUILD]: 'BD',
+    [MODES.NOTES]: 'NT',
     [OPENCLAW_WINDOW_ID]: 'OC',
     [HERMES_WINDOW_ID]: 'HM',
     [YOUTUBE_WINDOW_ID]: 'YT',

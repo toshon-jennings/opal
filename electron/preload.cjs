@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('electron', {
   listFiles: (path) => ipcRenderer.invoke('list-files', path),
   readFile: (path) => ipcRenderer.invoke('read-file', path),
   writeFile: (path, content) => ipcRenderer.invoke('write-file', { filePath: path, content }),
+  deleteFile: (path) => ipcRenderer.invoke('delete-file', path),
   getAppData: () => ipcRenderer.invoke('app-data:get'),
   setAppData: (data) => ipcRenderer.invoke('app-data:set', data),
   getAppDataPath: () => ipcRenderer.invoke('app-data:path'),

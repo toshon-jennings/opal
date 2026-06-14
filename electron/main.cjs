@@ -2109,6 +2109,16 @@ ipcMain.handle('write-file', async (event, { filePath, content }) => {
   }
 });
 
+ipcMain.handle('delete-file', async (event, filePath) => {
+  try {
+    await fs.unlink(filePath);
+    return true;
+  } catch (err) {
+    console.error('Error deleting file:', err);
+    throw err;
+  }
+});
+
 // ── Lighthouse IPC handlers ──────────────────────────────────────────────
 
 function execCmd(cmd, timeout = 10000) {

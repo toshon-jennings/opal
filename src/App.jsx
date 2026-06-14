@@ -13,6 +13,7 @@ import OfficePanel from './components/OfficePanel';
 import HermesMode from './components/HermesMode';
 import LighthouseMode from './components/LighthouseMode';
 import DashboardMode from './components/DashboardMode';
+import NotesMode from './components/NotesMode';
 import { SettingsModal } from './components/SettingsModal';
 import DesktopHost from './components/windows/DesktopHost';
 import Dock from './components/windows/Dock';
@@ -504,6 +505,7 @@ function AppContent() {
             case MODES.OFFICE: return <OfficePanel />;
             case MODES.BUILD: return <BuildMode />;
             case MODES.LIGHTHOUSE: return <LighthouseMode />;
+            case MODES.NOTES: return <NotesMode />;
             case MODES.MISSION:
                 return (
                     <MissionControl

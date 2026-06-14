@@ -20,6 +20,7 @@ const TILES = [
     { id: MODES.CHAT, icon: MessageSquare, title: 'Chat', desc: 'Converse with any model', hue: '#f97316' },
     { id: MODES.COWORK, icon: Users, title: 'Cowork', desc: 'Session-based deep work', hue: '#22d3ee' },
     { id: MODES.CODE, icon: Code, title: 'Code', desc: 'Edit and run your repos', hue: '#a78bfa' },
+    { id: MODES.NOTES, icon: BookOpen, title: 'Notes', desc: 'Markdown wiki with backlinks', hue: '#10b981' },
     { id: MODES.AGENTS, icon: Bot, title: 'Agents', desc: 'Queue jobs for the CLI crew', hue: '#4ade80' },
     { id: MODES.AUTORESEARCH, icon: FlaskConical, title: 'Research', desc: 'Prompt-optimization loops', hue: '#f472b6' },
     { id: MODES.OFFICE, icon: Building2, title: 'Office', desc: 'Visit the crew at Perci HQ', hue: '#fbbf24' },
@@ -27,7 +28,7 @@ const TILES = [
     { id: MODES.BUILD, icon: Hammer, title: 'Build', desc: 'Generate and ship projects', hue: '#fb7185' },
     { id: MODES.LIGHTHOUSE, icon: Radar, logo: lhLogo, title: 'Lighthouse', desc: 'Scan ports and find conflicts', hue: '#ffbf45' },
     { id: OPENCLAW_WINDOW_ID, icon: Server, logo: '/openclaw-logo.svg', title: 'OpenClaw', desc: 'Gateway dashboard', hue: '#ef4444' },
-    { id: HERMES_WINDOW_ID, icon: null, logo: hermesLogo, title: 'Hermes', desc: 'CLI agent — chat, console, sessions', hue: '#eab308' },
+    { id: HERMES_WINDOW_ID, icon: null, logo: hermesLogo, title: 'Hermes', desc: 'CLI agent — chat, console, sessions', hue: '#eab308', artwork: true },
 ];
 
 const AGENT_LABELS = Object.fromEntries(AGENT_DEFINITIONS.map((a) => [a.id, a.shortLabel]));
@@ -209,14 +210,15 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                     <section className="dash-launch">
                         <h2 className="dash-section-title">Launchpad</h2>
                         <div className="dash-tiles">
-                            {TILES.map(({ id, icon: Icon, logo, title, desc, hue }, i) => (
+                            {TILES.map(({ id, icon: Icon, logo, title, desc, hue, artwork }, i) => (
                                 <button
                                     key={id}
                                     type="button"
-                                    className="dash-tile"
+                                    className={`dash-tile${artwork ? ' dash-tile-hero' : ''}`}
                                     style={{ '--tile': hue, '--i': i }}
                                     onClick={() => openWindow(id)}
                                 >
+                                    {artwork && <span className="dash-tile-art" aria-hidden="true" />}
                                     <span className="dash-tile-icon">
                                         {logo ? <img src={logo} alt="" className="dash-tile-logo" /> : <Icon size={20} />}
                                     </span>
@@ -246,28 +248,6 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                                 onOpenMode={(modeId) => openWindow(modeId)}
                             />
                         )}
-
-                        {/* Hermes card */}
-                        <div className="dash-card dash-card-hero" style={{ '--i': 1 }}>
-                            <button
-                                type="button"
-                                className="dash-card-hero-inner"
-                                onClick={() => openWindow(HERMES_WINDOW_ID)}
-                                title="Open Hermes"
-                            >
-                                <span className="dash-card-hero-art" aria-hidden="true" />
-                                <span className="dash-card-hero-content">
-                                    <span className="dash-card-hero-logo">
-                                        <img src={hermesLogo} alt="" />
-                                    </span>
-                                    <span className="dash-card-hero-text">
-                                        <strong>Hermes</strong>
-                                        <span>CLI agent — chat, console, sessions</span>
-                                    </span>
-                                    <ArrowUpRight size={14} className="dash-card-hero-arrow" />
-                                </span>
-                            </button>
-                        </div>
 
                         {/* Agent pulse */}
                         <div className="dash-card" style={{ '--i': 2 }}>
