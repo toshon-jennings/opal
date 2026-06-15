@@ -1,32 +1,32 @@
 {
   "docs/architecture/graphify-out/graph.json": {
-    "mtime": 1780828682.384288,
-    "ast_hash": "4ee9c6019755b44b60f1b31ddda2f4fb",
+    "mtime": 1780878683.244707,
+    "ast_hash": "93b4933641bdea2d0539d3110b416830",
     "semantic_hash": ""
   },
   "docs/architecture/graphify-out/manifest.json": {
-    "mtime": 1780828664.5602674,
-    "ast_hash": "7bfec97dbc402c8a59b17f2f174bd280",
+    "mtime": 1780878683.2457855,
+    "ast_hash": "2a517fdb33ba734f8297317eefa87103",
     "semantic_hash": ""
   },
   "docs/architecture/graphify-out/GRAPH_REPORT.md": {
-    "mtime": 1780828682.300018,
-    "ast_hash": "3dff79175fbd653a5b12448781200af1",
+    "mtime": 1780878683.2117925,
+    "ast_hash": "7af0b826b3686b421e680b1fa7d3370a",
     "semantic_hash": ""
   },
   "docs/architecture/graphify-out/graph.html": {
-    "mtime": 1780828682.3968303,
-    "ast_hash": "cc71eebd3a37d99bb8e8035448fbfe4d",
+    "mtime": 1780878683.2209833,
+    "ast_hash": "7edcfc738f328d35f60883bd7941427d",
     "semantic_hash": ""
   },
   "docs/architecture/graphify-out/.graphify_analysis.json": {
-    "mtime": 1780828664.550332,
-    "ast_hash": "e06a70dcda5c500be57c2e1286621a89",
+    "mtime": 1780878683.2096636,
+    "ast_hash": "cdcd985f408183bdcdbe0eed4452b764",
     "semantic_hash": ""
   },
   "docs/architecture/graphify-out/.graphify_labels.json": {
-    "mtime": 1780828682.3863099,
-    "ast_hash": "0d209aa888474ef8d0ff1371025e1133",
+    "mtime": 1780878683.2107382,
+    "ast_hash": "d1da3c6f9ed7613ab362714c951ded9d",
     "semantic_hash": ""
   }
 }

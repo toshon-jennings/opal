@@ -1,156 +1,409 @@
-# Graph Report - /tmp/perci-graph  (2026-06-07)
+# Graph Report - docs/architecture/graphify-out  (2026-06-14)
 
 ## Corpus Check
-- cluster-only mode — file stats not available
+- 5 files · ~69,485 words
+- Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 514 nodes · 1047 edges · 31 communities (23 shown, 8 thin omitted)
-- Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS · INFERRED: 1 edges (avg confidence: 0.8)
+- 423 nodes · 418 edges · 70 communities
+- Extraction: 100% EXTRACTED · 0% INFERRED · 0% AMBIGUOUS
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `5f2c9862`
+- Built from commit: `282faea5`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- [[_COMMUNITY_UI Navigation and Settings|UI Navigation and Settings]]
-- [[_COMMUNITY_Code and Cowork Modes|Code and Cowork Modes]]
-- [[_COMMUNITY_App Core and Providers|App Core and Providers]]
-- [[_COMMUNITY_Chat and Attachments|Chat and Attachments]]
-- [[_COMMUNITY_Intelligent Search Tool|Intelligent Search Tool]]
-- [[_COMMUNITY_Mission Execution UI|Mission Execution UI]]
-- [[_COMMUNITY_LLM Provider Clients|LLM Provider Clients]]
-- [[_COMMUNITY_Model Capabilities Service|Model Capabilities Service]]
-- [[_COMMUNITY_Agent Management|Agent Management]]
-- [[_COMMUNITY_Mission Event Logging|Mission Event Logging]]
-- [[_COMMUNITY_Harness Memory Management|Harness Memory Management]]
-- [[_COMMUNITY_Artifact Preview Security|Artifact Preview Security]]
-- [[_COMMUNITY_Diff and Intent Review|Diff and Intent Review]]
-- [[_COMMUNITY_Thinking Content Parsing|Thinking Content Parsing]]
-- [[_COMMUNITY_Mission Control Guide|Mission Control Guide]]
-- [[_COMMUNITY_Mode Guide Modal|Mode Guide Modal]]
-- [[_COMMUNITY_Session Lifecycle Tracking|Session Lifecycle Tracking]]
-- [[_COMMUNITY_Search Progress UI|Search Progress UI]]
-- [[_COMMUNITY_Mode Error Handling|Mode Error Handling]]
-- [[_COMMUNITY_Mission Validation Logic|Mission Validation Logic]]
-- [[_COMMUNITY_Mission Transit Mapping|Mission Transit Mapping]]
-- [[_COMMUNITY_Hermes Assets|Hermes Assets]]
-- [[_COMMUNITY_Perci Branding|Perci Branding]]
-- [[_COMMUNITY_Openclaw Branding|Openclaw Branding]]
+- [[_COMMUNITY_Community 0|Community 0]]
+- [[_COMMUNITY_Community 1|Community 1]]
+- [[_COMMUNITY_Community 2|Community 2]]
+- [[_COMMUNITY_Community 3|Community 3]]
+- [[_COMMUNITY_Community 4|Community 4]]
+- [[_COMMUNITY_Community 5|Community 5]]
+- [[_COMMUNITY_Community 6|Community 6]]
+- [[_COMMUNITY_Community 7|Community 7]]
+- [[_COMMUNITY_Community 8|Community 8]]
+- [[_COMMUNITY_Community 9|Community 9]]
+- [[_COMMUNITY_Community 10|Community 10]]
+- [[_COMMUNITY_Community 11|Community 11]]
+- [[_COMMUNITY_Community 12|Community 12]]
+- [[_COMMUNITY_Community 13|Community 13]]
+- [[_COMMUNITY_Community 14|Community 14]]
+- [[_COMMUNITY_Community 15|Community 15]]
+- [[_COMMUNITY_Community 16|Community 16]]
+- [[_COMMUNITY_Community 17|Community 17]]
+- [[_COMMUNITY_Community 18|Community 18]]
+- [[_COMMUNITY_Community 19|Community 19]]
+- [[_COMMUNITY_Community 20|Community 20]]
+- [[_COMMUNITY_Community 21|Community 21]]
+- [[_COMMUNITY_Community 22|Community 22]]
+- [[_COMMUNITY_Community 23|Community 23]]
+- [[_COMMUNITY_Community 24|Community 24]]
+- [[_COMMUNITY_Community 25|Community 25]]
+- [[_COMMUNITY_Community 26|Community 26]]
+- [[_COMMUNITY_Community 27|Community 27]]
+- [[_COMMUNITY_Community 28|Community 28]]
+- [[_COMMUNITY_Community 29|Community 29]]
+- [[_COMMUNITY_Community 30|Community 30]]
+- [[_COMMUNITY_Community 31|Community 31]]
+- [[_COMMUNITY_Community 32|Community 32]]
+- [[_COMMUNITY_Community 33|Community 33]]
+- [[_COMMUNITY_Community 34|Community 34]]
+- [[_COMMUNITY_Community 35|Community 35]]
+- [[_COMMUNITY_Community 36|Community 36]]
+- [[_COMMUNITY_Community 37|Community 37]]
+- [[_COMMUNITY_Community 38|Community 38]]
+- [[_COMMUNITY_Community 39|Community 39]]
+- [[_COMMUNITY_Community 40|Community 40]]
+- [[_COMMUNITY_Community 41|Community 41]]
+- [[_COMMUNITY_Community 42|Community 42]]
+- [[_COMMUNITY_Community 43|Community 43]]
+- [[_COMMUNITY_Community 44|Community 44]]
+- [[_COMMUNITY_Community 45|Community 45]]
+- [[_COMMUNITY_Community 46|Community 46]]
+- [[_COMMUNITY_Community 47|Community 47]]
+- [[_COMMUNITY_Community 48|Community 48]]
+- [[_COMMUNITY_Community 49|Community 49]]
+- [[_COMMUNITY_Community 50|Community 50]]
+- [[_COMMUNITY_Community 51|Community 51]]
+- [[_COMMUNITY_Community 52|Community 52]]
+- [[_COMMUNITY_Community 53|Community 53]]
+- [[_COMMUNITY_Community 54|Community 54]]
+- [[_COMMUNITY_Community 55|Community 55]]
+- [[_COMMUNITY_Community 56|Community 56]]
+- [[_COMMUNITY_Community 57|Community 57]]
+- [[_COMMUNITY_Community 58|Community 58]]
+- [[_COMMUNITY_Community 59|Community 59]]
+- [[_COMMUNITY_Community 60|Community 60]]
+- [[_COMMUNITY_Community 61|Community 61]]
+- [[_COMMUNITY_Community 62|Community 62]]
+- [[_COMMUNITY_Community 63|Community 63]]
+- [[_COMMUNITY_Community 64|Community 64]]
+- [[_COMMUNITY_Community 65|Community 65]]
+- [[_COMMUNITY_Community 66|Community 66]]
+- [[_COMMUNITY_Community 67|Community 67]]
+- [[_COMMUNITY_Community 68|Community 68]]
+- [[_COMMUNITY_Community 69|Community 69]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `appendMissionRunEvent()` - 19 edges
-2. `useMode()` - 17 edges
-3. `useChat()` - 14 edges
-4. `ModelService` - 14 edges
-5. `readMissionRuns()` - 13 edges
-6. `upsertMissionRun()` - 13 edges
-7. `AppContent()` - 12 edges
-8. `useTheme()` - 12 edges
-9. `executeIntegrationTool()` - 12 edges
-10. `chooseModelForTask()` - 11 edges
+1. `communities` - 32 edges
+2. `cohesion` - 32 edges
+3. `Communities (31 total, 8 thin omitted)` - 17 edges
+4. `Graph Report - /tmp/perci-graph  (2026-06-07)` - 11 edges
+5. `App.jsx` - 4 edges
+6. `components/AgentsPanel.jsx` - 4 edges
+7. `components/ArtifactPanel.jsx` - 4 edges
+8. `components/AttachmentSystem.jsx` - 4 edges
+9. `components/BuildCompare.jsx` - 4 edges
+10. `components/BuildMode.jsx` - 4 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `resolveModelInput()` --calls--> `tokenize()`  [INFERRED]
-  components/AgentsPanel.jsx → lib/harnessMemory.js
-- `AppContent()` --calls--> `useMode()`  [EXTRACTED]
-  App.jsx → context/ModeContext.jsx
-- `AppContent()` --calls--> `appendMissionRunEvent()`  [EXTRACTED]
-  App.jsx → lib/missionControl.js
-- `AppContent()` --calls--> `recordGatewayCheck()`  [EXTRACTED]
-  App.jsx → lib/missionControl.js
-- `AppContent()` --calls--> `recordTerminalCommandResult()`  [EXTRACTED]
-  App.jsx → lib/missionControl.js
+- None detected - all connections are within the same source files.
 
 ## Import Cycles
 - None detected.
 
-## Communities (31 total, 8 thin omitted)
+## Communities (70 total, 0 thin omitted)
 
-### Community 0 - "UI Navigation and Settings"
+### Community 0 - "Community 0"
+Cohesion: 0.05
+Nodes (37): communities, 0, 1, 10, 11, 12, 13, 14 (+29 more)
+
+### Community 1 - "Community 1"
 Cohesion: 0.06
-Nodes (37): RoutinesView(), saveRoutines(), navItems, LOCAL_IMAGE_PATHS, LOCAL_PROVIDER_NAMES, API_KEY_PROVIDERS, ChatContext, ChatProvider() (+29 more)
+Nodes (32): cohesion, 0, 1, 10, 11, 12, 13, 14 (+24 more)
 
-### Community 1 - "Code and Cowork Modes"
+### Community 2 - "Community 2"
 Cohesion: 0.06
-Nodes (31): CodeMode(), EditorErrorBoundary, getLanguage(), PROVIDERS_REQUIRING_API_KEYS, CONNECTOR_TABS, DEFAULT_CONNECTORS, LOCAL_AGENT_TOOLS, SCHEDULE_PILLS (+23 more)
+Nodes (31): 0, 1, 10, 11, 12, 13, 14, 15 (+23 more)
 
-### Community 2 - "App Core and Providers"
-Cohesion: 0.08
-Nodes (26): AppContent(), CompareColumn(), PROVIDER_LABELS, BuildMode(), EditorErrorBoundary, getBuildLanguage(), TerminalPanel(), defaultFiles (+18 more)
-
-### Community 3 - "Chat and Attachments"
-Cohesion: 0.06
-Nodes (27): AttachmentMenu(), AttachmentPreview(), ChatMessage(), ArtifactCard(), ChatMode(), formatArtifactDate(), formatRelativeDate(), getArtifactExcerpt() (+19 more)
-
-### Community 4 - "Intelligent Search Tool"
-Cohesion: 0.10
-Nodes (6): detectLocalRuntimeFact(), getCurrentDateParts(), LOCAL_MODEL_PROVIDERS, RELEVANCE_STOPWORDS, resolveRelativeDateQuery(), tokenizeForRelevance()
-
-### Community 5 - "Mission Execution UI"
+### Community 3 - "Community 3"
 Cohesion: 0.07
-Nodes (14): formatTime(), getRunSourceType(), matchesRunFilter(), needsValidation(), NodeDetail(), RUN_FILTERS, RunListItem(), STATUS_META (+6 more)
+Nodes (28): assets/openclaw-color.png, ast_hash, mtime, semantic_hash, components/MissionControl.jsx, ast_hash, mtime, semantic_hash (+20 more)
 
-### Community 6 - "LLM Provider Clients"
-Cohesion: 0.18
-Nodes (16): AnthropicClient, BaseClient, extractThinking(), extractThinkingTokens(), flushUnclosedThinking(), GeminiClient, GroqClient, JanClient (+8 more)
+### Community 4 - "Community 4"
+Cohesion: 0.07
+Nodes (27): Communities (31 total, 8 thin omitted), Community 0 - "UI Navigation and Settings", Community 11 - "Harness Memory Management", Community 12 - "Artifact Preview Security", Community 13 - "Diff and Intent Review", Community 17 - "Session Lifecycle Tracking", Community 18 - "Search Progress UI", Community 1 - "Code and Cowork Modes" (+19 more)
 
-### Community 7 - "Model Capabilities Service"
-Cohesion: 0.13
-Nodes (10): AUDIO_PATTERNS, detectCapabilityFromName(), getModelCapabilities(), getModelCapabilityLabel(), ModelService, supportsAudio(), supportsImage(), supportsVideo() (+2 more)
-
-### Community 8 - "Agent Management"
-Cohesion: 0.09
-Nodes (12): ACTIVE_JOB_STATUSES, AGENT_DEFINITIONS, AGENT_MODEL_HINTS, AGENT_MODEL_SUGGESTIONS, ATTENTION_JOB_STATUSES, COMPLETED_JOB_STATUSES, isActiveStatus(), isStaleJob() (+4 more)
-
-### Community 9 - "Mission Event Logging"
-Cohesion: 0.18
-Nodes (18): appendMissionRunEvent(), createSeedMissionRuns(), isDiffReviewCommand(), looksLikeDiffOutput(), markValidationCheckpoints(), maybeIngestRunMemory(), readMissionRuns(), recordBuildGenerationFinish() (+10 more)
-
-### Community 11 - "Harness Memory Management"
-Cohesion: 0.27
-Nodes (15): addHarnessMemory(), buildMemoryPrompt(), evaluateMemoryQuality(), getRunSourceType(), ingestRunMemory(), isGenericOutcome(), normalizeForComparison(), normalizeMemoryItem() (+7 more)
-
-### Community 12 - "Artifact Preview Security"
-Cohesion: 0.42
-Nodes (9): assertPreviewBudget(), buildPreviewErrorDocument(), buildStaticPreviewDocument(), createPreviewRuntimeGuard(), escapeHtml(), getPreviewCsp(), PREVIEW_CDN_URLS, PREVIEW_SECURITY_LIMITS (+1 more)
-
-### Community 13 - "Diff and Intent Review"
-Cohesion: 0.39
-Nodes (7): createIntentReview(), inferRisks(), inferValidation(), parseDiffLikeOutput(), readIntentReviews(), saveIntentReview(), summarizeIntent()
-
-### Community 17 - "Session Lifecycle Tracking"
+### Community 5 - "Community 5"
 Cohesion: 0.25
-Nodes (8): normalizeRun(), normalizeValidation(), recordBuildGenerationStart(), recordBuildReset(), recordCodeFileSave(), recordCodeSessionStart(), recordCoworkSessionStart(), upsertMissionRun()
+Nodes (7): built_at_commit, directed, graph, hyperedges, links, multigraph, nodes
 
-### Community 18 - "Search Progress UI"
-Cohesion: 0.33
-Nodes (3): formatElapsed(), RESEARCH_PHASES, ResearchProgress()
+### Community 6 - "Community 6"
+Cohesion: 0.50
+Nodes (4): App.jsx, ast_hash, mtime, semantic_hash
 
-### Community 21 - "Mission Validation Logic"
-Cohesion: 0.40
-Nodes (5): isRunNeedingValidation(), isValidationCommand(), readValidationTarget(), resolveValidationTarget(), setMissionValidationTarget()
+### Community 7 - "Community 7"
+Cohesion: 0.50
+Nodes (4): assets/hermes.png, ast_hash, mtime, semantic_hash
+
+### Community 8 - "Community 8"
+Cohesion: 0.50
+Nodes (4): assets/perci-logo.png, ast_hash, mtime, semantic_hash
+
+### Community 9 - "Community 9"
+Cohesion: 0.50
+Nodes (4): components/AgentsPanel.jsx, ast_hash, mtime, semantic_hash
+
+### Community 10 - "Community 10"
+Cohesion: 0.50
+Nodes (4): components/ArtifactPanel.jsx, ast_hash, mtime, semantic_hash
+
+### Community 11 - "Community 11"
+Cohesion: 0.50
+Nodes (4): components/AttachmentSystem.jsx, ast_hash, mtime, semantic_hash
+
+### Community 12 - "Community 12"
+Cohesion: 0.50
+Nodes (4): components/BuildCompare.jsx, ast_hash, mtime, semantic_hash
+
+### Community 13 - "Community 13"
+Cohesion: 0.50
+Nodes (4): components/BuildMode.jsx, ast_hash, mtime, semantic_hash
+
+### Community 14 - "Community 14"
+Cohesion: 0.50
+Nodes (4): components/ChangelogModal.jsx, ast_hash, mtime, semantic_hash
+
+### Community 15 - "Community 15"
+Cohesion: 0.50
+Nodes (4): components/ChatMessage.jsx, ast_hash, mtime, semantic_hash
+
+### Community 16 - "Community 16"
+Cohesion: 0.50
+Nodes (4): components/ChatMode.jsx, ast_hash, mtime, semantic_hash
+
+### Community 17 - "Community 17"
+Cohesion: 0.50
+Nodes (4): components/CitationDisplay.jsx, ast_hash, mtime, semantic_hash
+
+### Community 18 - "Community 18"
+Cohesion: 0.50
+Nodes (4): components/CodeMode.jsx, ast_hash, mtime, semantic_hash
+
+### Community 19 - "Community 19"
+Cohesion: 0.50
+Nodes (4): components/CoworkMode.jsx, ast_hash, mtime, semantic_hash
+
+### Community 20 - "Community 20"
+Cohesion: 0.50
+Nodes (4): components/EditableTitle.jsx, ast_hash, mtime, semantic_hash
+
+### Community 21 - "Community 21"
+Cohesion: 0.50
+Nodes (4): components/FileExplorer.jsx, ast_hash, mtime, semantic_hash
+
+### Community 22 - "Community 22"
+Cohesion: 0.50
+Nodes (4): components/ImageUpload.jsx, ast_hash, mtime, semantic_hash
+
+### Community 23 - "Community 23"
+Cohesion: 0.50
+Nodes (4): components/LivePreviewPanel.jsx, ast_hash, mtime, semantic_hash
+
+### Community 24 - "Community 24"
+Cohesion: 0.50
+Nodes (4): components/MissionControlGuideModal.jsx, ast_hash, mtime, semantic_hash
+
+### Community 25 - "Community 25"
+Cohesion: 0.50
+Nodes (4): components/ModeGuideModal.jsx, ast_hash, mtime, semantic_hash
+
+### Community 26 - "Community 26"
+Cohesion: 0.50
+Nodes (4): components/ModeSwitcher.jsx, ast_hash, mtime, semantic_hash
+
+### Community 27 - "Community 27"
+Cohesion: 0.50
+Nodes (4): components/PreviewPanel.jsx, ast_hash, mtime, semantic_hash
+
+### Community 28 - "Community 28"
+Cohesion: 0.50
+Nodes (4): components/SearchIndicator.jsx, ast_hash, mtime, semantic_hash
+
+### Community 29 - "Community 29"
+Cohesion: 0.50
+Nodes (4): components/SearchProgress.jsx, ast_hash, mtime, semantic_hash
+
+### Community 30 - "Community 30"
+Cohesion: 0.50
+Nodes (4): components/SecondaryModeNav.jsx, ast_hash, mtime, semantic_hash
+
+### Community 31 - "Community 31"
+Cohesion: 0.50
+Nodes (4): components/SettingsModal.jsx, ast_hash, mtime, semantic_hash
+
+### Community 32 - "Community 32"
+Cohesion: 0.50
+Nodes (4): components/Terminal.jsx, ast_hash, mtime, semantic_hash
+
+### Community 33 - "Community 33"
+Cohesion: 0.50
+Nodes (4): components/ThinkingBubble.js, ast_hash, mtime, semantic_hash
+
+### Community 34 - "Community 34"
+Cohesion: 0.50
+Nodes (4): components/windows/DesktopHost.jsx, ast_hash, mtime, semantic_hash
+
+### Community 35 - "Community 35"
+Cohesion: 0.50
+Nodes (4): components/windows/Dock.jsx, ast_hash, mtime, semantic_hash
+
+### Community 36 - "Community 36"
+Cohesion: 0.50
+Nodes (4): components/windows/WindowContextMenu.jsx, ast_hash, mtime, semantic_hash
+
+### Community 37 - "Community 37"
+Cohesion: 0.50
+Nodes (4): components/windows/WindowFrame.jsx, ast_hash, mtime, semantic_hash
+
+### Community 38 - "Community 38"
+Cohesion: 0.50
+Nodes (4): components/Workbench/FileExplorer.jsx, ast_hash, mtime, semantic_hash
+
+### Community 39 - "Community 39"
+Cohesion: 0.50
+Nodes (4): components/Workbench/Workbench.jsx, ast_hash, mtime, semantic_hash
+
+### Community 40 - "Community 40"
+Cohesion: 0.50
+Nodes (4): context/BuildContext.jsx, ast_hash, mtime, semantic_hash
+
+### Community 41 - "Community 41"
+Cohesion: 0.50
+Nodes (4): context/BuildModeContext.jsx, ast_hash, mtime, semantic_hash
+
+### Community 42 - "Community 42"
+Cohesion: 0.50
+Nodes (4): context/ChatContext.jsx, ast_hash, mtime, semantic_hash
+
+### Community 43 - "Community 43"
+Cohesion: 0.50
+Nodes (4): context/ModeContext.jsx, ast_hash, mtime, semantic_hash
+
+### Community 44 - "Community 44"
+Cohesion: 0.50
+Nodes (4): context/ThemeContext.jsx, ast_hash, mtime, semantic_hash
+
+### Community 45 - "Community 45"
+Cohesion: 0.50
+Nodes (4): hooks/useAgentTools.js, ast_hash, mtime, semantic_hash
+
+### Community 46 - "Community 46"
+Cohesion: 0.50
+Nodes (4): hooks/useWebContainer.js, ast_hash, mtime, semantic_hash
+
+### Community 47 - "Community 47"
+Cohesion: 0.50
+Nodes (4): lib/BoltArtifactParser.js, ast_hash, mtime, semantic_hash
+
+### Community 48 - "Community 48"
+Cohesion: 0.50
+Nodes (4): lib/budgetGovernor.js, ast_hash, mtime, semantic_hash
+
+### Community 49 - "Community 49"
+Cohesion: 0.50
+Nodes (4): lib/buildGeneration.js, ast_hash, mtime, semantic_hash
+
+### Community 50 - "Community 50"
+Cohesion: 0.50
+Nodes (4): lib/diffReview.js, ast_hash, mtime, semantic_hash
+
+### Community 51 - "Community 51"
+Cohesion: 0.50
+Nodes (4): lib/harnessMemory.js, ast_hash, mtime, semantic_hash
+
+### Community 52 - "Community 52"
+Cohesion: 0.50
+Nodes (4): lib/integrationTools.js, ast_hash, mtime, semantic_hash
+
+### Community 53 - "Community 53"
+Cohesion: 0.50
+Nodes (4): lib/IntelligentSearchTool.js, ast_hash, mtime, semantic_hash
+
+### Community 54 - "Community 54"
+Cohesion: 0.50
+Nodes (4): lib/llm/clients.js, ast_hash, mtime, semantic_hash
+
+### Community 55 - "Community 55"
+Cohesion: 0.50
+Nodes (4): lib/llm/FileProcessor.js, ast_hash, mtime, semantic_hash
+
+### Community 56 - "Community 56"
+Cohesion: 0.50
+Nodes (4): lib/llm/ModelService.js, ast_hash, mtime, semantic_hash
+
+### Community 57 - "Community 57"
+Cohesion: 0.50
+Nodes (4): lib/missionControl.js, ast_hash, mtime, semantic_hash
+
+### Community 58 - "Community 58"
+Cohesion: 0.50
+Nodes (4): lib/modelRouter.js, ast_hash, mtime, semantic_hash
+
+### Community 59 - "Community 59"
+Cohesion: 0.50
+Nodes (4): lib/perciLogoDataUri.js, ast_hash, mtime, semantic_hash
+
+### Community 60 - "Community 60"
+Cohesion: 0.50
+Nodes (4): lib/redactConsole.js, ast_hash, mtime, semantic_hash
+
+### Community 61 - "Community 61"
+Cohesion: 0.50
+Nodes (4): lib/syntaxHighlighter.js, ast_hash, mtime, semantic_hash
+
+### Community 62 - "Community 62"
+Cohesion: 0.50
+Nodes (4): lib/terminalBridge.js, ast_hash, mtime, semantic_hash
+
+### Community 63 - "Community 63"
+Cohesion: 0.50
+Nodes (4): lib/textFormatting.js, ast_hash, mtime, semantic_hash
+
+### Community 64 - "Community 64"
+Cohesion: 0.50
+Nodes (4): lib/transitMap.js, ast_hash, mtime, semantic_hash
+
+### Community 65 - "Community 65"
+Cohesion: 0.50
+Nodes (4): lib/utils.js, ast_hash, mtime, semantic_hash
+
+### Community 66 - "Community 66"
+Cohesion: 0.50
+Nodes (4): main.jsx, ast_hash, mtime, semantic_hash
+
+### Community 67 - "Community 67"
+Cohesion: 0.50
+Nodes (4): utils/preview-generator.js, ast_hash, mtime, semantic_hash
+
+### Community 68 - "Community 68"
+Cohesion: 0.50
+Nodes (4): utils/thinking-formatter.js, ast_hash, mtime, semantic_hash
+
+### Community 69 - "Community 69"
+Cohesion: 0.50
+Nodes (4): utils/thinking-parser.js, ast_hash, mtime, semantic_hash
 
 ## Knowledge Gaps
-- **53 isolated node(s):** `AGENT_DEFINITIONS`, `AGENT_MODEL_HINTS`, `AGENT_MODEL_SUGGESTIONS`, `ACTIVE_JOB_STATUSES`, `COMPLETED_JOB_STATUSES` (+48 more)
+- **342 isolated node(s):** `0`, `1`, `2`, `3`, `4` (+337 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **8 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `useMode()` connect `UI Navigation and Settings` to `Code and Cowork Modes`, `App Core and Providers`, `Chat and Attachments`, `Mission Execution UI`, `Agent Management`?**
-  _High betweenness centrality (0.042) - this node is a cross-community bridge._
-- **Why does `ModelService` connect `Model Capabilities Service` to `UI Navigation and Settings`?**
-  _High betweenness centrality (0.041) - this node is a cross-community bridge._
-- **Why does `LLMFactory` connect `App Core and Providers` to `Code and Cowork Modes`, `Chat and Attachments`, `Intelligent Search Tool`, `LLM Provider Clients`?**
-  _High betweenness centrality (0.037) - this node is a cross-community bridge._
-- **What connects `AGENT_DEFINITIONS`, `AGENT_MODEL_HINTS`, `AGENT_MODEL_SUGGESTIONS` to the rest of the system?**
-  _53 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `UI Navigation and Settings` be split into smaller, more focused modules?**
-  _Cohesion score 0.05928614640048397 - nodes in this community are weakly interconnected._
-- **Should `Code and Cowork Modes` be split into smaller, more focused modules?**
-  _Cohesion score 0.058001397624039136 - nodes in this community are weakly interconnected._
-- **Should `App Core and Providers` be split into smaller, more focused modules?**
-  _Cohesion score 0.07619738751814223 - nodes in this community are weakly interconnected._
+- **Why does `cohesion` connect `Community 1` to `Community 0`?**
+  _High betweenness centrality (0.018) - this node is a cross-community bridge._
+- **Why does `App.jsx` connect `Community 6` to `Community 3`?**
+  _High betweenness centrality (0.010) - this node is a cross-community bridge._
+- **What connects `0`, `1`, `2` to the rest of the system?**
+  _342 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `Community 0` be split into smaller, more focused modules?**
+  _Cohesion score 0.05263157894736842 - nodes in this community are weakly interconnected._
+- **Should `Community 1` be split into smaller, more focused modules?**
+  _Cohesion score 0.0625 - nodes in this community are weakly interconnected._
+- **Should `Community 2` be split into smaller, more focused modules?**
+  _Cohesion score 0.0625 - nodes in this community are weakly interconnected._
+- **Should `Community 3` be split into smaller, more focused modules?**
+  _Cohesion score 0.06896551724137931 - nodes in this community are weakly interconnected._

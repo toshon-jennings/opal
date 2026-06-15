@@ -50,3 +50,4 @@ test_session.txt
 
 # Local tool settings
 .claude/
+docs/architecture/graphify-out/cache/
