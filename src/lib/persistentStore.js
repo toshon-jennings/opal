@@ -31,8 +31,11 @@ const PERSISTED_KEYS = [
     'openclaw_config',
     'lm_studio_url',
     'jan_url',
+    'weather_sync_enabled',
+    'weather_location',
     ...API_KEY_STORAGE_KEYS
 ];
+
 
 export function hasElectronStore() {
     return typeof window !== 'undefined' && Boolean(window.electron?.getAppData && window.electron?.setAppData);

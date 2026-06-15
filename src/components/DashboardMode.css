@@ -241,14 +241,14 @@
     margin-top: 14px;
 }
 
-/* Native tiles: compact horizontal layout */
+/* Native tiles: horizontal layout — icon left, title + desc right */
 .dash-tile {
     position: relative;
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 3px;
-    padding: 12px 12px 10px;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px 10px 10px;
     border-radius: 12px;
     text-align: left;
     background: var(--bg-secondary);
@@ -282,19 +282,28 @@
     position: relative;
     display: grid;
     place-items: center;
+    flex-shrink: 0;
     width: 32px;
     height: 32px;
     border-radius: 9px;
     color: var(--tile);
     background: color-mix(in srgb, var(--tile) 14%, transparent);
     border: 1px solid color-mix(in srgb, var(--tile) 28%, transparent);
-    margin-bottom: 4px;
 }
 
 .dash-tile-logo {
     width: 20px;
     height: 20px;
     object-fit: contain;
+}
+
+.dash-tile-text {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+    flex: 1;
 }
 
 .dash-tile-name {
@@ -663,11 +672,17 @@
 
 .dash-tile-hero .dash-tile-icon,
 .dash-tile-hero .dash-tile-name,
-.dash-tile-hero .dash-tile-desc,
+.dash-tile-hero .dash-tile-desc {
+    position: relative;
+    z-index: 1;
+}
+
+/* These are already absolutely positioned for corner placement — keep that,
+   just lift them above the artwork layer instead of resetting to relative
+   (which dropped the OPEN badge back into normal flow). */
 .dash-tile-hero .dash-tile-arrow,
 .dash-tile-hero .dash-tile-open,
 .dash-tile-hero .dash-tile-badge {
-    position: relative;
     z-index: 1;
 }
 

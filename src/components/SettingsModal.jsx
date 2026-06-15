@@ -85,8 +85,9 @@ export function SettingsModal({ isOpen, onClose }) {
     const [isRestartingGateway, setIsRestartingGateway] = useState(false);
     const [gatewayRestartStatus, setGatewayRestartStatus] = useState('');
 
-    // G-Dash: the user's own Google "Desktop" OAuth client ID (Bring-Your-Own).
+    // G-Dash: the user's own Google OAuth client ID + secret (Bring-Your-Own).
     const [gdashClientId, setGdashClientId] = useState('');
+    const [gdashClientSecret, setGdashClientSecret] = useState('');
 
     useEffect(() => {
         if (isOpen) {
@@ -114,11 +115,14 @@ export function SettingsModal({ isOpen, onClose }) {
                 loadConfig();
             }
 
-            // Load the saved G-Dash client ID (decrypted by the main process).
+            // Load the saved G-Dash client ID and secret (decrypted by the main process).
             if (window.electron?.getAppData) {
                 window.electron.getAppData()
-                    .then((data) => setGdashClientId(data?.gdash_google_client_id || ''))
-                    .catch(() => { /* leave field blank */ });
+                    .then((data) => {
+                        setGdashClientId(data?.gdash_google_client_id || '');
+                        setGdashClientSecret(data?.gdash_google_client_secret || '');
+                    })
+                    .catch(() => { /* leave fields blank */ });
             }
         }
     }, [isOpen, userName, customInstructions]);
@@ -129,6 +133,15 @@ export function SettingsModal({ isOpen, onClose }) {
             await window.electron.setAppData({ gdash_google_client_id: gdashClientId.trim() });
         } catch (err) {
             console.error('Failed to save G-Dash client ID:', err);
+        }
+    };
+
+    const saveGdashClientSecret = async () => {
+        if (!window.electron?.setAppData) return;
+        try {
+            await window.electron.setAppData({ gdash_google_client_secret: gdashClientSecret.trim() });
+        } catch (err) {
+            console.error('Failed to save G-Dash client secret:', err);
         }
     };
 
@@ -522,6 +535,20 @@ export function SettingsModal({ isOpen, onClose }) {
                                 spellCheck={false}
                                 autoComplete="off"
                             />
+                            <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">
+                                Desktop OAuth client secret
+                            </label>
+                            <input
+                                type="password"
+                                value={gdashClientSecret}
+                                onChange={e => setGdashClientSecret(e.target.value)}
+                                onBlur={saveGdashClientSecret}
+                                onKeyDown={e => { if (e.key === 'Enter') { saveGdashClientSecret(); e.target.blur(); } }}
+                                className="w-full px-4 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg-tertiary)] focus:ring-2 ring-[var(--accent)] outline-none transition-all text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] text-sm"
+                                placeholder="XXXXXXXXXXXXXXXXXXXXXXXX"
+                                spellCheck={false}
+                                autoComplete="off"
+                            />
                             <p className="text-xs text-[var(--text-tertiary)] leading-relaxed">
                                 G-Dash connects with <strong>your own</strong> Google credentials — nothing is shared.
                                 In{' '}
@@ -533,9 +560,25 @@ export function SettingsModal({ isOpen, onClose }) {
                                     Google Cloud Console
                                 </button>
                                 {' '}create an OAuth client of type <strong>Desktop app</strong>, enable the Drive, Gmail,
-                                Calendar and Tasks APIs, then paste the client ID here. No client secret is needed; the ID
-                                is stored encrypted on this device.
+                                Calendar and Tasks APIs, then paste the client ID and client secret here. Both
+                                are stored encrypted on this device.
                             </p>
+                            <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-tertiary)]/60 px-3 py-2.5">
+                                <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                                    <strong className="text-[var(--text-primary)]">First time?</strong> After creating the client ID and secret, go to{' '}
+                                    <button
+                                        type="button"
+                                        onClick={() => window.electron?.openExternal?.('https://console.cloud.google.com/apis/consent')}
+                                        className="text-[var(--accent)] hover:underline"
+                                    >
+                                        OAuth consent screen
+                                    </button>
+                                    {' '}→ <strong>Test users</strong> → <strong>Add users</strong>, and add your own Google email.
+                                    Without this step you'll get a "has not completed the Google verification process" error when
+                                    signing in. This is normal — each user of this open-source app creates their own Google Cloud
+                                    project and adds themselves as a test user.
+                                </p>
+                            </div>
                         </Section>
                     )}
 

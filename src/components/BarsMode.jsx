@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Bot, CheckCircle2, Download, Edit3, KeyRound, RefreshCw,
+    Bot, CheckCircle2, Download, Edit3, HelpCircle, KeyRound, RefreshCw,
     Search, Settings, Sparkles, Trash2, Upload, X
 } from 'lucide-react';
+import { parseIdeaBrowserBar } from '../lib/barsIdeaBrowser';
 import './BarsMode.css';
 
 const IDEAS_KEY = 'perci_bars_ideas:v1';
@@ -122,6 +123,7 @@ export default function BarsMode() {
     const [aiStatus, setAiStatus] = useState('Detecting providers');
     const [keyStatus, setKeyStatus] = useState({});
     const [settingsOpen, setSettingsOpen] = useState(false);
+    const [guideOpen, setGuideOpen] = useState(false);
     const [settingsMessage, setSettingsMessage] = useState('');
     const [keyDraft, setKeyDraft] = useState({});
     const [providerId, setProviderId] = useState(initialSettings.providerId);
@@ -256,7 +258,13 @@ export default function BarsMode() {
         const text = quickText.trim();
         if (!text) return;
         const now = new Date().toISOString();
-        const idea = normalizeIdea({
+        const importedIdea = parseIdeaBrowserBar(text);
+        const idea = normalizeIdea(importedIdea ? {
+            ...importedIdea,
+            id: crypto.randomUUID(),
+            createdAt: now,
+            updatedAt: now,
+        } : {
             id: crypto.randomUUID(),
             kind: 'Thought',
             title: text.length > 70 ? `${text.slice(0, 67)}...` : text,
@@ -272,7 +280,7 @@ export default function BarsMode() {
         setIdeas(list => [idea, ...list]);
         setActiveId(idea.id);
         setQuickText('');
-        flashSaveState('Saved locally');
+        flashSaveState(importedIdea ? 'IdeaBrowser idea saved' : 'Saved locally');
     };
 
     const editIdea = (idea, overrides = {}) => {
@@ -402,6 +410,7 @@ export default function BarsMode() {
                     <p className="bars-tagline">Catch every line before it fades.</p>
                 </div>
                 <div className="bars-actions">
+                    <button type="button" className="bars-icon-btn" onClick={() => setGuideOpen(true)} title="Bars guide"><HelpCircle size={17} /></button>
                     <button type="button" className="bars-icon-btn" onClick={exportIdeas} title="Export Bars"><Download size={17} /></button>
                     <button type="button" className="bars-icon-btn" onClick={() => importRef.current?.click()} title="Import Bars"><Upload size={17} /></button>
                     <input ref={importRef} className="bars-hidden-input" type="file" accept="application/json,.json" onChange={importIdeas} />
@@ -418,7 +427,7 @@ export default function BarsMode() {
                         onKeyDown={event => {
                             if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') quickCapture(event);
                         }}
-                        placeholder="Drop a bar - a line, a thought, a maybe..."
+                        placeholder="Drop a bar - a line, a thought, an IdeaBrowser link..."
                         rows={1}
                     />
                 </div>
@@ -573,6 +582,50 @@ export default function BarsMode() {
                 </section>
 
             </div>
+
+            {guideOpen && (
+                <div className="bars-modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setGuideOpen(false); }}>
+                    <div className="bars-modal bars-guide-modal" role="dialog" aria-modal="true" aria-label="Bars guide">
+                        <div className="bars-section-head">
+                            <div><p className="bars-label">Field manual</p><h2>How to run the book</h2></div>
+                            <button type="button" className="bars-icon-btn" onClick={() => setGuideOpen(false)} title="Close guide"><X size={16} /></button>
+                        </div>
+                        <div className="bars-guide-hero">
+                            <p>BARS is not storage. BARS is a pressure system for raw lines, half-ideas, links, and hunches until one of them is worth building.</p>
+                        </div>
+                        <div className="bars-guide-grid">
+                            <section>
+                                <span>01</span>
+                                <h3>Catch first</h3>
+                                <p>Drop the messy sentence before it gets polite. A bar can be a line, a URL, an IdeaBrowser email, or the ugly version of a better thought.</p>
+                            </section>
+                            <section>
+                                <span>02</span>
+                                <h3>Shape later</h3>
+                                <p>Inbox is for sparks. Turn into idea when it has a title, stakes, tags, impact, effort, and one next move.</p>
+                            </section>
+                            <section>
+                                <span>03</span>
+                                <h3>Sort by heat</h3>
+                                <p>Impact minus effort keeps the loudest note from winning by volume. Hot bars rise because they might move.</p>
+                            </section>
+                            <section>
+                                <span>04</span>
+                                <h3>Ask the book</h3>
+                                <p>Use Ask your bars when the notebook gets crowded. Patterns, repeats, dead ends, and next actions are easier to see from above.</p>
+                            </section>
+                        </div>
+                        <div className="bars-guide-rules">
+                            <p className="bars-label">House rules</p>
+                            <ul>
+                                <li>Capture tiny. Rewrite only when the thought earns it.</li>
+                                <li>Every real idea needs a next action, not just a nicer paragraph.</li>
+                                <li>Archive what stops pulling. The book should feel alive.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {settingsOpen && (
                 <div className="bars-modal-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setSettingsOpen(false); }}>

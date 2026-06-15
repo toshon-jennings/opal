@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useChat } from '../context/ChatContext';
 import { useMode } from '../context/ModeContext';
 import { AGENT_DEFINITIONS, ACTIVE_JOB_STATUSES, ATTENTION_JOB_STATUSES } from './AgentsPanel';
 import OfficeScene from './OfficeScene';
@@ -54,6 +55,7 @@ function perciBubble({ working, attention, done }) {
 
 export default function OfficePanel() {
     const { openAgentWindow } = useMode();
+    const { weatherCondition } = useChat();
     const [jobsByAgent, setJobsByAgent] = useState({});
     const [nowMs, setNowMs] = useState(() => Date.now());
     const bridgeAvailable = Boolean(window.electron?.listAgentJobs);
@@ -120,6 +122,7 @@ export default function OfficePanel() {
                     desks={desks}
                     perciState={perciState}
                     bubble={perciBubble(counts)}
+                    weather={{ condition: weatherCondition }}
                     onDeskClick={(agentId) => openAgentWindow(agentId)}
                 />
                 {!bridgeAvailable && (

@@ -1015,6 +1015,7 @@ ipcMain.handle('app-data:set', async (event, data) => {
 // repo. Read-only scopes only.
 // ─────────────────────────────────────────────────────────────────────────────
 const GDASH_CLIENT_ID_KEY = 'gdash_google_client_id';
+const GDASH_CLIENT_SECRET_KEY = 'gdash_google_client_secret';
 const GDASH_TOKENS_KEY = 'gdash_google_tokens';
 const GDASH_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GDASH_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
@@ -1044,6 +1045,12 @@ async function gdashReadClientId() {
   const data = await readAppData();
   const id = data[GDASH_CLIENT_ID_KEY];
   return typeof id === 'string' ? id.trim() : '';
+}
+
+async function gdashReadClientSecret() {
+  const data = await readAppData();
+  const secret = data[GDASH_CLIENT_SECRET_KEY];
+  return typeof secret === 'string' ? secret.trim() : '';
 }
 
 async function gdashReadTokens() {
@@ -1093,7 +1100,7 @@ function gdashStartLoopback(expectedState) {
   });
 }
 
-async function gdashRunOAuth(clientId) {
+async function gdashRunOAuth(clientId, clientSecret) {
   const { verifier, challenge } = gdashPkce();
   const state = gdashBase64Url(randomBytes(16));
   const { server, port, codePromise } = await gdashStartLoopback(state);
@@ -1123,6 +1130,7 @@ async function gdashRunOAuth(clientId) {
     grant_type: 'authorization_code',
     code,
     client_id: clientId,
+    client_secret: clientSecret,
     code_verifier: verifier,
     redirect_uri: redirectUri,
   });
@@ -1131,7 +1139,13 @@ async function gdashRunOAuth(clientId) {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body,
   });
-  if (!resp.ok) throw new Error(`Token exchange failed (${resp.status}). Check the client ID and that it is a Desktop OAuth client.`);
+  if (!resp.ok) {
+    const errBody = await resp.text();
+    console.error(`[gdash] Token exchange failed (${resp.status}):`, errBody);
+    // Common causes: client type is "Web application" instead of "Desktop app",
+    // or the copied string includes extra characters (quotes, trailing spaces).
+    throw new Error(`Token exchange failed (${resp.status}). Check that the OAuth client is type "Desktop app" and that the Client ID was copied exactly. Google said: ${errBody}`);
+  }
   const tok = await resp.json();
   const tokens = {
     access_token: tok.access_token,
@@ -1263,7 +1277,9 @@ ipcMain.handle('gdash:connect', async () => {
   try {
     const clientId = await gdashReadClientId();
     if (!clientId) return { ok: false, error: 'no-client-id' };
-    const tokens = await gdashRunOAuth(clientId);
+    const clientSecret = await gdashReadClientSecret();
+    if (!clientSecret) return { ok: false, error: 'no-client-secret' };
+    const tokens = await gdashRunOAuth(clientId, clientSecret);
     let profile = null;
     try {
       const d = await gdashApiGet(GDASH_USERINFO_URL, tokens.access_token);

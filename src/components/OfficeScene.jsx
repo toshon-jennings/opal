@@ -105,6 +105,60 @@ function getTimeScene(date) {
     return TIME_SCENES.night;
 }
 
+const WEATHER_SCENES = {
+    clear: {},
+    clouds: {
+        sky: '#8fa4b7',
+        horizon: '#d5dde5',
+        outsideGlow: '#d7e0e8',
+        ambientIntensity: -0.06,
+        sunIntensity: -0.45,
+        lampIntensity: 2,
+        pointIntensity: 1,
+    },
+    rain: {
+        sky: '#556879',
+        horizon: '#9aa8b6',
+        outsideGlow: '#b4c6d8',
+        fog: '#1c2631',
+        background: '#171b25',
+        ambientIntensity: -0.14,
+        sunIntensity: -0.85,
+        lampIntensity: 4,
+        pointIntensity: 2,
+    },
+    snow: {
+        sky: '#b8c7d7',
+        horizon: '#eef5fb',
+        outsideGlow: '#f4fbff',
+        fog: '#25313e',
+        ambientIntensity: 0.06,
+        sunIntensity: -0.3,
+        lampIntensity: 2,
+        pointIntensity: 1,
+    },
+};
+
+function clampLight(value) {
+    return Math.max(0.15, value);
+}
+
+function getWeatherScene(timeScene, condition) {
+    const weatherCondition = WEATHER_SCENES[condition] ? condition : 'clear';
+    const weatherScene = WEATHER_SCENES[weatherCondition];
+    return {
+        ...timeScene,
+        ...Object.fromEntries(
+            Object.entries(weatherScene).filter(([, value]) => typeof value === 'string')
+        ),
+        ambientIntensity: clampLight(timeScene.ambientIntensity + (weatherScene.ambientIntensity || 0)),
+        sunIntensity: clampLight(timeScene.sunIntensity + (weatherScene.sunIntensity || 0)),
+        lampIntensity: timeScene.lampIntensity + (weatherScene.lampIntensity || 0),
+        pointIntensity: timeScene.pointIntensity + (weatherScene.pointIntensity || 0),
+        weatherCondition,
+    };
+}
+
 // ── Sir Perci ────────────────────────────────────────────────────────────
 
 /* Shield = gold { brace }, traced from the 2D mascot's SVG path
@@ -601,7 +655,84 @@ function Room() {
     );
 }
 
-function OfficeWindow({ scene, position = [-5.6, 3.4, -4.94], rotation = [0, 0, 0], scale = 1, showCelestial = true }) {
+function WindowWeather({ condition, reduce }) {
+    const precip = useRef();
+    const cloudPuffs = useMemo(() => [
+        [-0.9, 0.42, 0.22, 0.09],
+        [-0.7, 0.48, 0.28, 0.12],
+        [-0.48, 0.4, 0.2, 0.08],
+        [0.46, 0.54, 0.24, 0.1],
+        [0.68, 0.48, 0.34, 0.13],
+        [0.96, 0.42, 0.22, 0.09],
+    ], []);
+    const rain = useMemo(
+        () => Array.from({ length: 30 }, (_, i) => [
+            -1.35 + (i % 10) * 0.3,
+            0.86 - Math.floor(i / 10) * 0.36,
+            0.07 + (i % 3) * 0.003,
+        ]),
+        []
+    );
+    const snow = useMemo(
+        () => Array.from({ length: 28 }, (_, i) => [
+            -1.32 + (i % 7) * 0.44,
+            0.82 - Math.floor(i / 7) * 0.28,
+            0.07 + (i % 4) * 0.003,
+        ]),
+        []
+    );
+
+    useFrame((_, delta) => {
+        if (reduce || !precip.current) return;
+        const speed = condition === 'rain' ? 1.25 : condition === 'snow' ? 0.28 : 0;
+        if (!speed) return;
+        precip.current.children.forEach((child, i) => {
+            child.position.y -= delta * speed;
+            if (child.position.y < -0.86) {
+                child.position.y = 0.86 + (i % 4) * 0.08;
+            }
+            if (condition === 'snow') {
+                child.position.x += Math.sin(Date.now() * 0.001 + i) * delta * 0.08;
+            }
+        });
+    });
+
+    if (condition === 'clear') return null;
+
+    const showClouds = condition === 'clouds' || condition === 'rain' || condition === 'snow';
+    return (
+        <group>
+            {showClouds && cloudPuffs.map(([x, y, sx, sy], i) => (
+                <mesh key={`cloud-${i}`} position={[x, y, 0.065]} scale={[sx, sy, 0.04]}>
+                    <sphereGeometry args={[1, 16, 10]} />
+                    <meshBasicMaterial color={condition === 'rain' ? '#c5d1dc' : '#f4f7fa'} transparent opacity={condition === 'rain' ? 0.48 : 0.56} depthWrite={false} />
+                </mesh>
+            ))}
+            {condition === 'rain' && (
+                <group ref={precip}>
+                    {rain.map((p, i) => (
+                        <mesh key={`rain-${i}`} position={p} rotation={[0, 0, -0.24]}>
+                            <boxGeometry args={[0.012, 0.24, 0.006]} />
+                            <meshBasicMaterial color="#9ed6ff" transparent opacity={0.58} depthWrite={false} />
+                        </mesh>
+                    ))}
+                </group>
+            )}
+            {condition === 'snow' && (
+                <group ref={precip}>
+                    {snow.map((p, i) => (
+                        <mesh key={`snow-${i}`} position={p}>
+                            <sphereGeometry args={[0.025 + (i % 3) * 0.006, 8, 8]} />
+                            <meshBasicMaterial color="#ffffff" transparent opacity={0.78} depthWrite={false} />
+                        </mesh>
+                    ))}
+                </group>
+            )}
+        </group>
+    );
+}
+
+function OfficeWindow({ scene, position = [-5.6, 3.4, -4.94], rotation = [0, 0, 0], scale = 1, showCelestial = true, reduce = false }) {
     const stars = useMemo(
         () => Array.from({ length: 8 }, () => [
             (Math.random() - 0.5) * 2.4,
@@ -612,6 +743,7 @@ function OfficeWindow({ scene, position = [-5.6, 3.4, -4.94], rotation = [0, 0, 
     );
     const skyline = useMemo(() => [0.5, 0.9, 0.4, 0.75, 0.55], []);
     const isNight = scene.body === 'night';
+    const weatherCondition = scene.weatherCondition || 'clear';
     const sunPosition = scene.body === 'dawn'
         ? [-0.92, -0.08, 0.04]
         : scene.body === 'dusk'
@@ -635,7 +767,8 @@ function OfficeWindow({ scene, position = [-5.6, 3.4, -4.94], rotation = [0, 0, 
                 <planeGeometry args={[3, 0.6]} />
                 <meshBasicMaterial color={scene.sky} transparent opacity={0.6} depthWrite={false} />
             </mesh>
-            {showCelestial && (
+            <WindowWeather condition={weatherCondition} reduce={reduce} />
+            {showCelestial && weatherCondition !== 'rain' && (
                 <mesh position={isNight ? [0.95, 0.55, 0.04] : sunPosition}>
                     <sphereGeometry args={isNight ? [0.16, 14, 14] : [0.24, 18, 18]} />
                     <meshStandardMaterial color={scene.outsideGlow} emissive={scene.outsideGlow} emissiveIntensity={isNight ? 1.6 : 2.2} />
@@ -1719,13 +1852,13 @@ function WarmOfficeDressing({ reduce }) {
 const BACK_ROW = { z: -1.8, count: 7 };
 const FRONT_ROW = { z: 1, count: 6 };
 
-export default function OfficeScene({ desks, perciState, bubble, onDeskClick }) {
+export default function OfficeScene({ desks, perciState, bubble, weather, onDeskClick }) {
     const [now, setNow] = useState(() => new Date());
     const reduce = useMemo(
         () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false,
         []
     );
-    const timeScene = useMemo(() => getTimeScene(now), [now]);
+    const timeScene = useMemo(() => getWeatherScene(getTimeScene(now), weather?.condition), [now, weather?.condition]);
 
     const placed = useMemo(() => desks.map((desk, i) => {
         const inBack = i < BACK_ROW.count;
@@ -1750,8 +1883,8 @@ export default function OfficeScene({ desks, perciState, bubble, onDeskClick }) 
             <pointLight position={[0, 4, -4.2]} color="#fbbf24" intensity={timeScene.pointIntensity} distance={10} decay={2} />
 
             <Room />
-            <OfficeWindow scene={timeScene} />
-            <OfficeWindow scene={timeScene} position={[-10.94, 3.0, 1.35]} rotation={[0, Math.PI / 2, 0]} scale={0.7} showCelestial={false} />
+            <OfficeWindow scene={timeScene} reduce={reduce} />
+            <OfficeWindow scene={timeScene} position={[-10.94, 3.0, 1.35]} rotation={[0, Math.PI / 2, 0]} scale={0.7} showCelestial={false} reduce={reduce} />
             <Door3D />
             <WallClock3D position={[-10.72, 3.55, -1]} rotation={[0, Math.PI / 2, 0]} />
             <WallTv3D reduce={reduce} />

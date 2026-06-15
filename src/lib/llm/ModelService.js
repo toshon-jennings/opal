@@ -518,20 +518,20 @@ export class ModelService {
 
     // Fetch models from OpenRouter
     async fetchOpenRouterModels(apiKey) {
-        if (!apiKey) return [];
-
         try {
             if (this.cache.openrouter.models && (Date.now() - this.cache.openrouter.timestamp < this.CACHE_DURATION)) {
                 return this.cache.openrouter.models;
             }
 
-            const response = await fetch('https://openrouter.ai/api/v1/models', {
-                headers: {
-                    'Authorization': `Bearer ${apiKey}`,
-                    'HTTP-Referer': 'https://perci.app',
-                    'X-Title': 'Perci'
-                }
-            });
+            // OpenRouter's catalog endpoint is public — no key needed to browse
+            // the full model list. Send auth only when a key is configured.
+            const headers = {
+                'HTTP-Referer': 'https://perci.app',
+                'X-Title': 'Perci'
+            };
+            if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+            const response = await fetch('https://openrouter.ai/api/v1/models', { headers });
 
             if (!response.ok) throw new Error('Failed to fetch OpenRouter models');
 
@@ -655,10 +655,9 @@ export class ModelService {
             allModels.gemini = await this.fetchGeminiModels(apiKeys.gemini);
         }
 
-        // Fetch OpenRouter models
-        if (apiKeys.openrouter) {
-            allModels.openrouter = await this.fetchOpenRouterModels(apiKeys.openrouter);
-        }
+        // Fetch OpenRouter models — public catalog, loads with or without a key
+        // so users can browse and pick from the full list before adding a key.
+        allModels.openrouter = await this.fetchOpenRouterModels(apiKeys.openrouter);
 
         // Fetch Anthropic models
         if (apiKeys.anthropic) {

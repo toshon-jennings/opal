@@ -2,13 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     MessageSquare, Users, Code, Bot, FlaskConical, Building2, ActivitySquare, Hammer,
     Plus, ArrowUpRight, Server, Sparkles, CheckCircle2, AlertTriangle, Layers, Settings,
-    Radar, BookOpen,
+    Radar, BookOpen, GraduationCap, KeyRound,
 } from 'lucide-react';
 import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, GDASH_WINDOW_ID } from '../context/ModeContext';
 import { useChat } from '../context/ChatContext';
 import PerciMascot from './PerciMascot';
 import { AGENT_DEFINITIONS, ACTIVE_JOB_STATUSES, ATTENTION_JOB_STATUSES } from './AgentsPanel';
 import OnboardingCard, { hasOnboardingBeenSeen } from './OnboardingCard';
+import { BeginnerGuideModal } from './BeginnerGuideModal';
 import lhLogo from '../assets/lh-logo.png';
 import hermesLogo from '../assets/nousresearch.png';
 import gdashLogo from '../assets/gdash-logo.png';
@@ -70,10 +71,19 @@ function jobTone(status) {
 
 export default function DashboardMode({ openClawStatus, onOpenSettings }) {
     const { openWindow, windows } = useMode();
-    const { chats, createNewChat, switchToChat, userName } = useChat();
+    const { chats, createNewChat, switchToChat, userName, updateProvider } = useChat();
     const [now, setNow] = useState(() => new Date());
     const [jobs, setJobs] = useState([]);
     const [showOnboarding, setShowOnboarding] = useState(() => !hasOnboardingBeenSeen());
+    const [showBeginnerGuide, setShowBeginnerGuide] = useState(false);
+
+    // Drop the user straight into Settings focused on OpenRouter, with its
+    // API-key field revealed. Used by the dashboard "Get API Key" tile and the
+    // beginner guide's OpenRouter CTA.
+    const openOpenRouterSettings = useCallback(() => {
+        updateProvider?.('openrouter');
+        onOpenSettings?.();
+    }, [updateProvider, onOpenSettings]);
     const bridgeAvailable = Boolean(window.electron?.listAgentJobs);
 
     // Clock tick
@@ -180,6 +190,10 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                                 <Bot size={15} />
                                 Send an agent
                             </button>
+                            <button type="button" className="dash-cta dash-cta-ghost" onClick={() => setShowBeginnerGuide(true)}>
+                                <GraduationCap size={15} />
+                                Beginner's guide
+                            </button>
                             {onOpenSettings && (
                                 <button type="button" className="dash-cta dash-cta-ghost" onClick={onOpenSettings}>
                                     <Settings size={15} />
@@ -231,8 +245,10 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                                     <span className="dash-tile-icon">
                                         {logo ? <img src={logo} alt="" className="dash-tile-logo" /> : <Icon size={18} />}
                                     </span>
-                                    <span className="dash-tile-name">{title}</span>
-                                    <span className="dash-tile-desc">{desc}</span>
+                                    <span className="dash-tile-text">
+                                        <span className="dash-tile-name">{title}</span>
+                                        <span className="dash-tile-desc">{desc}</span>
+                                    </span>
                                     {openIds.has(id) && <span className="dash-tile-open">open</span>}
                                     {id === MODES.AGENTS && jobStats.active > 0 && (
                                         <span className="dash-tile-badge">{jobStats.active}</span>
@@ -240,6 +256,22 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                                     <ArrowUpRight size={13} className="dash-tile-arrow" />
                                 </button>
                                 ))}
+                                <button
+                                    type="button"
+                                    className="dash-tile"
+                                    style={{ '--tile': '#8b5cf6', '--i': NATIVE_TILES.length }}
+                                    onClick={openOpenRouterSettings}
+                                    title="Add your OpenRouter API key in Settings"
+                                >
+                                    <span className="dash-tile-icon">
+                                        <KeyRound size={18} />
+                                    </span>
+                                    <span className="dash-tile-text">
+                                        <span className="dash-tile-name">Get API Key</span>
+                                        <span className="dash-tile-desc">OpenRouter — 100s of cloud models</span>
+                                    </span>
+                                    <ArrowUpRight size={13} className="dash-tile-arrow" />
+                                </button>
                             </div>
                         </div>
 
@@ -377,6 +409,15 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                     </aside>
                 </div>
             </div>
+
+            <BeginnerGuideModal
+                isOpen={showBeginnerGuide}
+                onClose={() => setShowBeginnerGuide(false)}
+                onGetOpenRouterKey={() => {
+                    setShowBeginnerGuide(false);
+                    openOpenRouterSettings();
+                }}
+            />
         </div>
     );
 }

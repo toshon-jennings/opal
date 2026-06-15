@@ -10,11 +10,11 @@ export default function ModeSwitcher() {
         { id: MODES.COWORK, icon: Users,         label: 'Cowork' },
         { id: MODES.CODE,   icon: Code,          label: 'Code' },
         { id: MODES.NOTES,  icon: BookOpen,      label: 'Notes' },
-        { id: MODES.AGENTS, icon: Bot,           label: 'Agents' },
-        { id: MODES.MISSION, icon: ActivitySquare, label: 'Mission' },
-        { id: MODES.BUILD,  icon: Hammer,        label: 'Build' },
         { id: MODES.AUTORESEARCH, icon: FlaskConical, label: 'Research' },
+        { id: MODES.AGENTS, icon: Bot,           label: 'Agents' },
         { id: MODES.OFFICE, icon: Building2,     label: 'Office' },
+        { id: MODES.BUILD,  icon: Hammer,        label: 'Build' },
+        { id: MODES.MISSION, icon: ActivitySquare, label: 'Mission' },
         { id: MODES.LIGHTHOUSE, icon: Radar,     label: 'Ports' },
     ];
 

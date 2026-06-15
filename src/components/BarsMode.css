@@ -731,6 +731,94 @@
     padding: 18px;
 }
 
+.bars-guide-modal {
+    width: min(820px, 100%);
+    background:
+        linear-gradient(135deg, rgba(240, 181, 61, 0.08), transparent 42%),
+        rgba(28, 24, 18, 0.96);
+}
+
+.bars-guide-hero {
+    margin-top: 16px;
+    padding: 14px 16px;
+    border: 1px solid rgba(82, 60, 28, 0.42);
+    border-radius: 10px;
+    color: var(--bars-paper-ink);
+    background:
+        linear-gradient(100deg, rgba(255, 255, 255, 0.18), transparent 38%),
+        #f1e3c4;
+    box-shadow: inset 4px 0 0 var(--bars-gold), 0 16px 28px rgba(0, 0, 0, 0.2);
+}
+
+.bars-guide-hero p {
+    margin: 0;
+    max-width: 58ch;
+    font-family: var(--bars-display);
+    font-size: clamp(1.45rem, 2.6vw, 2rem);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
+}
+
+.bars-guide-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.bars-guide-grid section {
+    display: grid;
+    align-content: start;
+    gap: 7px;
+    min-height: 146px;
+    padding: 12px;
+    border: 1px solid var(--bars-line);
+    border-radius: 10px;
+    background: rgba(10, 8, 5, 0.28);
+}
+
+.bars-guide-grid span {
+    color: var(--bars-gold);
+    font-family: var(--bars-mono);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+}
+
+.bars-guide-grid h3 {
+    margin: 0;
+    color: var(--bars-ink);
+    font-family: var(--bars-display);
+    font-size: 1.35rem;
+    line-height: 1;
+    text-transform: uppercase;
+}
+
+.bars-guide-grid p,
+.bars-guide-rules li {
+    margin: 0;
+    color: var(--bars-muted);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.bars-guide-rules {
+    margin-top: 12px;
+    padding: 12px 16px;
+    border: 1px solid rgba(240, 181, 61, 0.24);
+    border-radius: 10px;
+    background: rgba(255, 106, 61, 0.06);
+}
+
+.bars-guide-rules ul {
+    display: grid;
+    gap: 5px;
+    margin: 6px 0 0;
+    padding-left: 18px;
+}
+
 .bars-key-form label {
     display: grid;
     grid-template-columns: minmax(170px, 0.42fr) 1fr;
@@ -772,6 +860,10 @@
         grid-template-columns: minmax(260px, 0.9fr) minmax(360px, 1.2fr);
     }
 
+    .bars-guide-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .bars-ai-provider-controls {
         justify-content: flex-start;
     }
@@ -792,6 +884,7 @@
     .bars-main,
     .bars-stats,
     .bars-form-grid,
+    .bars-guide-grid,
     .bars-key-form label {
         grid-template-columns: 1fr;
     }

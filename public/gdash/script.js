@@ -1,7 +1,7 @@
 const SERVICES = [
     // AI & Intelligence (The Thinking Space)
     { id: 'gemini', name: 'Gemini', category: 'ai', desc: 'Conversational AI for everything.', url: 'https://gemini.google.com', icon: 'assets/icons/gemini.svg', color: '#6898EE', tags: ['chat', 'assistant', 'gpt', 'llm', 'answer'], external: true, planInfo: { tier: 'Pro Plan', stats: { value: 'Gemini 3', label: 'Pro Model' }, comparison: { free: ['Gemini 3 Flash Model', 'Standard Context', 'Standard Rate Limits'], pro: ['Gemini 3 Pro Model', 'Extended Context', 'Priority Access', 'Advanced Reasoning'] } } },
-    { id: 'ai-studio', name: 'AI Studio', category: 'ai', desc: 'Fastest way to build with Gemini.', url: 'https://aistudio.google.com', icon: 'assets/icons/ai_studio.svg', color: '#4285F4', tags: ['developer', 'api', 'model', 'tuning'], external: true },
+    { id: 'ai-studio', name: 'AI Studio', category: 'ai', desc: 'Fastest way to build with Gemini.', url: 'https://aistudio.google.com/prompts/new_chat', icon: 'assets/icons/ai_studio.svg', color: '#4285F4', tags: ['developer', 'api', 'model', 'tuning'], external: true },
     { id: 'notebooklm', name: 'NotebookLM', category: 'ai', desc: 'AI-first notebook for researchers.', url: 'https://notebooklm.google.com', icon: 'https://www.gstatic.com/images/branding/product/2x/notebooklm_48dp.png', color: '#1B73E8', tags: ['research', 'notes', 'study', 'source'], external: true, planInfo: { tier: 'Pro Plan', stats: { value: '300', label: 'sources/nb' }, comparison: { free: ['50 sources per notebook', '20MB max file size', 'Standard Audio Overview'], pro: ['300 sources per notebook', '500MB max file size', 'Team Sharing'] } } },
     { id: 'vertex', name: 'Vertex AI Studio', category: 'ai', desc: 'Build, deploy, and scale ML models.', url: 'https://cloud.google.com/vertex-ai', icon: 'assets/icons/vertex_ai.png', color: '#4285F4', tags: ['ml', 'machine learning', 'cloud', 'enterprise'], external: true },
     { id: 'imagen', name: 'Imagen', category: 'ai', desc: 'AI-powered image generation.', url: 'https://deepmind.google/models/imagen/', icon: 'assets/icons/imagen.svg', color: '#EA4335', tags: ['image', 'generation', 'art', 'create', 'ai'], external: true },
@@ -10,6 +10,7 @@ const SERVICES = [
     { id: 'research', name: 'Research', category: 'ai', desc: 'Advancing the state of the art.', url: 'https://research.google/', icon: 'assets/icons/labs.svg', color: '#EA4335', tags: ['research', 'science', 'papers', 'ai', 'innovation'], external: true },
     { id: 'weather-lab', name: 'Weather Lab', category: 'ai', desc: 'Advancing weather prediction with AI.', url: 'https://deepmind.google.com/science/weatherlab', icon: 'assets/icons/labs.svg', color: '#4285F4', tags: ['weather', 'climate', 'science', 'ai', 'deepmind'], external: true },
     { id: 'robotics', name: 'Robotics', category: 'ai', desc: 'Preview Gemini Robotics model.', url: 'https://aistudio.google.com/prompts/new_chat?model=gemini-robotics-er-1.5-preview&utm_source=deepmind.google&utm_medium=referral&utm_campaign=gdm&utm_content=', icon: 'assets/icons/ai_studio.svg', color: '#4285F4', tags: ['robotics', 'gemini', 'ai', 'model', 'preview'], external: true },
+    { id: 'jules', name: 'Jules', category: 'ai', desc: 'Agentic coding assistant for GitHub.', url: 'https://jules.google', icon: 'assets/icons/labs.svg', color: '#EA4335', tags: ['code', 'github', 'programming', 'developer'], external: true },
 
     // Knowledge & Memory (Where Ideas Persist)
     { id: 'docs', name: 'Docs', category: 'knowledge', desc: 'Create and edit documents online.', url: 'https://docs.google.com', icon: 'https://www.gstatic.com/images/branding/product/2x/docs_48dp.png', color: '#4285F4', tags: ['word', 'writer', 'paper', 'text'], external: true },
@@ -26,8 +27,6 @@ const SERVICES = [
     { id: 'tasks', name: 'Tasks', category: 'productivity', desc: 'Stay on top of your to-dos.', url: 'https://tasks.google.com', icon: 'https://www.gstatic.com/images/branding/product/2x/tasks_48dp.png', color: '#4285F4', tags: ['todo', 'list', 'reminders'], external: true },
 
     // Labs & Experiments (A Sandbox for Play)
-    { id: 'whisk', name: 'Whisk', category: 'labs', desc: 'Generative AI for image creation.', url: 'https://whisk.com', icon: 'assets/icons/labs.svg', color: '#FBBC05', tags: ['image', 'remix', 'art', 'create'], external: true },
-    { id: 'jules', name: 'Jules', category: 'labs', desc: 'Agentic coding assistant for GitHub.', url: 'https://jules.google', icon: 'assets/icons/labs.svg', color: '#EA4335', tags: ['code', 'github', 'programming', 'developer'], external: true },
     { id: 'stitch', name: 'Stitch', category: 'labs', desc: 'Transform ideas into UI designs.', url: 'https://stitch.withgoogle.com', icon: 'assets/icons/labs.svg', color: '#4285F4', tags: ['ui', 'design', 'app', 'web', 'prototype'], external: true },
     { id: 'illuminate', name: 'Illuminate', category: 'labs', desc: 'AI-powered research and learning summaries.', url: 'https://illuminate.google.com/explore', icon: 'assets/icons/labs.svg', color: '#4285F4', tags: ['research', 'learning', 'papers', 'audio', 'ai'], external: true },
     { id: 'flow', name: 'Flow', category: 'labs', desc: 'AI-powered presentation builder.', url: 'https://labs.google/flow', icon: 'assets/icons/flow.svg', color: '#9C27B0', tags: ['presentation', 'slides', 'ai', 'deck'], external: true },
@@ -43,12 +42,12 @@ const SERVICES = [
     { id: 'firebase', name: 'Firebase', category: 'build', desc: 'App development platform for all.', url: 'https://console.firebase.google.com', icon: 'https://www.gstatic.com/images/branding/product/2x/firebase_48dp.png', color: '#FFCA28', tags: ['database', 'auth', 'hosting', 'analytics'], external: true },
     { id: 'bigquery', name: 'BigQuery', category: 'build', desc: 'Serverless data warehouse.', url: 'https://console.cloud.google.com/bigquery', icon: 'assets/icons/bigquery.svg', color: '#4285F4', tags: ['data', 'sql', 'analytics', 'warehouse'], external: true },
     { id: 'api-explorer', name: 'API Explorer', category: 'build', desc: 'Try Google APIs interactively.', url: 'https://developers.google.com/apis-explorer', icon: 'https://www.gstatic.com/images/branding/product/2x/google_developers_48dp.png', color: '#4285F4', tags: ['api', 'rest', 'sdk', 'dev'], external: true },
-    { id: 'adk-docs', name: 'ADK Docs', category: 'build', desc: 'Agent Development Kit documentation.', url: 'https://google.github.io/adk-docs/', icon: '/assets/images/adk-logo.png', color: '#4285F4', tags: ['adk', 'docs', 'agent', 'dev'], external: true },
-    { id: 'adk-samples', name: 'ADK Samples', category: 'build', desc: 'Official ADK code samples.', url: 'https://github.com/google/adk-samples', icon: '/assets/images/adk-logo.png', color: '#FFFFFF', tags: ['code', 'github', 'samples', 'adk'], external: true },
-    { id: 'adk-training', name: 'ADK Training', category: 'build', desc: 'Training resources for ADK.', url: 'https://raphaelmansuy.github.io/adk_training/', icon: '/assets/images/adk-logo.png', color: '#4285F4', tags: ['training', 'learn', 'course', 'adk'], external: true },
-    { id: 'antigravity-skills', name: 'Antigravity Skills', category: 'build', desc: 'Skills for Antigravity agents.', url: 'https://github.com/rominirani/antigravity-skills', icon: '/assets/images/google_antigravity-logo.png', color: '#FFFFFF', tags: ['skills', 'antigravity', 'extensions', 'adk'], external: true },
-    { id: 'web-dev', name: 'web.dev', category: 'build', desc: 'Modern web development guidance.', url: 'https://web.dev/learn/testing?hl=en', icon: '/assets/images/web-dev-logo.png', color: '#37474F', tags: ['web', 'dev', 'html', 'css', 'javascript', 'testing'], external: true },
-    { id: 'awesome-adk', name: 'Awesome ADK', category: 'build', desc: 'Curated ADK agents & resources.', url: 'https://github.com/Sri-Krishna-V/awesome-adk-agents?tab=readme-ov-file', icon: '/assets/images/adk-logo.png', color: '#FFFFFF', tags: ['awesome', 'list', 'community', 'adk'], external: true },
+    { id: 'adk-docs', name: 'ADK Docs', category: 'build', desc: 'Agent Development Kit documentation.', url: 'https://google.github.io/adk-docs/', icon: 'https://www.gstatic.com/images/branding/product/2x/cloud_48dp.png', color: '#4285F4', tags: ['adk', 'docs', 'agent', 'dev'], external: true },
+    { id: 'adk-samples', name: 'ADK Samples', category: 'build', desc: 'Official ADK code samples.', url: 'https://github.com/google/adk-samples', icon: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png', color: '#FFFFFF', tags: ['code', 'github', 'samples', 'adk'], external: true },
+    { id: 'adk-training', name: 'ADK Training', category: 'build', desc: 'Training resources for ADK.', url: 'https://raphaelmansuy.github.io/adk_training/', icon: 'https://www.gstatic.com/images/branding/product/2x/cloud_48dp.png', color: '#4285F4', tags: ['training', 'learn', 'course', 'adk'], external: true },
+    { id: 'antigravity-skills', name: 'Antigravity Skills', category: 'build', desc: 'Skills for Antigravity agents.', url: 'https://github.com/rominirani/antigravity-skills', icon: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png', color: '#FFFFFF', tags: ['skills', 'antigravity', 'extensions', 'adk'], external: true },
+    { id: 'web-dev', name: 'web.dev', category: 'build', desc: 'Modern web development guidance.', url: 'https://web.dev/learn/testing?hl=en', icon: 'assets/icons/webdev.svg', color: '#37474F', tags: ['web', 'dev', 'html', 'css', 'javascript', 'testing'], external: true },
+    { id: 'awesome-adk', name: 'Awesome ADK', category: 'build', desc: 'Curated ADK agents & resources.', url: 'https://github.com/Sri-Krishna-V/awesome-adk-agents?tab=readme-ov-file', icon: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png', color: '#FFFFFF', tags: ['awesome', 'list', 'community', 'adk'], external: true },
     { id: 'prompt-gallery', name: 'Prompt Gallery', category: 'build', desc: 'Explore and use pre-built prompts.', url: 'https://console.cloud.google.com/vertex-ai/studio/prompt-gallery?project=project-709a19c2-1276-4e88-83e', icon: 'assets/icons/google_cloud.svg', color: '#4285F4', tags: ['prompts', 'vertex', 'gallery', 'build'], external: true },
 
     // Signal & Behavior (Real User Insights)
@@ -68,7 +67,7 @@ const SERVICES = [
     // Learning & Skills
     { id: 'google-skills', name: 'Skills', category: 'learning', desc: 'Main skills portal.', url: 'https://www.skills.google/', icon: 'assets/icons/learnlm.svg', color: '#4285F4', tags: ['skills', 'learn', 'courses'], external: true },
     { id: 'intro-vertex', name: 'Intro to Vertex AI', category: 'learning', desc: 'Course: Intro to Vertex AI Studio.', url: 'https://www.skills.google/course_templates/552', icon: 'assets/icons/vertex_ai.png', color: '#4285F4', tags: ['course', 'vertex', 'ai', 'learn'], external: true },
-    { id: 'linux-lab', name: 'Linux Essentials', category: 'learning', desc: 'Lab: Command Line Primer.', url: 'https://skills.google/focuses/129043?parent=catalog', icon: '/assets/images/linux-tux-1-logo.png', color: '#FCC624', tags: ['linux', 'lab', 'command line'], external: true },
+    { id: 'linux-lab', name: 'Linux Essentials', category: 'learning', desc: 'Lab: Command Line Primer.', url: 'https://skills.google/focuses/129043?parent=catalog', icon: 'assets/images/linux-tux-1-logo.png', color: '#FCC624', tags: ['linux', 'lab', 'command line'], external: true },
     { id: 'gen-ai-path', name: 'Intro to Gen AI', category: 'learning', desc: 'Learning path.', url: 'https://www.skills.google/paths/118', icon: 'assets/icons/google_cloud.svg', color: '#4285F4', tags: ['genai', 'path', 'learn'], external: true },
     { id: 'gen-ai-leader', name: 'Gen AI Leader', category: 'learning', desc: 'Leader learning path.', url: 'https://www.skills.google/paths/1951', icon: 'assets/icons/google_cloud.svg', color: '#4285F4', tags: ['leader', 'path', 'genai'], external: true }
 ];
@@ -427,7 +426,9 @@ window.addEventListener('message', (event) => {
             showAuthError(
                 msg.error === 'no-client-id'
                     ? 'Add your Google client ID in Perci Settings to connect.'
-                    : (msg.error || 'Google sign-in failed. Try again.')
+                    : msg.error === 'no-client-secret'
+                        ? 'Add your Google client secret in Perci Settings to connect.'
+                        : (msg.error || 'Google sign-in failed. Try again.')
             );
             break;
         default:

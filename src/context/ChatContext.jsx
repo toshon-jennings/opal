@@ -15,6 +15,7 @@ import {
     writeLocalPersistenceSnapshot
 } from '../lib/persistentStore';
 import { normalizeAssistantSpacing } from '../lib/textFormatting';
+import { fetchWeather, fetchWeatherForLocale } from '../lib/weatherService';
 
 const modelService = new ModelService();
 const ChatContext = createContext();
@@ -179,6 +180,56 @@ export function ChatProvider({ children }) {
         }
     }, []);
 
+    const [weatherSyncEnabled, setWeatherSyncEnabledState] = useState(() => {
+        return readStringStorage('weather_sync_enabled', 'true') === 'true';
+    });
+
+    const [weatherLocation, setWeatherLocationState] = useState(() => {
+        return readStringStorage('weather_location', '');
+    });
+
+    const [weatherCondition, setWeatherCondition] = useState('clear');
+
+    const setWeatherSyncEnabled = useCallback((enabled) => {
+        const strVal = enabled ? 'true' : 'false';
+        setWeatherSyncEnabledState(enabled);
+        localStorage.setItem('weather_sync_enabled', strVal);
+        if (electronPersistenceReadyRef.current) {
+            saveElectronPersistence({ weather_sync_enabled: strVal }).catch(err => console.error('Failed to persist weather sync enabled:', err));
+        }
+    }, []);
+
+    const setWeatherLocation = useCallback((location) => {
+        setWeatherLocationState(location);
+        localStorage.setItem('weather_location', location);
+        if (electronPersistenceReadyRef.current) {
+            saveElectronPersistence({ weather_location: location }).catch(err => console.error('Failed to persist weather location:', err));
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!weatherSyncEnabled) {
+            setWeatherCondition('clear');
+            return;
+        }
+
+        let active = true;
+        const update = async () => {
+            const location = weatherLocation.trim();
+            const res = location ? await fetchWeather(location) : await fetchWeatherForLocale();
+            if (active && res && res.condition) {
+                setWeatherCondition(res.condition);
+            }
+        };
+
+        void update();
+        const interval = setInterval(update, 15 * 60 * 1000); // 15 minutes
+        return () => {
+            active = false;
+            clearInterval(interval);
+        };
+    }, [weatherSyncEnabled, weatherLocation]);
+
     const [lmStudioUrl, setLmStudioUrlState] = useState(() => {
         return normalizeLocalServerUrl(readStringStorage('lm_studio_url', DEFAULT_LM_STUDIO_URL));
     });
@@ -251,6 +302,8 @@ export function ChatProvider({ children }) {
                     setProjects(Array.isArray(persistedProjects) ? persistedProjects : createDefaultProjects());
                     setUserNameState(readStringStorage('user_name'));
                     setCustomInstructionsState(readStringStorage('custom_instructions'));
+                    setWeatherSyncEnabledState(readStringStorage('weather_sync_enabled', 'true') === 'true');
+                    setWeatherLocationState(readStringStorage('weather_location', ''));
                     setLmStudioUrlState(normalizeLocalServerUrl(readStringStorage('lm_studio_url', DEFAULT_LM_STUDIO_URL)));
                     setJanUrlState(normalizeLocalServerUrl(readStringStorage('jan_url', DEFAULT_JAN_URL), DEFAULT_JAN_URL));
                     setSelectedProvider(readStringStorage('selected_provider', 'groq'));
@@ -554,12 +607,16 @@ export function ChatProvider({ children }) {
             const allModelIds = [...Object.values(models).flat().map(m => m.id), ...customModelIds];
             const storedModelStillValid = selectedModel && allModelIds.includes(selectedModel);
             if (!storedModelStillValid) {
+                // OpenRouter's list now loads without a key (public catalog), so
+                // don't auto-select a provider the user can't actually use yet —
+                // skip key-required providers that have no key configured.
+                const needsKey = new Set(['openrouter', 'groq', 'openai', 'anthropic', 'mistral', 'gemini']);
                 for (const provider of ['openrouter', 'groq', 'openai', 'anthropic', 'mistral', 'gemini', 'ollama', 'lmstudio', 'jan']) {
-                    if (models[provider] && models[provider].length > 0) {
-                        setSelectedProvider(provider);
-                        setSelectedModel(models[provider][0].id);
-                        break;
-                    }
+                    if (!models[provider] || models[provider].length === 0) continue;
+                    if (needsKey.has(provider) && !apiKeys[provider]) continue;
+                    setSelectedProvider(provider);
+                    setSelectedModel(models[provider][0].id);
+                    break;
                 }
             }
         } catch (error) {
@@ -674,6 +731,12 @@ export function ChatProvider({ children }) {
             setLmStudioUrl,
             janUrl,
             setJanUrl,
+            // Weather sync
+            weatherSyncEnabled,
+            setWeatherSyncEnabled,
+            weatherLocation,
+            setWeatherLocation,
+            weatherCondition,
             // Model capabilities
             currentModelCapabilities,
             supportsImages: currentModelCapabilities.image,
