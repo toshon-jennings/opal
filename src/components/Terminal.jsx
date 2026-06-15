@@ -8,7 +8,6 @@ import "@xterm/xterm/css/xterm.css";
 
 const DEVICE_ATTRIBUTE_RESPONSE_PATTERN = /\x1b\[\??[\d;]*c/g;
 const PLAIN_DEVICE_ATTRIBUTE_RESPONSE_PATTERN = /^(?:\?1;2c|1;2c)+$/;
-const DUPLICATE_INPUT_WINDOW_MS = 24;
 
 function stripTerminalGeneratedInput(data) {
   const withoutEscapedResponse = data.replace(DEVICE_ATTRIBUTE_RESPONSE_PATTERN, "");
@@ -17,16 +16,6 @@ function stripTerminalGeneratedInput(data) {
     : withoutEscapedResponse;
 }
 
-function isDuplicateSingleKeyInput(input, lastInputRef) {
-  if (input.length !== 1) return false;
-  const now = Date.now();
-  const last = lastInputRef.current;
-  if (last.value === input && (now - last.at) <= DUPLICATE_INPUT_WINDOW_MS) {
-    return true;
-  }
-  lastInputRef.current = { value: input, at: now };
-  return false;
-}
 
 // `embedded` hides the built-in chrome so a host (e.g. the Hermes multitab
 // terminal) can own the tab strip; it then drives the panel through the ref
@@ -38,7 +27,6 @@ const TerminalPanel = forwardRef(function TerminalPanel({ sessionId = 'default',
   const wsRef = useRef(null);
   const outputBufferRef = useRef("");
   const activePortIndexRef = useRef(0);
-  const lastInputRef = useRef({ value: "", at: 0 });
   const [status, setStatus] = useState("connecting");
   const [isFocused, setIsFocused] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
@@ -160,7 +148,7 @@ const TerminalPanel = forwardRef(function TerminalPanel({ sessionId = 'default',
     term.onData((data) => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         const input = stripTerminalGeneratedInput(data);
-        if (input && !isDuplicateSingleKeyInput(input, lastInputRef)) {
+        if (input) {
           wsRef.current.send(input);
         }
       }

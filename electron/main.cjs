@@ -9,6 +9,42 @@ const https = require('https');
 const net = require('net');
 const isDev = process.env.NODE_ENV === 'development';
 
+const allowedPaths = new Set();
+
+function isPathAllowed(targetPath) {
+  if (!targetPath || typeof targetPath !== 'string') return false;
+  try {
+    const resolvedTarget = path.resolve(targetPath);
+    
+    // Always allow paths inside standard app directories
+    const allowedRoots = [
+      app.getPath('temp'),
+      app.getPath('userData'),
+      app.getAppPath()
+    ];
+    
+    for (const root of allowedRoots) {
+      const resolvedRoot = path.resolve(root);
+      const relative = path.relative(resolvedRoot, resolvedTarget);
+      if (relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))) {
+        return true;
+      }
+    }
+    
+    // Allow paths inside registered workspaces
+    for (const root of allowedPaths) {
+      const resolvedRoot = path.resolve(root);
+      const relative = path.relative(resolvedRoot, resolvedTarget);
+      if (relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))) {
+        return true;
+      }
+    }
+  } catch (err) {
+    console.error('Error resolving path security check:', err);
+  }
+  return false;
+}
+
 installRedactedConsole();
 
 // macOS uses app.getName() for the "About <name>" menu item; package.json's
@@ -841,7 +877,11 @@ ipcMain.handle('select-directory', async () => {
   if (result.canceled) {
     return null;
   } else {
-    return result.filePaths[0];
+    const chosenPath = result.filePaths[0];
+    if (chosenPath) {
+      allowedPaths.add(path.resolve(chosenPath));
+    }
+    return chosenPath;
   }
 });
 
@@ -2736,7 +2776,17 @@ async function getFiles(dir, baseDir = dir) {
   return Array.prototype.concat(...files);
 }
 
+ipcMain.handle('register-workspace', (event, workspacePath) => {
+  if (workspacePath && typeof workspacePath === 'string') {
+    allowedPaths.add(path.resolve(workspacePath));
+  }
+  return true;
+});
+
 ipcMain.handle('list-files', async (event, dirPath) => {
+  if (!isPathAllowed(dirPath)) {
+    throw new Error('Access Denied: Path is outside the allowed workspace directories.');
+  }
   try {
     const files = await getFiles(dirPath);
     return files;
@@ -2747,6 +2797,9 @@ ipcMain.handle('list-files', async (event, dirPath) => {
 });
 
 ipcMain.handle('read-file', async (event, filePath) => {
+  if (!isPathAllowed(filePath)) {
+    throw new Error('Access Denied: Path is outside the allowed workspace directories.');
+  }
   try {
     const content = await fs.readFile(filePath, 'utf-8');
     return content;
@@ -2757,6 +2810,9 @@ ipcMain.handle('read-file', async (event, filePath) => {
 });
 
 ipcMain.handle('write-file', async (event, { filePath, content }) => {
+  if (!isPathAllowed(filePath)) {
+    throw new Error('Access Denied: Path is outside the allowed workspace directories.');
+  }
   try {
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     await fs.writeFile(filePath, content, 'utf-8');
@@ -2768,6 +2824,9 @@ ipcMain.handle('write-file', async (event, { filePath, content }) => {
 });
 
 ipcMain.handle('delete-file', async (event, filePath) => {
+  if (!isPathAllowed(filePath)) {
+    throw new Error('Access Denied: Path is outside the allowed workspace directories.');
+  }
   try {
     await fs.unlink(filePath);
     return true;
@@ -3115,6 +3174,9 @@ ipcMain.handle('lighthouse:find-references', async (event, { oldPort, newPort } 
 });
 
 ipcMain.handle('lighthouse:apply-fix', async (event, { filePath, lineNumber, newLine, oldLine } = {}) => {
+  if (!isPathAllowed(filePath)) {
+    return { ok: false, error: 'Access Denied: Path is outside the allowed workspace directories.' };
+  }
   try {
     const lines = fsSync.readFileSync(filePath, 'utf8').split('\n');
     const idx = lineNumber - 1;
