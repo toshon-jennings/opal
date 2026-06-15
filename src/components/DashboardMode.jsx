@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     MessageSquare, Users, Code, Bot, FlaskConical, Building2, ActivitySquare, Hammer,
     Plus, ArrowUpRight, Server, Sparkles, CheckCircle2, AlertTriangle, Layers, Settings,
-    Radar, BookOpen, GraduationCap, KeyRound,
+    Radar, BookOpen, GraduationCap,
 } from 'lucide-react';
 import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, GDASH_WINDOW_ID } from '../context/ModeContext';
 import { useChat } from '../context/ChatContext';
@@ -80,7 +80,7 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
     const [showBeginnerGuide, setShowBeginnerGuide] = useState(false);
 
     // Drop the user straight into Settings focused on OpenRouter, with its
-    // API-key field revealed. Used by the dashboard "Get API Key" tile and the
+    // API-key field revealed. Used by the beginner guide's OpenRouter CTA.
     // beginner guide's OpenRouter CTA.
     const openOpenRouterSettings = useCallback(() => {
         updateProvider?.('openrouter');
@@ -258,22 +258,6 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                                     <ArrowUpRight size={13} className="dash-tile-arrow" />
                                 </button>
                                 ))}
-                                <button
-                                    type="button"
-                                    className="dash-tile"
-                                    style={{ '--tile': '#8b5cf6', '--i': NATIVE_TILES.length }}
-                                    onClick={openOpenRouterSettings}
-                                    title="Add your OpenRouter API key in Settings"
-                                >
-                                    <span className="dash-tile-icon">
-                                        <KeyRound size={18} />
-                                    </span>
-                                    <span className="dash-tile-text">
-                                        <span className="dash-tile-name">Get API Key</span>
-                                        <span className="dash-tile-desc">OpenRouter — 100s of cloud models</span>
-                                    </span>
-                                    <ArrowUpRight size={13} className="dash-tile-arrow" />
-                                </button>
                             </div>
                         </div>
 
