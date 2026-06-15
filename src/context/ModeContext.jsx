@@ -23,6 +23,7 @@ export const MODES = {
     LIGHTHOUSE: 'lighthouse', // Port scanning and conflict detection
     NOTES: 'notes',    // Markdown wiki notes with backlinks
     BARS: 'bars',      // OS-surface idea notebook
+    CONCERNS: 'concerns', // Bill Board — service/subscription/API-key tracker
 };
 
 // Non-mode windows (surfaces that open as windows but aren't in the MODES enum).
@@ -44,6 +45,7 @@ export const WINDOW_TITLES = {
     [MODES.LIGHTHOUSE]: 'Lighthouse',
     [MODES.NOTES]: 'Workspace Notes',
     [MODES.BARS]: 'BARS',
+    [MODES.CONCERNS]: 'Bill Board',
     [OPENCLAW_WINDOW_ID]: 'OpenClaw',
     [HERMES_WINDOW_ID]: 'Hermes',
     [YOUTUBE_WINDOW_ID]: 'YouTube',

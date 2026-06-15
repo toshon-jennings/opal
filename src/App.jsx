@@ -16,6 +16,7 @@ import LighthouseMode from './components/LighthouseMode';
 import DashboardMode from './components/DashboardMode';
 import NotesMode from './components/NotesMode';
 import BarsMode from './components/BarsMode';
+import BillboardMode from './components/BillboardMode';
 import { SettingsModal } from './components/SettingsModal';
 import DesktopHost from './components/windows/DesktopHost';
 import Dock from './components/windows/Dock';
@@ -509,6 +510,7 @@ function AppContent() {
             case MODES.LIGHTHOUSE: return <LighthouseMode />;
             case MODES.NOTES: return <NotesMode />;
             case MODES.BARS: return <BarsMode />;
+            case MODES.CONCERNS: return <BillboardMode />;
             case MODES.MISSION:
                 return (
                     <MissionControl
