@@ -85,6 +85,9 @@ export function SettingsModal({ isOpen, onClose }) {
     const [isRestartingGateway, setIsRestartingGateway] = useState(false);
     const [gatewayRestartStatus, setGatewayRestartStatus] = useState('');
 
+    // G-Dash: the user's own Google "Desktop" OAuth client ID (Bring-Your-Own).
+    const [gdashClientId, setGdashClientId] = useState('');
+
     useEffect(() => {
         if (isOpen) {
             setEditingName(userName || '');
@@ -110,8 +113,24 @@ export function SettingsModal({ isOpen, onClose }) {
                 };
                 loadConfig();
             }
+
+            // Load the saved G-Dash client ID (decrypted by the main process).
+            if (window.electron?.getAppData) {
+                window.electron.getAppData()
+                    .then((data) => setGdashClientId(data?.gdash_google_client_id || ''))
+                    .catch(() => { /* leave field blank */ });
+            }
         }
     }, [isOpen, userName, customInstructions]);
+
+    const saveGdashClientId = async () => {
+        if (!window.electron?.setAppData) return;
+        try {
+            await window.electron.setAppData({ gdash_google_client_id: gdashClientId.trim() });
+        } catch (err) {
+            console.error('Failed to save G-Dash client ID:', err);
+        }
+    };
 
     const saveLocalOpenClawConfig = async (config) => {
         if (!window.electron?.writeOpenClawConfig) return;
@@ -485,6 +504,40 @@ export function SettingsModal({ isOpen, onClose }) {
                             Reviewed before every response. Saved locally.
                         </p>
                     </Section>
+
+                    {/* G-Dash — Google account (Bring-Your-Own OAuth client) */}
+                    {window.electron && (
+                        <Section title="Google · G-Dash" icon={Key} defaultOpen={false}>
+                            <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">
+                                Desktop OAuth client ID
+                            </label>
+                            <input
+                                type="text"
+                                value={gdashClientId}
+                                onChange={e => setGdashClientId(e.target.value)}
+                                onBlur={saveGdashClientId}
+                                onKeyDown={e => { if (e.key === 'Enter') { saveGdashClientId(); e.target.blur(); } }}
+                                className="w-full px-4 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg-tertiary)] focus:ring-2 ring-[var(--accent)] outline-none transition-all text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] text-sm"
+                                placeholder="xxxxxxxx.apps.googleusercontent.com"
+                                spellCheck={false}
+                                autoComplete="off"
+                            />
+                            <p className="text-xs text-[var(--text-tertiary)] leading-relaxed">
+                                G-Dash connects with <strong>your own</strong> Google credentials — nothing is shared.
+                                In{' '}
+                                <button
+                                    type="button"
+                                    onClick={() => window.electron?.openExternal?.('https://console.cloud.google.com/apis/credentials')}
+                                    className="text-[var(--accent)] hover:underline"
+                                >
+                                    Google Cloud Console
+                                </button>
+                                {' '}create an OAuth client of type <strong>Desktop app</strong>, enable the Drive, Gmail,
+                                Calendar and Tasks APIs, then paste the client ID here. No client secret is needed; the ID
+                                is stored encrypted on this device.
+                            </p>
+                        </Section>
+                    )}
 
                     {/* Models — providers, keys, model list & custom models in one place */}
                     <Section title="Models" icon={Server} defaultOpen={true}>

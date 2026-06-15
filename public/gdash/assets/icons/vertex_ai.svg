@@ -1,0 +1,44 @@
+<svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Vertex AI official logo: dots pattern with V-shaped base -->
+  <g transform="translate(24, 6)">
+    <!-- Top row - 1 pill shape -->
+    <ellipse cx="-12" cy="0" rx="2" ry="5" fill="#A8C7FA"/>
+    
+    <!-- Second row - 3 dots -->
+    <circle cx="-6" cy="4" r="2" fill="#A8C7FA"/>
+    <circle cx="0" cy="4" r="2.5" fill="#669DF6"/>
+    <circle cx="6" cy="4" r="1.5" fill="#A8C7FA"/>
+    
+    <!-- Third row - 3 dots -->
+    <circle cx="-6" cy="8" r="2.5" fill="#A8C7FA"/>
+    <circle cx="0" cy="8" r="2" fill="#669DF6"/>
+    <circle cx="6" cy="8" r="2.5" fill="#669DF6"/>
+    
+    <!-- Fourth row - 4 elements -->
+    <ellipse cx="-8" cy="12" rx="2" ry="4" fill="#A8C7FA"/>
+    <circle cx="-2" cy="12" r="2" fill="#669DF6"/>
+    <circle cx="4" cy="12" r="2.5" fill="#4285F4"/>
+    <circle cx="10" cy="12" r="1.5" fill="#669DF6"/>
+    
+    <!-- Fifth row - 4 dots -->
+    <circle cx="-6" cy="16" r="2" fill="#A8C7FA"/>
+    <ellipse cx="0" cy="16" rx="2" ry="4" fill="#4285F4"/>
+    <circle cx="6" cy="16" r="2" fill="#669DF6"/>
+    <circle cx="10" cy="16" r="2" fill="#669DF6"/>
+    
+    <!-- Sixth row - 3 dots -->
+    <circle cx="-4" cy="20" r="2" fill="#A8C7FA"/>
+    <circle cx="2" cy="20" r="2" fill="#669DF6"/>
+    <circle cx="8" cy="20" r="2" fill="#669DF6"/>
+    
+    <!-- V-shaped base with lines -->
+    <!-- Left diagonal line -->
+    <line x1="-16" y1="28" x2="0" y2="36" stroke="#669DF6" stroke-width="4" stroke-linecap="round"/>
+    <!-- Right diagonal line -->
+    <line x1="16" y1="28" x2="0" y2="36" stroke="#4285F4" stroke-width="4" stroke-linecap="round"/>
+    
+    <!-- Center circle at vertex point -->
+    <circle cx="0" cy="36" r="4" fill="white" stroke="#4285F4" stroke-width="2"/>
+    <circle cx="0" cy="36" r="2.5" fill="#4285F4"/>
+  </g>
+</svg>

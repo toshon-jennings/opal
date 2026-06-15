@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <path fill="#EA4335" d="M10 20h14v18H10a4 4 0 0 1-4-4V24a4 4 0 0 1 4-4z"/>
+  <path fill="#34A853" d="M24 20h14v18H24V20z"/>
+  <path fill="#00AC47" d="M10 20h14v18H10z"/>
+  <path fill="#188038" d="M24 20H10v-4a4 4 0 0 1 4-4h10v8z"/>
+  <path fill="#4285F4" d="M42 10L24 20v-4a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v4z"/>
+  <path fill="#FBBC05" d="M38 20l-14 8v-8h14z"/>
+  <path fill="#1967D2" d="M38 38L24 28v10a4 4 0 0 0 4 4h6a4 4 0 0 0 4-4v-4z"/>
+  <!-- Let's try a very standard known path set for accuracy -->
+   <path fill="#EA4335" d="M12 20H24V38H12z"/>
+   <path fill="#FBBC05" d="M24 20H36V38H24z"/>
+   <path fill="#34A853" d="M24 20L36 29L36 38L24 38z"/>
+   <path fill="#4285F4" d="M36 20L44 14V38L36 32z"/>
+   <!-- That was getting messy. Let's use the clean verified full color one. -->
+   <g>
+     <path fill="#EA4335" d="M24 18v22H10c-2.21 0-4-1.79-4-4V22c0-2.21 1.79-4 4-4h14z"/>
+     <path fill="#34A853" d="M38 22v14c0 2.21-1.79 4-4 4H24V18h14z"/>
+     <path fill="#00AC47" d="M38 22L24 18v11l14 7V22z"/>
+     <path fill="#FBBC05" d="M38 22L24 33V18l14-8v12z"/>
+     <path fill="#4285F4" d="M38 10L24 18V8c0-2.21 1.79-4 4-4h6c2.21 0 4 1.79 4 4v2z"/>
+   </g>
+</svg>

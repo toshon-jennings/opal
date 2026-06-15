@@ -22,6 +22,8 @@ const PERSISTED_KEYS = [
     'perci_terminal_port',
     'working_directory',
     'cowork_routines',
+    'perci_bars_ideas:v1',
+    'perci_bars_ai_settings:v1',
     'user_name',
     'custom_instructions',
     'selected_provider',

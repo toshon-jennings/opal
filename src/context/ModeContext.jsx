@@ -22,12 +22,14 @@ export const MODES = {
     OFFICE: 'office',  // Animated agent office scene (Perci HQ)
     LIGHTHOUSE: 'lighthouse', // Port scanning and conflict detection
     NOTES: 'notes',    // Markdown wiki notes with backlinks
+    BARS: 'bars',      // OS-surface idea notebook
 };
 
 // Non-mode windows (surfaces that open as windows but aren't in the MODES enum).
 export const OPENCLAW_WINDOW_ID = 'openclaw';
 export const HERMES_WINDOW_ID = 'hermes';
 export const YOUTUBE_WINDOW_ID = 'youtube';
+export const GDASH_WINDOW_ID = 'gdash';
 
 // Titles shown in window headers and dock chips for each windowed surface.
 export const WINDOW_TITLES = {
@@ -41,14 +43,17 @@ export const WINDOW_TITLES = {
     [MODES.OFFICE]: 'Perci HQ',
     [MODES.LIGHTHOUSE]: 'Lighthouse',
     [MODES.NOTES]: 'Workspace Notes',
+    [MODES.BARS]: 'BARS',
     [OPENCLAW_WINDOW_ID]: 'OpenClaw',
     [HERMES_WINDOW_ID]: 'Hermes',
     [YOUTUBE_WINDOW_ID]: 'YouTube',
+    [GDASH_WINDOW_ID]: 'G-Dash',
 };
 
-// Windows whose content is an Electron <webview>; CSS transforms can make webviews
-// flicker, so these minimize with a plain fade instead of the whirlpool spin.
-const NO_WHIRLPOOL_IDS = new Set([OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID]);
+// Windows whose content is an embedded <webview>/<iframe>; CSS transforms can make
+// embedded frames flicker (and reload), so these minimize with a plain fade instead
+// of the whirlpool spin.
+const NO_WHIRLPOOL_IDS = new Set([OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID]);
 
 const WINDOW_DEFAULTS = { width: 960, height: 640, minWidth: 420, minHeight: 300, cascade: 34 };
 const DOCK_RESERVED_HEIGHT = 64;

@@ -4,10 +4,10 @@ Perci™ includes code derived from the following open-source project:
 
 ## Open Claude
 
-- **Author:** Damien ChakraUI (Damienchakma)
+- **Author:** Damien Chakma (Damienchakma)
 - **Repository:** https://github.com/Damienchakma/Open-claude
 - **License:** MIT License
-- **Copyright:** Copyright (c) 2025 Damien ChakraUI
+- **Copyright:** Copyright (c) 2025 Damien Chakma
 
 The original MIT license terms apply to the portions of this software derived
 from Open Claude. The full text of the MIT License is included in the LICENSE
@@ -29,7 +29,9 @@ and its contributors.
 ---
 
 All other components, including but not limited to Autoresearch mode, Office
-mode, Dashboard mode, the agent bridge, and the Sir Percival mascot, are
-original works and are not covered by the MIT License.
+mode, Dashboard mode, and the agent bridge, are original works of Toshon
+Jennings and are likewise released under the MIT License (see the LICENSE file).
 
-Perci™ is a trademark of Toshon Jennings.
+Trademarks are not licensed under the MIT License. The "Perci" and "Perci™"
+names and the Sir Percival mascot are trademarks of Toshon Jennings; the MIT
+License grants rights to the software only, not to these marks.

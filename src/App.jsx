@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, Component } from 'react';
 import perciLogo from './assets/perci-logo.png';
-import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID } from './context/ModeContext';
+import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID } from './context/ModeContext';
 import ModeSwitcher from './components/ModeSwitcher';
 import ChatMode from './components/ChatMode';
 import CodeMode from './components/CodeMode';
@@ -11,9 +11,11 @@ import AgentsPanel from './components/AgentsPanel';
 import AutoresearchPanel from './components/AutoresearchPanel';
 import OfficePanel from './components/OfficePanel';
 import HermesMode from './components/HermesMode';
+import GDashMode from './components/GDashMode';
 import LighthouseMode from './components/LighthouseMode';
 import DashboardMode from './components/DashboardMode';
 import NotesMode from './components/NotesMode';
+import BarsMode from './components/BarsMode';
 import { SettingsModal } from './components/SettingsModal';
 import DesktopHost from './components/windows/DesktopHost';
 import Dock from './components/windows/Dock';
@@ -506,6 +508,7 @@ function AppContent() {
             case MODES.BUILD: return <BuildMode />;
             case MODES.LIGHTHOUSE: return <LighthouseMode />;
             case MODES.NOTES: return <NotesMode />;
+            case MODES.BARS: return <BarsMode />;
             case MODES.MISSION:
                 return (
                     <MissionControl
@@ -516,6 +519,7 @@ function AppContent() {
                 );
             case OPENCLAW_WINDOW_ID: return renderOpenClawWindow();
             case HERMES_WINDOW_ID: return <HermesMode />;
+            case GDASH_WINDOW_ID: return <GDashMode onOpenSettings={() => setIsSettingsOpen(true)} />;
             case YOUTUBE_WINDOW_ID:
                 if (!youtubeUrl) return null;
                 // Desktop: load the full /watch page in a <webview> (its own

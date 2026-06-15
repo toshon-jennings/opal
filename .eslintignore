@@ -2,3 +2,5 @@ dist/
 dist_electron/
 node_modules/
 coverage/
+public/gdash/
+

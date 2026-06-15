@@ -3,7 +3,7 @@ const { installRedactedConsole } = require('./redact-console.cjs');
 const path = require('path');
 const fsSync = require('fs');
 const { spawn, spawnSync } = require('child_process');
-const { randomUUID } = require('crypto');
+const { randomUUID, randomBytes, createHash } = require('crypto');
 const http = require('http');
 const https = require('https');
 const net = require('net');
@@ -856,7 +856,9 @@ const apiKeyStorageKeys = new Set([
   'anthropic_key',
   'mistral_key',
   'openclaw_config',
-  'hermes_config'
+  'hermes_config',
+  'gdash_google_client_id',
+  'gdash_google_tokens'
 ]);
 
 function getAppDataPath() {
@@ -936,7 +938,7 @@ async function writeAppData(data) {
   };
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   // Atomic write: write to a temp file, then rename to avoid partial reads
-  const tmpPath = `${filePath}.${process.pid}.tmp`;
+  const tmpPath = `${filePath}.${process.pid}.${randomUUID()}.tmp`;
   await fs.writeFile(tmpPath, JSON.stringify(payload, null, 2), 'utf-8');
   await fs.rename(tmpPath, filePath);
   return decryptAppData(payload);
@@ -959,6 +961,302 @@ ipcMain.handle('app-data:set', async (event, data) => {
   } catch (err) {
     console.error('Error writing app data:', err);
     throw err;
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// G-Dash — Google Workspace dashboard (Bring-Your-Own OAuth client)
+//
+// Desktop OAuth 2.0 with PKCE + loopback redirect (no client secret). Access and
+// refresh tokens are persisted encrypted in appData (safeStorage, via the
+// gdash_google_tokens key) and never leave the main process — the renderer/iframe
+// only ever receives the assembled dashboard object. The client ID is supplied by
+// the user in Settings (gdash_google_client_id); nothing Google-owned ships in the
+// repo. Read-only scopes only.
+// ─────────────────────────────────────────────────────────────────────────────
+const GDASH_CLIENT_ID_KEY = 'gdash_google_client_id';
+const GDASH_TOKENS_KEY = 'gdash_google_tokens';
+const GDASH_TOKEN_URL = 'https://oauth2.googleapis.com/token';
+const GDASH_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
+const GDASH_SCOPES = [
+  'https://www.googleapis.com/auth/userinfo.email',
+  'https://www.googleapis.com/auth/userinfo.profile',
+  'https://www.googleapis.com/auth/drive.readonly',
+  'https://www.googleapis.com/auth/calendar.readonly',
+  'https://www.googleapis.com/auth/tasks.readonly',
+  'https://www.googleapis.com/auth/gmail.readonly',
+];
+const GDASH_CALLBACK_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>G-Dash</title>
+<style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#0b0d12;color:#e7ebf2;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0}.card{text-align:center;padding:40px 48px;border-radius:16px;background:#141821;box-shadow:0 10px 40px rgba(0,0,0,.4)}h1{font-size:18px;margin:0 0 8px}p{color:#8b93a7;font-size:14px;margin:0}</style></head>
+<body><div class="card"><h1>&#10003; Connected to G-Dash</h1><p>You can close this tab and return to Perci.</p></div></body></html>`;
+
+function gdashBase64Url(buf) {
+  return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function gdashPkce() {
+  const verifier = gdashBase64Url(randomBytes(32));
+  const challenge = gdashBase64Url(createHash('sha256').update(verifier).digest());
+  return { verifier, challenge };
+}
+
+async function gdashReadClientId() {
+  const data = await readAppData();
+  const id = data[GDASH_CLIENT_ID_KEY];
+  return typeof id === 'string' ? id.trim() : '';
+}
+
+async function gdashReadTokens() {
+  const data = await readAppData();
+  const raw = data[GDASH_TOKENS_KEY];
+  if (typeof raw !== 'string' || !raw) return null;
+  try { return JSON.parse(raw); } catch { return null; }
+}
+
+async function gdashWriteTokens(tokens) {
+  const current = await readAppData();
+  await writeAppData({ ...current, [GDASH_TOKENS_KEY]: JSON.stringify(tokens) });
+}
+
+async function gdashClearTokens() {
+  const current = await readAppData();
+  delete current[GDASH_TOKENS_KEY];
+  await writeAppData(current);
+}
+
+// Spin up a loopback server on an ephemeral 127.0.0.1 port to capture the OAuth
+// redirect. Resolves with { server, port, codePromise }; codePromise settles with
+// the authorization code (or rejects on error / 5-min timeout).
+function gdashStartLoopback(expectedState) {
+  return new Promise((resolve, reject) => {
+    let settle;
+    const codePromise = new Promise((res, rej) => { settle = { res, rej }; });
+    const timeout = setTimeout(() => settle.rej(new Error('Sign-in timed out. Try again.')), 5 * 60 * 1000);
+
+    const server = http.createServer((req, res) => {
+      let parsed;
+      try { parsed = new URL(req.url, 'http://127.0.0.1'); } catch { res.writeHead(400); res.end(); return; }
+      if (parsed.pathname !== '/' && parsed.pathname !== '/callback') { res.writeHead(404); res.end(); return; }
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(GDASH_CALLBACK_HTML);
+      clearTimeout(timeout);
+      const err = parsed.searchParams.get('error');
+      const code = parsed.searchParams.get('code');
+      const state = parsed.searchParams.get('state');
+      if (err) return settle.rej(new Error(err));
+      if (state !== expectedState) return settle.rej(new Error('State mismatch — sign-in aborted.'));
+      if (!code) return settle.rej(new Error('No authorization code returned.'));
+      return settle.res(code);
+    });
+    server.on('error', reject);
+    server.listen(0, '127.0.0.1', () => resolve({ server, port: server.address().port, codePromise }));
+  });
+}
+
+async function gdashRunOAuth(clientId) {
+  const { verifier, challenge } = gdashPkce();
+  const state = gdashBase64Url(randomBytes(16));
+  const { server, port, codePromise } = await gdashStartLoopback(state);
+  const redirectUri = `http://127.0.0.1:${port}`;
+
+  const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+  authUrl.searchParams.set('client_id', clientId);
+  authUrl.searchParams.set('redirect_uri', redirectUri);
+  authUrl.searchParams.set('response_type', 'code');
+  authUrl.searchParams.set('scope', GDASH_SCOPES.join(' '));
+  authUrl.searchParams.set('code_challenge', challenge);
+  authUrl.searchParams.set('code_challenge_method', 'S256');
+  authUrl.searchParams.set('state', state);
+  authUrl.searchParams.set('access_type', 'offline');
+  authUrl.searchParams.set('prompt', 'consent');
+
+  await shell.openExternal(authUrl.toString());
+
+  let code;
+  try {
+    code = await codePromise;
+  } finally {
+    server.close();
+  }
+
+  const body = new URLSearchParams({
+    grant_type: 'authorization_code',
+    code,
+    client_id: clientId,
+    code_verifier: verifier,
+    redirect_uri: redirectUri,
+  });
+  const resp = await fetch(GDASH_TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+  if (!resp.ok) throw new Error(`Token exchange failed (${resp.status}). Check the client ID and that it is a Desktop OAuth client.`);
+  const tok = await resp.json();
+  const tokens = {
+    access_token: tok.access_token,
+    refresh_token: tok.refresh_token || null,
+    expiry_date: Date.now() + (Number(tok.expires_in) || 3600) * 1000,
+    scope: tok.scope || GDASH_SCOPES.join(' '),
+  };
+  await gdashWriteTokens(tokens);
+  return tokens;
+}
+
+async function gdashRefreshAccessToken(clientId, tokens) {
+  if (!tokens.refresh_token) throw new Error('No refresh token — reconnect your Google account.');
+  const body = new URLSearchParams({
+    grant_type: 'refresh_token',
+    refresh_token: tokens.refresh_token,
+    client_id: clientId,
+  });
+  const resp = await fetch(GDASH_TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+  if (!resp.ok) throw new Error(`Token refresh failed (${resp.status}).`);
+  const tok = await resp.json();
+  const next = {
+    ...tokens,
+    access_token: tok.access_token,
+    expiry_date: Date.now() + (Number(tok.expires_in) || 3600) * 1000,
+    scope: tok.scope || tokens.scope,
+  };
+  if (tok.refresh_token) next.refresh_token = tok.refresh_token; // Google rotates these only sometimes.
+  await gdashWriteTokens(next);
+  return next;
+}
+
+// Returns a valid access token, refreshing if it expires within 60s. Returns null
+// when there are no stored tokens (i.e. not connected).
+async function gdashEnsureAccessToken(clientId) {
+  let tokens = await gdashReadTokens();
+  if (!tokens || !tokens.access_token) return null;
+  if (tokens.expiry_date && tokens.expiry_date < Date.now() + 60_000) {
+    tokens = await gdashRefreshAccessToken(clientId, tokens);
+  }
+  return tokens.access_token;
+}
+
+async function gdashApiGet(url, accessToken) {
+  const resp = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!resp.ok) throw new Error(`Google API ${resp.status} for ${url}`);
+  return resp.json();
+}
+
+async function gdashSettle(fn, fallback) {
+  try { return await fn(); } catch (err) { console.warn('[gdash] partial fetch failed:', err.message); return fallback; }
+}
+
+// Assemble the same dashboard shape the old /api/google-connect/dashboard returned,
+// so the reused renderer code works unchanged. Each sub-fetch degrades gracefully.
+async function gdashBuildDashboard(accessToken) {
+  const driveFiles = async (mimeType) => {
+    const q = encodeURIComponent(mimeType ? `mimeType = '${mimeType}' and trashed = false` : 'trashed = false');
+    const fields = encodeURIComponent('files(id,name,mimeType,webViewLink)');
+    const url = `https://www.googleapis.com/drive/v3/files?pageSize=5&q=${q}&fields=${fields}&orderBy=modifiedTime%20desc`;
+    const data = await gdashApiGet(url, accessToken);
+    return data.files || [];
+  };
+
+  const [profile, recentFiles, docs, sheets, slides, storageQuota, events, taskItems, gmail] = await Promise.all([
+    gdashSettle(async () => {
+      const d = await gdashApiGet(GDASH_USERINFO_URL, accessToken);
+      return { email: d.email || null, name: d.name || null, givenName: d.given_name || null };
+    }, { email: null, name: null, givenName: null }),
+    gdashSettle(() => driveFiles(), []),
+    gdashSettle(() => driveFiles('application/vnd.google-apps.document'), []),
+    gdashSettle(() => driveFiles('application/vnd.google-apps.spreadsheet'), []),
+    gdashSettle(() => driveFiles('application/vnd.google-apps.presentation'), []),
+    gdashSettle(async () => {
+      const d = await gdashApiGet('https://www.googleapis.com/drive/v3/about?fields=storageQuota', accessToken);
+      return d.storageQuota || null;
+    }, null),
+    gdashSettle(async () => {
+      const timeMin = encodeURIComponent(new Date().toISOString());
+      const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${timeMin}&maxResults=3&orderBy=startTime&singleEvents=true`;
+      const d = await gdashApiGet(url, accessToken);
+      return d.items || [];
+    }, []),
+    gdashSettle(async () => {
+      const lists = await gdashApiGet('https://tasks.googleapis.com/tasks/v1/users/@me/lists?maxResults=1', accessToken);
+      const listId = lists.items && lists.items[0] && lists.items[0].id;
+      if (!listId) return [];
+      const d = await gdashApiGet(`https://tasks.googleapis.com/tasks/v1/lists/${encodeURIComponent(listId)}/tasks?maxResults=5&showCompleted=true&showHidden=true`, accessToken);
+      return d.items || [];
+    }, []),
+    gdashSettle(async () => {
+      const list = await gdashApiGet('https://gmail.googleapis.com/gmail/v1/users/me/messages?q=is:unread&maxResults=2', accessToken);
+      const unreadCount = list.resultSizeEstimate || 0;
+      const messages = await Promise.all((list.messages || []).map(async (m) => {
+        const detail = await gdashApiGet(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject`, accessToken);
+        const headers = (detail.payload && detail.payload.headers) || [];
+        const getH = (name) => (headers.find((h) => (h.name || '').toLowerCase() === name.toLowerCase()) || {}).value || '';
+        return { id: detail.id, subject: getH('Subject') || '(No Subject)', from: getH('From') || 'Unknown' };
+      }));
+      return { unreadCount, messages };
+    }, { unreadCount: 0, messages: [] }),
+  ]);
+
+  return {
+    connected: true,
+    hasClientId: true,
+    profile,
+    drive: { recentFiles, storageQuota },
+    docs,
+    sheets,
+    slides,
+    calendar: { events },
+    tasks: { items: taskItems },
+    gmail,
+  };
+}
+
+ipcMain.handle('gdash:status', async () => {
+  const clientId = await gdashReadClientId();
+  const tokens = await gdashReadTokens();
+  return { hasClientId: Boolean(clientId), connected: Boolean(tokens && tokens.access_token) };
+});
+
+ipcMain.handle('gdash:connect', async () => {
+  try {
+    const clientId = await gdashReadClientId();
+    if (!clientId) return { ok: false, error: 'no-client-id' };
+    const tokens = await gdashRunOAuth(clientId);
+    let profile = null;
+    try {
+      const d = await gdashApiGet(GDASH_USERINFO_URL, tokens.access_token);
+      profile = { email: d.email || null, name: d.name || null, givenName: d.given_name || null };
+    } catch { /* profile is best-effort */ }
+    return { ok: true, profile };
+  } catch (err) {
+    console.error('[gdash] connect failed:', err.message);
+    return { ok: false, error: err.message || 'connect-failed' };
+  }
+});
+
+ipcMain.handle('gdash:disconnect', async () => {
+  try { await gdashClearTokens(); } catch (err) { console.error('[gdash] disconnect failed:', err.message); }
+  return { ok: true };
+});
+
+ipcMain.handle('gdash:dashboard', async () => {
+  const clientId = await gdashReadClientId();
+  if (!clientId) return { connected: false, hasClientId: false };
+  let accessToken;
+  try {
+    accessToken = await gdashEnsureAccessToken(clientId);
+  } catch (err) {
+    console.warn('[gdash] token ensure failed:', err.message);
+    return { connected: false, hasClientId: true };
+  }
+  if (!accessToken) return { connected: false, hasClientId: true };
+  try {
+    return await gdashBuildDashboard(accessToken);
+  } catch (err) {
+    console.error('[gdash] dashboard build failed:', err.message);
+    return { connected: false, hasClientId: true };
   }
 });
 
@@ -1363,6 +1661,358 @@ ipcMain.handle('openclaw:write-diary', async (event, content) => {
   }
 });
 
+// ─── BARS native Perci surface bridge ────────────────────────────────────────
+
+const BARS_LOCAL_PROVIDERS = [
+  {
+    id: 'lmstudio',
+    name: 'LM Studio',
+    kind: 'local',
+    endpoint: 'http://127.0.0.1:1234',
+    modelsPath: '/v1/models',
+    chatPath: '/v1/chat/completions',
+    defaultModel: 'local-model',
+    api: 'openai'
+  },
+  {
+    id: 'jan',
+    name: 'Jan',
+    kind: 'local',
+    endpoints: ['http://127.0.0.1:6767', 'http://127.0.0.1:1337'],
+    modelsPath: '/v1/models',
+    chatPath: '/v1/chat/completions',
+    defaultModel: 'local-model',
+    api: 'openai'
+  },
+  {
+    id: 'ollama',
+    name: 'Ollama',
+    kind: 'local',
+    endpoint: 'http://127.0.0.1:11434',
+    modelsPath: '/api/tags',
+    chatPath: '/api/chat',
+    defaultModel: 'local-model',
+    api: 'ollama'
+  }
+];
+
+const BARS_CLOUD_PROVIDERS = [
+  {
+    id: 'openai',
+    name: 'OpenAI',
+    kind: 'cloud',
+    keyName: 'openai_key',
+    defaultModel: 'gpt-4o',
+    models: ['gpt-4o', 'gpt-4o-mini', 'gpt-4.1', 'gpt-4.1-mini', 'o4-mini'],
+    chatPath: 'https://api.openai.com/v1/chat/completions',
+    api: 'openai'
+  },
+  {
+    id: 'anthropic',
+    name: 'Anthropic',
+    kind: 'cloud',
+    keyName: 'anthropic_key',
+    defaultModel: 'claude-sonnet-4-5',
+    models: ['claude-sonnet-4-5', 'claude-opus-4-5', 'claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022'],
+    chatPath: 'https://api.anthropic.com/v1/messages',
+    api: 'anthropic'
+  },
+  {
+    id: 'google',
+    name: 'Google AI',
+    kind: 'cloud',
+    keyName: 'gemini_key',
+    defaultModel: 'gemini-1.5-flash',
+    models: ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash'],
+    chatPath: 'https://generativelanguage.googleapis.com/v1beta/models',
+    api: 'google'
+  },
+  {
+    id: 'groq',
+    name: 'Groq',
+    kind: 'cloud',
+    keyName: 'groq_key',
+    defaultModel: 'llama-3.3-70b-versatile',
+    models: ['llama-3.3-70b-versatile', 'openai/gpt-oss-120b', 'moonshotai/kimi-k2-instruct'],
+    chatPath: 'https://api.groq.com/openai/v1/chat/completions',
+    modelsPath: 'https://api.groq.com/openai/v1/models',
+    api: 'openai'
+  },
+  {
+    id: 'openrouter',
+    name: 'OpenRouter',
+    kind: 'cloud',
+    keyName: 'openrouter_key',
+    defaultModel: 'openrouter/auto',
+    models: ['openrouter/auto'],
+    modelsPath: 'https://openrouter.ai/api/v1/models',
+    chatPath: 'https://openrouter.ai/api/v1/chat/completions',
+    api: 'openai',
+    extraHeaders: { 'HTTP-Referer': 'https://perci.local', 'X-Title': 'Perci Bars' }
+  }
+];
+
+async function fetchJsonStrict(url, options = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), options.timeoutMs || 90000);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    const text = await response.text();
+    let payload = null;
+    try {
+      payload = text ? JSON.parse(text) : null;
+    } catch {
+      payload = text;
+    }
+    if (!response.ok) {
+      const message = payload?.error?.message || payload?.message || (typeof payload === 'string' ? payload : '');
+      throw new Error(['HTTP ' + response.status, message].filter(Boolean).join(': '));
+    }
+    return payload;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function normalizeBarsModels(provider, payload) {
+  if (provider.api === 'ollama') {
+    return Array.isArray(payload?.models) ? payload.models.map(model => model.name).filter(Boolean) : [];
+  }
+  return Array.isArray(payload?.data) ? payload.data.map(model => model.id).filter(Boolean) : [];
+}
+
+async function detectBarsLocalProvider(provider) {
+  const endpoints = provider.endpoints || [provider.endpoint];
+  for (const endpoint of endpoints) {
+    const result = await requestJson(endpoint + provider.modelsPath, 2500);
+    if (!result.ok) continue;
+    const models = normalizeBarsModels(provider, result.data);
+    return {
+      ...provider,
+      endpoint,
+      endpoints: undefined,
+      available: models.length > 0,
+      models,
+      modelCount: models.length,
+      error: models.length > 0 ? '' : 'No models detected'
+    };
+  }
+  return {
+    ...provider,
+    endpoint: endpoints[0],
+    endpoints: undefined,
+    available: false,
+    models: [],
+    modelCount: 0,
+    error: 'Local API server is not reachable'
+  };
+}
+
+async function getBarsApiKeys() {
+  const data = await readAppData();
+  return Object.fromEntries(BARS_CLOUD_PROVIDERS.map(provider => [
+    provider.id,
+    typeof data[provider.keyName] === 'string' ? data[provider.keyName] : ''
+  ]));
+}
+
+async function getBarsApiKeyStatus() {
+  const keys = await getBarsApiKeys();
+  return {
+    encrypted: safeStorage.isEncryptionAvailable(),
+    providers: BARS_CLOUD_PROVIDERS.map(provider => ({
+      id: provider.id,
+      name: provider.name,
+      configured: Boolean(keys[provider.id])
+    }))
+  };
+}
+
+async function saveBarsApiKeys(incoming = {}) {
+  const patch = {};
+  for (const provider of BARS_CLOUD_PROVIDERS) {
+    const value = typeof incoming[provider.id] === 'string' ? incoming[provider.id].trim() : '';
+    if (value) patch[provider.keyName] = value;
+  }
+  if (Object.keys(patch).length > 0) {
+    const current = await readAppData();
+    await writeAppData({ ...current, ...patch });
+  }
+  return getBarsApiKeyStatus();
+}
+
+async function clearBarsApiKeys() {
+  const current = await readAppData();
+  const patch = {};
+  for (const provider of BARS_CLOUD_PROVIDERS) patch[provider.keyName] = '';
+  await writeAppData({ ...current, ...patch });
+  return getBarsApiKeyStatus();
+}
+
+async function fetchBarsCloudModels(provider, key) {
+  if (provider.id === 'openrouter') {
+    const result = await requestJson(provider.modelsPath, 12000, { Accept: 'application/json' });
+    if (result.ok) {
+      const ids = Array.isArray(result.data?.data) ? result.data.data.map(model => model.id).filter(Boolean) : [];
+      return Array.from(new Set([provider.defaultModel, ...ids].filter(Boolean)));
+    }
+    return provider.models;
+  }
+  if (provider.id === 'groq' && key) {
+    const result = await requestJson(provider.modelsPath, 8000, { Authorization: 'Bearer ' + key });
+    if (result.ok) {
+      const ids = Array.isArray(result.data?.data) ? result.data.data.map(model => model.id).filter(Boolean) : [];
+      if (ids.length) return ids;
+    }
+  }
+  return provider.models;
+}
+
+async function detectBarsProviders() {
+  const keys = await getBarsApiKeys();
+  const [localProviders, cloudProviders] = await Promise.all([
+    Promise.all(BARS_LOCAL_PROVIDERS.map(detectBarsLocalProvider)),
+    Promise.all(BARS_CLOUD_PROVIDERS.map(async provider => ({
+      ...provider,
+      available: Boolean(keys[provider.id]),
+      configured: Boolean(keys[provider.id]),
+      models: await fetchBarsCloudModels(provider, keys[provider.id])
+    })))
+  ]);
+  const providers = [...localProviders, ...cloudProviders];
+  return {
+    generatedAt: Date.now(),
+    providers,
+    selectedId: providers.find(provider => provider.available)?.id || providers[0]?.id || null,
+    keyStatus: await getBarsApiKeyStatus()
+  };
+}
+
+function compactBarsIdeas(ideas) {
+  return (Array.isArray(ideas) ? ideas : []).slice(0, 100).map((idea, index) => {
+    const tags = Array.isArray(idea.tags) && idea.tags.length ? ' tags: ' + idea.tags.join(', ') : '';
+    const next = idea.next ? ' next: ' + idea.next : '';
+    return [
+      (index + 1) + '. ' + (idea.title || 'Untitled'),
+      'status: ' + (idea.status || 'New') + '; category: ' + (idea.category || idea.kind || 'Uncategorized') + '; impact: ' + (idea.impact || '3') + '; effort: ' + (idea.effort || '3') + ';' + tags + next,
+      idea.notes ? 'notes: ' + idea.notes : ''
+    ].filter(Boolean).join('\n');
+  }).join('\n\n');
+}
+
+function buildBarsMessages(question, ideas) {
+  const context = compactBarsIdeas(ideas);
+  return [
+    {
+      role: 'system',
+      content: 'You are a concise assistant for BARS, a personal idea notebook inside Perci. Answer only from the supplied bars unless the user asks for general planning advice. If the notes do not contain enough evidence, say what is missing. Keep next steps concrete.'
+    },
+    {
+      role: 'user',
+      content: 'Question:\n' + question + '\n\nBars:\n' + (context || 'No bars saved yet.')
+    }
+  ];
+}
+
+function getBarsProvider(providerId) {
+  return [...BARS_LOCAL_PROVIDERS, ...BARS_CLOUD_PROVIDERS].find(provider => provider.id === providerId);
+}
+
+async function askBarsOpenAiCompatible(provider, key, model, messages, endpointOverride = '') {
+  const chatUrl = provider.kind === 'local'
+    ? (endpointOverride || provider.endpoint).replace(/\/$/, '') + provider.chatPath
+    : provider.chatPath;
+  const payload = await fetchJsonStrict(chatUrl, {
+    method: 'POST',
+    timeoutMs: 90000,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(key ? { Authorization: 'Bearer ' + key } : {}),
+      ...(provider.extraHeaders || {})
+    },
+    body: JSON.stringify({ model, messages, temperature: 0.2, stream: false })
+  });
+  return payload?.choices?.[0]?.message?.content?.trim() || 'No response text returned.';
+}
+
+async function askBarsAnthropic(provider, key, model, messages) {
+  const payload = await fetchJsonStrict(provider.chatPath, {
+    method: 'POST',
+    timeoutMs: 90000,
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01'
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 1200,
+      system: messages[0].content,
+      messages: [{ role: 'user', content: messages[1].content }]
+    })
+  });
+  return Array.isArray(payload?.content)
+    ? payload.content.map(part => part?.text || '').join('').trim() || 'No response text returned.'
+    : 'No response text returned.';
+}
+
+async function askBarsGoogle(provider, key, model, messages) {
+  const payload = await fetchJsonStrict(provider.chatPath + '/' + encodeURIComponent(model) + ':generateContent', {
+    method: 'POST',
+    timeoutMs: 90000,
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: messages[0].content }] },
+      contents: [{ role: 'user', parts: [{ text: messages[1].content }] }],
+      generationConfig: { maxOutputTokens: 1200 }
+    })
+  });
+  const parts = payload?.candidates?.[0]?.content?.parts;
+  return Array.isArray(parts)
+    ? parts.map(part => part?.text || '').join('').trim() || 'No response text returned.'
+    : 'No response text returned.';
+}
+
+async function askBarsOllama(provider, model, messages) {
+  const payload = await fetchJsonStrict(provider.endpoint + provider.chatPath, {
+    method: 'POST',
+    timeoutMs: 90000,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, messages, stream: false })
+  });
+  return payload?.message?.content?.trim() || 'No response text returned.';
+}
+
+async function askBars(payload = {}) {
+  const provider = getBarsProvider(payload.providerId);
+  if (!provider) throw new Error('Unknown Bars AI provider.');
+  const messages = buildBarsMessages(payload.question || '', payload.ideas || []);
+  const model = String(payload.model || provider.defaultModel || 'local-model').trim();
+  if (!model) throw new Error('Choose a model first.');
+
+  if (provider.kind === 'local') {
+    if (provider.api === 'ollama') {
+      return { providerId: provider.id, model, answer: await askBarsOllama(provider, model, messages) };
+    }
+    const detected = await detectBarsLocalProvider(provider);
+    if (!detected.available) throw new Error(provider.name + ' is not reachable.');
+    return { providerId: provider.id, model, answer: await askBarsOpenAiCompatible(detected, '', model, messages, detected.endpoint) };
+  }
+
+  const keys = await getBarsApiKeys();
+  const key = keys[provider.id];
+  if (!key) throw new Error('Add a ' + provider.name + ' API key in Bars settings first.');
+
+  const answer = provider.api === 'anthropic'
+    ? await askBarsAnthropic(provider, key, model, messages)
+    : provider.api === 'google'
+      ? await askBarsGoogle(provider, key, model, messages)
+      : await askBarsOpenAiCompatible(provider, key, model, messages);
+
+  return { providerId: provider.id, model, answer };
+}
+
+
 ipcMain.handle('models:discover-providers', async () => {
   try {
     return await discoverModelProviders();
@@ -1370,6 +2020,12 @@ ipcMain.handle('models:discover-providers', async () => {
     return { generatedAt: Date.now(), providers: [], error: err.message };
   }
 });
+
+ipcMain.handle('bars:detect-providers', async () => detectBarsProviders());
+ipcMain.handle('bars:ask', async (event, payload) => askBars(payload));
+ipcMain.handle('bars:get-api-key-status', async () => getBarsApiKeyStatus());
+ipcMain.handle('bars:save-api-keys', async (event, payload) => saveBarsApiKeys(payload));
+ipcMain.handle('bars:clear-api-keys', async () => clearBarsApiKeys());
 
 ipcMain.handle('models:start-jan-server', async (event, options = {}) => {
   const janCommand = getJanCommandPath();
