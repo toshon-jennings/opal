@@ -132,6 +132,7 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
     const [transitModalOpen, setTransitModalOpen] = useState(false);
     const [guideModalOpen, setGuideModalOpen] = useState(false);
     const [liveEvents, setLiveEvents] = useState([]);
+    const [runContextMenu, setRunContextMenu] = useState(null); // { run, x, y }
 
     const activeProfile = openClawConfig.profiles.find(profile => profile.id === openClawConfig.activeProfileId) || openClawConfig.profiles[0];
     const filteredRuns = useMemo(() => runs.filter(run => matchesRunFilter(run, activeFilter)), [runs, activeFilter]);
@@ -275,6 +276,14 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
             detail: 'Run was restarted from Mission Control.'
         });
     }, [runs]);
+
+    const handleRunContextMenu = useCallback((e, run) => {
+        setRunContextMenu({ run, x: e.clientX, y: e.clientY });
+    }, []);
+
+    const closeRunContextMenu = useCallback(() => {
+        setRunContextMenu(null);
+    }, []);
 
     const checkGateway = useCallback(async () => {
         if (!window.electron?.testOpenClawConnection || !activeProfile) return;
@@ -463,6 +472,7 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
                                 run={run}
                                 active={selectedRun?.id === run.id}
                                 onSelect={() => setSelectedRunId(run.id)}
+                                onContextMenu={handleRunContextMenu}
                             />
                         ))}
                     </div>
@@ -860,13 +870,18 @@ function Metric({ label, value }) {
     );
 }
 
-function RunListItem({ run, active, onSelect }) {
+function RunListItem({ run, active, onSelect, onContextMenu }) {
     const meta = STATUS_META[run.status] || STATUS_META.waiting;
     const Icon = meta.icon;
     return (
         <button
             type="button"
             onClick={onSelect}
+            onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onContextMenu?.(e, run);
+            }}
             className={`focus-card w-full text-left rounded-lg border p-3 transition-colors ${active ? 'border-[var(--accent)] bg-[var(--bg-primary)]' : 'border-transparent hover:border-[var(--border)] hover:bg-[var(--bg-primary)]'}`}
         >
             <div className="flex items-center justify-between gap-2">
@@ -1587,6 +1602,104 @@ function MissionPulsePanel({ runs = [], selectedNode, selectedRun }) {
                     </div>
                 </div>
             </div>
+
+            {/* Run context menu */}
+            {runContextMenu && (
+                <>
+                    <div
+                        className="fixed inset-0 z-[9998]"
+                        onClick={closeRunContextMenu}
+                        onContextMenu={(e) => { e.preventDefault(); closeRunContextMenu(); }}
+                    />
+                    <div
+                        className="perci-context-menu"
+                        style={{
+                            left: Math.min(runContextMenu.x, window.innerWidth - 210),
+                            top: Math.min(runContextMenu.y, window.innerHeight - 180),
+                            transformOrigin: 'top left',
+                        }}
+                        role="menu"
+                        onPointerDown={(e) => e.stopPropagation()}
+                    >
+                        <div className="px-3 py-2 text-[11px] font-semibold text-[var(--text-tertiary)]">
+                            {runContextMenu.run.title}
+                        </div>
+                        <div className="perci-context-sep" role="separator" />
+                        {runContextMenu.run.status === 'running' && (
+                            <button
+                                type="button"
+                                role="menuitem"
+                                className="perci-context-item"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    updateRunStatus(runContextMenu.run.id, 'waiting');
+                                    closeRunContextMenu();
+                                }}
+                            >
+                                <PauseCircle size={14} className="perci-context-icon" />
+                                <span>Pause</span>
+                            </button>
+                        )}
+                        {(runContextMenu.run.status === 'waiting' || runContextMenu.run.status === 'blocked') && (
+                            <button
+                                type="button"
+                                role="menuitem"
+                                className="perci-context-item"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    updateRunStatus(runContextMenu.run.id, 'running');
+                                    closeRunContextMenu();
+                                }}
+                            >
+                                <PlayCircle size={14} className="perci-context-icon" />
+                                <span>Resume</span>
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            role="menuitem"
+                            className="perci-context-item"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                retryRun(runContextMenu.run.id);
+                                closeRunContextMenu();
+                            }}
+                        >
+                            <RotateCcw size={14} className="perci-context-icon" />
+                            <span>Retry</span>
+                        </button>
+                        {runContextMenu.run.status !== 'cancelled' && runContextMenu.run.status !== 'completed' && (
+                            <button
+                                type="button"
+                                role="menuitem"
+                                className="perci-context-item"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    cancelRun(runContextMenu.run);
+                                    closeRunContextMenu();
+                                }}
+                            >
+                                <Square size={14} className="perci-context-icon" />
+                                <span>Cancel</span>
+                            </button>
+                        )}
+                        <div className="perci-context-sep" role="separator" />
+                        <button
+                            type="button"
+                            role="menuitem"
+                            className="perci-context-item destructive"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                updateRunStatus(runContextMenu.run.id, 'cancelled');
+                                closeRunContextMenu();
+                            }}
+                        >
+                            <XOctagon size={14} className="perci-context-icon" />
+                            <span>Mark cancelled</span>
+                        </button>
+                    </div>
+                </>
+            )}
         </div>
     );
 }

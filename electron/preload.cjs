@@ -14,6 +14,11 @@ contextBridge.exposeInMainWorld('electron', {
   getAppDataPath: () => ipcRenderer.invoke('app-data:path'),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   webSearch: (query, options) => ipcRenderer.invoke('web-search', { query, options }),
+  // StudioOS API proxy — avoids CORS by routing through the main process.
+  studioos: {
+    fetch: ({ apiBase, apiKey, path, method, body }) =>
+      ipcRenderer.invoke('studioos:fetch', { apiBase, apiKey, path, method, body })
+  },
   listAgentJobs: (options) => ipcRenderer.invoke('agent-jobs:list', options),
   queueAgentJob: (job) => ipcRenderer.invoke('agent-jobs:queue', job),
   cancelAgentJob: (id) => ipcRenderer.invoke('agent-jobs:cancel', id),

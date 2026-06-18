@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Search, ChevronDown, ChevronUp, CheckCircle, Loader2, Globe, Sparkles, FileText, Timer, Network, Radio } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
 /**
  * ChatGPT-style collapsible search progress component
@@ -15,6 +15,7 @@ export function SearchProgress({
     onComplete
 }) {
     const [isExpanded, setIsExpanded] = useState(false);
+    const reduce = useReducedMotion();
 
     if (!isSearching && searchSteps.length === 0) return null;
 
@@ -28,6 +29,7 @@ export function SearchProgress({
                 totalSources={totalSources}
                 currentQuery={currentQuery}
                 isComplete={isComplete}
+                reduce={reduce}
             />
         );
     }
@@ -86,10 +88,10 @@ export function SearchProgress({
             <AnimatePresence>
                 {isExpanded && (
                     <motion.div
-                        initial={{ opacity: 0, height: 0 }}
+                        initial={reduce ? { opacity: 0 } : { opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.2, ease: 'easeOut' }}
+                        exit={reduce ? { opacity: 0 } : { opacity: 0, height: 0 }}
+                        transition={reduce ? { duration: 0.01 } : { duration: 0.2, ease: 'easeOut' }}
                         className="overflow-hidden"
                     >
                         <div className="mt-2 ml-2 pl-4 border-l-2 border-[var(--border)] space-y-2">
@@ -127,7 +129,7 @@ const RESEARCH_PHASES = [
     { id: 'synthesizing', label: 'Write', icon: FileText },
 ];
 
-function ResearchProgress({ isSearching, searchSteps, totalSources, currentQuery, isComplete }) {
+function ResearchProgress({ isSearching, searchSteps, totalSources, currentQuery, isComplete, reduce }) {
     const [isExpanded, setIsExpanded] = useState(true);
     const [elapsed, setElapsed] = useState(0);
 
@@ -154,8 +156,9 @@ function ResearchProgress({ isSearching, searchSteps, totalSources, currentQuery
 
     return (
         <motion.div
-            initial={{ opacity: 0, y: 8 }}
+            initial={reduce ? { opacity: 0 } : { opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
+            transition={reduce ? { duration: 0.01 } : undefined}
             className="my-3 overflow-hidden rounded-2xl border border-[rgba(var(--accent-rgb),0.28)] bg-[linear-gradient(135deg,rgba(var(--accent-rgb),0.10),var(--bg-secondary))] shadow-[0_18px_48px_rgba(0,0,0,0.18)]"
         >
             <div className={`relative p-4 ${isSearching ? 'status-progress' : ''}`}>
@@ -229,10 +232,10 @@ function ResearchProgress({ isSearching, searchSteps, totalSources, currentQuery
             <AnimatePresence initial={false}>
                 {isExpanded && (
                     <motion.div
-                        initial={{ opacity: 0, height: 0 }}
+                        initial={reduce ? { opacity: 0 } : { opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.22, ease: 'easeOut' }}
+                        exit={reduce ? { opacity: 0 } : { opacity: 0, height: 0 }}
+                        transition={reduce ? { duration: 0.01 } : { duration: 0.22, ease: 'easeOut' }}
                         className="border-t border-[rgba(var(--accent-rgb),0.16)] bg-[var(--bg-primary)]"
                     >
                         <div className="space-y-2 p-4 pt-3">

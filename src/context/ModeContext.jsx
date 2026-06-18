@@ -24,6 +24,7 @@ export const MODES = {
     NOTES: 'notes',    // Markdown wiki notes with backlinks
     BARS: 'bars',      // OS-surface idea notebook
     CONCERNS: 'concerns', // Bill Board — service/subscription/API-key tracker
+    STUDIOOS: 'studioos', // StudioOS Lite — view/manage StudioOS workspace
 };
 
 // Non-mode windows (surfaces that open as windows but aren't in the MODES enum).
@@ -31,6 +32,9 @@ export const OPENCLAW_WINDOW_ID = 'openclaw';
 export const HERMES_WINDOW_ID = 'hermes';
 export const YOUTUBE_WINDOW_ID = 'youtube';
 export const GDASH_WINDOW_ID = 'gdash';
+export const ARTIFACT_WINDOW_ID = 'artifact';
+export const RESEARCH_WINDOW_ID = 'research';
+export const COMPARE_WINDOW_ID = 'compare';
 
 // Titles shown in window headers and dock chips for each windowed surface.
 export const WINDOW_TITLES = {
@@ -46,10 +50,14 @@ export const WINDOW_TITLES = {
     [MODES.NOTES]: 'Workspace Notes',
     [MODES.BARS]: 'BARS',
     [MODES.CONCERNS]: 'Bill Board',
+    [MODES.STUDIOOS]: 'StudioOS',
     [OPENCLAW_WINDOW_ID]: 'OpenClaw',
     [HERMES_WINDOW_ID]: 'Hermes',
     [YOUTUBE_WINDOW_ID]: 'YouTube',
     [GDASH_WINDOW_ID]: 'G-Dash',
+    [ARTIFACT_WINDOW_ID]: 'Artifact',
+    [RESEARCH_WINDOW_ID]: 'Research Results',
+    [COMPARE_WINDOW_ID]: 'Compare',
 };
 
 // Windows whose content is an embedded <webview>/<iframe>; CSS transforms can make
@@ -161,6 +169,12 @@ export function ModeProvider({ children }) {
     // The embed URL backing the YouTube window's iframe. The window itself lives
     // in `windows` (so it's a first-class dock citizen); this holds its content.
     const [youtubeUrl, setYoutubeUrl] = useState(null);
+    // Artifact id to open in the Artifact window. Consumed by App.jsx renderWindowContent.
+    const [pendingArtifactId, setPendingArtifactId] = useState(null);
+    // Research run data to show in the Research Results window.
+    const [researchData, setResearchData] = useState(null);
+    // Compare prompt to pre-fill when opening the Compare window.
+    const [pendingComparePrompt, setPendingComparePrompt] = useState('');
     // Agent id to pre-select when the Agents window opens (e.g. clicking a desk
     // in Perci HQ). Consumed and cleared by AgentsPanel.
     const [pendingAgentSelection, setPendingAgentSelection] = useState(null);
@@ -248,6 +262,24 @@ export function ModeProvider({ children }) {
         openWindow(MODES.AGENTS);
     }, [openWindow]);
 
+    // Opens (or refocuses) the Artifact window with a specific artifact selected.
+    const openArtifactWindow = useCallback((artifactId) => {
+        setPendingArtifactId(artifactId);
+        openWindow(ARTIFACT_WINDOW_ID);
+    }, [openWindow]);
+
+    // Opens (or refocuses) the Research Results window with the given data.
+    const openResearchWindow = useCallback((data) => {
+        setResearchData(data);
+        openWindow(RESEARCH_WINDOW_ID);
+    }, [openWindow]);
+
+    // Opens (or refocuses) the Compare window with an optional pre-filled prompt.
+    const openCompareWindow = useCallback((prompt = '') => {
+        setPendingComparePrompt(prompt);
+        openWindow(COMPARE_WINDOW_ID);
+    }, [openWindow]);
+
     // setCurrentMode keeps its existing call sites working: Dashboard reveals
     // the desktop (minimizing windows); every other mode opens/focuses its window.
     const setCurrentMode = useCallback((modeId) => {
@@ -309,7 +341,16 @@ export function ModeProvider({ children }) {
         pendingAgentSelection,
         setPendingAgentSelection,
         openAgentWindow,
-    }), [windows, openWindow, closeWindow, focusWindow, minimizeWindow, toggleMaximizeWindow, moveWindow, resizeWindow, youtubeUrl, openYouTubeWindow, pendingAgentSelection, openAgentWindow]);
+        pendingArtifactId,
+        setPendingArtifactId,
+        openArtifactWindow,
+        researchData,
+        setResearchData,
+        openResearchWindow,
+        pendingComparePrompt,
+        setPendingComparePrompt,
+        openCompareWindow,
+    }), [windows, openWindow, closeWindow, focusWindow, minimizeWindow, toggleMaximizeWindow, moveWindow, resizeWindow, youtubeUrl, openYouTubeWindow, pendingAgentSelection, openAgentWindow, pendingArtifactId, openArtifactWindow, researchData, openResearchWindow, pendingComparePrompt, openCompareWindow]);
 
     const createDefaultCodeState = () => ({
         workingDirectory: readStringStorage('working_directory', null),
@@ -324,6 +365,15 @@ export function ModeProvider({ children }) {
 
     const normalizeCodeState = (state) => ({
         ...state,
+        // Cowork agents run in-process, so any session still marked running in
+        // persisted state was killed by an app restart — it can't actually be
+        // live. Reconcile those to 'Interrupted' so they don't show as phantom
+        // "In progress" sessions forever.
+        sessions: (state?.sessions || []).map(s =>
+            (s?.status === 'In progress' || s?.status === 'Started')
+                ? { ...s, status: 'Interrupted' }
+                : s
+        ),
         files: state?.files || {},
         activeFile: state?.files ? state.activeFile : null,
         expandedFolders: new Set(state?.expandedFolders || ['src'])

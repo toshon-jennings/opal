@@ -43,6 +43,7 @@ const STARTER = [{
     notes: 'Serverless GPU inference. Keep balance topped up.',
     tags: ['api', 'ai', 'image-gen'],
     status: 'active',
+    valueRating: 0,
     createdAt: new Date().toISOString().slice(0, 10),
     updatedAt: new Date().toISOString().slice(0, 10),
 }];
@@ -146,6 +147,7 @@ function blankService() {
         name: '', category: CATEGORIES[0], url: '', purpose: '',
         apiKey: '', monthlyCost: 0, billingCycle: 'monthly',
         nextBillingDate: '', notes: '', tags: [], status: 'active',
+        valueRating: 0,
         createdAt: today, updatedAt: today,
     };
 }
@@ -254,6 +256,12 @@ export default function BillboardMode() {
         showToast('Saved');
     }, [formData, tagsInput, closeModal, showToast]);
 
+    const updateConcernField = useCallback((id, field, value) => {
+        setConcerns(prev => prev.map(c =>
+            c.id === id ? { ...c, [field]: value, updatedAt: new Date().toISOString().slice(0, 10) } : c
+        ));
+    }, []);
+
     const deleteConcern = useCallback((id) => {
         setConcerns(prev => prev.filter(c => c.id !== id));
         showToast('Deleted');
@@ -317,10 +325,10 @@ export default function BillboardMode() {
     }, [concerns, showToast]);
 
     const exportCSV = useCallback(() => {
-        const headers = ['Name', 'Category', 'Status', 'Monthly Cost', 'Billing Cycle', 'Purpose', 'URL', 'Next Billing', 'Tags', 'Notes'];
+        const headers = ['Name', 'Category', 'Status', 'Monthly Cost', 'Billing Cycle', 'Purpose', 'URL', 'Next Billing', 'Tags', 'Notes', 'Value Rating'];
         const rows = concerns.map(c => [
             c.name, c.category, c.status, c.monthlyCost, c.billingCycle,
-            c.purpose, c.url, c.nextBillingDate, c.tags.join('; '), c.notes,
+            c.purpose, c.url, c.nextBillingDate, c.tags.join('; '), c.notes, c.valueRating || 0,
         ].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','));
         const csv = [headers.join(','), ...rows].join('\n');
         const blob = new Blob([csv], { type: 'text/csv' });
@@ -409,15 +417,21 @@ export default function BillboardMode() {
         const active = concerns.filter(c => c.status === 'active');
         const monthly = active.reduce((sum, c) => {
             if (c.billingCycle === 'annual') return sum + (c.monthlyCost || 0) / 12;
-            if (c.billingCycle === 'free' || c.billingCycle === 'one-time') return sum;
+            if (c.billingCycle === 'free' || c.billingCycle === 'one-time' || c.billingCycle === 'usage-based') return sum;
             return sum + (c.monthlyCost || 0);
         }, 0);
+        const oneTime = concerns
+            .filter(c => c.billingCycle === 'one-time')
+            .reduce((sum, c) => sum + (c.monthlyCost || 0), 0);
+        const usageBased = concerns
+            .filter(c => c.billingCycle === 'usage-based')
+            .reduce((sum, c) => sum + (c.monthlyCost || 0), 0);
         const categories = new Set(concerns.map(c => c.category)).size;
         const upcoming = concerns.filter(c => {
             const d = daysUntil(c.nextBillingDate);
             return d !== null && d >= 0 && d <= 7;
         }).length;
-        return { total: concerns.length, active: active.length, monthly, categories, upcoming };
+        return { total: concerns.length, active: active.length, monthly, oneTime, usageBased, categories, upcoming };
     }, [concerns]);
 
     // ── Render ────────────────────────────────────────────────────
@@ -461,6 +475,18 @@ export default function BillboardMode() {
                     <span className="cn-stat-value">{formatCost(stats.monthly)}</span>
                     <span className="cn-stat-label">Monthly</span>
                 </div>
+                {stats.usageBased > 0 && (
+                    <div className="cn-stat">
+                        <span className="cn-stat-value" style={{ color: 'var(--cn-accent)' }}>{formatCost(stats.usageBased)}</span>
+                        <span className="cn-stat-label">Usage</span>
+                    </div>
+                )}
+                {stats.oneTime > 0 && (
+                    <div className="cn-stat">
+                        <span className="cn-stat-value" style={{ color: 'var(--cn-violet)' }}>{formatCost(stats.oneTime)}</span>
+                        <span className="cn-stat-label">One-time</span>
+                    </div>
+                )}
                 <div className="cn-stat">
                     <span className="cn-stat-value">{stats.active}</span>
                     <span className="cn-stat-label">Active</span>
@@ -508,6 +534,7 @@ export default function BillboardMode() {
                                 onCopyKey={() => copyKey(concern.apiKey)}
                                 onEdit={() => openEdit(concern)}
                                 onDelete={() => deleteConcern(concern.id)}
+                                onUpdateField={updateConcernField}
                             />
                         ))}
                     </div>
@@ -597,6 +624,39 @@ export default function BillboardMode() {
                                 <select className="cn-form-input" value={formData.billingCycle} onChange={e => updateField('billingCycle', e.target.value)}>
                                     {BILLING_CYCLES.map(b => <option key={b} value={b}>{b.charAt(0).toUpperCase() + b.slice(1)}</option>)}
                                 </select>
+                            </div>
+                        </div>
+
+                        <div className="cn-form-group">
+                            <label className="cn-form-label">
+                                Value Rating
+                                {formData.valueRating > 0 && (
+                                    <span className="cn-rating-value-display"> — {formData.valueRating}/5</span>
+                                )}
+                            </label>
+                            <div className="cn-rating-slider-row">
+                                <span className="cn-rating-slider-label">Poor</span>
+                                <input
+                                    className="cn-rating-slider"
+                                    type="range"
+                                    min="0"
+                                    max="5"
+                                    step="1"
+                                    value={formData.valueRating || 0}
+                                    onChange={e => updateField('valueRating', parseInt(e.target.value) || 0)}
+                                />
+                                <span className="cn-rating-slider-label">Great</span>
+                            </div>
+                            <div className="cn-rating-dots">
+                                {[1, 2, 3, 4, 5].map(n => (
+                                    <button
+                                        key={n}
+                                        type="button"
+                                        className={`cn-rating-dot${(formData.valueRating || 0) >= n ? ' active' : ''}`}
+                                        onClick={() => updateField('valueRating', n)}
+                                        title={`${n}/5`}
+                                    />
+                                ))}
                             </div>
                         </div>
 
@@ -734,7 +794,7 @@ export default function BillboardMode() {
 
 // ── Service Card ──────────────────────────────────────────────────
 
-function ServiceCard({ concern, revealed, onToggleReveal, onCopyKey, onEdit, onDelete }) {
+function ServiceCard({ concern, revealed, onToggleReveal, onCopyKey, onEdit, onDelete, onUpdateField }) {
     const days = daysUntil(concern.nextBillingDate);
     const billingLabel = concern.billingCycle === 'annual'
         ? `${formatCost(concern.monthlyCost)}/yr`
@@ -742,6 +802,7 @@ function ServiceCard({ concern, revealed, onToggleReveal, onCopyKey, onEdit, onD
         : concern.billingCycle === 'one-time' ? `${formatCost(concern.monthlyCost)} once`
         : concern.billingCycle === 'usage-based' ? 'Usage-based'
         : `${formatCost(concern.monthlyCost)}/mo`;
+    const rating = concern.valueRating || 0;
 
     return (
         <div className={`cn-card cn-card-${concern.status}`}>
@@ -798,6 +859,27 @@ function ServiceCard({ concern, revealed, onToggleReveal, onCopyKey, onEdit, onD
             {concern.notes && (
                 <div className="cn-notes-row">{concern.notes}</div>
             )}
+
+            {/* Value Rating */}
+            <div className="cn-card-rating">
+                <div className="cn-rating-header">
+                    <span className="cn-rating-title">Value</span>
+                    {rating > 0 && <span className="cn-rating-num">{rating}/5</span>}
+                </div>
+                <div className="cn-rating-stars">
+                    {[1, 2, 3, 4, 5].map(n => (
+                        <button
+                            key={n}
+                            type="button"
+                            className={`cn-rating-star${rating >= n ? ' active' : ''}`}
+                            onClick={() => onUpdateField(concern.id, 'valueRating', rating === n ? 0 : n)}
+                            title={`${n}/5`}
+                        >
+                            ★
+                        </button>
+                    ))}
+                </div>
+            </div>
 
             <div className="cn-billing-info">
                 {concern.billingCycle !== 'free' && concern.billingCycle !== 'one-time' && days !== null && (

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, Component } from 'react';
 import perciLogo from './assets/perci-logo.png';
-import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID } from './context/ModeContext';
+import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, ARTIFACT_WINDOW_ID, RESEARCH_WINDOW_ID } from './context/ModeContext';
 import ModeSwitcher from './components/ModeSwitcher';
 import ChatMode from './components/ChatMode';
 import CodeMode from './components/CodeMode';
@@ -17,9 +17,12 @@ import DashboardMode from './components/DashboardMode';
 import NotesMode from './components/NotesMode';
 import BarsMode from './components/BarsMode';
 import BillboardMode from './components/BillboardMode';
+import StudioOSMode from './components/StudioOSMode';
 import { SettingsModal } from './components/SettingsModal';
 import DesktopHost from './components/windows/DesktopHost';
 import Dock from './components/windows/Dock';
+import ArtifactWindow from './components/windows/ArtifactWindow';
+import ResearchResultsWindow from './components/windows/ResearchResultsWindow';
 import { ModeGuideModal } from './components/ModeGuideModal';
 import { OpenClawModelsPanel } from './components/OpenClawModelsPanel';
 import { BuildModeProvider } from './context/BuildModeContext'; // Keeping original context for now, but primary logic will be in BuildContext
@@ -278,7 +281,7 @@ function AppContent() {
     // OpenClaw renders as a window (webview-backed). Reuses the dashboard
     // toolbar/tabs/content that previously lived in a fullscreen overlay.
     const renderOpenClawWindow = () => (
-        <div className="flex h-full flex-col bg-[var(--bg-primary)]">
+        <div className="flex h-full flex-col bg-[var(--bg-primary)] oc-window">
                             <div className="h-11 shrink-0 flex items-center justify-between gap-3 px-4 border-b border-[var(--border)] bg-[var(--bg-secondary)]">
                                 <div className="min-w-0 flex items-center gap-2">
                                     <Server size={15} className={openClawStatus.state === 'online' ? 'text-emerald-500' : 'text-[var(--text-tertiary)]'} />
@@ -511,6 +514,7 @@ function AppContent() {
             case MODES.NOTES: return <NotesMode />;
             case MODES.BARS: return <BarsMode />;
             case MODES.CONCERNS: return <BillboardMode />;
+            case MODES.STUDIOOS: return <StudioOSMode />;
             case MODES.MISSION:
                 return (
                     <MissionControl
@@ -522,6 +526,8 @@ function AppContent() {
             case OPENCLAW_WINDOW_ID: return renderOpenClawWindow();
             case HERMES_WINDOW_ID: return <HermesMode />;
             case GDASH_WINDOW_ID: return <GDashMode onOpenSettings={() => setIsSettingsOpen(true)} />;
+            case ARTIFACT_WINDOW_ID: return <ArtifactWindow />;
+            case RESEARCH_WINDOW_ID: return <ResearchResultsWindow />;
             case YOUTUBE_WINDOW_ID:
                 if (!youtubeUrl) return null;
                 // Desktop: load the full /watch page in a <webview> (its own

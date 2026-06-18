@@ -17,7 +17,7 @@ const DRAG_CURSORS = {
 // with macOS-style traffic-light controls. Minimizing plays a "whirlpool" spin
 // into the dock; the frame stays mounted (display:none) while minimized so the
 // mode's state survives. Open/restore/close each have their own choreography.
-export default function WindowFrame({ win, active, children }) {
+export default function WindowFrame({ win, active, modeId, children }) {
     const { focusWindow, closeWindow, minimizeWindow, toggleMaximizeWindow, moveWindow, resizeWindow } = useMode();
     const frameRef = useRef(null);
     const dragRef = useRef(null);
@@ -115,7 +115,7 @@ export default function WindowFrame({ win, active, children }) {
     return (
         <div
             ref={frameRef}
-            className={`perci-window${active ? ' active' : ''}${maximized ? ' maximized' : ''}${animClass ? ` ${animClass}` : ''}`}
+            className={`perci-window${active ? ' active' : ''}${maximized ? ' maximized' : ''}${modeId === 'openclaw' ? ' perci-window--openclaw' : ''}${animClass ? ` ${animClass}` : ''}`}
             style={style}
             onPointerDown={() => focusWindow(win.id)}
             onAnimationEnd={handleAnimEnd}

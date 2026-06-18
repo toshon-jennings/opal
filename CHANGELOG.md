@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.21.0] - 2026-06-18
+### Added
+- **StudioOS panel** — view/manage your StudioOS workspace directly from Perci: content overview, recent items, browse by content type.
+- **StudioOS API bridge** — Electron main-process proxy eliminates CORS errors by routing API calls through the desktop app.
+- **Artifact window** — dedicated window for viewing artifacts.
+- **Research results window** — dedicated window for research output.
+
+### Changed
+- **Dashboard layout** — native tiles now use horizontal layout; dashboard tile grid redesigned.
+- **Billboard mode** — WIP improvements.
+- **Beginner's guide** — new onboarding flow with OpenRouter model picker.
+- **Cowork mode** — UI polish and session management improvements.
+- **Intelligent search** — query reformulation, local runtime fact detection, source enhancement.
+
+### Removed
+- Get API Key tile from dashboard.
+
+## [0.20.0] - 2026-06-16
+### Added
+- **BARS mode** — added the idea notebook / OS-surface workspace.
+- **Bill Board mode** — added the services, keys, and subscriptions surface.
+- **OpenClaw windowing and dashboard polish** — OpenClaw now uses its own window treatment and theming direction instead of leaning on the default Perci orange.
+
+### Changed
+- Bumped the app version to 0.20.0 to reflect the newer mode additions and embedded OpenClaw updates.
+
 ## [0.18.7] - 2026-06-10
 ### Changed
 - Rebuild with latest artwork and positioning changes.

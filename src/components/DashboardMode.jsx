@@ -15,6 +15,8 @@ import hermesLogo from '../assets/nousresearch.png';
 import gdashLogo from '../assets/gdash-logo.png';
 import barsLogo from '../assets/bars-logo.svg';
 import billboardLogo from '../assets/billboard-logo.svg';
+import openclawLogo from '../assets/openclaw-logo.svg';
+import studioosLogo from '../assets/studioos-logo-dark.png';
 import './DashboardMode.css';
 
 const JOBS_POLL_MS = 10000;
@@ -36,11 +38,12 @@ const NATIVE_TILES = [
 // surface is wired, not in the native Perci app group.
 const SYSTEM_TILES = [
     { id: MODES.LIGHTHOUSE, icon: Radar, logo: lhLogo, title: 'Lighthouse', desc: 'Scan ports and find conflicts', hue: '#ffbf45' },
-    { id: OPENCLAW_WINDOW_ID, icon: Server, logo: '/openclaw-logo.svg', title: 'OpenClaw', desc: 'Gateway dashboard', hue: '#ef4444' },
+    { id: OPENCLAW_WINDOW_ID, icon: Server, logo: openclawLogo, title: 'OpenClaw', desc: 'Gateway dashboard', hue: '#ef4444' },
     { id: HERMES_WINDOW_ID, icon: null, logo: hermesLogo, title: 'Hermes', desc: 'CLI agent — chat, console, sessions', hue: '#eab308', artwork: true },
     { id: GDASH_WINDOW_ID, icon: null, logo: gdashLogo, title: 'G-Dash', desc: 'Google Workspace dashboard', hue: '#4285f4' },
     { id: MODES.BARS, icon: null, logo: barsLogo, title: 'BARS', desc: 'Idea notebook', hue: '#f59e0b' },
     { id: MODES.CONCERNS, icon: null, logo: billboardLogo, title: 'Bill Board', desc: 'Services, keys & subscriptions', hue: '#06b6d4' },
+    { id: MODES.STUDIOOS, icon: Layers, logo: studioosLogo, title: 'StudioOS', desc: 'View/manage your StudioOS workspace', hue: '#3b82f6' },
 ];
 
 const AGENT_LABELS = Object.fromEntries(AGENT_DEFINITIONS.map((a) => [a.id, a.shortLabel]));

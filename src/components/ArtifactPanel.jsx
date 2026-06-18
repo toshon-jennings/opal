@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Code, Eye, Maximize2, X, Copy, Check, Download, FileText, Pencil, Sun, Moon } from 'lucide-react';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { SyntaxHighlighter } from '../lib/syntaxHighlighter';
@@ -13,7 +14,7 @@ import {
     getPreviewSandbox
 } from '../lib/previewSecurity';
 
-export function ArtifactPanel({ isOpen, onClose, artifact, onUpdateContent }) {
+export function ArtifactPanel({ isOpen, onClose, artifact, onUpdateContent, width }) {
     const [view, setView] = useState('preview'); // 'preview', 'code', or 'edit'
     const [copied, setCopied] = useState(false);
     const [editContent, setEditContent] = useState('');
@@ -94,11 +95,15 @@ export function ArtifactPanel({ isOpen, onClose, artifact, onUpdateContent }) {
         }
     };
 
-    return (
-        <div className={`layout-transition border-l border-[var(--border)] bg-[var(--bg-primary)] flex flex-col h-full z-40 transition-all duration-300 ${
-            isMaximized 
-                ? 'fixed inset-0 w-full' 
-                : 'w-full md:w-[560px] fixed md:relative right-0 top-0 bottom-0'
+    const panelContent = (
+        <div
+            style={{ '--artifact-w': `${width || 560}px` }}
+            className={`layout-transition border-l border-[var(--border)] bg-[var(--bg-primary)] flex flex-col h-full transition-all duration-300 ${
+            isMaximized
+                // Maximized: portaled to <body> (see return below), so z-[60] is in
+                // the app-root stacking context and sits above the header (z-50).
+                ? 'fixed inset-0 w-full z-[60]'
+                : 'w-full md:w-[var(--artifact-w)] fixed md:relative right-0 top-0 bottom-0 z-40'
         }`}>
             {/* Header */}
             <div className="p-3 md:pt-14 md:pb-4 md:px-4 border-b border-[var(--border)] flex justify-between items-center bg-[var(--bg-secondary)]">
@@ -287,4 +292,11 @@ export function ArtifactPanel({ isOpen, onClose, artifact, onUpdateContent }) {
             </div>
         </div>
     );
+
+    // When maximized, portal to <body> so the overlay escapes the chat window's
+    // stacking context. Each .perci-window is absolutely positioned with its own
+    // z-index, so an in-window z-[60] stays trapped beneath the app header (z-50)
+    // and the restore/close controls become unreachable. Portaling lifts it to the
+    // app root where z-[60] correctly sits above the header.
+    return isMaximized ? createPortal(panelContent, document.body) : panelContent;
 }

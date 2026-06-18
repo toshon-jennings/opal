@@ -6,9 +6,77 @@ import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { SyntaxHighlighter } from '../lib/syntaxHighlighter';
 import { User, Copy, Check, Code, ExternalLink, FileText, Image as ImageIcon, Table } from 'lucide-react';
 import { useChat } from '../context/ChatContext';
+import { useMode } from '../context/ModeContext';
 import { CitationDisplay } from './CitationDisplay';
 import { ThinkingDisplay } from './ThinkingDisplay';
 import PerciMascot from './PerciMascot';
+
+// Maps an artifact's type to a human label and icon for the in-chat reference card.
+const ARTIFACT_DESCRIPTORS = {
+    research_paper: { label: 'Research paper', Icon: FileText },
+    html: { label: 'Web page', Icon: Code },
+    svg: { label: 'Vector graphic', Icon: Code },
+    react: { label: 'React component', Icon: Code },
+    markdown: { label: 'Document', Icon: FileText },
+};
+
+function describeArtifact(type) {
+    return ARTIFACT_DESCRIPTORS[type] || { label: 'Artifact', Icon: FileText };
+}
+
+// Pull attributes out of a `:::artifact{...}` directive. Only used as a fallback
+// when the artifact itself can't be resolved from the store (e.g. it lives in a
+// different chat). The matching that finds the directive is anchored on `id`, so
+// a title containing quotes never breaks rendering.
+function parseArtifactDirective(raw) {
+    const grab = (key) => (raw.match(new RegExp(`${key}="([^"]*)"`)) || [])[1] || '';
+    return { id: grab('id'), title: grab('title'), type: grab('type') };
+}
+
+// A short, plain-text preview of an artifact's content (markdown stripped).
+function artifactExcerpt(content) {
+    if (!content) return '';
+    return content
+        .replace(/^#{1,6}\s+/gm, '')
+        .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+        .replace(/[`*_>#|]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 110);
+}
+
+// Polished, clickable reference to an artifact, rendered inline in a chat message
+// wherever an `:::artifact{...}` directive appears.
+function ArtifactReferenceCard({ title, type, excerpt, onOpen }) {
+    const { label, Icon } = describeArtifact(type);
+    return (
+        <button
+            type="button"
+            onClick={onOpen}
+            aria-label={`Open ${title}`}
+            className="group my-3 flex w-full items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--bg-tertiary)] p-3 text-left transition-all hover:border-[var(--accent)] hover:shadow-[0_8px_28px_var(--accent-glow)]"
+        >
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[rgba(var(--accent-rgb),0.12)] text-[var(--accent)]">
+                <Icon size={20} />
+            </div>
+            <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                    <span className="truncate text-sm font-semibold text-[var(--text-primary)]">{title}</span>
+                    <span className="shrink-0 rounded-full border border-[var(--border)] bg-[var(--bg-secondary)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--text-tertiary)]">
+                        {label}
+                    </span>
+                </div>
+                <div className="mt-0.5 truncate text-xs text-[var(--text-tertiary)]">
+                    {excerpt || 'Open to view and download'}
+                </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-1 text-xs font-medium text-[var(--text-tertiary)] transition-colors group-hover:text-[var(--accent)]">
+                <span className="hidden sm:inline">Open</span>
+                <ExternalLink size={15} />
+            </div>
+        </button>
+    );
+}
 
 export function ChatMessage({ message }) {
     const isUser = message.role === 'user';
@@ -25,7 +93,8 @@ export function ChatMessage({ message }) {
     const mascotState = isError ? 'error' : celebrate ? 'happy' : 'idle';
     const [copiedCode, setCopiedCode] = React.useState(null);
     const [copiedMessage, setCopiedMessage] = React.useState(false);
-    const { setCurrentArtifactId, setIsArtifactOpen } = useChat();
+    const { setCurrentArtifactId, setIsArtifactOpen, getArtifact } = useChat();
+    const { openArtifactWindow } = useMode();
 
     const copyCode = (code, index) => {
         navigator.clipboard.writeText(code);
@@ -232,8 +301,10 @@ export function ChatMessage({ message }) {
 
                 <div className="message-select-region prose prose-sm max-w-none text-[var(--text-primary)] leading-relaxed">
                     {(() => {
-                        // Regex to match artifact placeholders
-                        const artifactRegex = /:::artifact\{id="([^"]+)" title="([^"]+)" type="([^"]+)"\}/g;
+                        // Find `:::artifact{...}` directives. Anchored on `id` (always a
+                        // numeric timestamp, never quoted), so a title containing quotes
+                        // can't break the match and leak raw directive text into the chat.
+                        const artifactRegex = /:::artifact\{id="([^"]+)"[^}]*\}/g;
                         const elements = [];
                         let lastIndex = 0;
                         let match;
@@ -255,26 +326,23 @@ export function ChatMessage({ message }) {
                                 );
                             }
 
-                            // Add the artifact placeholder UI
-                            const [fullMatch, id, title, type] = match;
+                            // Resolve the real artifact for rich metadata; fall back to the
+                            // directive's own attributes if it isn't in the store.
+                            const [fullMatch, id] = match;
+                            const fallback = parseArtifactDirective(fullMatch);
+                            const artifact = getArtifact?.(id);
                             elements.push(
-                                <div
+                                <ArtifactReferenceCard
                                     key={`artifact-${id}`}
-                                    onClick={() => {
+                                    title={artifact?.title || fallback.title || 'Artifact'}
+                                    type={artifact?.type || fallback.type}
+                                    excerpt={artifactExcerpt(artifact?.content)}
+                                    onOpen={() => {
                                         setCurrentArtifactId(id);
                                         setIsArtifactOpen(true);
+                                        if (openArtifactWindow) openArtifactWindow(id);
                                     }}
-                                    className="my-3 p-3 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded-lg cursor-pointer hover:border-[var(--accent)] transition-colors group flex items-center gap-3"
-                                >
-                                    <div className="w-10 h-10 bg-[var(--bg-secondary)] rounded-md flex items-center justify-center text-[var(--accent)]">
-                                        <Code size={20} />
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="font-medium text-sm">Artifact Created</div>
-                                        <div className="text-xs text-[var(--text-tertiary)]">Click to view {title}</div>
-                                    </div>
-                                    <ExternalLink size={16} className="text-[var(--text-tertiary)] group-hover:text-[var(--accent)] transition-colors" />
-                                </div>
+                                />
                             );
 
                             lastIndex = match.index + fullMatch.length;

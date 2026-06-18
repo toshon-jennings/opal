@@ -4,6 +4,8 @@
    ────────────────────────────────────────────────────────────────────────── */
 
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap');
+/* StudioOS brand typography — used only inside the StudioOS Lite panel */
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap');
 
 @import "tailwindcss";
 
@@ -658,6 +660,9 @@ textarea:focus-visible {
   .focus-card { transition: none; }
   .focus-card:hover,
   .focus-card:focus-within { transform: none; }
+  .animate-pulse,
+  .animate-spin,
+  .animate-ping            { animation: none; }
 }
 
 /* ─── Thinking / reasoning blocks ────────────────────────────────────────── */
@@ -926,8 +931,18 @@ html.dark .hermes-branded.active {
   transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 .perci-window.active {
-  border-color: var(--accent);
-  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--accent-glow);
+  border-color: var(--accent, var(--window-accent, #f97316));
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--accent-glow, var(--window-accent-glow, rgba(249, 115, 22, 0.15)));
+}
+.perci-window.perci-window--openclaw {
+  --window-accent: #ef4444;
+  --window-accent-hover: #dc2626;
+  --window-accent-glow: rgba(239, 68, 68, 0.22);
+  --window-accent-rgb: 239, 68, 68;
+}
+.perci-window.perci-window--openclaw.active {
+  border-color: var(--window-accent);
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--window-accent-glow);
 }
 .perci-window.maximized {
   border-radius: 0;
@@ -1000,6 +1015,18 @@ html.dark .hermes-branded.active {
   overflow: auto;
   position: relative;
   background: var(--bg-primary);
+}
+
+/* ─── OpenClaw window: red accent overrides ─────────────────────────────── */
+/* The OpenClaw embedded dashboard lives inside a .oc-window wrapper.
+   All Tailwind arbitrary-value classes like border-[var(--accent)] resolve
+   to the CSS custom property — just override it here. */
+
+.oc-window {
+  --accent: #ef4444;
+  --accent-hover: #dc2626;
+  --accent-glow: rgba(239, 68, 68, 0.22);
+  --accent-rgb: 239, 68, 68;
 }
 
 .perci-resizer { position: absolute; z-index: 5; }
@@ -1269,4 +1296,23 @@ html.dark .hermes-branded.active {
   opacity: 0.07;
   filter: invert(1) brightness(1.2) contrast(1.1);
 }
+
+/* ─── StudioOS Lite panel ────────────────────────────────────────────────────
+   Scoped to the embedded StudioOS surface so it carries StudioOS's own brand
+   (Space Grotesk + IBM Plex Mono, blue #3b82f6) without affecting the rest of
+   the app. Genuine logos are theme-switched for contrast.
+   ────────────────────────────────────────────────────────────────────────── */
+.studioos-panel {
+  font-family: 'Space Grotesk', 'Outfit', system-ui, sans-serif;
+}
+.studioos-panel .font-mono,
+.studioos-panel code,
+.studioos-panel input.font-mono {
+  font-family: 'IBM Plex Mono', 'JetBrains Mono', monospace;
+}
+/* Theme-aware genuine StudioOS logo: dark-circle mark on light UI, light-circle
+   mark on dark UI. */
+.studioos-logo-dark { display: none; }
+:root.dark .studioos-logo-dark { display: inline-block; }
+:root.dark .studioos-logo-light { display: none; }
 

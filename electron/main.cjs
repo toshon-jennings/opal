@@ -56,6 +56,7 @@ if (process.platform === 'darwin' || process.platform === 'linux') {
   const home = app.getPath('home');
   const extraPaths = [
     path.join(home, '.local', 'bin'),
+    path.join(home, '.hermes', 'node', 'bin'),
     path.join(home, 'bin'),
     '/opt/homebrew/bin',
     '/usr/local/bin'
@@ -248,6 +249,71 @@ function requestText(url, timeoutMs = 8000, headers = {}) {
     req.on('error', err => {
       resolve({ ok: false, url, error: err.message, latencyMs: Date.now() - startedAt });
     });
+  });
+}
+
+function requestJsonWithBody(url, { method = 'GET', body = null, headers = {}, timeoutMs = 12000 } = {}) {
+  return new Promise((resolve) => {
+    let parsed;
+    try {
+      parsed = new URL(url);
+    } catch (err) {
+      resolve({ ok: false, url, error: err.message });
+      return;
+    }
+
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      resolve({ ok: false, url, error: 'Unsupported protocol' });
+      return;
+    }
+
+    const client = parsed.protocol === 'https:' ? https : http;
+    const payload = body == null
+      ? null
+      : (typeof body === 'string' ? body : JSON.stringify(body));
+
+    const mergedHeaders = {
+      Accept: 'application/json',
+      ...(payload ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) } : {}),
+      ...headers
+    };
+
+    const startedAt = Date.now();
+    const req = client.request(parsed, { method, timeout: timeoutMs, headers: mergedHeaders }, (res) => {
+      let raw = '';
+      res.setEncoding('utf8');
+      res.on('data', chunk => {
+        raw += chunk;
+        if (raw.length > 2_000_000) req.destroy(new Error('Response too large'));
+      });
+      res.on('end', () => {
+        const contentType = res.headers['content-type'] || '';
+        let parsedBody = null;
+        if (raw && contentType.includes('application/json')) {
+          try { parsedBody = JSON.parse(raw); }
+          catch (err) { resolve({ ok: false, url, status: res.statusCode, error: `Invalid JSON: ${err.message}`, latencyMs: Date.now() - startedAt }); return; }
+        }
+        resolve({
+          ok: res.statusCode >= 200 && res.statusCode < 300,
+          url,
+          status: res.statusCode,
+          body: parsedBody,
+          text: parsedBody == null ? raw : null,
+          latencyMs: Date.now() - startedAt
+        });
+      });
+    });
+
+    req.on('timeout', () => {
+      req.destroy();
+      resolve({ ok: false, url, error: 'Connection timed out', latencyMs: Date.now() - startedAt });
+    });
+    req.on('error', err => {
+      resolve({ ok: false, url, error: err.message, latencyMs: Date.now() - startedAt });
+    });
+
+    if (payload) req.write(payload);
+    req.end();
   });
 }
 
@@ -1362,6 +1428,34 @@ ipcMain.handle('web-search', async (event, { query, options = {} } = {}) => {
   };
 });
 
+// StudioOS API proxy — runs in the main process so the renderer never has
+// to deal with CORS. The API key lives in renderer localStorage and is
+// passed in per-call; main never persists it.
+ipcMain.handle('studioos:fetch', async (event, { apiBase, apiKey, path, method = 'GET', body = null } = {}) => {
+  if (typeof path !== 'string' || !path.startsWith('/')) {
+    return { ok: false, error: 'Invalid path' };
+  }
+  const base = (typeof apiBase === 'string' && apiBase.trim())
+    ? apiBase.trim().replace(/\/+$/, '')
+    : 'https://studioos.dev';
+  const url = `${base}/api${path}`;
+
+  const headers = {};
+  if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+
+  const upperMethod = String(method || 'GET').toUpperCase();
+  const result = await requestJsonWithBody(url, { method: upperMethod, body, headers });
+  if (!result.ok && result.status === undefined) {
+    return { ok: false, error: result.error || 'Network error' };
+  }
+  return {
+    ok: result.ok,
+    status: result.status,
+    body: result.body,
+    error: result.ok ? null : (result.body && result.body.error) || result.error || `HTTP ${result.status || 'error'}`
+  };
+});
+
 
 function deriveOpenClawHttpUrl(profile = {}) {
   if (profile.controlUrl) return profile.controlUrl;
@@ -2471,6 +2565,7 @@ function getAgentCommand(agentId) {
     claude_code: 'claude',
     codex: 'codex',
     copilot: 'copilot',
+    command_code: 'cmd',
     cursor_cli: 'cursor',
     jan: 'jan',
     openhands: 'openhands',
@@ -2491,6 +2586,7 @@ function getAgentModelFlag(agentId) {
     antigravity_cli: '--model',
     claude_code: '--model',
     codex: '--model',
+    command_code: '--model',
     copilot: '--model',
     cursor_cli: '--model',
     openhands: '--model',
@@ -2666,7 +2762,7 @@ ipcMain.handle('agent-jobs:queue', async (event, { agent, prompt, working_direct
   // These CLIs run headlessly: prompt is passed as a flag, output goes to
   // stdout, and the process exits when done.  All other agents are treated as
   // interactive terminal CLIs that read their prompt from stdin.
-  const PROMPT_FLAG_AGENTS = new Set(['copilot']);
+  const PROMPT_FLAG_AGENTS = new Set(['copilot', 'command_code']);
   const usesPromptFlag = PROMPT_FLAG_AGENTS.has(agent);
 
   if (usesPromptFlag) {
@@ -2675,11 +2771,28 @@ ipcMain.handle('agent-jobs:queue', async (event, { agent, prompt, working_direct
     if (agent === 'copilot') {
       spawnArgs.push('--allow-all-tools', '--no-ask-user');
     }
+    // Command Code needs to skip onboarding for automated runs.
+    if (agent === 'command_code') {
+      spawnArgs.push('--skip-onboarding');
+    }
+  }
+
+  const spawnEnv = { ...process.env };
+  // Inject COMMAND_CODE_API_KEY if available (from shell env or Perci config)
+  if (agent === 'command_code' && !spawnEnv.COMMAND_CODE_API_KEY) {
+    // Try reading from ~/.commandcode/api-key if the env var isn't set
+    try {
+      const keyFile = path.join(app.getPath('home'), '.commandcode', 'api-key');
+      if (fsSync.existsSync(keyFile)) {
+        const key = fsSync.readFileSync(keyFile, 'utf8').trim();
+        if (key) spawnEnv.COMMAND_CODE_API_KEY = key;
+      }
+    } catch (_) {}
   }
 
   const child = spawn(command, spawnArgs, {
     cwd,
-    env: { ...process.env },
+    env: spawnEnv,
     stdio: ['pipe', 'pipe', 'pipe'],
     shell: true,
     detached: false,

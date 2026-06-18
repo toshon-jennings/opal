@@ -1243,13 +1243,14 @@ export default function CoworkMode() {
                 ? sessionMessages
                 : [...sessionMessages, { role: 'assistant', content: '(Agent completed without a final text response.)' }];
 
+            const finalStatus = budgetStopped ? 'Stopped' : 'Completed';
             setCodeState(prev => ({
                 ...prev,
                 sessions: prev.sessions.map(s =>
-                    s.id === currentSession.id ? { ...s, messages: finalMessages, lastActivity: 'just now' } : s
+                    s.id === currentSession.id ? { ...s, messages: finalMessages, status: finalStatus, lastActivity: 'just now' } : s
                 ),
             }));
-            setActiveSession(prev => ({ ...prev, messages: finalMessages }));
+            setActiveSession(prev => ({ ...prev, messages: finalMessages, status: finalStatus }));
             recordCoworkSessionFinish(missionRunId, {
                 ok: !budgetStopped,
                 detail: budgetStopped
@@ -1260,14 +1261,23 @@ export default function CoworkMode() {
         } catch (error) {
             console.error('Agent failed:', error);
             const wasCancelled = error?.name === 'AbortError';
+            const errStatus = wasCancelled ? 'Cancelled' : 'Error';
+            const errMessage = {
+                role: 'assistant',
+                content: wasCancelled ? 'Cancelled before the provider finished responding.' : `Error: ${error.message}`
+            };
             setAgentStatus('');
             setStreamingMessage('');
             setActiveSession(prev => ({
                 ...prev,
-                messages: [...(prev.messages || []), {
-                    role: 'assistant',
-                    content: wasCancelled ? 'Cancelled before the provider finished responding.' : `Error: ${error.message}`
-                }]
+                status: errStatus,
+                messages: [...(prev.messages || []), errMessage]
+            }));
+            setCodeState(prev => ({
+                ...prev,
+                sessions: prev.sessions.map(s =>
+                    s.id === currentSession.id ? { ...s, status: errStatus, messages: [...(s.messages || []), errMessage], lastActivity: 'just now' } : s
+                ),
             }));
             recordCoworkSessionFinish(missionRunId, {
                 ok: wasCancelled,
@@ -1400,7 +1410,12 @@ export default function CoworkMode() {
                             <div className="p-4 border-b border-[var(--border)] bg-[var(--bg-secondary)]/50">
                                 <h2 className="text-sm font-semibold truncate">{activeSession.title}</h2>
                                 <div className="text-xs text-[var(--text-secondary)] mt-1 flex items-center gap-1.5">
-                                    <div className={`w-1.5 h-1.5 rounded-full ${activeSession.status === 'Completed' ? 'bg-green-500' : 'bg-blue-500'}`} />
+                                    <div className={`w-1.5 h-1.5 rounded-full ${
+                                        activeSession.status === 'Completed' ? 'bg-green-500'
+                                        : activeSession.status === 'Error' ? 'bg-red-500'
+                                        : activeSession.status === 'In progress' || activeSession.status === 'Started' ? 'bg-blue-500'
+                                        : 'bg-amber-400'
+                                    }`} />
                                     {activeSession.status}
                                 </div>
                             </div>

@@ -1130,13 +1130,22 @@ export class OpenRouterClient extends BaseClient {
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
+        // Buffer partial SSE lines across reads: a `data:` line can be split
+        // mid-JSON by a network chunk boundary. Without this, both halves fail
+        // JSON.parse and the delta — often a whitespace/newline-only token — is
+        // silently dropped, jamming the streamed text together (no spaces or
+        // paragraph breaks). Mirrors the AnthropicClient stream loop below.
+        let buffer = '';
 
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
 
-            const chunk = decoder.decode(value);
-            for (const line of chunk.split('\n')) {
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
                 if (line.startsWith('data: ') && line !== 'data: [DONE]') {
                     try {
                         const data = JSON.parse(line.slice(6));

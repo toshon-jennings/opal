@@ -1192,7 +1192,7 @@ function CeramicPot({ color = '#a85b32', accent = '#f4c27a' }) {
     );
 }
 
-function PottedTree({ position, scale = 1, reduce }) {
+function PottedTree({ position, rotation, scale = 1, reduce }) {
     const crown = useRef();
     useFrame((s) => {
         if (reduce || !crown.current) return;
@@ -1200,7 +1200,7 @@ function PottedTree({ position, scale = 1, reduce }) {
     });
 
     return (
-        <group position={position} scale={scale}>
+        <group position={position} rotation={rotation} scale={scale}>
             <CeramicPot color="#c5793e" accent="#f4d28d" />
             <mesh position={[0, 1.04, 0]}>
                 <cylinderGeometry args={[0.075, 0.11, 1.16, 10]} />
@@ -1756,7 +1756,7 @@ function OliveTree3D({ position = [0, 0, -4.05], rotation = [0, 0, 0], reduce })
 function WarmOfficeDressing({ reduce }) {
     return (
         <group>
-            <PottedTree position={[-7.35, 0, 1.05]} scale={1.08} reduce={reduce} />
+            <PottedTree position={[-10.4, 0, 1.35]} rotation={[0, Math.PI / 2, 0]} scale={1.08} reduce={reduce} />
             <Plant3D position={[8.6, 0, 2.7]} scale={1.25} reduce={reduce} potColor="#46637f" accent="#b9d2df" leafColor="#4ea86c" leafDark="#276d47" variant="round" swayOffset={1.5} />
             <Plant3D position={[-10.2, 0, -4.15]} scale={1.05} reduce={reduce} potColor="#b9553c" accent="#f1b77a" leafColor="#5abf82" leafDark="#2f7a53" variant="tall" swayOffset={2.1} />
             <Plant3D position={[8.95, 0, -4.15]} scale={1.05} reduce={reduce} potColor="#7c5b96" accent="#d8c3ec" leafColor="#6bbf72" leafDark="#386d44" variant="tall" swayOffset={2.8} />
@@ -1850,7 +1850,7 @@ function WarmOfficeDressing({ reduce }) {
 // ── Scene root ───────────────────────────────────────────────────────────
 
 const BACK_ROW = { z: -1.8, count: 7 };
-const FRONT_ROW = { z: 1, count: 6 };
+const FRONT_ROW = { z: 1, count: 7 };
 
 export default function OfficeScene({ desks, perciState, bubble, weather, onDeskClick }) {
     const [now, setNow] = useState(() => new Date());

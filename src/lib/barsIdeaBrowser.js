@@ -1,4 +1,4 @@
-const IDEA_URL_PATTERN = /https?:\/\/(?:www\.)?ideabrowser\.com\/idea\/[^\s)\]]+/i;
+const IDEA_URL_PATTERN = /https?:\/\/(?:www\.)?ideabrowser\.com\/(?:idea|hub\/ideas)\/[^\s)\]]+/i;
 
 const TAG_RULES = [
     ['glp-1', /\bglp[-\s]?1\b|\bweight[-\s]?loss\b|\bcompounded\b/i],
@@ -6,9 +6,13 @@ const TAG_RULES = [
     ['pharmacy', /\bpharmac/i],
     ['telehealth', /\btelehealth\b/i],
     ['pricing', /\bprice|\bpricing|\$\d/i],
-    ['compliance', /\blegal|\bregulation|\bjurisdiction|\bvetted\b/i],
+    ['compliance', /\blegal|\bregulation|\bjurisdiction|\bvetted\b|\bnec\b|\bcode\b/i],
     ['marketplace', /\bcomparison\b|\bside by side\b|\bmarketplace\b/i],
     ['reviews', /\breview/i],
+    ['electrical', /\belectrician|\belectrical|\bnec\b/i],
+    ['field-reference', /\bfield[-\s]?reference|\breference\b|\bcode\b|\bnec\b/i],
+    ['trades', /\belectrician|\bcontractor|\btrades?\b/i],
+    ['mobile', /\bapp\b|\bmobile\b/i],
 ];
 
 function cleanText(value) {
@@ -37,6 +41,7 @@ function titleCaseSlug(slug) {
         .filter(Boolean)
         .map((word, index) => {
             if (/^glp$/i.test(word)) return 'GLP';
+            if (/^nec$/i.test(word)) return 'NEC';
             if (/^\d+$/.test(word)) return word;
             const lower = word.toLowerCase();
             if (index > 0 && smallWords.has(lower)) return lower;
@@ -49,7 +54,8 @@ function titleCaseSlug(slug) {
 function titleFromIdeaUrl(sourceUrl) {
     if (!sourceUrl) return '';
     try {
-        const slug = new URL(sourceUrl).pathname.split('/idea/')[1] || '';
+        const pathname = new URL(sourceUrl).pathname;
+        const slug = pathname.split('/idea/')[1] || pathname.split('/hub/ideas/')[1] || '';
         return titleCaseSlug(slug);
     } catch {
         return '';
@@ -112,6 +118,7 @@ function inferTags(text) {
 }
 
 function categoryFromTags(tags) {
+    if (tags.includes('electrical') && tags.includes('field-reference')) return 'Trade field tool';
     if (tags.includes('healthcare') && tags.includes('marketplace')) return 'Healthcare marketplace';
     if (tags.includes('healthcare')) return 'Healthcare';
     if (tags.includes('marketplace')) return 'Marketplace';
@@ -119,6 +126,13 @@ function categoryFromTags(tags) {
 }
 
 function followUpAngles(tags, text) {
+    if (tags.includes('electrical')) {
+        return [
+            'Validate the top NEC lookup moments with working electricians.',
+            'Map the code tables, field conditions, and local amendments that slow jobs down.',
+            'Prototype the fastest path from job context to a defensible code reference.',
+        ];
+    }
     if (tags.includes('glp-1') || tags.includes('pharmacy')) {
         return [
             'Verify pharmacy pricing, concentration, and legality data sources.',
@@ -138,30 +152,55 @@ function followUpAngles(tags, text) {
     return ['Validate the sharpest user pain and the first data source.'];
 }
 
+function sourceBackedThesis(title, tags) {
+    if (tags.includes('electrical')) {
+        return `${title} is a field tool concept for helping electricians get to the right NEC reference faster while they are on a job.`;
+    }
+    if (tags.includes('field-reference')) {
+        return `${title} is a reference workflow worth validating with the people who need the answer under time pressure.`;
+    }
+    return `${title} is an IdeaBrowser concept saved for follow-up and validation.`;
+}
+
+function sourceBackedNotes(title, tags) {
+    if (tags.includes('electrical')) {
+        return [
+            'The likely user is a working electrician who needs fast, defensible code guidance in the field.',
+            'The wedge is speed: reduce flipping through PDFs, tables, bookmarks, or forum answers while a job is active.',
+            'The risk is trust: NEC references, local amendments, and liability boundaries need clear sourcing.',
+        ];
+    }
+    return [
+        `Use the source page to expand ${title} into customer, pain, workflow, and proof.`,
+        'Start by finding the manual workaround people already use.',
+    ];
+}
+
 export function parseIdeaBrowserBar(rawText) {
     const text = String(rawText || '').trim();
     const sourceUrl = canonicalIdeaBrowserUrl(text);
-    const looksLikeIdeaBrowser = /Idea of the Day/i.test(text) || /ideabrowser\.com\/idea\//i.test(text);
+    const looksLikeIdeaBrowser = /Idea of the Day/i.test(text) || /ideabrowser\.com\/(?:idea|hub\/ideas)\//i.test(text);
     if (!text || !looksLikeIdeaBrowser) return null;
 
     const ideaBlock = extractIdeaBlock(text);
     const paragraphs = paragraphsFromBlock(ideaBlock);
     const combined = [text, ideaBlock].join('\n');
     const tags = inferTags(combined);
+    const title = titleFromSubject(text) || titleFromIdeaUrl(sourceUrl) || 'IdeaBrowser idea';
     const thesis = paragraphs.find(paragraph => /\bis\b.+\b(platform|tool|product|dashboard|marketplace)\b/i.test(paragraph))
         || paragraphs[1]
         || paragraphs[0]
-        || (sourceUrl ? 'Imported from IdeaBrowser for follow-up.' : '');
+        || (sourceUrl ? sourceBackedThesis(title, tags) : '');
     const supportParagraph = paragraphs.find(paragraph => paragraph !== thesis) || '';
     const supportingNotes = splitSentences(supportParagraph).slice(0, 4);
+    const sourceNotes = supportingNotes.length ? supportingNotes : sourceBackedNotes(title, tags);
     const angles = followUpAngles(tags, combined);
-    const title = titleFromSubject(text) || titleFromIdeaUrl(sourceUrl) || 'IdeaBrowser idea';
     const notes = [
         'Core thesis:',
         thesis,
         '',
         'Supporting notes:',
-        ...(supportingNotes.length ? supportingNotes.map(note => `- ${note}`) : ['- Source needs review.']),
+        ...sourceNotes.map(note => `- ${note}`),
         '',
         'Follow-up angles:',
         ...angles.map(angle => `- ${angle}`),

@@ -59,7 +59,14 @@ export default defineConfig({
           // which Rollup emits as `Cannot access 'X' before initialization` (TDZ)
           // under file:// in the packaged build. Letting them share `vendor`
           // eliminates the cycle.
-          if (id.includes('react') || id.includes('react-dom')) return 'react';
+          //
+          // React core must ALSO stay in `vendor`. A dedicated `react` chunk swept in
+          // @react-spring/@react-three (they match 'react'), which depend on three/zustand
+          // in `vendor`, while `vendor` holds React-dependent helpers like
+          // use-isomorphic-layout-effect. That circular react<->vendor dependency made
+          // `vendor` init before React in the packaged build and throw
+          // `Cannot read properties of undefined (reading 'useLayoutEffect')`, white-screening
+          // the app. Keeping React in `vendor` keeps the whole React graph in one chunk.
           return 'vendor';
         },
       },

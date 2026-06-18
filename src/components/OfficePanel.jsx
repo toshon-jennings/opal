@@ -11,6 +11,7 @@ const BOT_COLORS = {
     antigravity_cli: '#60a5fa',
     claude_code: '#d97757',
     codex: '#9aa5b1',
+    command_code: '#f97316',
     copilot: '#a78bfa',
     cursor_cli: '#e4e4e7',
     hermes: '#eab308',

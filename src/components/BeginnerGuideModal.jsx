@@ -24,14 +24,19 @@ import {
 // Optional friendly 16:9 illustrations. Drop PNGs in public/guide/ and fill in
 // the matching path to switch each one on; leave '' to keep the clean
 // icon-only header. Generate the art from the Flow prompts in the guide notes.
+// Public assets must be referenced via BASE_URL so they resolve under the
+// packaged app's file:// origin. A leading-slash path points at the filesystem
+// root there (not the app bundle), so it 404s in the DMG. BASE_URL is '/' in dev
+// and './' in the build, so this works in both.
+const asset = (path) => `${import.meta.env.BASE_URL}${path}`;
 const GUIDE_IMAGES = {
-    hero: '/guide/hero.jpg',
-    whatIs: '/guide/what-is-local-ai.jpg',
-    download: '/guide/download-ollama.jpg',
-    models: '/guide/which-model.jpg',
-    alternatives: '/guide/local-alternatives.jpg',
-    openrouter: '/guide/openrouter-cloud.jpg',
-    safety: '/guide/keep-key-safe.jpg',
+    hero: asset('guide/hero.jpg'),
+    whatIs: asset('guide/what-is-local-ai.jpg'),
+    download: asset('guide/download-ollama.jpg'),
+    models: asset('guide/which-model.jpg'),
+    alternatives: asset('guide/local-alternatives.jpg'),
+    openrouter: asset('guide/openrouter-cloud.jpg'),
+    safety: asset('guide/keep-key-safe.jpg'),
 };
 
 // 16:9 illustration card. Renders nothing when no image is set, so the guide

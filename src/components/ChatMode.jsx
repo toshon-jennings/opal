@@ -10,7 +10,7 @@ import { AttachmentMenu, AttachmentPreview } from './AttachmentSystem';
 import { LLMFactory } from '../lib/llm/clients';
 import { IntelligentSearchTool } from '../lib/IntelligentSearchTool';
 import { SearchProgress } from './SearchProgress';
-import { useMode, MODES } from '../context/ModeContext';
+import { useMode, MODES, ARTIFACT_WINDOW_ID } from '../context/ModeContext';
 import { useTheme } from '../context/ThemeContext';
 import { normalizeAssistantSpacing } from '../lib/textFormatting';
 import ReactMarkdown from 'react-markdown';
@@ -511,7 +511,7 @@ function ProjectDetailPage({
 }
 
 function ChatMode() {
-    const { setCurrentMode } = useMode();
+    const { setCurrentMode, openArtifactWindow } = useMode();
     const { isDarkMode } = useTheme();
     const {
         messages,
@@ -589,6 +589,35 @@ function ChatMode() {
     const [permissionLevel, setPermissionLevel] = useState('full');
     const [previewKey, setPreviewKey] = useState(0);
     const [artifactPreviewUrl, setArtifactPreviewUrl] = useState('');
+    // Width (px) of the artifact preview panel, resizable via the splitter. Persisted.
+    const [artifactWidth, setArtifactWidth] = useState(() => {
+        const stored = parseInt(localStorage.getItem('artifact_panel_width') || '', 10);
+        return Number.isFinite(stored) ? Math.min(Math.max(stored, 360), 1280) : 560;
+    });
+    useEffect(() => {
+        try { localStorage.setItem('artifact_panel_width', String(artifactWidth)); } catch { /* ignore */ }
+    }, [artifactWidth]);
+    // Drag the splitter between the chat and the artifact panel. The panel sits on
+    // the right, so dragging left widens it (and shrinks the chat), and vice versa.
+    const startArtifactResize = (e) => {
+        e.preventDefault();
+        const startX = e.clientX;
+        const startW = artifactWidth;
+        const onMove = (ev) => {
+            const next = Math.min(Math.max(startW + (startX - ev.clientX), 360), Math.round(window.innerWidth * 0.85));
+            setArtifactWidth(next);
+        };
+        const onUp = () => {
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', onUp);
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+        };
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+    };
 
     useEffect(() => {
         const offset = isSidebarOpen ? sidebarWidth : 0;
@@ -834,6 +863,8 @@ function ChatMode() {
 
                                 const newId = addArtifact(artifactData);
                                 setIsArtifactOpen(true);
+                                // Also open the artifact in a floating window
+                                if (openArtifactWindow) openArtifactWindow(newId);
 
                                 const messageMetadata = {
                                     searchSources: searchResults.sources,
@@ -1225,6 +1256,7 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
         setCurrentArtifactId(newId);
         setIsArtifactOpen(true);
         setActiveTab('artifacts');
+        if (openArtifactWindow) openArtifactWindow(newId);
     };
 
     const handleNavigateMessages = () => {
@@ -1615,6 +1647,8 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                             }
                             setCurrentArtifactId(artifact.id);
                             setIsArtifactOpen(true);
+                            // Also open in floating window
+                            if (openArtifactWindow) openArtifactWindow(artifact.id);
                         }}
                     />
                 ) : activeTab === 'projects' ? (
@@ -1805,7 +1839,7 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                                     <div className="w-6 h-6 md:w-7 md:h-7 flex items-center justify-center shrink-0">
                                         <PerciMascot state="thinking" size={28} title="Perci is thinking" />
                                     </div>
-                                    <div className="flex-1">
+                                    <div className="flex-1 min-w-0">
                                         <div className="font-medium text-sm mb-2 text-[var(--text-primary)]">Perci</div>
 
                                         {isSearching && (
@@ -1995,11 +2029,22 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
             )}
             </div>
 
+            {isArtifactOpen && (
+                <div
+                    onPointerDown={startArtifactResize}
+                    className="hidden md:block w-1.5 shrink-0 cursor-col-resize bg-[var(--border)] hover:bg-[var(--accent)] active:bg-[var(--accent)] transition-colors"
+                    role="separator"
+                    aria-orientation="vertical"
+                    title="Drag to resize"
+                />
+            )}
+
             <ArtifactPanel
                 isOpen={isArtifactOpen}
                 onClose={() => setIsArtifactOpen(false)}
                 artifact={getArtifact(currentArtifactId)}
                 onUpdateContent={(content) => updateArtifactContent(currentArtifactId, content)}
+                width={artifactWidth}
             />
 
             <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />

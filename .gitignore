@@ -50,4 +50,8 @@ test_session.txt
 
 # Local tool settings
 .claude/
+.commandcode/
 docs/architecture/graphify-out/cache/
+
+# Generated Vite chunks
+index-*.js

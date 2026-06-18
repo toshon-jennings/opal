@@ -17,7 +17,7 @@ export default function DesktopHost({ renderContent }) {
     return (
         <div className="perci-desktop-host">
             {sorted.map(win => (
-                <WindowFrame key={win.id} win={win} active={win.id === activeId}>
+                <WindowFrame key={win.id} win={win} active={win.id === activeId} modeId={win.modeId}>
                     <WindowErrorBoundary label={win.title}>
                         {renderContent(win.modeId)}
                     </WindowErrorBoundary>

@@ -674,7 +674,7 @@ Write ONE improved web search query (2-7 words, no quotes, no explanation) that 
         };
     }
 
-    async performOpenAIWebSearch(originalQuery, optimizedQuery, options = {}) {
+    async performOpenAIWebSearch(originalQuery, optimizedQuery, _options = {}) {
         const response = await fetch('https://api.openai.com/v1/responses', {
             method: 'POST',
             headers: {
@@ -758,10 +758,10 @@ Write ONE improved web search query (2-7 words, no quotes, no explanation) that 
             }
         });
 
-        return [...sourceMap.values()].map(({ indexHint, ...source }, index) => ({ ...source, id: index + 1 }));
+        return [...sourceMap.values()].map(({ indexHint: _, ...source }, index) => ({ ...source, id: index + 1 }));
     }
 
-    async performAnthropicWebSearch(originalQuery, optimizedQuery, options = {}) {
+    async performAnthropicWebSearch(originalQuery, optimizedQuery, _options = {}) {
         const response = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
             headers: {
@@ -1040,6 +1040,7 @@ Write ONE improved web search query (2-7 words, no quotes, no explanation) that 
         const findings = [];
         const seenUrls = new Set();
         let stepCount = 0;
+        let consecutiveFailures = 0; // track search-step failures (e.g. provider rate limits)
         const MAX_STEPS = 15; // Allow for deep investigation
         let isComplete = false;
 
@@ -1096,7 +1097,36 @@ Write ONE improved web search query (2-7 words, no quotes, no explanation) that 
                 });
             }
 
-            const results = await this.performSearch(searchQuery, { depth: 'advanced', maxResults: 7 });
+            // A single failed search (commonly the free provider rate-limiting a
+            // rapid burst of queries) must NOT abort the whole run. Catch it, back
+            // off, and move on to the next step so prior findings aren't discarded.
+            let results;
+            try {
+                results = await this.performSearch(searchQuery, { depth: 'advanced', maxResults: 7 });
+                consecutiveFailures = 0;
+            } catch (searchError) {
+                consecutiveFailures++;
+                console.warn(`⚠️ Search step ${stepCount} failed (${consecutiveFailures} in a row):`, searchError.message);
+                if (onProgress) onProgress({
+                    status: 'searching',
+                    query: searchQuery,
+                    currentStep: stepCount,
+                    totalSteps: 'Autonomous',
+                    message: `Search hiccup — ${searchError.message}. Backing off and trying another angle...`
+                });
+                // Exponential-ish backoff to ease provider rate limits.
+                await new Promise(r => setTimeout(r, Math.min(8000, 2000 * consecutiveFailures)));
+                // Give up only after repeated failures. If nothing was gathered at
+                // all, surface a clear, actionable error instead of synthesizing
+                // from an empty context; otherwise synthesize with what we have.
+                if (consecutiveFailures >= 4) {
+                    if (findings.length === 0) {
+                        throw new Error('Web search is unavailable right now — repeated failures, likely the free search provider rate-limiting. Please try again in a minute.');
+                    }
+                    break;
+                }
+                continue;
+            }
 
             // Deduplicate across entire research session
             const newSources = results.sources.filter(s => !seenUrls.has(s.url));
@@ -1121,6 +1151,9 @@ Write ONE improved web search query (2-7 words, no quotes, no explanation) that 
         }
 
         // Final synthesis
+        if (findings.length === 0) {
+            throw new Error('Deep research could not gather any sources (the search provider may be rate-limiting). Please try again shortly.');
+        }
         const mergedResults = this.mergeDeepResearchResults(findings);
         const queriesRan = findings.map(f => f.query);
         const researchPaper = await this.generateResearchPaper(userQuery, mergedResults, queriesRan);
