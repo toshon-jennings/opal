@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.22.0] - 2026-06-19
+### Added
+- **Notes encryption** — per-note AES-GCM encryption with PBKDF2 key derivation. Lock/unlock individual notes with a password. Encrypted notes stored as `.enc.md` files on disk.
+- **Notes inline rename** — click the pencil icon in the header or sidebar to rename a note. Handles both `.md` and `.enc.md` files.
+- **Notes rename IPC** — new `rename-file` Electron IPC handler for atomic file renames.
+
 ## [0.21.0] - 2026-06-18
 ### Added
 - **StudioOS panel** — view/manage your StudioOS workspace directly from Perci: content overview, recent items, browse by content type.

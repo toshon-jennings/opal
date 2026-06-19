@@ -1390,7 +1390,8 @@ ipcMain.handle('open-external', async (event, url) => {
   return true;
 });
 
-ipcMain.handle('web-search', async (event, { query, options = {} } = {}) => {
+ipcMain.handle('web-search', async (event, payload = {}) => {
+  const { query, options = {} } = payload || {};
   const trimmedQuery = typeof query === 'string' ? query.trim().slice(0, 300) : '';
   if (!trimmedQuery) {
     return { ok: false, error: 'Missing search query', sources: [] };
@@ -1400,6 +1401,51 @@ ipcMain.handle('web-search', async (event, { query, options = {} } = {}) => {
   if (isHistoryDateQuery(trimmedQuery)) {
     const historyResults = await searchWikimediaOnThisDay(trimmedQuery, maxResults);
     if (historyResults.ok) return historyResults;
+  }
+
+  const searchEngine = options.searchEngine || 'ddg';
+  const searxngUrl = options.searxngUrl || '';
+
+  if (searchEngine === 'searxng') {
+    if (!searxngUrl) {
+      return { ok: false, error: 'SearxNG URL is not configured in settings.', sources: [] };
+    }
+    let baseUrl = searxngUrl.trim();
+    if (!/^https?:\/\//i.test(baseUrl)) {
+      baseUrl = `http://${baseUrl}`;
+    }
+    baseUrl = baseUrl.replace(/\/+$/, '');
+
+    const searchUrl = `${baseUrl}/search?q=${encodeURIComponent(trimmedQuery)}&format=json`;
+    const response = await requestJson(searchUrl, 8000, {
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Perci/1.0 Safari/537.36'
+    });
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: response.error || `SearxNG search failed with status ${response.status || 'unknown'}`,
+        sources: []
+      };
+    }
+
+    const rawResults = Array.isArray(response.data?.results) ? response.data.results : [];
+    const sources = rawResults.slice(0, maxResults).map((item, index) => ({
+      id: index + 1,
+      title: stripHtml(item.title || ''),
+      url: item.url || '',
+      content: stripHtml(item.content || item.snippet || ''),
+      score: 1,
+      publishedDate: item.publishedDate || null
+    }));
+
+    return {
+      ok: sources.length > 0,
+      query: trimmedQuery,
+      sources,
+      provider: 'searxng',
+      error: sources.length > 0 ? null : 'No search results found'
+    };
   }
 
   const searchUrl = new URL('https://html.duckduckgo.com/html/');
@@ -2961,6 +3007,19 @@ ipcMain.handle('delete-file', async (event, filePath) => {
     return true;
   } catch (err) {
     console.error('Error deleting file:', err);
+    throw err;
+  }
+});
+
+ipcMain.handle('rename-file', async (event, { oldPath, newPath }) => {
+  if (!isPathAllowed(oldPath) || !isPathAllowed(newPath)) {
+    throw new Error('Access Denied: Path is outside the allowed workspace directories.');
+  }
+  try {
+    await fs.rename(oldPath, newPath);
+    return true;
+  } catch (err) {
+    console.error('Error renaming file:', err);
     throw err;
   }
 });

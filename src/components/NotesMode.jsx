@@ -1,12 +1,121 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import MonacoEditor from '@monaco-editor/react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { 
-    BookOpen, FileText, Search, Plus, Trash2, Edit3, Eye, Columns, 
-    FolderOpen, Link2, ExternalLink, X, Check, RefreshCw, Compass, ArrowRightLeft, Sparkles
+import {
+    BookOpen, FileText, Search, Plus, Trash2, Edit3, Eye, Columns,
+    FolderOpen, Link2, ExternalLink, X, Check, RefreshCw, Compass, ArrowRightLeft, Sparkles, Pencil, Lock, Unlock, KeyRound
 } from 'lucide-react';
 import { useMode } from '../context/ModeContext';
+import { EditableTitle } from './EditableTitle';
+import { encryptNote, decryptNote, isEncrypted } from '../utils/note-crypto';
+
+function SidebarNoteItem({ fileName, noteId, isActive, isLocked, onSelect, onRename, onDelete, onToggleEncrypt }) {
+    const [isEditing, setIsEditing] = useState(false);
+    const [editValue, setEditValue] = useState(noteId);
+    const inputRef = useRef(null);
+
+    useEffect(() => {
+        if (isEditing && inputRef.current) {
+            inputRef.current.focus();
+            inputRef.current.select();
+        }
+    }, [isEditing]);
+
+    // Sync editValue when noteId changes externally (e.g. after rename)
+    useEffect(() => {
+        if (!isEditing) {
+            setEditValue(noteId);
+        }
+    }, [noteId, isEditing]);
+
+    const handleSave = () => {
+        if (editValue.trim() && editValue.trim() !== noteId) {
+            onRename(editValue.trim());
+        } else {
+            setEditValue(noteId);
+        }
+        setIsEditing(false);
+    };
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            handleSave();
+        } else if (e.key === 'Escape') {
+            setEditValue(noteId);
+            setIsEditing(false);
+        }
+    };
+
+    if (isEditing) {
+        return (
+            <div className="px-2 py-1" onClick={e => e.stopPropagation()}>
+                <input
+                    ref={inputRef}
+                    value={editValue}
+                    onChange={e => setEditValue(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    onBlur={handleSave}
+                    className="w-full px-2 py-1 text-xs rounded border border-[var(--accent)] bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none font-mono"
+                />
+            </div>
+        );
+    }
+
+    return (
+        <button
+            onClick={onSelect}
+            className={`w-full flex items-center justify-between text-left px-3 py-2 rounded-lg text-xs transition-all group ${
+                isActive
+                    ? 'bg-[var(--bg-tertiary)] text-[var(--text-primary)] border-l-2 border-[var(--accent)] font-semibold'
+                    : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'
+            }`}
+        >
+            <span className="truncate flex items-center gap-1.5 min-w-0">
+                {isLocked
+                    ? <Lock size={13} className={isActive ? 'text-amber-400' : 'text-amber-500/60'} />
+                    : <FileText size={13} className={isActive ? 'text-[var(--accent)]' : 'text-[var(--text-tertiary)]'} />
+                }
+                <span className="truncate">{noteId}</span>
+            </span>
+            {isActive && (
+                <span className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onToggleEncrypt();
+                        }}
+                        className="hover:text-amber-400 p-0.5 rounded transition-all"
+                        title={isLocked ? 'Decrypt Note' : 'Encrypt Note'}
+                    >
+                        {isLocked ? <Unlock size={11} /> : <Lock size={11} />}
+                    </button>
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setEditValue(noteId);
+                            setIsEditing(true);
+                        }}
+                        className="hover:text-[var(--accent)] p-0.5 rounded transition-all"
+                        title="Rename Note"
+                    >
+                        <Pencil size={11} />
+                    </button>
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onDelete();
+                        }}
+                        className="hover:text-rose-400 p-0.5 rounded transition-all"
+                        title="Delete Note"
+                    >
+                        <Trash2 size={12} />
+                    </button>
+                </span>
+            )}
+        </button>
+    );
+}
 
 export default function NotesMode() {
     const { codeState, setCodeState } = useMode();
@@ -24,6 +133,10 @@ export default function NotesMode() {
     const [error, setError] = useState(null);
     const [newNoteName, setNewNoteName] = useState('');
     const [showNewNoteInput, setShowNewNoteInput] = useState(false);
+    const [encryptedPasswords, setEncryptedPasswords] = useState({}); // filename -> password (only in memory)
+    const [passwordModal, setPasswordModal] = useState(null); // { mode: 'encrypt'|'decrypt', fileName, noteId } | null
+    const [passwordInput, setPasswordInput] = useState('');
+    const [passwordError, setPasswordError] = useState('');
 
     // Resolve notes folder path
     useEffect(() => {
@@ -64,7 +177,7 @@ export default function NotesMode() {
             }
 
             const mdFiles = files.filter(f => f.toLowerCase().endsWith('.md'));
-            
+
             const newFilesMap = {};
             await Promise.all(mdFiles.map(async (fileName) => {
                 try {
@@ -82,7 +195,18 @@ export default function NotesMode() {
             if (mdFiles.length > 0) {
                 if (activeNote && mdFiles.includes(activeNote)) {
                     if (!isDirty) {
-                        setUnsavedContent(newFilesMap[activeNote] || '');
+                        // If encrypted and we have the password, decrypt on load
+                        const content = newFilesMap[activeNote] || '';
+                        if (isEncrypted(content) && encryptedPasswords[activeNote]) {
+                            try {
+                                const decrypted = await decryptNote(content, encryptedPasswords[activeNote]);
+                                setUnsavedContent(decrypted);
+                            } catch {
+                                setUnsavedContent(content);
+                            }
+                        } else {
+                            setUnsavedContent(content);
+                        }
                     }
                 } else if (mdFiles.includes('Index.md')) {
                     setActiveNote('Index.md');
@@ -134,24 +258,34 @@ export default function NotesMode() {
 
         const timer = setTimeout(async () => {
             try {
-                await window.electron.writeFile(`${notesFolder}/${activeNote}`, unsavedContent);
-                setFilesMap(prev => ({ ...prev, [activeNote]: unsavedContent }));
-                setIsDirty(false);
+                const pwd = encryptedPasswords[activeNote];
+                if (pwd) {
+                    await saveNoteToDisk(activeNote, unsavedContent);
+                } else {
+                    await window.electron.writeFile(`${notesFolder}/${activeNote}`, unsavedContent);
+                    setFilesMap(prev => ({ ...prev, [activeNote]: unsavedContent }));
+                    setIsDirty(false);
+                }
             } catch (err) {
                 console.error('Failed to auto-save note:', err);
             }
         }, 800);
 
         return () => clearTimeout(timer);
-    }, [unsavedContent, activeNote, isDirty, notesFolder]);
+    }, [unsavedContent, activeNote, isDirty, notesFolder, encryptedPasswords]);
 
     // Force save active note
     const saveActiveNoteImmediate = async (fileName, content) => {
         if (!fileName || !notesFolder) return;
         try {
-            await window.electron.writeFile(`${notesFolder}/${fileName}`, content);
-            setFilesMap(prev => ({ ...prev, [fileName]: content }));
-            setIsDirty(false);
+            const pwd = encryptedPasswords[fileName];
+            if (pwd) {
+                await saveNoteToDisk(fileName, content);
+            } else {
+                await window.electron.writeFile(`${notesFolder}/${fileName}`, content);
+                setFilesMap(prev => ({ ...prev, [fileName]: content }));
+                setIsDirty(false);
+            }
         } catch (err) {
             console.error('Failed to save note:', err);
         }
@@ -160,13 +294,38 @@ export default function NotesMode() {
     // Selection handler
     const handleSelectNote = async (fileName) => {
         if (fileName === activeNote) return;
-        
+
         if (activeNote && isDirty) {
             await saveActiveNoteImmediate(activeNote, unsavedContent);
         }
-        
+
+        const content = filesMap[fileName] || '';
+
+        // If the file is encrypted
+        if (isEncrypted(content)) {
+            // If we already have the password, decrypt immediately
+            if (encryptedPasswords[fileName]) {
+                try {
+                    const decrypted = await decryptNote(content, encryptedPasswords[fileName]);
+                    setActiveNote(fileName);
+                    setUnsavedContent(decrypted);
+                    setIsDirty(false);
+                } catch {
+                    setPasswordModal({ mode: 'decrypt', fileName, noteId: fileName.replace(/\.md$/, '').replace(/\.enc\.md$/, '') });
+                    setPasswordInput('');
+                    setPasswordError('');
+                }
+            } else {
+                // Need password
+                setPasswordModal({ mode: 'decrypt', fileName, noteId: fileName.replace(/\.md$/, '').replace(/\.enc\.md$/, '') });
+                setPasswordInput('');
+                setPasswordError('');
+            }
+            return;
+        }
+
         setActiveNote(fileName);
-        setUnsavedContent(filesMap[fileName] || '');
+        setUnsavedContent(content);
         setIsDirty(false);
     };
 
@@ -238,6 +397,232 @@ export default function NotesMode() {
         }
     };
 
+    // Rename note
+    const handleRenameNote = async (oldFileName, newTitle) => {
+        if (!newTitle || !notesFolder) return;
+        const sanitized = newTitle.trim();
+        if (!sanitized) return;
+
+        const wasEncrypted = oldFileName.endsWith('.enc.md');
+        let newFileName = sanitized;
+        if (!newFileName.toLowerCase().endsWith('.md')) {
+            newFileName += '.md';
+        }
+        // Preserve .enc.md extension for encrypted notes
+        if (wasEncrypted && !newFileName.endsWith('.enc.md')) {
+            newFileName = newFileName.replace(/\.md$/, '.enc.md');
+        }
+
+        // No-op if name unchanged
+        if (newFileName === oldFileName) return;
+
+        const oldPath = `${notesFolder}/${oldFileName}`;
+        const newPath = `${notesFolder}/${newFileName}`;
+
+        try {
+            // Save current note content to the new file, then delete old
+            let contentToSave = (activeNote === oldFileName) ? unsavedContent : (filesMap[oldFileName] || '');
+
+            // If encrypted, decrypt then re-encrypt under new name
+            const oldPwd = encryptedPasswords[oldFileName];
+            if (oldPwd && wasEncrypted) {
+                const plaintext = isEncrypted(contentToSave)
+                    ? await decryptNote(contentToSave, oldPwd)
+                    : contentToSave;
+                contentToSave = await encryptNote(plaintext, oldPwd);
+            }
+
+            await window.electron.writeFile(newPath, contentToSave);
+            await window.electron.deleteFile(oldPath);
+
+            // Update state
+            const newFilesMap = { ...filesMap };
+            newFilesMap[newFileName] = contentToSave;
+            delete newFilesMap[oldFileName];
+            setFilesMap(newFilesMap);
+
+            // Transfer password to new filename
+            if (oldPwd) {
+                setEncryptedPasswords(prev => {
+                    const next = { ...prev };
+                    next[newFileName] = oldPwd;
+                    delete next[oldFileName];
+                    return next;
+                });
+            }
+
+            const newList = notesList.map(f => f === oldFileName ? newFileName : f).sort();
+            setNotesList(newList);
+
+            if (activeNote === oldFileName) {
+                setActiveNote(newFileName);
+                // Keep decrypted content in editor for encrypted notes
+                setUnsavedContent((activeNote === oldFileName && oldPwd) ? unsavedContent : contentToSave);
+                setIsDirty(false);
+            }
+        } catch (err) {
+            console.error('Failed to rename note:', err);
+            setError(`Could not rename note to "${newFileName}". A file with that name may already exist.`);
+        }
+    };
+
+    // Helper: save content to disk, encrypting if the note has a stored password
+    const saveNoteToDisk = async (fileName, content) => {
+        if (!notesFolder || !fileName) return;
+        const pwd = encryptedPasswords[fileName];
+        const displayName = fileName.replace(/\.md$/, '');
+        if (pwd) {
+            // Encrypt before writing; use .enc.md extension
+            const encFileName = `${displayName}.enc.md`;
+            const encrypted = await encryptNote(content, pwd);
+            await window.electron.writeFile(`${notesFolder}/${encFileName}`, encrypted);
+            setFilesMap(prev => ({ ...prev, [fileName]: encrypted }));
+            // If the file was previously .md but now we're encrypting, delete old .md
+            if (fileName.endsWith('.md') && !fileName.endsWith('.enc.md')) {
+                try { await window.electron.deleteFile(`${notesFolder}/${fileName}`); } catch {}
+                // Update lists: rename in place but track it as encrypted
+                const newList = notesList.map(f => f === fileName ? encFileName : f);
+                if (!notesList.includes(encFileName)) {
+                    setNotesList(newList.sort());
+                }
+                if (activeNote === fileName) {
+                    setActiveNote(encFileName);
+                    const newMap = { ...filesMap };
+                    newMap[encFileName] = encrypted;
+                    delete newMap[fileName];
+                    setFilesMap(newMap);
+                }
+            }
+        } else {
+            await window.electron.writeFile(`${notesFolder}/${fileName}`, content);
+            setFilesMap(prev => ({ ...prev, [fileName]: content }));
+        }
+        setIsDirty(false);
+    };
+
+    // Toggle encryption for a note
+    const handleToggleEncrypt = async (fileName) => {
+        const content = filesMap[fileName] || '';
+        if (isEncrypted(content)) {
+            // Decrypt mode — need password
+            const noteId = fileName.replace(/\.md$/, '').replace(/\.enc\.md$/, '');
+            setPasswordModal({ mode: 'decrypt', fileName, noteId });
+            setPasswordInput('');
+            setPasswordError('');
+        } else {
+            // Encrypt mode — need new password
+            const noteId = fileName.replace(/\.md$/, '');
+            setPasswordModal({ mode: 'encrypt', fileName, noteId });
+            setPasswordInput('');
+            setPasswordError('');
+        }
+    };
+
+    // Confirm password modal action
+    const handlePasswordConfirm = async () => {
+        if (!passwordModal || !passwordInput.trim()) return;
+        const { mode, fileName, noteId } = passwordModal;
+        const pwd = passwordInput.trim();
+
+        try {
+            if (mode === 'encrypt') {
+                // Encrypt the current unsaved content
+                const content = unsavedContent || filesMap[fileName] || '';
+                const encrypted = await encryptNote(content, pwd);
+                const encFileName = `${noteId}.enc.md`;
+                await window.electron.writeFile(`${notesFolder}/${encFileName}`, encrypted);
+                // Delete old .md file
+                try { await window.electron.deleteFile(`${notesFolder}/${fileName}`); } catch {}
+
+                // Update state
+                setEncryptedPasswords(prev => ({ ...prev, [encFileName]: pwd }));
+                const newMap = { ...filesMap };
+                newMap[encFileName] = encrypted;
+                delete newMap[fileName];
+                setFilesMap(newMap);
+
+                const newList = notesList.map(f => f === fileName ? encFileName : f);
+                setNotesList(newList.sort());
+                if (activeNote === fileName) {
+                    setActiveNote(encFileName);
+                    setUnsavedContent(content); // Keep decrypted content in editor
+                }
+                setIsDirty(false);
+
+            } else if (mode === 'decrypt') {
+                // Verify password by decrypting
+                const content = filesMap[fileName] || '';
+                const decrypted = await decryptNote(content, pwd);
+                // Store password in memory for future re-encryption on save
+                setEncryptedPasswords(prev => ({ ...prev, [fileName]: pwd }));
+
+                // If we want to permanently decrypt (remove encryption), we'd write plaintext.
+                // For now, keep encrypted on disk but allow editing decrypted in memory.
+                // User can choose to decrypt permanently via a separate action.
+                setFilesMap(prev => ({ ...prev, [fileName]: content })); // Keep ciphertext in filesMap
+                if (activeNote === fileName) {
+                    setUnsavedContent(decrypted);
+                    setIsDirty(false);
+                }
+            }
+        } catch (err) {
+            console.error('Encryption/decryption failed:', err);
+            setPasswordError(mode === 'encrypt' ? 'Encryption failed.' : 'Wrong password or corrupted file.');
+            return;
+        }
+
+        setPasswordModal(null);
+        setPasswordInput('');
+    };
+
+    // Permanently decrypt a note (remove encryption, keep as plain .md)
+    const handleDecryptPermanently = async (fileName) => {
+        const pwd = encryptedPasswords[fileName];
+        if (!pwd) return;
+        const content = filesMap[fileName] || '';
+        try {
+            const decrypted = await decryptNote(content, pwd);
+            const newFileName = fileName.replace(/\.enc\.md$/, '.md');
+            await window.electron.writeFile(`${notesFolder}/${newFileName}`, decrypted);
+            try { await window.electron.deleteFile(`${notesFolder}/${fileName}`); } catch {}
+
+            setEncryptedPasswords(prev => {
+                const next = { ...prev };
+                delete next[fileName];
+                return next;
+            });
+            const newMap = { ...filesMap };
+            newMap[newFileName] = decrypted;
+            delete newMap[fileName];
+            setFilesMap(newMap);
+
+            const newList = notesList.map(f => f === fileName ? newFileName : f).sort();
+            setNotesList(newList);
+            if (activeNote === fileName) {
+                setActiveNote(newFileName);
+                setUnsavedContent(decrypted);
+            }
+            setIsDirty(false);
+        } catch (err) {
+            console.error('Failed to permanently decrypt:', err);
+            setError('Could not decrypt note. Wrong password?');
+        }
+    };
+
+    // Lock a note now: remove password from memory, clear decrypted content
+    const handleLockNow = (fileName) => {
+        setEncryptedPasswords(prev => {
+            const next = { ...prev };
+            delete next[fileName];
+            return next;
+        });
+        if (activeNote === fileName) {
+            // Replace editor content with ciphertext so it's not readable
+            setUnsavedContent(filesMap[fileName] || '');
+            setIsDirty(false);
+        }
+    };
+
     // Editor content changes
     const handleEditorChange = (value) => {
         setUnsavedContent(value || '');
@@ -245,7 +630,7 @@ export default function NotesMode() {
     };
 
     const noteIds = useMemo(() => {
-        return notesList.map(f => f.replace(/\.md$/, ''));
+        return notesList.map(f => f.replace(/\.enc\.md$/, '').replace(/\.md$/, ''));
     }, [notesList]);
 
     // Parse graph
@@ -261,7 +646,7 @@ export default function NotesMode() {
         });
 
         Object.entries(filesMap).forEach(([fileName, content]) => {
-            const fromNoteId = fileName.replace(/\.md$/, '');
+            const fromNoteId = fileName.replace(/\.enc\.md$/, '').replace(/\.md$/, '');
             const lines = (content || '').split('\n');
 
             lines.forEach(line => {
@@ -291,7 +676,7 @@ export default function NotesMode() {
         });
 
         Object.entries(filesMap).forEach(([fileName, content]) => {
-            const fromNoteId = fileName.replace(/\.md$/, '');
+            const fromNoteId = fileName.replace(/\.enc\.md$/, '').replace(/\.md$/, '');
             const lines = (content || '').split('\n');
 
             noteIds.forEach(targetNoteId => {
@@ -318,7 +703,7 @@ export default function NotesMode() {
         return { outgoing, backlinks, unlinkedMentions };
     }, [filesMap, noteIds]);
 
-    const activeNoteId = activeNote ? activeNote.replace(/\.md$/, '') : '';
+    const activeNoteId = activeNote ? activeNote.replace(/\.enc\.md$/, '').replace(/\.md$/, '') : '';
     const activeBacklinks = graph.backlinks[activeNoteId] || [];
     const activeOutgoing = Array.from(graph.outgoing[activeNoteId] || []);
     const activeUnlinked = graph.unlinkedMentions[activeNoteId] || [];
@@ -597,35 +982,21 @@ export default function NotesMode() {
 
                 <div className="flex-1 overflow-y-auto p-1.5 space-y-0.5">
                     {filteredNotes.map((fileName) => {
-                        const noteId = fileName.replace(/\.md$/, '');
+                        const noteId = fileName.replace(/\.md$/, '').replace(/\.enc\.md$/, '');
                         const isActive = activeNote === fileName;
+                        const locked = isEncrypted(filesMap[fileName]);
                         return (
-                            <button
+                            <SidebarNoteItem
                                 key={fileName}
-                                onClick={() => handleSelectNote(fileName)}
-                                className={`w-full flex items-center justify-between text-left px-3 py-2 rounded-lg text-xs transition-all ${
-                                    isActive
-                                        ? 'bg-[var(--bg-tertiary)] text-[var(--text-primary)] border-l-2 border-[var(--accent)] font-semibold'
-                                        : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'
-                                }`}
-                            >
-                                <span className="truncate flex items-center gap-1.5">
-                                    <FileText size={13} className={isActive ? 'text-[var(--accent)]' : 'text-[var(--text-tertiary)]'} />
-                                    {noteId}
-                                </span>
-                                {isActive && (
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDeleteNote(fileName);
-                                        }}
-                                        className="hover:text-rose-400 p-0.5 rounded transition-all"
-                                        title="Delete Note"
-                                    >
-                                        <Trash2 size={12} />
-                                    </button>
-                                )}
-                            </button>
+                                fileName={fileName}
+                                noteId={noteId}
+                                isActive={isActive}
+                                isLocked={locked}
+                                onSelect={() => handleSelectNote(fileName)}
+                                onRename={(newTitle) => handleRenameNote(fileName, newTitle)}
+                                onDelete={() => handleDeleteNote(fileName)}
+                                onToggleEncrypt={() => handleToggleEncrypt(fileName)}
+                            />
                         );
                     })}
                     {filteredNotes.length === 0 && (
@@ -647,9 +1018,19 @@ export default function NotesMode() {
                         <div className="h-11 border-b border-[var(--border)] px-4 flex items-center justify-between bg-[var(--bg-secondary)] shrink-0 select-none">
                             <div className="flex items-center gap-2 min-w-0">
                                 <span className="text-[var(--text-tertiary)] text-xs font-semibold uppercase tracking-wider">Note:</span>
-                                <h1 className="text-sm font-bold text-[var(--text-primary)] truncate font-mono">
-                                    {activeNoteId}
-                                </h1>
+                                <div className="min-w-0">
+                                    <EditableTitle
+                                        initialTitle={activeNoteId}
+                                        onSave={(newTitle) => handleRenameNote(activeNote, newTitle)}
+                                        textClassName="text-sm font-bold text-[var(--text-primary)] font-mono"
+                                    />
+                                </div>
+                                {activeNote && isEncrypted(filesMap[activeNote]) && (
+                                    <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20" title="Encrypted on disk">
+                                        <Lock size={10} />
+                                        {encryptedPasswords[activeNote] ? 'Unlocked' : 'Locked'}
+                                    </span>
+                                )}
                                 {isDirty && (
                                     <span className="flex h-2 w-2 rounded-full bg-[var(--accent)] animate-pulse" title="Unsaved changes" />
                                 )}
@@ -691,6 +1072,16 @@ export default function NotesMode() {
                                         <span>Preview</span>
                                     </button>
                                 </div>
+
+                                {activeNote && isEncrypted(filesMap[activeNote]) && encryptedPasswords[activeNote] && (
+                                    <button
+                                        onClick={() => handleLockNow(activeNote)}
+                                        className="p-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-amber-400 hover:text-amber-300 transition-all"
+                                        title="Lock Note (clear decrypted content from memory)"
+                                    >
+                                        <Lock size={13} />
+                                    </button>
+                                )}
 
                                 <button
                                     onClick={() => handleDeleteNote(activeNote)}
@@ -856,6 +1247,70 @@ export default function NotesMode() {
                                 No outgoing links in this note.
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* Password Modal */}
+            {passwordModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setPasswordModal(null)}>
+                    <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded-2xl p-6 w-80 shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center gap-2 mb-4">
+                            <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                                <KeyRound size={18} className="text-amber-400" />
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-bold text-[var(--text-primary)]">
+                                    {passwordModal.mode === 'encrypt' ? 'Encrypt Note' : 'Unlock Note'}
+                                </h3>
+                                <p className="text-[11px] text-[var(--text-tertiary)]">{passwordModal.noteId}</p>
+                            </div>
+                        </div>
+
+                        <p className="text-xs text-[var(--text-secondary)] mb-3">
+                            {passwordModal.mode === 'encrypt'
+                                ? 'Choose a password to encrypt this note. You will need to enter it each time you reopen the app.'
+                                : 'Enter the password to decrypt this note.'}
+                        </p>
+
+                        <input
+                            autoFocus
+                            type="password"
+                            placeholder="Password..."
+                            value={passwordInput}
+                            onChange={e => { setPasswordInput(e.target.value); setPasswordError(''); }}
+                            onKeyDown={e => { if (e.key === 'Enter') handlePasswordConfirm(); }}
+                            className="w-full px-3 py-2 text-sm rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:outline-none focus:border-[var(--accent)] transition-all"
+                        />
+
+                        {passwordError && (
+                            <p className="text-xs text-rose-400 mt-2">{passwordError}</p>
+                        )}
+
+                        {passwordModal.mode === 'decrypt' && encryptedPasswords[passwordModal.fileName] && (
+                            <button
+                                onClick={() => handleDecryptPermanently(passwordModal.fileName)}
+                                className="mt-3 text-[11px] text-amber-400 hover:text-amber-300 transition-colors"
+                            >
+                                Remove encryption permanently
+                            </button>
+                        )}
+
+                        <div className="flex gap-2 mt-4">
+                            <button
+                                onClick={() => setPasswordModal(null)}
+                                className="flex-1 py-2 text-xs rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-all"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handlePasswordConfirm}
+                                disabled={!passwordInput.trim()}
+                                className="flex-1 py-2 text-xs rounded-lg bg-[var(--accent)] hover:opacity-90 text-white font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                                {passwordModal.mode === 'encrypt' ? 'Encrypt' : 'Unlock'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
