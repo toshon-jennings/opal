@@ -694,33 +694,11 @@
     z-index: 0;
 }
 
-/* ── Hermes: full-bleed brand image (fills the tile, no border) ───────── */
+/* ── Hermes icon chip ─────────────────────────────────────────────────── */
 
-/* Hermes has no background photo — its Nous Research logo IS the tile.
-   Show it at full strength (not the faint 0.2 wash the photo tiles use),
-   hide the bordered icon chip, and lay a top scrim so the label stays legible. */
-.dash-tile-hermes .dash-tile-art,
-.dash-tile-hermes:hover .dash-tile-art {
-    opacity: 1;
-}
-
+/* The Nous logo is black line-art — give its chip a bright background and
+   border so it reads clearly instead of going dark on the tile. */
 .dash-tile-hermes .dash-tile-icon {
-    display: none;
-}
-
-.dash-tile-hermes::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    background: linear-gradient(to bottom,
-        rgba(0, 0, 0, 0.72) 0%,
-        rgba(0, 0, 0, 0.45) 40%,
-        rgba(0, 0, 0, 0.12) 100%);
-}
-
-.dash-tile-hermes .dash-tile-name,
-.dash-tile-hermes .dash-tile-desc {
-    color: #fff;
+    background: #fff;
+    border-color: rgba(255, 255, 255, 0.65);
 }
