@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.23.0] - 2026-06-20
+### Added
+- **3D Knowledge Graph** — interactive Three.js/R3F visualization of note relationships. Toggle via the "Knowledge Graph" button in the Notes sidebar. Click nodes to open notes; orbit/zoom/pan with mouse.
+
 ## [0.22.0] - 2026-06-19
 ### Added
 - **Notes encryption** — per-note AES-GCM encryption with PBKDF2 key derivation. Lock/unlock individual notes with a password. Encrypted notes stored as `.enc.md` files on disk.
