@@ -138,13 +138,38 @@ export default function NotesMode() {
     const [passwordInput, setPasswordInput] = useState('');
     const [passwordError, setPasswordError] = useState('');
 
-    // Resolve notes folder path
+    // Resolve notes folder path on mount and update register path
     useEffect(() => {
-        if (workingDirectory) {
-            setNotesFolder(`${workingDirectory}/notes`);
-        } else {
-            setNotesFolder('');
+        let isMounted = true;
+        async function initNotesFolder() {
+            // 1. Try local storage
+            let savedFolder = localStorage.getItem('perci_notes_folder');
+            
+            // 2. Backward compatibility: if workingDirectory is set but no custom folder,
+            // default to ${workingDirectory}/notes to preserve existing notes.
+            if (!savedFolder && workingDirectory) {
+                savedFolder = `${workingDirectory}/notes`;
+            }
+
+            // 3. Fallback to app documents folder
+            if (!savedFolder && window.electron?.getDefaultNotesPath) {
+                try {
+                    savedFolder = await window.electron.getDefaultNotesPath();
+                } catch (err) {
+                    console.error('Failed to get default notes path:', err);
+                }
+            }
+
+            if (isMounted && savedFolder) {
+                setNotesFolder(savedFolder);
+                localStorage.setItem('perci_notes_folder', savedFolder);
+                if (window.electron?.registerWorkspace) {
+                    await window.electron.registerWorkspace(savedFolder);
+                }
+            }
         }
+        initNotesFolder();
+        return () => { isMounted = false; };
     }, [workingDirectory]);
 
     // Choose directory if not set
@@ -153,7 +178,11 @@ export default function NotesMode() {
         try {
             const folderPath = await window.electron.selectDirectory();
             if (folderPath) {
-                setCodeState(prev => ({ ...prev, workingDirectory: folderPath }));
+                localStorage.setItem('perci_notes_folder', folderPath);
+                setNotesFolder(folderPath);
+                if (window.electron?.registerWorkspace) {
+                    await window.electron.registerWorkspace(folderPath);
+                }
             }
         } catch (err) {
             console.error('Failed to select directory:', err);
@@ -162,7 +191,7 @@ export default function NotesMode() {
 
     // Load notes and sync filesystem
     const loadNotes = useCallback(async () => {
-        if (!workingDirectory || !notesFolder) return;
+        if (!notesFolder) return;
         setLoading(true);
         setError(null);
         try {
@@ -225,14 +254,14 @@ export default function NotesMode() {
         } finally {
             setLoading(false);
         }
-    }, [workingDirectory, notesFolder, activeNote, isDirty]);
+    }, [notesFolder, activeNote, isDirty]);
 
     // Load notes on folder change
     useEffect(() => {
-        if (workingDirectory && notesFolder) {
+        if (notesFolder) {
             loadNotes();
         }
-    }, [workingDirectory, notesFolder]);
+    }, [notesFolder]);
 
     // Initialize notes directory
     const handleInitializeNotes = async () => {
@@ -875,22 +904,22 @@ export default function NotesMode() {
         });
     }, [notesList, filesMap, searchQuery]);
 
-    if (!workingDirectory) {
+    if (!notesFolder) {
         return (
             <div className="flex h-full flex-col items-center justify-center bg-[var(--bg-primary)] p-8 text-center text-[var(--text-secondary)]">
                 <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] shadow-lg animate-pulse">
                     <FolderOpen size={28} className="text-[var(--accent)]" />
                 </div>
-                <h2 className="text-xl font-bold text-[var(--text-primary)]">No Workspace Folder Selected</h2>
+                <h2 className="text-xl font-bold text-[var(--text-primary)]">No Notes Folder Selected</h2>
                 <p className="mt-2 max-w-md text-sm text-[var(--text-tertiary)]">
-                    Perci Notes works locally within your active workspace folder. Choose a folder to initialize your markdown knowledge base.
+                    Perci Notes works locally within a local folder. Choose a folder to initialize your markdown knowledge base.
                 </p>
                 <button
                     onClick={handleChooseFolder}
                     className="mt-6 flex items-center gap-2 rounded-xl bg-gradient-to-r from-[var(--accent)] to-[var(--accent-cyan)] px-5 py-2.5 text-sm font-semibold text-white shadow-lg hover:opacity-90 transition-all active:scale-95 animate-shimmer"
                 >
                     <FolderOpen size={16} />
-                    Choose Workspace Folder
+                    Choose Notes Folder
                 </button>
             </div>
         );
@@ -1006,8 +1035,15 @@ export default function NotesMode() {
                     )}
                 </div>
                 
-                <div className="p-2.5 border-t border-[var(--border)] text-[10px] text-[var(--text-tertiary)] bg-[var(--bg-tertiary)] truncate" title={notesFolder}>
-                    Folder: <code className="font-mono text-[9px]">notes/</code>
+                <div className="p-2 border-t border-[var(--border)] text-[10px] text-[var(--text-tertiary)] bg-[var(--bg-tertiary)] flex items-center justify-between gap-1.5" title={notesFolder}>
+                    <span className="truncate">Folder: <span className="font-mono text-[9px]">{notesFolder}</span></span>
+                    <button 
+                        onClick={handleChooseFolder}
+                        className="hover:text-[var(--text-primary)] shrink-0 transition-colors"
+                        title="Change folder"
+                    >
+                        <FolderOpen size={11} />
+                    </button>
                 </div>
             </div>
 

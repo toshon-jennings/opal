@@ -951,6 +951,14 @@ ipcMain.handle('select-directory', async () => {
   }
 });
 
+// Default notes location — ~/Documents/Perci Notes
+// Safe: always outside any repo/project directory.
+ipcMain.handle('get-default-notes-path', () => {
+  const defaultPath = path.join(app.getPath('documents'), 'Perci Notes');
+  allowedPaths.add(path.resolve(defaultPath));
+  return defaultPath;
+});
+
 const fs = require('fs').promises;
 const appDataFileName = 'perci-data.json';
 const encryptedValueMarker = '__perciEncryptedValue';
@@ -3184,14 +3192,17 @@ function detectConflicts(listeners, entries) {
   }
   for (const c of conflicts) {
     const procs = [...(procsByPort[c.port] || [])];
-    // Find process_b (the other conflict party) anywhere in the listener list by name.
-    if (c.process_b) {
+    // Find process_a and process_b (conflicting parties) anywhere in the listener list by name.
+    const addSecondary = (ownerName) => {
+      if (!ownerName) return;
       for (const lp of allLiveProcs) {
-        if (!procs.some(p => p.pid === lp.pid) && related(c.process_b, lp.name)) {
+        if (!procs.some(p => p.pid === lp.pid) && related(ownerName, lp.name)) {
           procs.push({ pid: lp.pid, name: lp.name, port: lp.port, secondary: true });
         }
       }
-    }
+    };
+    addSecondary(c.process_a);
+    addSecondary(c.process_b);
     c.processes = procs;
   }
 
