@@ -550,6 +550,8 @@ function ChatMode() {
         customInstructions,
         lmStudioUrl,
         janUrl,
+        searchEngine,
+        searxngUrl,
         activeRequestRef,
         abortGeneration
     } = useChat();
@@ -567,6 +569,15 @@ function ChatMode() {
     const [isChangelogOpen, setIsChangelogOpen] = useState(false);
     const [activeTab, setActiveTab] = useState('chat'); // 'chat' or 'artifacts'
     const [isSearchEnabled, setIsSearchEnabled] = useState(false);
+    const [searchFocus, setSearchFocus] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('searchFocus') || 'web';
+        }
+        return 'web';
+    });
+    useEffect(() => {
+        localStorage.setItem('searchFocus', searchFocus);
+    }, [searchFocus]);
     const [isSearching, setIsSearching] = useState(false);
     const [searchMode, setSearchMode] = useState('web');
     const [searchSteps, setSearchSteps] = useState([]);
@@ -756,7 +767,9 @@ function ChatMode() {
                 apiKeys[selectedProvider],
                 lmStudioUrl,
                 janUrl,
-                selectedModel
+                selectedModel,
+                searchEngine,
+                searxngUrl
             );
 
             // Build a semantic search plan. A small deterministic layer catches obvious
@@ -894,7 +907,8 @@ function ChatMode() {
                                         }]);
                                     }
                                 },
-                                searchPlan
+                                searchPlan,
+                                { focusMode: searchFocus }
                             );
 
                             const hasSources = searchResults?.sources?.length > 0;
@@ -1198,6 +1212,7 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
 
                 messageMetadata.searchSources = finalSources;
                 messageMetadata.searchQuery = searchResults.optimizedQuery || userMessage;
+                messageMetadata.searchIntent = searchResults.plan?.intent || null;
             }
 
             if (artifactData) {
@@ -1975,6 +1990,18 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                                 >
                                     <Globe size={18} />
                                 </button>
+                                {isSearchEnabled && (
+                                     <select
+                                         value={searchFocus}
+                                         onChange={(e) => setSearchFocus(e.target.value)}
+                                         className="text-xs bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-[var(--text-secondary)] focus:text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] transition-colors cursor-pointer"
+                                         title="Search Focus Mode"
+                                     >
+                                         <option value="web">General Web</option>
+                                         <option value="academic">Academic</option>
+                                         <option value="discussion">Discussions</option>
+                                     </select>
+                                 )}
                                 <button
                                     onClick={() => {
                                         if (!input.toLowerCase().startsWith('deep research:')) {

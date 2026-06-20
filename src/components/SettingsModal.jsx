@@ -55,7 +55,11 @@ export function SettingsModal({ isOpen, onClose }) {
         lmStudioUrl,
         setLmStudioUrl,
         janUrl,
-        setJanUrl
+        setJanUrl,
+        searchEngine,
+        setSearchEngine,
+        searxngUrl,
+        setSearxngUrl
     } = useChat();
     const {
         openClawConfig,
@@ -516,6 +520,39 @@ export function SettingsModal({ isOpen, onClose }) {
                         <p className="text-xs text-[var(--text-tertiary)]">
                             Reviewed before every response. Saved locally.
                         </p>
+                    </Section>
+
+                    {/* Search Settings */}
+                    <Section title="Search Settings" icon={Search} defaultOpen={false}>
+                        <div>
+                            <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">
+                                Search Engine
+                            </label>
+                            <select
+                                value={searchEngine}
+                                onChange={e => setSearchEngine(e.target.value)}
+                                className="w-full mt-1.5 px-4 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg-tertiary)] focus:ring-2 ring-[var(--accent)] outline-none transition-all text-[var(--text-primary)] text-sm"
+                            >
+                                <option value="ddg">DuckDuckGo Scraper</option>
+                                <option value="searxng">SearxNG</option>
+                            </select>
+                        </div>
+                        {searchEngine === 'searxng' && (
+                            <div className="mt-3">
+                                <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">
+                                    SearxNG API URL
+                                </label>
+                                <input
+                                    type="text"
+                                    value={searxngUrl}
+                                    onChange={e => setSearxngUrl(e.target.value)}
+                                    className="w-full mt-1.5 px-4 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg-tertiary)] focus:ring-2 ring-[var(--accent)] outline-none transition-all text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] text-sm"
+                                    placeholder="e.g. https://searxng.example.com"
+                                    spellCheck={false}
+                                    autoComplete="off"
+                                />
+                            </div>
+                        )}
                     </Section>
 
                     {/* G-Dash — Google account (Bring-Your-Own OAuth client) */}

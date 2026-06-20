@@ -77,12 +77,14 @@ function detectLocalRuntimeFact(query) {
 }
 
 export class IntelligentSearchTool {
-    constructor(llmProvider = null, llmApiKey = null, lmStudioUrl = null, janUrl = null, llmModel = null) {
+    constructor(llmProvider = null, llmApiKey = null, lmStudioUrl = null, janUrl = null, llmModel = null, searchEngine = 'ddg', searxngUrl = '') {
         this.llmProvider = llmProvider;
         this.llmApiKey = llmApiKey;
         this.lmStudioUrl = lmStudioUrl;
         this.janUrl = janUrl;
         this.llmModel = llmModel;
+        this.searchEngine = searchEngine;
+        this.searxngUrl = searxngUrl;
         this.searchHistory = [];
         this.logoCache = new Map(); // Cache logos to avoid repeated fetches
     }
@@ -272,8 +274,9 @@ export class IntelligentSearchTool {
      * @param {string} originalQuery - The original user query
      * @returns {Promise<string>} - Optimized search query
      */
-    async reformulateSearchQuery(originalQuery) {
+    async reformulateSearchQuery(originalQuery, focusMode = null) {
         const dateResolvedQuery = resolveRelativeDateQuery(originalQuery);
+        let query = '';
         // If we have LLM access, use it for smart reformulation
         if (this.llmProvider && this.llmApiKey) {
             try {
@@ -305,15 +308,23 @@ Optimized search query (keep exact dates from the date-resolved query):`;
                 );
 
                 const cleaned = reformulated.trim().replace(/^["']|["']$/g, '');
-                return cleaned || originalQuery;
+                query = cleaned || originalQuery;
             } catch (error) {
                 console.error('LLM reformulation failed, using fallback:', error);
-                return this.fallbackReformulation(originalQuery);
+                query = this.fallbackReformulation(originalQuery);
             }
+        } else {
+            // Fallback: keyword-based reformulation
+            query = this.fallbackReformulation(dateResolvedQuery);
         }
 
-        // Fallback: keyword-based reformulation
-        return this.fallbackReformulation(dateResolvedQuery);
+        if (focusMode === 'academic') {
+            query = `${query} site:arxiv.org OR site:pubmed.ncbi.nlm.nih.gov OR site:nature.com`;
+        } else if (focusMode === 'discussion') {
+            query = `${query} site:reddit.com OR site:news.ycombinator.com`;
+        }
+
+        return query;
     }
 
     /**
@@ -607,12 +618,21 @@ Write ONE improved web search query (2-7 words, no quotes, no explanation) that 
      * @param {Object} options - Search options
      * @returns {Promise<Object>} - Formatted search results
      */
-    async performSearch(originalQuery, options = {}) {
+    async performSearch(originalQuery, options = {}, focusMode = null) {
+        const activeFocusMode = focusMode || options.focusMode;
         // Step 1: Reformulate query (skip when the planner already optimized it)
         const resolvedQuery = resolveRelativeDateQuery(originalQuery);
-        const optimizedQuery = options.skipReformulate
+        let optimizedQuery = options.skipReformulate
             ? resolvedQuery
-            : await this.reformulateSearchQuery(resolvedQuery);
+            : await this.reformulateSearchQuery(resolvedQuery, activeFocusMode);
+
+        if (options.skipReformulate && activeFocusMode) {
+            if (activeFocusMode === 'academic') {
+                optimizedQuery = `${optimizedQuery} site:arxiv.org OR site:pubmed.ncbi.nlm.nih.gov OR site:nature.com`;
+            } else if (activeFocusMode === 'discussion') {
+                optimizedQuery = `${optimizedQuery} site:reddit.com OR site:news.ycombinator.com`;
+            }
+        }
 
         console.log(`🔍 Original: "${originalQuery}"`);
         console.log(`📅 Date-resolved: "${resolvedQuery}"`);
@@ -639,7 +659,9 @@ Write ONE improved web search query (2-7 words, no quotes, no explanation) that 
 
     async performLocalWebSearch(originalQuery, optimizedQuery, options = {}) {
         const result = await window.electron.webSearch(optimizedQuery, {
-            maxResults: options.maxResults || 6
+            maxResults: options.maxResults || 6,
+            searchEngine: options.searchEngine || this.searchEngine,
+            searxngUrl: options.searxngUrl || this.searxngUrl
         });
 
         if (!result?.ok || !Array.isArray(result.sources) || result.sources.length === 0) {
@@ -843,7 +865,7 @@ Write ONE improved web search query (2-7 words, no quotes, no explanation) that 
      * @param {Function} onProgress - Callback for progress updates
      * @returns {Promise<Object>} - Merged search results
      */
-    async intelligentMultiSearch(userQuery, maxSearches = 3, onProgress = null, plan = null) {
+    async intelligentMultiSearch(userQuery, maxSearches = 3, onProgress = null, plan = null, options = {}) {
         plan = plan || await this.planSearch(userQuery);
 
         // Planner says no web search is needed (e.g. local fact / general knowledge).
@@ -864,7 +886,7 @@ Write ONE improved web search query (2-7 words, no quotes, no explanation) that 
 
         const queue = (plan.searchQueries && plan.searchQueries.length)
             ? [...plan.searchQueries]
-            : [await this.reformulateSearchQuery(userQuery)];
+            : [await this.reformulateSearchQuery(userQuery, options.focusMode)];
 
         const allResults = [];
         const tried = new Set();
@@ -888,7 +910,7 @@ Write ONE improved web search query (2-7 words, no quotes, no explanation) that 
 
             let results;
             try {
-                results = await this.performSearch(nextQuery, { plan, skipReformulate: true });
+                results = await this.performSearch(nextQuery, { plan, skipReformulate: true, ...options });
             } catch (error) {
                 console.error(`Search failed for "${nextQuery}":`, error);
                 if (onProgress) {

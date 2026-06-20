@@ -33,6 +33,8 @@ const PERSISTED_KEYS = [
     'jan_url',
     'weather_sync_enabled',
     'weather_location',
+    'search_engine',
+    'searxng_url',
     ...API_KEY_STORAGE_KEYS
 ];
 

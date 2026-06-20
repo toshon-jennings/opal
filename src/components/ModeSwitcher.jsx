@@ -5,7 +5,7 @@ export default function ModeSwitcher() {
     const { currentMode, setCurrentMode } = useMode();
 
     const modes = [
-        { id: MODES.DASHBOARD, icon: Home,      label: 'Home' },
+        { id: MODES.DASHBOARD, icon: Home,      label: '' },
         { id: MODES.CHAT,   icon: MessageSquare, label: 'Chat' },
         { id: MODES.COWORK, icon: Users,         label: 'Cowork' },
         { id: MODES.CODE,   icon: Code,          label: 'Code' },

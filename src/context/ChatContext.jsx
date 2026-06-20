@@ -273,6 +273,31 @@ export function ChatProvider({ children }) {
         }
     }, [janUrl]);
 
+    // Search Engine Settings
+    const [searchEngine, setSearchEngineState] = useState(() => {
+        return readStringStorage('search_engine', 'ddg');
+    });
+
+    const setSearchEngine = useCallback((engine) => {
+        setSearchEngineState(engine);
+        localStorage.setItem('search_engine', engine);
+        if (electronPersistenceReadyRef.current) {
+            saveElectronPersistence({ search_engine: engine }).catch(err => console.error('Failed to persist search engine:', err));
+        }
+    }, []);
+
+    const [searxngUrl, setSearxngUrlState] = useState(() => {
+        return readStringStorage('searxng_url', '');
+    });
+
+    const setSearxngUrl = useCallback((url) => {
+        setSearxngUrlState(url);
+        localStorage.setItem('searxng_url', url);
+        if (electronPersistenceReadyRef.current) {
+            saveElectronPersistence({ searxng_url: url }).catch(err => console.error('Failed to persist SearxNG URL:', err));
+        }
+    }, []);
+
     useEffect(() => {
         if (!hasElectronStore()) return;
 
@@ -306,6 +331,8 @@ export function ChatProvider({ children }) {
                     setWeatherLocationState(readStringStorage('weather_location', ''));
                     setLmStudioUrlState(normalizeLocalServerUrl(readStringStorage('lm_studio_url', DEFAULT_LM_STUDIO_URL)));
                     setJanUrlState(normalizeLocalServerUrl(readStringStorage('jan_url', DEFAULT_JAN_URL), DEFAULT_JAN_URL));
+                    setSearchEngineState(readStringStorage('search_engine', 'ddg'));
+                    setSearxngUrlState(readStringStorage('searxng_url', ''));
                     setSelectedProvider(readStringStorage('selected_provider', 'groq'));
                     setSelectedModel(readStringStorage('selected_model'));
                     setApiKeys(nextApiKeys);
@@ -731,6 +758,11 @@ export function ChatProvider({ children }) {
             setLmStudioUrl,
             janUrl,
             setJanUrl,
+            // Search settings
+            searchEngine,
+            setSearchEngine,
+            searxngUrl,
+            setSearxngUrl,
             // Weather sync
             weatherSyncEnabled,
             setWeatherSyncEnabled,
