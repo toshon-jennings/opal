@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.24.0] - 2026-06-20
+### Added
+- **Knowledge Graph FX** — curved bezier edges, traveling pulse lights along edges, idle node twinkle, and additive glow halos. New settings panel controls for curvature, pulse speed/count, twinkle, and glow.
+
 ## [0.23.0] - 2026-06-20
 ### Added
 - **3D Knowledge Graph** — interactive Three.js/R3F visualization of note relationships. Toggle via the "Knowledge Graph" button in the Notes sidebar. Click nodes to open notes; orbit/zoom/pan with mouse.

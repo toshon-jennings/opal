@@ -13,6 +13,9 @@ import { Settings, X, Share2, Link2, Crosshair } from 'lucide-react';
 
 const SETTINGS_KEY = 'perci_notes_graph_settings';
 
+const SAMPLES = 12;     // points sampled per bezier edge
+const MAX_PULSES = 3;   // buffer sized for max; we only fill pulsesPerEdge
+
 const DEFAULT_SETTINGS = {
     dimensions: '3d',      // '2d' | '3d'
     linkDistance: 18,
@@ -28,6 +31,13 @@ const DEFAULT_SETTINGS = {
     rotateSpeed: 0.6,
     glow: 0.7,
     includeUnlinked: false,
+    includeSharedTags: false,
+    curvature: 0.28,       // 0 = straight, ~0.3 = nice bow
+    pulses: true,          // traveling lights on edges
+    pulseSpeed: 0.35,      // 0.05-1
+    pulsesPerEdge: 1,      // 1-3
+    twinkle: true,         // idle node light-up
+    nodeGlow: true,        // additive halo behind nodes
 };
 
 const CLUSTER_PALETTE = [
@@ -45,6 +55,14 @@ function loadSettings() {
 
 const lerp = (a, b, t) => a + (b - a) * t;
 
+// Quadratic bezier evaluator — writes into out at offset o.
+function bezierInto(out, o, ax, ay, az, cx, cy, cz, bx, by, bz, t) {
+    const mt = 1 - t, a = mt * mt, b = 2 * mt * t, c = t * t;
+    out[o]     = a * ax + b * cx + c * bx;
+    out[o + 1] = a * ay + b * cy + c * by;
+    out[o + 2] = a * az + b * cz + c * bz;
+}
+
 function hexToRgb(hex) {
     const h = (hex || '').replace('#', '');
     if (h.length < 6) return { r: 0.77, g: 0.41, b: 0.18 };
@@ -56,19 +74,28 @@ function hexToRgb(hex) {
 }
 
 // Build node / undirected-edge data from the notes graph.
-function buildGraphData(noteIds, graph, includeUnlinked) {
+function buildGraphData(noteIds, graph, includeUnlinked, includeSharedTags) {
     const idIndex = new Map();
     noteIds.forEach((id, i) => idIndex.set(id, i));
 
     const nodes = noteIds.map((id, i) => ({ id, idx: i, deg: 0, cluster: 0 }));
     const linkMap = new Map();
 
-    const addLink = (a, b, weak) => {
+    const addLink = (a, b, weak, tag) => {
         if (a == null || b == null || a === b) return;
         const key = a < b ? `${a}-${b}` : `${b}-${a}`;
         const existing = linkMap.get(key);
-        if (existing) { if (!weak) existing.weak = false; return; }
-        linkMap.set(key, { s: Math.min(a, b), t: Math.max(a, b), weak: !!weak });
+        if (existing) {
+            if (!weak) existing.weak = false;
+            if (tag && !existing.tags.includes(tag)) existing.tags.push(tag);
+            return;
+        }
+        linkMap.set(key, {
+            s: Math.min(a, b),
+            t: Math.max(a, b),
+            weak: !!weak,
+            tags: tag ? [tag] : [],
+        });
     };
 
     Object.entries(graph.outgoing || {}).forEach(([from, set]) => {
@@ -82,6 +109,17 @@ function buildGraphData(noteIds, graph, includeUnlinked) {
             const b = idIndex.get(target);
             if (b == null || !mentions) return;
             mentions.forEach(m => addLink(idIndex.get(m.fromNoteId), b, true));
+        });
+    }
+
+    if (includeSharedTags) {
+        Object.values(graph.notesByTag || {}).forEach(entry => {
+            const noteIdsForTag = Array.isArray(entry?.notes) ? entry.notes : [];
+            for (let i = 0; i < noteIdsForTag.length; i++) {
+                for (let j = i + 1; j < noteIdsForTag.length; j++) {
+                    addLink(idIndex.get(noteIdsForTag[i]), idIndex.get(noteIdsForTag[j]), true, entry.tag);
+                }
+            }
         });
     }
 
@@ -132,6 +170,8 @@ function GraphScene({ data, settings, theme, hovered, setHovered, neighbors, act
     const matRefs = useRef([]);
     const lineRef = useRef();
     const hlLineRef = useRef();
+    const pulseRef = useRef();
+    const nodeGlowRef = useRef();
     const sim = useRef(null);
     const dragRef = useRef(null);
 
@@ -150,7 +190,29 @@ function GraphScene({ data, settings, theme, hovered, setHovered, neighbors, act
                 vx: 0, vy: 0, vz: 0, fx: null, fy: null, fz: null,
             };
         });
-        sim.current = { pts, alpha: 1, linePos: new Float32Array(data.links.length * 6) };
+        sim.current = {
+            pts,
+            alpha: 1,
+            linePos: new Float32Array(data.links.length * (SAMPLES - 1) * 2 * 3),
+            pulsePos: new Float32Array(data.links.length * MAX_PULSES * 3),
+            nodeGlowPos: new Float32Array(data.nodes.length * 3),
+            nodePhase: data.nodes.map(() => Math.random() * Math.PI * 2),
+            edgeSeed: data.links.map(() => Math.random()),
+            pulseRef: null,
+            nodeGlowRef: null,
+        };
+        // Wire up geometry for pulse + glow points (refs may have already fired).
+        if (pulseRef.current && !pulseRef.current.geometry.getAttribute('position')) {
+            pulseRef.current.geometry.setAttribute('position',
+                new THREE.BufferAttribute(sim.current.pulsePos, 3));
+            pulseRef.current.geometry.setDrawRange(0, data.links.length * Math.min(settings.pulsesPerEdge, MAX_PULSES));
+            sim.current.pulseRef = pulseRef.current;
+        }
+        if (nodeGlowRef.current && !nodeGlowRef.current.geometry.getAttribute('position')) {
+            nodeGlowRef.current.geometry.setAttribute('position',
+                new THREE.BufferAttribute(sim.current.nodeGlowPos, 3));
+            sim.current.nodeGlowRef = nodeGlowRef.current;
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [data]);
 
@@ -197,12 +259,13 @@ function GraphScene({ data, settings, theme, hovered, setHovered, neighbors, act
         window.addEventListener('pointerup', up);
     }, [gl, camera, settings.dimensions]);
 
-    useFrame(() => {
+    useFrame((state) => {
         const s = sim.current;
         if (!s) return;
         const pts = s.pts;
         const n = pts.length;
         const is2d = settings.dimensions === '2d';
+        const time = state.clock.elapsedTime;
 
         if (s.alpha > 0.005) {
             const a = s.alpha;
@@ -260,26 +323,80 @@ function GraphScene({ data, settings, theme, hovered, setHovered, neighbors, act
             if (mat) {
                 const dim = neighbors && !neighbors.has(i);
                 const isHot = neighbors && neighbors.has(i);
+                const tw = settings.twinkle ? (0.5 + 0.5 * Math.sin(time * 1.6 + s.nodePhase[i])) : 0;
+                const target = (isHot ? baseGlow + 0.8 : baseGlow) + tw * 0.45 * settings.glow;
                 mat.opacity = lerp(mat.opacity, dim ? 0.12 : 1, 0.25);
-                mat.emissiveIntensity = lerp(mat.emissiveIntensity, isHot ? baseGlow + 0.8 : baseGlow, 0.25);
+                mat.emissiveIntensity = lerp(mat.emissiveIntensity, target, 0.2);
             }
         }
 
-        // Edge geometry.
-        const lp = s.linePos;
-        for (let k = 0; k < data.links.length; k++) {
-            const l = data.links[k];
-            const pa = pts[l.s], pb = pts[l.t];
-            const o = k * 6;
-            lp[o] = pa.x; lp[o + 1] = pa.y; lp[o + 2] = pa.z;
-            lp[o + 3] = pb.x; lp[o + 4] = pb.y; lp[o + 5] = pb.z;
+        // Node glow halo positions.
+        if (settings.nodeGlow) {
+            for (let i = 0; i < n; i++) {
+                const o = i * 3;
+                s.nodeGlowPos[o] = pts[i].x;
+                s.nodeGlowPos[o + 1] = pts[i].y;
+                s.nodeGlowPos[o + 2] = pts[i].z;
+            }
+            if (s.nodeGlowRef) {
+                const attr = s.nodeGlowRef.geometry.getAttribute('position');
+                if (attr) { attr.array.set(s.nodeGlowPos); attr.needsUpdate = true; }
+            }
         }
+
+        // Edge geometry (curved bezier) + pulse positions.
+        const lp = s.linePos;
+        const seg = SAMPLES - 1;
+        for (let kk = 0; kk < data.links.length; kk++) {
+            const l = data.links[kk];
+            const pa = pts[l.s], pb = pts[l.t];
+
+            // Control point: midpoint pushed radially outward.
+            const mx = (pa.x + pb.x) / 2, my = (pa.y + pb.y) / 2, mz = (pa.z + pb.z) / 2;
+            const ml = Math.hypot(mx, my, mz) || 1e-3;
+            const dist = Math.hypot(pb.x - pa.x, pb.y - pa.y, pb.z - pa.z);
+            const k = settings.curvature * dist;
+            const cx = mx + (mx / ml) * k, cy = my + (my / ml) * k, cz = mz + (mz / ml) * k;
+
+            // Sample bezier into linePos buffer.
+            const base = kk * seg * 2 * 3;
+            for (let sIdx = 0; sIdx < seg; sIdx++) {
+                const t0 = sIdx / seg, t1 = (sIdx + 1) / seg;
+                bezierInto(lp, base + sIdx * 6,     pa.x, pa.y, pa.z, cx, cy, cz, pb.x, pb.y, pb.z, t0);
+                bezierInto(lp, base + sIdx * 6 + 3, pa.x, pa.y, pa.z, cx, cy, cz, pb.x, pb.y, pb.z, t1);
+            }
+
+            // Traveling pulse lights.
+            if (settings.pulses) {
+                const seed = s.edgeSeed[kk];
+                const kCount = Math.min(settings.pulsesPerEdge, MAX_PULSES);
+                for (let j = 0; j < kCount; j++) {
+                    const tp = (time * settings.pulseSpeed * 0.15 + seed + j / kCount) % 1;
+                    bezierInto(s.pulsePos, (kk * MAX_PULSES + j) * 3,
+                        pa.x, pa.y, pa.z, cx, cy, cz, pb.x, pb.y, pb.z, tp);
+                }
+                for (let j = kCount; j < MAX_PULSES; j++) {
+                    s.pulsePos[(kk * MAX_PULSES + j) * 3 + 1] = 1e6;
+                }
+            }
+        }
+
         if (lineRef.current) {
             const attr = lineRef.current.geometry.getAttribute('position');
             if (attr) { attr.array.set(lp); attr.needsUpdate = true; }
         }
 
-        // Highlighted edges for the hovered node.
+        if (settings.pulses && s.pulseRef) {
+            const geo = s.pulseRef.geometry;
+            const posAttr = geo.getAttribute('position');
+            if (posAttr) {
+                posAttr.array.set(s.pulsePos);
+                posAttr.needsUpdate = true;
+                geo.setDrawRange(0, data.links.length * Math.min(settings.pulsesPerEdge, MAX_PULSES));
+            }
+        }
+
+        // Highlighted edges for the hovered node (also curved).
         if (hlLineRef.current) {
             if (hovered != null) {
                 const inc = [];
@@ -287,7 +404,20 @@ function GraphScene({ data, settings, theme, hovered, setHovered, neighbors, act
                     const l = data.links[k];
                     if (l.s === hovered || l.t === hovered) {
                         const pa = pts[l.s], pb = pts[l.t];
-                        inc.push(pa.x, pa.y, pa.z, pb.x, pb.y, pb.z);
+                        const mx = (pa.x + pb.x) / 2, my = (pa.y + pb.y) / 2, mz = (pa.z + pb.z) / 2;
+                        const ml = Math.hypot(mx, my, mz) || 1e-3;
+                        const dist = Math.hypot(pb.x - pa.x, pb.y - pa.y, pb.z - pa.z);
+                        const kk = settings.curvature * dist;
+                        const cx = mx + (mx / ml) * kk, cy = my + (my / ml) * kk, cz = mz + (mz / ml) * kk;
+                        for (let sIdx = 0; sIdx < seg; sIdx++) {
+                            const t0 = sIdx / seg, t1 = (sIdx + 1) / seg;
+                            const o0 = inc.length;
+                            inc.push(0, 0, 0);
+                            bezierInto(inc, o0, pa.x, pa.y, pa.z, cx, cy, cz, pb.x, pb.y, pb.z, t0);
+                            const o1 = inc.length;
+                            inc.push(0, 0, 0);
+                            bezierInto(inc, o1, pa.x, pa.y, pa.z, cx, cy, cz, pb.x, pb.y, pb.z, t1);
+                        }
                     }
                 }
                 const arr = new Float32Array(inc);
@@ -318,8 +448,8 @@ function GraphScene({ data, settings, theme, hovered, setHovered, neighbors, act
                 <bufferGeometry>
                     <bufferAttribute
                         attach="attributes-position"
-                        array={sim.current ? sim.current.linePos : new Float32Array(data.links.length * 6)}
-                        count={data.links.length * 2}
+                        array={sim.current ? sim.current.linePos : new Float32Array(data.links.length * (SAMPLES - 1) * 2 * 3)}
+                        count={data.links.length * (SAMPLES - 1) * 2}
                         itemSize={3}
                     />
                 </bufferGeometry>
@@ -330,6 +460,91 @@ function GraphScene({ data, settings, theme, hovered, setHovered, neighbors, act
                 <bufferGeometry />
                 <lineBasicMaterial color={theme.accent} transparent opacity={0.9} depthWrite={false} />
             </lineSegments>
+
+            {settings.pulses && (
+                <points
+                    ref={(el) => {
+                        pulseRef.current = el;
+                        if (sim.current) {
+                            sim.current.pulseRef = el;
+                            if (el && !el.geometry.getAttribute('position')) {
+                                el.geometry.setAttribute('position',
+                                    new THREE.BufferAttribute(sim.current.pulsePos, 3));
+                                el.geometry.setDrawRange(0, data.links.length * Math.min(settings.pulsesPerEdge, MAX_PULSES));
+                            }
+                        }
+                    }}
+                    frustumCulled={false}
+                >
+                    <bufferGeometry />
+                    <shaderMaterial
+                        transparent
+                        depthWrite={false}
+                        blending={THREE.AdditiveBlending}
+                        uniforms={{
+                            uColor: { value: new THREE.Color(theme.cyan) },
+                            uSize: { value: 14 },
+                            uPR: { value: Math.min(window.devicePixelRatio || 1, 2) },
+                        }}
+                        vertexShader={`
+                            uniform float uSize; uniform float uPR;
+                            void main() {
+                                vec4 mv = modelViewMatrix * vec4(position, 1.0);
+                                gl_Position = projectionMatrix * mv;
+                                gl_PointSize = uSize * uPR * (300.0 / max(-mv.z, 0.001));
+                            }`}
+                        fragmentShader={`
+                            uniform vec3 uColor;
+                            void main() {
+                                float d = length(gl_PointCoord - vec2(0.5));
+                                float a = smoothstep(0.5, 0.0, d); a = pow(a, 1.6);
+                                gl_FragColor = vec4(uColor, a);
+                            }`}
+                    />
+                </points>
+            )}
+
+            {settings.nodeGlow && (
+                <points
+                    ref={(el) => {
+                        nodeGlowRef.current = el;
+                        if (sim.current) {
+                            sim.current.nodeGlowRef = el;
+                            if (el && !el.geometry.getAttribute('position')) {
+                                el.geometry.setAttribute('position',
+                                    new THREE.BufferAttribute(sim.current.nodeGlowPos, 3));
+                            }
+                        }
+                    }}
+                    frustumCulled={false}
+                >
+                    <bufferGeometry />
+                    <shaderMaterial
+                        transparent
+                        depthWrite={false}
+                        blending={THREE.AdditiveBlending}
+                        uniforms={{
+                            uColor: { value: new THREE.Color(theme.accent) },
+                            uSize: { value: 10 },
+                            uPR: { value: Math.min(window.devicePixelRatio || 1, 2) },
+                        }}
+                        vertexShader={`
+                            uniform float uSize; uniform float uPR;
+                            void main() {
+                                vec4 mv = modelViewMatrix * vec4(position, 1.0);
+                                gl_Position = projectionMatrix * mv;
+                                gl_PointSize = uSize * uPR * (300.0 / max(-mv.z, 0.001));
+                            }`}
+                        fragmentShader={`
+                            uniform vec3 uColor;
+                            void main() {
+                                float d = length(gl_PointCoord - vec2(0.5));
+                                float a = smoothstep(0.5, 0.0, d); a = pow(a, 1.6);
+                                gl_FragColor = vec4(uColor, a);
+                            }`}
+                    />
+                </points>
+            )}
 
             {data.nodes.map((node, i) => {
                 const r = nodeRadius(node, settings);
@@ -460,8 +675,8 @@ export default function NotesGraph3D({ noteIds, graph, activeNoteId, onOpenNote,
     const [theme, setTheme] = useState({ accent: '#C5692D', cyan: '#39C0C8', text: '#E8E8E8' });
 
     const data = useMemo(
-        () => buildGraphData(noteIds, graph, settings.includeUnlinked),
-        [noteIds, graph, settings.includeUnlinked]
+        () => buildGraphData(noteIds, graph, settings.includeUnlinked, settings.includeSharedTags),
+        [noteIds, graph, settings.includeUnlinked, settings.includeSharedTags]
     );
 
     const neighbors = useMemo(() => {
@@ -612,6 +827,16 @@ export default function NotesGraph3D({ noteIds, graph, activeNoteId, onOpenNote,
                         <ToggleRow label="Size by links" checked={settings.sizeByDegree} onChange={(v) => set({ sizeByDegree: v })} />
                         <SliderRow label="Glow" value={settings.glow} min={0} max={1.5} step={0.05} onChange={(v) => set({ glow: v })} format={(v) => v.toFixed(2)} />
                         <SliderRow label="Link opacity" value={settings.linkOpacity} min={0.05} max={1} step={0.05} onChange={(v) => set({ linkOpacity: v })} format={(v) => v.toFixed(2)} />
+                        <SliderRow label="Edge curve" value={settings.curvature} min={0} max={0.6} step={0.02} onChange={(v) => set({ curvature: v })} format={(v) => v.toFixed(2)} />
+                        <ToggleRow label="Traveling lights" checked={settings.pulses} onChange={(v) => set({ pulses: v })} />
+                        {settings.pulses && (
+                            <>
+                                <SliderRow label="Light speed" value={settings.pulseSpeed} min={0.05} max={1} step={0.05} onChange={(v) => set({ pulseSpeed: v })} format={(v) => v.toFixed(2)} />
+                                <SliderRow label="Lights per edge" value={settings.pulsesPerEdge} min={1} max={3} step={1} onChange={(v) => set({ pulsesPerEdge: v })} />
+                            </>
+                        )}
+                        <ToggleRow label="Node twinkle" checked={settings.twinkle} onChange={(v) => set({ twinkle: v })} />
+                        <ToggleRow label="Node glow" checked={settings.nodeGlow} onChange={(v) => set({ nodeGlow: v })} />
                     </div>
 
                     <div className="pt-1 border-t border-[var(--border)] space-y-2.5">
@@ -630,6 +855,7 @@ export default function NotesGraph3D({ noteIds, graph, activeNoteId, onOpenNote,
                             <SliderRow label="Rotate speed" value={settings.rotateSpeed} min={0.1} max={3} step={0.1} onChange={(v) => set({ rotateSpeed: v })} format={(v) => v.toFixed(1)} />
                         )}
                         <ToggleRow label="Show unlinked mentions" checked={settings.includeUnlinked} onChange={(v) => set({ includeUnlinked: v })} />
+                        <ToggleRow label="Show shared tags" checked={settings.includeSharedTags} onChange={(v) => set({ includeSharedTags: v })} />
                     </div>
                 </div>
             )}
