@@ -53,5 +53,8 @@ test_session.txt
 .commandcode/
 docs/architecture/graphify-out/cache/
 
+# Personal notes (local workspace data — never push to public repo)
+notes/
+
 # Generated Vite chunks
 index-*.js
