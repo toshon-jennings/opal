@@ -4,11 +4,12 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
     BookOpen, FileText, Search, Plus, Trash2, Edit3, Eye, Columns,
-    FolderOpen, Link2, ExternalLink, X, Check, RefreshCw, Compass, ArrowRightLeft, Sparkles, Pencil, Lock, Unlock, KeyRound
+    FolderOpen, Link2, ExternalLink, X, Check, RefreshCw, Compass, ArrowRightLeft, Sparkles, Pencil, Lock, Unlock, KeyRound, Share2
 } from 'lucide-react';
 import { useMode } from '../context/ModeContext';
 import { EditableTitle } from './EditableTitle';
 import { encryptNote, decryptNote, isEncrypted } from '../utils/note-crypto';
+import NotesGraph3D from './NotesGraph3D';
 
 function SidebarNoteItem({ fileName, noteId, isActive, isLocked, onSelect, onRename, onDelete, onToggleEncrypt }) {
     const [isEditing, setIsEditing] = useState(false);
@@ -129,6 +130,7 @@ export default function NotesMode() {
     const [isDirty, setIsDirty] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [viewMode, setViewMode] = useState('split'); // 'edit' | 'preview' | 'split'
+    const [showGraph, setShowGraph] = useState(false); // full-pane 3D knowledge graph
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [newNoteName, setNewNoteName] = useState('');
@@ -981,6 +983,19 @@ export default function NotesMode() {
                             <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
                         </button>
                     </div>
+
+                    <button
+                        onClick={() => setShowGraph(g => !g)}
+                        title="Toggle 3D knowledge graph"
+                        className={`w-full flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg border text-xs font-medium transition-all ${
+                            showGraph
+                                ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]'
+                                : 'border-[var(--border)] bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)]'
+                        }`}
+                    >
+                        <Share2 size={13} />
+                        {showGraph ? 'Hide Graph' : 'Knowledge Graph'}
+                    </button>
                 </div>
 
                 {showNewNoteInput && (
@@ -1049,7 +1064,18 @@ export default function NotesMode() {
 
             {/* Main Editor & Preview Container */}
             <div className="flex-1 flex flex-col min-w-0 bg-[var(--bg-primary)]">
-                {activeNote ? (
+                {showGraph ? (
+                    <NotesGraph3D
+                        noteIds={noteIds}
+                        graph={graph}
+                        activeNoteId={activeNoteId}
+                        onOpenNote={(noteId) => {
+                            const fileName = notesList.find(f => f.replace(/\.enc\.md$/, '').replace(/\.md$/, '') === noteId);
+                            if (fileName) { setShowGraph(false); handleSelectNote(fileName); }
+                        }}
+                        onClose={() => setShowGraph(false)}
+                    />
+                ) : activeNote ? (
                     <>
                         <div className="h-11 border-b border-[var(--border)] px-4 flex items-center justify-between bg-[var(--bg-secondary)] shrink-0 select-none">
                             <div className="flex items-center gap-2 min-w-0">
