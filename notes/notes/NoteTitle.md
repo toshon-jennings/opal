@@ -1,3 +1,0 @@
-# NoteTitle
-
-[[Note Two]]
