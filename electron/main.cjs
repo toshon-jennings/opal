@@ -3175,9 +3175,25 @@ function detectConflicts(listeners, entries) {
   for (const l of listeners) {
     if (!l.pid) continue;
     const arr = (procsByPort[l.port] = procsByPort[l.port] || []);
-    if (!arr.some(p => p.pid === l.pid)) arr.push({ pid: l.pid, name: l.process_name });
+    if (!arr.some(p => p.pid === l.pid)) arr.push({ pid: l.pid, name: l.process_name, port: l.port });
   }
-  for (const c of conflicts) c.processes = procsByPort[c.port] || [];
+  const allLiveProcs = [];
+  for (const l of listeners) {
+    if (!l.pid) continue;
+    if (!allLiveProcs.some(p => p.pid === l.pid)) allLiveProcs.push({ pid: l.pid, name: l.process_name, port: l.port });
+  }
+  for (const c of conflicts) {
+    const procs = [...(procsByPort[c.port] || [])];
+    // Find process_b (the other conflict party) anywhere in the listener list by name.
+    if (c.process_b) {
+      for (const lp of allLiveProcs) {
+        if (!procs.some(p => p.pid === lp.pid) && related(c.process_b, lp.name)) {
+          procs.push({ pid: lp.pid, name: lp.name, port: lp.port, secondary: true });
+        }
+      }
+    }
+    c.processes = procs;
+  }
 
   const seen = new Set();
   return conflicts.filter(c => { const k = `${c.port}-${c.kind}`; if (seen.has(k)) return false; seen.add(k); return true; });

@@ -447,7 +447,13 @@ export default function LighthouseMode() {
                         checked={!!resolving.kills[proc.pid]}
                         onChange={e => setResolving(r => ({ ...r, kills: { ...r.kills, [proc.pid]: e.target.checked } }))}
                       />
-                      <span>Kill {friendlyProcessName(proc.name)} (PID {proc.pid})</span>
+                      <span>
+                        Kill {friendlyProcessName(proc.name)}
+                        {proc.secondary && proc.port && proc.port !== resolving.conflict.port
+                          ? <span className="lh-proc-port-note"> (on port {proc.port})</span>
+                          : null}
+                        {' '}(PID {proc.pid})
+                      </span>
                     </label>
                   ))
                 )}
