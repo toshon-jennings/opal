@@ -198,3 +198,14 @@ export function PortsIcon(props) {
         </Svg>
     );
 }
+
+/* Projects — folder containing a terminal prompt symbols. */
+export function ProjectsIcon(props) {
+    return (
+        <Svg {...props}>
+            <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8L10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z" {...shell} />
+            <path d="M8 11h2L8 14" {...ink} />
+            <path d="M11 14h4" />
+        </Svg>
+    );
+}

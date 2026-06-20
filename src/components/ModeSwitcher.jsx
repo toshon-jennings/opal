@@ -1,7 +1,7 @@
 import { useMode, MODES } from '../context/ModeContext';
 import {
     DashboardIcon, ChatIcon, CoworkIcon, CodeIcon, NotesIcon, ResearchIcon,
-    AgentsIcon, OfficeIcon, BuildIcon, MissionIcon, PortsIcon,
+    AgentsIcon, OfficeIcon, BuildIcon, MissionIcon, PortsIcon, ProjectsIcon,
 } from './ModeIcons';
 
 // Duotone palettes for the custom mode icons (see ModeIcons.jsx).
@@ -21,6 +21,7 @@ export default function ModeSwitcher() {
         { id: MODES.CHAT,   icon: ChatIcon,         label: 'Chat' },
         { id: MODES.COWORK, icon: CoworkIcon,       label: 'Cowork' },
         { id: MODES.CODE,   icon: CodeIcon,         label: 'Code' },
+        { id: MODES.PROJECTS, icon: ProjectsIcon,   label: 'Git Shells' },
         { id: MODES.NOTES,  icon: NotesIcon,        label: 'Notes' },
         { id: MODES.AUTORESEARCH, icon: ResearchIcon, label: 'Research' },
         { id: MODES.AGENTS, icon: AgentsIcon,       label: 'Agents' },

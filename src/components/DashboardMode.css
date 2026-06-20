@@ -289,6 +289,7 @@
     color: var(--tile);
     background: color-mix(in srgb, var(--tile) 14%, transparent);
     border: 1px solid color-mix(in srgb, var(--tile) 28%, transparent);
+    transition: transform 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
     /* Duotone for custom ModeIcons (lucide icons ignore these vars). */
     --mi-primary: var(--tile);
     --mi-secondary: color-mix(in srgb, var(--tile) 32%, transparent);
@@ -400,6 +401,18 @@
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.06),
         0 10px 30px color-mix(in srgb, var(--tile) 14%, transparent);
+}
+
+.dash-tile:active,
+.dash-tile-system:active {
+    transform: translateY(1px) scale(0.985);
+    border-color: color-mix(in srgb, var(--tile) 75%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tile) 24%, transparent);
+    transition-duration: 0.07s;
+}
+
+.dash-tile:active .dash-tile-icon {
+    transform: scale(0.92);
 }
 
 .dash-tile-system .dash-tile-icon {
@@ -638,8 +651,8 @@
 /* ── shared ─────────────────────────────────────────────────────────── */
 
 @keyframes dash-rise {
-    from { opacity: 0; transform: translateY(14px); }
-    to { opacity: 1; transform: translateY(0); }
+    from { opacity: 0; translate: 0 14px; }
+    to { opacity: 1; translate: 0 0; }
 }
 
 @media (max-width: 760px) {
@@ -648,6 +661,11 @@
 
 @media (prefers-reduced-motion: reduce) {
     .dash-root * { animation: none !important; transition: none !important; }
+    .dash-tile:hover,
+    .dash-tile-system:hover,
+    .dash-tile:active,
+    .dash-tile-system:active,
+    .dash-tile:active .dash-tile-icon { transform: none; }
 }
 
 /* ── Hermes hero tile (Launchpad) ──────────────────────────────────── */

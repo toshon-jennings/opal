@@ -696,7 +696,7 @@ Write ONE improved web search query (2-7 words, no quotes, no explanation) that 
         };
     }
 
-    async performOpenAIWebSearch(originalQuery, optimizedQuery, _options = {}) {
+    async performOpenAIWebSearch(originalQuery, optimizedQuery) {
         const response = await fetch('https://api.openai.com/v1/responses', {
             method: 'POST',
             headers: {
@@ -780,10 +780,14 @@ Write ONE improved web search query (2-7 words, no quotes, no explanation) that 
             }
         });
 
-        return [...sourceMap.values()].map(({ indexHint: _, ...source }, index) => ({ ...source, id: index + 1 }));
+        return [...sourceMap.values()].map((source, index) => {
+            const { indexHint, ...rest } = source;
+            void indexHint;
+            return { ...rest, id: index + 1 };
+        });
     }
 
-    async performAnthropicWebSearch(originalQuery, optimizedQuery, _options = {}) {
+    async performAnthropicWebSearch(originalQuery, optimizedQuery) {
         const response = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
             headers: {

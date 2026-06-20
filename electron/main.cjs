@@ -936,10 +936,27 @@ ipcMain.on('splash:done', () => {
 });
 
 // Native folder selection
-ipcMain.handle('select-directory', async () => {
-  const result = await dialog.showOpenDialog({
+ipcMain.handle('select-directory', async (event) => {
+  const parentWindow = BrowserWindow.fromWebContents(event.sender)
+    || (mainWindow && !mainWindow.isDestroyed() ? mainWindow : null)
+    || BrowserWindow.getFocusedWindow();
+
+  if (parentWindow && !parentWindow.isDestroyed()) {
+    if (parentWindow.isMinimized()) parentWindow.restore();
+    parentWindow.show();
+    parentWindow.focus();
+    if (typeof parentWindow.moveTop === 'function') parentWindow.moveTop();
+  }
+
+  const dialogOptions = {
+    title: 'Select Project Folder',
     properties: ['openDirectory']
-  });
+  };
+
+  const result = parentWindow && !parentWindow.isDestroyed()
+    ? await dialog.showOpenDialog(parentWindow, dialogOptions)
+    : await dialog.showOpenDialog(dialogOptions);
+
   if (result.canceled) {
     return null;
   } else {

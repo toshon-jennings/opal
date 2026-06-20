@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import {
     ChatIcon, CoworkIcon, CodeIcon, NotesIcon, AgentsIcon, ResearchIcon,
-    OfficeIcon, MissionIcon, BuildIcon,
+    OfficeIcon, MissionIcon, BuildIcon, ProjectsIcon,
 } from './ModeIcons';
 import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, GDASH_WINDOW_ID } from '../context/ModeContext';
 import { useChat } from '../context/ChatContext';
@@ -36,6 +36,7 @@ const NATIVE_TILES = [
     { id: MODES.CHAT, icon: ChatIcon, title: 'Chat', desc: 'Converse with any model', hue: '#f97316' },
     { id: MODES.COWORK, icon: CoworkIcon, title: 'Cowork', desc: 'Session-based deep work', hue: '#22d3ee' },
     { id: MODES.CODE, icon: CodeIcon, title: 'Code', desc: 'Edit and run your repos', hue: '#a78bfa' },
+    { id: MODES.PROJECTS, icon: ProjectsIcon, title: 'Git Shells', desc: 'Manage terminals by project', hue: '#fb923c' },
     { id: MODES.NOTES, icon: NotesIcon, title: 'Notes', desc: 'Markdown wiki with backlinks', hue: '#10b981' },
     { id: MODES.AGENTS, icon: AgentsIcon, title: 'Agents', desc: 'Queue jobs for the CLI crew', hue: '#4ade80' },
     { id: MODES.AUTORESEARCH, icon: ResearchIcon, title: 'Research', desc: 'Prompt-optimization loops', hue: '#f472b6' },

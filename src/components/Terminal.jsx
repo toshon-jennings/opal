@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { Terminal as TerminalIcon, X, Copy, RefreshCw } from 'lucide-react';
+import { Terminal as TerminalIcon, X, RefreshCw } from 'lucide-react';
 import { useTheme } from "../context/ThemeContext";
 import { buildTerminalWsUrl, getTerminalPortCandidates, rememberTerminalPort } from "../lib/terminalBridge";
 import "@xterm/xterm/css/xterm.css";
@@ -20,20 +20,21 @@ function stripTerminalGeneratedInput(data) {
 // `embedded` hides the built-in chrome so a host (e.g. the Hermes multitab
 // terminal) can own the tab strip; it then drives the panel through the ref
 // ({ reset, reconnect, focus }) and `onStatusChange`.
-const TerminalPanel = forwardRef(function TerminalPanel({ sessionId = 'default', onClose, embedded = false, onStatusChange }, ref) {
+const TerminalPanel = forwardRef(function TerminalPanel({ sessionId = 'default', onClose, embedded = false, onStatusChange, onOutput }, ref) {
   const { isDarkMode } = useTheme();
   const terminalRef = useRef(null);
   const termInstanceRef = useRef(null);
   const wsRef = useRef(null);
-  const outputBufferRef = useRef("");
   const activePortIndexRef = useRef(0);
   const [status, setStatus] = useState("connecting");
   const [isFocused, setIsFocused] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
 
   const onStatusChangeRef = useRef(onStatusChange);
   onStatusChangeRef.current = onStatusChange;
   useEffect(() => { onStatusChangeRef.current?.(status); }, [status]);
+
+  const onOutputRef = useRef(onOutput);
+  onOutputRef.current = onOutput;
 
   const retryTimerRef = useRef(null);
 
@@ -70,7 +71,6 @@ const TerminalPanel = forwardRef(function TerminalPanel({ sessionId = 'default',
       rememberTerminalPort(port);
       ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
       setStatus("connected");
-      setRetryCount(0);
       term.writeln(`\x1b[33m[Perci]\x1b[0m PTY-Bridge authorized on port ${port}. Prompting shell...`);
     };
 
@@ -85,7 +85,6 @@ const TerminalPanel = forwardRef(function TerminalPanel({ sessionId = 'default',
       console.error('Terminal WebSocket error:', err);
       if (activePortIndexRef.current < ports.length - 1) {
         activePortIndexRef.current += 1;
-        setRetryCount(count => count + 1);
         ws.onclose = null;
         ws.close();
         retryTimerRef.current = setTimeout(connect, 100);
@@ -99,6 +98,7 @@ const TerminalPanel = forwardRef(function TerminalPanel({ sessionId = 'default',
       if (wsRef.current !== ws) return;
       if (typeof event.data === "string") {
         term.write(event.data);
+        onOutputRef.current?.(event.data);
       }
     };
   }, [sessionId, dropSocket]);
@@ -135,7 +135,7 @@ const TerminalPanel = forwardRef(function TerminalPanel({ sessionId = 'default',
     // Fit before connecting so the PTY spawns at the real size instead of
     // 80x24 (a TUI's first paint at the wrong width never redraws cleanly).
     const connectTimer = setTimeout(() => {
-        try { fitAddon.fit(); } catch (e) {}
+        try { fitAddon.fit(); } catch { /* fit can fail while hidden */ }
         connect();
     }, 100);
 
@@ -165,7 +165,7 @@ const TerminalPanel = forwardRef(function TerminalPanel({ sessionId = 'default',
 
     const handleResize = () => {
       requestAnimationFrame(() => {
-        try { fitAddon.fit(); } catch (e) {}
+        try { fitAddon.fit(); } catch { /* fit can fail while hidden */ }
       });
     };
 
@@ -202,6 +202,11 @@ const TerminalPanel = forwardRef(function TerminalPanel({ sessionId = 'default',
     reset: handleReset,
     reconnect: handleReconnect,
     focus: () => termInstanceRef.current?.focus(),
+    sendInput: (data) => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(data);
+      }
+    }
   }));
 
   return (

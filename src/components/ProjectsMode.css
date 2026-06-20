@@ -1,0 +1,129 @@
+.projects-root {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  background: var(--bg-primary);
+  overflow: hidden;
+  position: relative;
+  animation: projects-fade-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes projects-fade-in {
+  from { opacity: 0; transform: scale(0.99); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* SIDEBAR */
+.projects-sidebar {
+  width: 250px;
+  min-width: 220px;
+  max-width: 480px;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.projects-sidebar-resizer {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 5px;
+  z-index: 10;
+  cursor: col-resize;
+  touch-action: none;
+  outline: none;
+}
+
+.projects-sidebar-resizer::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 2px;
+  background: transparent;
+  transition: background-color 0.15s ease;
+}
+
+.projects-sidebar-resizer:hover::after,
+.projects-sidebar-resizer:focus-visible::after {
+  background: #f59e0b;
+}
+
+.projects-sidebar-header {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  border-b: 1px solid var(--border);
+  border-color: var(--border);
+  background: rgba(var(--bg-secondary-rgb), 0.7);
+  backdrop-filter: blur(10px);
+}
+
+.projects-sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.projects-sidebar-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+
+.projects-sidebar-scroll::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+.projects-sidebar-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 4px;
+}
+
+/* MAIN VIEW */
+.projects-main {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.projects-main-header {
+  min-height: 56px;
+  border-bottom: 1px solid var(--border);
+  border-color: var(--border);
+  background: var(--bg-secondary);
+  padding: 12px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ANIMATIONS & MICROTRANSITIONS */
+.micro-interaction {
+  transition: transform 0.1s ease, background-color 0.2s ease;
+}
+
+.micro-interaction:active {
+  transform: scale(0.97);
+}
+
+/* Hide helper */
+.hidden {
+  display: none !important;
+}
+
+/* Custom terminal integration style override */
+.projects-main .xterm-viewport {
+  background-color: #0C0C0D !important;
+}
+.projects-main .xterm-screen {
+  padding: 10px;
+}

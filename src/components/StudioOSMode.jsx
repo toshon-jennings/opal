@@ -287,15 +287,13 @@ export default function StudioOSMode() {
                             Connect
                         </button>
                     </div>
-                    <label className="mt-3 block text-[11px] text-[var(--text-tertiary)]">
-                        StudioOS URL
-                        <input
-                            value={apiBase}
-                            onChange={e => setApiBase(e.target.value)}
-                            placeholder={DEFAULT_API_BASE}
-                            className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] px-3 py-1.5 text-xs text-[var(--text-secondary)] outline-none font-mono focus:border-[#3b82f6]"
-                        />
-                    </label>
+                    <button
+                        onClick={() => window.open(apiBase, '_blank', 'noopener,noreferrer')}
+                        className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+                    >
+                        <span>Open StudioOS</span>
+                        <ExternalLink size={12} />
+                    </button>
                     {apiKey && localStorage.getItem('studioos_api_key') && (
                         <button onClick={() => setShowKeyInput(false)} className="mt-2 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]">Cancel</button>
                     )}

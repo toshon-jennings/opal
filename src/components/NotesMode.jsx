@@ -4,12 +4,17 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
     BookOpen, FileText, Search, Plus, Trash2, Edit3, Eye, Columns,
-    FolderOpen, Link2, ExternalLink, X, Check, RefreshCw, Compass, ArrowRightLeft, Sparkles, Pencil, Lock, Unlock, KeyRound, Share2
+    FolderOpen, Link2, ExternalLink, X, Check, RefreshCw, Compass, ArrowRightLeft, Sparkles, Pencil, Lock, Unlock, KeyRound, Share2, Tags
 } from 'lucide-react';
 import { useMode } from '../context/ModeContext';
 import { EditableTitle } from './EditableTitle';
 import { encryptNote, decryptNote, isEncrypted } from '../utils/note-crypto';
+import { normalizeNoteTags, parseNoteTags, setNoteTags, stripNoteFrontmatter, tagKey } from '../lib/notesTags';
 import NotesGraph3D from './NotesGraph3D';
+
+function noteIdFromFileName(fileName) {
+    return String(fileName || '').replace(/\.enc\.md$/, '').replace(/\.md$/, '');
+}
 
 function SidebarNoteItem({ fileName, noteId, isActive, isLocked, onSelect, onRename, onDelete, onToggleEncrypt }) {
     const [isEditing, setIsEditing] = useState(false);
@@ -139,6 +144,7 @@ export default function NotesMode() {
     const [passwordModal, setPasswordModal] = useState(null); // { mode: 'encrypt'|'decrypt', fileName, noteId } | null
     const [passwordInput, setPasswordInput] = useState('');
     const [passwordError, setPasswordError] = useState('');
+    const [tagInput, setTagInput] = useState('');
 
     // Resolve notes folder path on mount and update register path
     useEffect(() => {
@@ -660,8 +666,53 @@ export default function NotesMode() {
         setIsDirty(true);
     };
 
+    useEffect(() => {
+        setTagInput('');
+    }, [activeNote]);
+
+    const findNoteFileById = useCallback((noteId) => {
+        return notesList.find(fileName => noteIdFromFileName(fileName).toLowerCase() === String(noteId || '').toLowerCase());
+    }, [notesList]);
+
+    const activeNoteLocked = !!activeNote && isEncrypted(filesMap[activeNote]) && !encryptedPasswords[activeNote];
+    const activeTags = useMemo(() => {
+        if (!activeNote || activeNoteLocked) return [];
+        return parseNoteTags(unsavedContent);
+    }, [activeNote, activeNoteLocked, unsavedContent]);
+
+    const updateActiveTags = useCallback((tags) => {
+        if (!activeNote || activeNoteLocked) return;
+        setUnsavedContent(setNoteTags(unsavedContent, tags));
+        setIsDirty(true);
+    }, [activeNote, activeNoteLocked, unsavedContent]);
+
+    const commitTagInput = useCallback(() => {
+        const newTags = normalizeNoteTags(tagInput);
+        if (newTags.length > 0) {
+            updateActiveTags([...activeTags, ...newTags]);
+        }
+        setTagInput('');
+    }, [activeTags, tagInput, updateActiveTags]);
+
+    const handleTagInputKeyDown = (event) => {
+        if (event.key === 'Enter' || event.key === ',' || event.key === 'Tab') {
+            event.preventDefault();
+            commitTagInput();
+            return;
+        }
+
+        if (event.key === 'Backspace' && !tagInput && activeTags.length > 0) {
+            updateActiveTags(activeTags.slice(0, -1));
+        }
+    };
+
+    const removeActiveTag = (tag) => {
+        const key = tagKey(tag);
+        updateActiveTags(activeTags.filter(item => tagKey(item) !== key));
+    };
+
     const noteIds = useMemo(() => {
-        return notesList.map(f => f.replace(/\.enc\.md$/, '').replace(/\.md$/, ''));
+        return notesList.map(noteIdFromFileName);
     }, [notesList]);
 
     // Parse graph
@@ -669,16 +720,30 @@ export default function NotesMode() {
         const outgoing = {};
         const backlinks = {};
         const unlinkedMentions = {};
+        const tagsByNote = {};
+        const notesByTag = {};
 
         noteIds.forEach(id => {
             outgoing[id] = new Set();
             backlinks[id] = [];
             unlinkedMentions[id] = [];
+            tagsByNote[id] = [];
         });
 
         Object.entries(filesMap).forEach(([fileName, content]) => {
-            const fromNoteId = fileName.replace(/\.enc\.md$/, '').replace(/\.md$/, '');
-            const lines = (content || '').split('\n');
+            const fromNoteId = noteIdFromFileName(fileName);
+            const readableContent = fileName === activeNote && !activeNoteLocked ? unsavedContent : content;
+            if (isEncrypted(readableContent)) return;
+
+            const tags = parseNoteTags(readableContent);
+            tagsByNote[fromNoteId] = tags;
+            tags.forEach(tag => {
+                const key = tagKey(tag);
+                if (!notesByTag[key]) notesByTag[key] = { tag, notes: [] };
+                if (!notesByTag[key].notes.includes(fromNoteId)) notesByTag[key].notes.push(fromNoteId);
+            });
+
+            const lines = (readableContent || '').split('\n');
 
             lines.forEach(line => {
                 const wikiRegex = /\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g;
@@ -707,8 +772,10 @@ export default function NotesMode() {
         });
 
         Object.entries(filesMap).forEach(([fileName, content]) => {
-            const fromNoteId = fileName.replace(/\.enc\.md$/, '').replace(/\.md$/, '');
-            const lines = (content || '').split('\n');
+            const fromNoteId = noteIdFromFileName(fileName);
+            const readableContent = fileName === activeNote && !activeNoteLocked ? unsavedContent : content;
+            if (isEncrypted(readableContent)) return;
+            const lines = (readableContent || '').split('\n');
 
             noteIds.forEach(targetNoteId => {
                 if (targetNoteId.length < 3 || targetNoteId.toLowerCase() === 'index' || fromNoteId === targetNoteId) return;
@@ -731,16 +798,23 @@ export default function NotesMode() {
             });
         });
 
-        return { outgoing, backlinks, unlinkedMentions };
-    }, [filesMap, noteIds]);
+        return { outgoing, backlinks, unlinkedMentions, tagsByNote, notesByTag };
+    }, [filesMap, noteIds, activeNote, activeNoteLocked, unsavedContent]);
 
-    const activeNoteId = activeNote ? activeNote.replace(/\.enc\.md$/, '').replace(/\.md$/, '') : '';
+    const activeNoteId = activeNote ? noteIdFromFileName(activeNote) : '';
     const activeBacklinks = graph.backlinks[activeNoteId] || [];
     const activeOutgoing = Array.from(graph.outgoing[activeNoteId] || []);
     const activeUnlinked = graph.unlinkedMentions[activeNoteId] || [];
+    const activeTagRelationships = activeTags
+        .map(tag => {
+            const entry = graph.notesByTag[tagKey(tag)];
+            const notes = (entry?.notes || []).filter(noteId => noteId !== activeNoteId);
+            return { tag: entry?.tag || tag, notes };
+        })
+        .filter(entry => entry.notes.length > 0);
 
     const handleLinkMention = async (fromNoteId, targetTitle) => {
-        const targetFileName = `${fromNoteId}.md`;
+        const targetFileName = findNoteFileById(fromNoteId);
         const content = filesMap[targetFileName];
         if (!content) return;
 
@@ -1070,7 +1144,7 @@ export default function NotesMode() {
                         graph={graph}
                         activeNoteId={activeNoteId}
                         onOpenNote={(noteId) => {
-                            const fileName = notesList.find(f => f.replace(/\.enc\.md$/, '').replace(/\.md$/, '') === noteId);
+                            const fileName = findNoteFileById(noteId);
                             if (fileName) { setShowGraph(false); handleSelectNote(fileName); }
                         }}
                         onClose={() => setShowGraph(false)}
@@ -1155,6 +1229,41 @@ export default function NotesMode() {
                             </div>
                         </div>
 
+                        <div className="min-h-10 border-b border-[var(--border)] px-4 py-2 flex items-center gap-2 bg-[var(--bg-primary)] shrink-0">
+                            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] shrink-0">
+                                <Tags size={13} className="text-[var(--accent)]" />
+                                Tags
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1.5 min-w-0 flex-1">
+                                {activeTags.map(tag => (
+                                    <span
+                                        key={tagKey(tag)}
+                                        className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--bg-secondary)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)]"
+                                    >
+                                        #{tag}
+                                        <button
+                                            type="button"
+                                            onClick={() => removeActiveTag(tag)}
+                                            className="rounded-full text-[var(--text-tertiary)] hover:text-rose-300 transition-colors"
+                                            title={`Remove ${tag}`}
+                                        >
+                                            <X size={10} />
+                                        </button>
+                                    </span>
+                                ))}
+                                <input
+                                    type="text"
+                                    value={tagInput}
+                                    disabled={activeNoteLocked}
+                                    onChange={(event) => setTagInput(event.target.value)}
+                                    onKeyDown={handleTagInputKeyDown}
+                                    onBlur={commitTagInput}
+                                    placeholder={activeNoteLocked ? 'Unlock note to edit tags' : 'Add tag...'}
+                                    className="min-w-[8rem] flex-1 bg-transparent text-xs text-[var(--text-primary)] placeholder-[var(--text-tertiary)] outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                                />
+                            </div>
+                        </div>
+
                         <div className="flex-1 flex min-h-0 min-w-0">
                             {(viewMode === 'edit' || viewMode === 'split') && (
                                 <div className="flex-1 h-full min-w-0 border-r border-[var(--border)]">
@@ -1187,7 +1296,7 @@ export default function NotesMode() {
                                         remarkPlugins={[remarkGfm]}
                                         components={renderMarkdownComponents}
                                     >
-                                        {preprocessMarkdown(unsavedContent)}
+                                        {preprocessMarkdown(stripNoteFrontmatter(unsavedContent))}
                                     </ReactMarkdown>
                                 </div>
                             )}
@@ -1217,6 +1326,56 @@ export default function NotesMode() {
                     </div>
 
                     <div className="p-3 border-b border-[var(--border)]">
+                        <h3 className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5 mb-2 uppercase tracking-wide">
+                            <Tags size={13} className="text-[var(--accent-cyan)]" />
+                            Tags ({activeTags.length})
+                        </h3>
+                        {activeTags.length > 0 ? (
+                            <div className="space-y-2">
+                                <div className="flex flex-wrap gap-1.5">
+                                    {activeTags.map(tag => (
+                                        <span
+                                            key={tagKey(tag)}
+                                            className="rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] px-2 py-1 text-[11px] font-medium text-[var(--text-secondary)]"
+                                        >
+                                            #{tag}
+                                        </span>
+                                    ))}
+                                </div>
+                                {activeTagRelationships.length > 0 && (
+                                    <div className="space-y-1.5">
+                                        {activeTagRelationships.map(({ tag, notes }) => (
+                                            <div key={tagKey(tag)} className="rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] p-2">
+                                                <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
+                                                    #{tag}
+                                                </div>
+                                                <div className="flex flex-wrap gap-1">
+                                                    {notes.map(noteId => (
+                                                        <button
+                                                            key={noteId}
+                                                            onClick={() => {
+                                                                const fileName = findNoteFileById(noteId);
+                                                                if (fileName) handleSelectNote(fileName);
+                                                            }}
+                                                            className="max-w-full truncate rounded border border-[var(--border)] bg-[var(--bg-tertiary)] px-1.5 py-0.5 text-[10px] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--text-primary)] transition-all"
+                                                        >
+                                                            {noteId}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="text-[11px] text-[var(--text-tertiary)] italic bg-[var(--bg-primary)] p-2 rounded-lg border border-[var(--border)]">
+                                No tags on this note.
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="p-3 border-b border-[var(--border)]">
                         <div className="flex justify-between items-center mb-2">
                             <h3 className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-1.5 uppercase tracking-wide">
                                 <ArrowRightLeft size={13} className="text-emerald-400 rotate-90" />
@@ -1228,7 +1387,10 @@ export default function NotesMode() {
                                 {activeBacklinks.map((link, idx) => (
                                     <div 
                                         key={idx}
-                                        onClick={() => handleSelectNote(`${link.fromNoteId}.md`)}
+                                        onClick={() => {
+                                            const fileName = findNoteFileById(link.fromNoteId);
+                                            if (fileName) handleSelectNote(fileName);
+                                        }}
                                         className="p-2 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] hover:border-[var(--accent)] cursor-pointer transition-all"
                                     >
                                         <div className="text-xs font-semibold text-[var(--text-secondary)] truncate">
@@ -1262,7 +1424,10 @@ export default function NotesMode() {
                                         className="p-2 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] space-y-1.5 transition-all"
                                     >
                                         <div 
-                                            onClick={() => handleSelectNote(`${mention.fromNoteId}.md`)}
+                                            onClick={() => {
+                                                const fileName = findNoteFileById(mention.fromNoteId);
+                                                if (fileName) handleSelectNote(fileName);
+                                            }}
                                             className="text-xs font-semibold text-[var(--text-secondary)] truncate hover:text-[var(--text-primary)] cursor-pointer"
                                         >
                                             {mention.fromNoteId}
@@ -1297,7 +1462,10 @@ export default function NotesMode() {
                                 {activeOutgoing.map((linkId) => (
                                     <button
                                         key={linkId}
-                                        onClick={() => handleSelectNote(`${linkId}.md`)}
+                                        onClick={() => {
+                                            const fileName = findNoteFileById(linkId);
+                                            if (fileName) handleSelectNote(fileName);
+                                        }}
                                         className="px-2 py-1 text-[11px] rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] hover:border-[var(--accent)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] truncate transition-all"
                                     >
                                         {linkId}

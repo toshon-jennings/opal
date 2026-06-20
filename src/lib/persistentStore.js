@@ -12,6 +12,8 @@ const PERSISTED_KEYS = [
     'chat_history',
     'current_chat_id',
     'perci_projects',
+    'gitshells_projects',
+    'gitshells_sidebar_width',
     'perci_code_state',
     'perci_mission_runs',
     'perci_mission_memory',

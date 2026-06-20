@@ -18,6 +18,7 @@ import NotesMode from './components/NotesMode';
 import BarsMode from './components/BarsMode';
 import BillboardMode from './components/BillboardMode';
 import StudioOSMode from './components/StudioOSMode';
+import ProjectsMode from './components/ProjectsMode';
 import { SettingsModal } from './components/SettingsModal';
 import DesktopHost from './components/windows/DesktopHost';
 import Dock from './components/windows/Dock';
@@ -515,6 +516,7 @@ function AppContent() {
             case MODES.BARS: return <BarsMode />;
             case MODES.CONCERNS: return <BillboardMode />;
             case MODES.STUDIOOS: return <StudioOSMode />;
+            case MODES.PROJECTS: return <ProjectsMode />;
             case MODES.MISSION:
                 return (
                     <MissionControl
@@ -870,9 +872,9 @@ function AppContent() {
     }, [terminalCommand, setShowGlobalTerminal]);
 
     return (
-        <div className={`app h-screen max-h-screen flex flex-col bg-[var(--bg-primary)] overflow-hidden ${window.electron ? 'pt-8' : ''}`}>
+        <div className="app h-screen max-h-screen flex flex-col bg-[var(--bg-primary)] overflow-hidden">
             {/* Top Navigation / Header */}
-            <header className="app-header glass-header select-none sticky top-0 z-50 flex-shrink-0 flex items-center justify-between px-6 py-2.5">
+            <header className={`app-header glass-header select-none sticky top-0 z-50 flex-shrink-0 flex items-center justify-between px-6 pb-2.5 ${window.electron ? 'pt-8' : 'pt-2.5'}`}>
                 <div className="flex items-center gap-2.5">
                     {/* Professional macOS-style Logo Container */}
                     <div 
