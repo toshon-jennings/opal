@@ -289,6 +289,9 @@
     color: var(--tile);
     background: color-mix(in srgb, var(--tile) 14%, transparent);
     border: 1px solid color-mix(in srgb, var(--tile) 28%, transparent);
+    /* Duotone for custom ModeIcons (lucide icons ignore these vars). */
+    --mi-primary: var(--tile);
+    --mi-secondary: color-mix(in srgb, var(--tile) 32%, transparent);
 }
 
 .dash-tile-logo {
@@ -387,8 +390,8 @@
 
 .dash-tile-system::before {
     background:
-        radial-gradient(100% 80% at 100% 0%, color-mix(in srgb, var(--tile) 10%, transparent), transparent 60%),
-        radial-gradient(80% 60% at 0% 100%, color-mix(in srgb, var(--tile) 8%, transparent), transparent 50%);
+        radial-gradient(100% 80% at 100% 0%, color-mix(in srgb, var(--tile) 6%, transparent), transparent 60%),
+        radial-gradient(80% 60% at 0% 100%, color-mix(in srgb, var(--tile) 5%, transparent), transparent 50%);
 }
 
 .dash-tile-system:hover {
@@ -659,15 +662,16 @@
     background-image: url('/artwork/design-01kv2y38zh-1781436378.png');
     background-size: cover;
     background-position: center;
-    opacity: 0.08;
+    opacity: 0.2;
     pointer-events: none;
     z-index: 0;
-    mask-image: radial-gradient(circle at center, black 20%, transparent 85%);
-    -webkit-mask-image: radial-gradient(circle at center, black 20%, transparent 85%);
+    /* No edge mask — the artwork fills the tile uniformly to its rounded
+       corners. A radial vignette used to live here and faded the edges out;
+       it was removed because nobody wanted it. */
 }
 
 .dash-tile-hero:hover .dash-tile-art {
-    opacity: 0.14;
+    opacity: 0.3;
 }
 
 .dash-tile-hero .dash-tile-icon,
@@ -687,5 +691,36 @@
 }
 
 .dash-tile-hero::before {
-    z-index: 1;
+    z-index: 0;
+}
+
+/* ── Hermes: full-bleed brand image (fills the tile, no border) ───────── */
+
+/* Hermes has no background photo — its Nous Research logo IS the tile.
+   Show it at full strength (not the faint 0.2 wash the photo tiles use),
+   hide the bordered icon chip, and lay a top scrim so the label stays legible. */
+.dash-tile-hermes .dash-tile-art,
+.dash-tile-hermes:hover .dash-tile-art {
+    opacity: 1;
+}
+
+.dash-tile-hermes .dash-tile-icon {
+    display: none;
+}
+
+.dash-tile-hermes::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: linear-gradient(to bottom,
+        rgba(0, 0, 0, 0.72) 0%,
+        rgba(0, 0, 0, 0.45) 40%,
+        rgba(0, 0, 0, 0.12) 100%);
+}
+
+.dash-tile-hermes .dash-tile-name,
+.dash-tile-hermes .dash-tile-desc {
+    color: #fff;
 }

@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    MessageSquare, Users, Code, Bot, FlaskConical, Building2, ActivitySquare, Hammer,
+    MessageSquare, Bot,
     Plus, ArrowUpRight, Server, Sparkles, CheckCircle2, AlertTriangle, Layers, Settings,
     Radar, BookOpen, GraduationCap,
 } from 'lucide-react';
+import {
+    ChatIcon, CoworkIcon, CodeIcon, NotesIcon, AgentsIcon, ResearchIcon,
+    OfficeIcon, MissionIcon, BuildIcon,
+} from './ModeIcons';
 import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, GDASH_WINDOW_ID } from '../context/ModeContext';
 import { useChat } from '../context/ChatContext';
 import PerciMascot from './PerciMascot';
@@ -13,6 +17,12 @@ import { BeginnerGuideModal } from './BeginnerGuideModal';
 import lhLogo from '../assets/lh-logo.png';
 import hermesLogo from '../assets/nousresearch.png';
 import gdashLogo from '../assets/gdash-logo.png';
+import gdashBg from '../assets/gdash-bg.jpg';
+import lighthouseBg from '../assets/lighthouse-bg.jpg';
+import openclawBg from '../assets/openclaw-bg.jpg';
+import barsBg from '../assets/bars-bg.jpg';
+import billboardBg from '../assets/billboard-bg.jpg';
+import studioosBg from '../assets/studioos-bg.jpg';
 import barsLogo from '../assets/bars-logo.svg';
 import billboardLogo from '../assets/billboard-logo.svg';
 import openclawLogo from '../assets/openclaw-logo.svg';
@@ -23,27 +33,27 @@ const JOBS_POLL_MS = 10000;
 
 // Native Perci surfaces — first-class workspace modes.
 const NATIVE_TILES = [
-    { id: MODES.CHAT, icon: MessageSquare, title: 'Chat', desc: 'Converse with any model', hue: '#f97316' },
-    { id: MODES.COWORK, icon: Users, title: 'Cowork', desc: 'Session-based deep work', hue: '#22d3ee' },
-    { id: MODES.CODE, icon: Code, title: 'Code', desc: 'Edit and run your repos', hue: '#a78bfa' },
-    { id: MODES.NOTES, icon: BookOpen, title: 'Notes', desc: 'Markdown wiki with backlinks', hue: '#10b981' },
-    { id: MODES.AGENTS, icon: Bot, title: 'Agents', desc: 'Queue jobs for the CLI crew', hue: '#4ade80' },
-    { id: MODES.AUTORESEARCH, icon: FlaskConical, title: 'Research', desc: 'Prompt-optimization loops', hue: '#f472b6' },
-    { id: MODES.OFFICE, icon: Building2, title: 'Office', desc: 'Visit the crew at Perci HQ', hue: '#fbbf24' },
-    { id: MODES.MISSION, icon: ActivitySquare, title: 'Mission', desc: 'Supervise runs and checks', hue: '#60a5fa' },
-    { id: MODES.BUILD, icon: Hammer, title: 'Build', desc: 'Generate and ship projects', hue: '#fb7185' },
+    { id: MODES.CHAT, icon: ChatIcon, title: 'Chat', desc: 'Converse with any model', hue: '#f97316' },
+    { id: MODES.COWORK, icon: CoworkIcon, title: 'Cowork', desc: 'Session-based deep work', hue: '#22d3ee' },
+    { id: MODES.CODE, icon: CodeIcon, title: 'Code', desc: 'Edit and run your repos', hue: '#a78bfa' },
+    { id: MODES.NOTES, icon: NotesIcon, title: 'Notes', desc: 'Markdown wiki with backlinks', hue: '#10b981' },
+    { id: MODES.AGENTS, icon: AgentsIcon, title: 'Agents', desc: 'Queue jobs for the CLI crew', hue: '#4ade80' },
+    { id: MODES.AUTORESEARCH, icon: ResearchIcon, title: 'Research', desc: 'Prompt-optimization loops', hue: '#f472b6' },
+    { id: MODES.OFFICE, icon: OfficeIcon, title: 'Office', desc: 'Visit the crew at Perci HQ', hue: '#fbbf24' },
+    { id: MODES.MISSION, icon: MissionIcon, title: 'Mission', desc: 'Supervise runs and checks', hue: '#60a5fa' },
+    { id: MODES.BUILD, icon: BuildIcon, title: 'Build', desc: 'Generate and ship projects', hue: '#fb7185' },
 ];
 
 // OS-level tools and external runtimes. Bars belongs here when its Perci
 // surface is wired, not in the native Perci app group.
 const SYSTEM_TILES = [
-    { id: MODES.LIGHTHOUSE, icon: Radar, logo: lhLogo, title: 'Lighthouse', desc: 'Scan ports and find conflicts', hue: '#ffbf45' },
-    { id: OPENCLAW_WINDOW_ID, icon: Server, logo: openclawLogo, title: 'OpenClaw', desc: 'Gateway dashboard', hue: '#ef4444' },
-    { id: HERMES_WINDOW_ID, icon: null, logo: hermesLogo, title: 'Hermes', desc: 'CLI agent — chat, console, sessions', hue: '#eab308', artwork: true },
-    { id: GDASH_WINDOW_ID, icon: null, logo: gdashLogo, title: 'G-Dash', desc: 'Google Workspace dashboard', hue: '#4285f4' },
-    { id: MODES.BARS, icon: null, logo: barsLogo, title: 'BARS', desc: 'Idea notebook', hue: '#f59e0b' },
-    { id: MODES.CONCERNS, icon: null, logo: billboardLogo, title: 'Bill Board', desc: 'Services, keys & subscriptions', hue: '#06b6d4' },
-    { id: MODES.STUDIOOS, icon: Layers, logo: studioosLogo, title: 'StudioOS', desc: 'View/manage your StudioOS workspace', hue: '#3b82f6' },
+    { id: MODES.LIGHTHOUSE, icon: Radar, logo: lhLogo, title: 'Lighthouse', desc: 'Scan ports and find conflicts', hue: '#ffbf45', artwork: true, bgImage: lighthouseBg },
+    { id: OPENCLAW_WINDOW_ID, icon: Server, logo: openclawLogo, title: 'OpenClaw', desc: 'Gateway dashboard', hue: '#ef4444', artwork: true, bgImage: openclawBg },
+    { id: HERMES_WINDOW_ID, icon: null, logo: hermesLogo, title: 'Hermes', desc: 'CLI agent — chat, console, sessions', hue: '#eab308', artwork: true, bgImage: hermesLogo },
+    { id: GDASH_WINDOW_ID, icon: null, logo: gdashLogo, title: 'G-Dash', desc: 'Google Workspace dashboard', hue: '#4285f4', artwork: true, bgImage: gdashBg },
+    { id: MODES.BARS, icon: null, logo: barsLogo, title: 'BARS', desc: 'Idea notebook', hue: '#f59e0b', artwork: true, bgImage: barsBg },
+    { id: MODES.CONCERNS, icon: null, logo: billboardLogo, title: 'Bill Board', desc: 'Services, keys & subscriptions', hue: '#06b6d4', artwork: true, bgImage: billboardBg },
+    { id: MODES.STUDIOOS, icon: Layers, logo: studioosLogo, title: 'StudioOS', desc: 'View/manage your StudioOS workspace', hue: '#3b82f6', artwork: true, bgImage: studioosBg },
 ];
 
 const AGENT_LABELS = Object.fromEntries(AGENT_DEFINITIONS.map((a) => [a.id, a.shortLabel]));
@@ -266,15 +276,21 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
 
                         <div className="dash-launch-group">
                             <div className="dash-tiles dash-tiles-system">
-                                {SYSTEM_TILES.map(({ id, icon: Icon, logo, title, desc, hue, artwork }, i) => (
+                                {SYSTEM_TILES.map(({ id, icon: Icon, logo, title, desc, hue, artwork, bgImage }, i) => (
                                 <button
                                     key={id}
                                     type="button"
-                                    className={`dash-tile dash-tile-system${artwork ? ' dash-tile-hero' : ''}`}
+                                    className={`dash-tile dash-tile-system${artwork ? ' dash-tile-hero' : ''}${id === HERMES_WINDOW_ID ? ' dash-tile-hermes' : ''}`}
                                     style={{ '--tile': hue, '--i': i + NATIVE_TILES.length }}
                                     onClick={() => openWindow(id)}
                                 >
-                                    {artwork && <span className="dash-tile-art" aria-hidden="true" />}
+                                    {artwork && (
+                                        <span
+                                            className="dash-tile-art"
+                                            aria-hidden="true"
+                                            style={bgImage ? { backgroundImage: `url('${bgImage}')` } : undefined}
+                                        />
+                                    )}
                                     <span className="dash-tile-icon">
                                         {logo ? <img src={logo} alt="" className="dash-tile-logo" /> : <Icon size={20} />}
                                     </span>
