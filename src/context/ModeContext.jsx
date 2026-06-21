@@ -12,6 +12,7 @@ const ModeContext = createContext();
 
 export const MODES = {
     DASHBOARD: 'dashboard', // Always-mounted home dashboard (the "desktop")
+    POWER_WORKSPACE: 'power-workspace', // Coherent project loop for power users
     CHAT: 'chat',      // Normal conversation interface
     COWORK: 'cowork',  // Session-based task interface (Claude style)
     MISSION: 'mission', // Agent run supervision and inspection
@@ -41,6 +42,7 @@ export const EIDOS_WINDOW_ID = 'eidos';
 // Titles shown in window headers and dock chips for each windowed surface.
 export const WINDOW_TITLES = {
     [MODES.CHAT]: 'Chat',
+    [MODES.POWER_WORKSPACE]: 'Power Workspace',
     [MODES.COWORK]: 'Cowork',
     [MODES.CODE]: 'Code',
     [MODES.AGENTS]: 'Agents',

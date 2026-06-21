@@ -35,6 +35,7 @@ const JOBS_POLL_MS = 10000;
 
 // Native Perci surfaces — first-class workspace modes.
 const NATIVE_TILES = [
+    { id: MODES.POWER_WORKSPACE, icon: Sparkles, title: 'Workspace', desc: 'Ideas, runs & next action', hue: '#fb923c' },
     { id: MODES.CHAT, icon: ChatIcon, title: 'Chat', desc: 'Converse with any model', hue: '#f97316' },
     { id: MODES.COWORK, icon: CoworkIcon, title: 'Cowork', desc: 'Session-based deep work', hue: '#22d3ee' },
     { id: MODES.CODE, icon: CodeIcon, title: 'Code', desc: 'Edit and run your repos', hue: '#a78bfa' },

@@ -44,3 +44,9 @@ here.
   and `electron/preload.cjs` — not indexed by graphify. Read source directly.
 - **Dead code:** `main.cjs` (root, not `electron/`) is a legacy orphan — do not
   edit it. It is not loaded by the app.
+- **Eidos integration:** Eidos (`~/eidos`) is embedded in Perci as a first-class
+  window (`EIDOS_WINDOW_ID`). Perci manages the Docker/OrbStack lifecycle, dashboard
+  spawning, and health polling via `eidos:*` IPC handlers in `electron/main.cjs`.
+  The Perci version is the leading development target. The standalone Eidos repo
+  (`~/eidos`) lags behind — see `~/eidos/CLAUDE.md` for the divergence note.
+  Eidos-related changes should be made in this repo, not in `~/eidos`.

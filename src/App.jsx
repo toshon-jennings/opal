@@ -14,6 +14,7 @@ import HermesMode from './components/HermesMode';
 import GDashMode from './components/GDashMode';
 import LighthouseMode from './components/LighthouseMode';
 import DashboardMode from './components/DashboardMode';
+import PowerWorkspaceMode from './components/PowerWorkspaceMode';
 import NotesMode from './components/NotesMode';
 import BarsMode from './components/BarsMode';
 import BillboardMode from './components/BillboardMode';
@@ -506,6 +507,7 @@ function AppContent() {
     const renderWindowContent = (modeId) => {
         switch (modeId) {
             case MODES.CHAT: return <ChatMode />;
+            case MODES.POWER_WORKSPACE: return <PowerWorkspaceMode />;
             case MODES.COWORK: return <CoworkMode />;
             case MODES.CODE: return <CodeMode />;
             case MODES.AGENTS: return <AgentsPanel />;

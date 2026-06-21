@@ -1420,6 +1420,14 @@ ipcMain.handle('open-external', async (event, url) => {
   if (!url || typeof url !== 'string') return false;
   const parsed = new URL(url);
   if (!['http:', 'https:'].includes(parsed.protocol)) return false;
+  if (process.platform === 'darwin') {
+    try {
+      spawn('open', [url], { stdio: 'ignore', detached: true }).unref();
+      return true;
+    } catch (err) {
+      console.error('[main] open-external via spawn failed:', err.message);
+    }
+  }
   await shell.openExternal(url);
   return true;
 });
@@ -2628,6 +2636,42 @@ ipcMain.handle('hermes:dashboard-start', async () => {
   return { ok: false, running: false, url: HERMES_DASHBOARD_URL, error: 'The Hermes dashboard did not become reachable. Try running `hermes dashboard` in a terminal.' };
 });
 
+// ─── Memory ─────────────────────────────────────────────────────────────────
+ipcMain.handle('hermes:memory', async () => {
+  const os = require('os');
+  const hermesHome = path.join(os.homedir(), '.hermes');
+  const memDir = path.join(hermesHome, 'memories');
+  const ENTRY_DELIMITER = '\n§\n';
+
+  const readMemFile = (filename) => {
+    try {
+      const filePath = path.join(memDir, filename);
+      if (!fsSync.existsSync(filePath)) return '';
+      return fsSync.readFileSync(filePath, 'utf-8');
+    } catch {
+      return '';
+    }
+  };
+
+  const parseEntries = (raw) => {
+    if (!raw || !raw.trim()) return [];
+    return raw.split(ENTRY_DELIMITER).map(e => e.trim()).filter(Boolean);
+  };
+
+  const memRaw = readMemFile('MEMORY.md');
+  const userRaw = readMemFile('USER.md');
+  const memoryEntries = parseEntries(memRaw);
+  const userEntries = parseEntries(userRaw);
+  const memChars = memoryEntries.length > 0 ? memoryEntries.join(ENTRY_DELIMITER).length : 0;
+  const userChars = userEntries.length > 0 ? userEntries.join(ENTRY_DELIMITER).length : 0;
+
+  return {
+    ok: true,
+    memory: { entries: memoryEntries, chars: memChars, limit: 2200 },
+    user: { entries: userEntries, chars: userChars, limit: 1375 },
+  };
+});
+
 // ─── Agent Jobs ─────────────────────────────────────────────────────────────
 // In-memory job store: jobId → { childProcess, jobRecord }
 const agentJobs = new Map();
@@ -3593,6 +3637,45 @@ async function eidosStartOrbStack(orbPath) {
   throw new Error('Timed out waiting for Docker daemon after starting OrbStack');
 }
 
+async function eidosEnsureDirectoryExists() {
+  try {
+    await fs.access(EIDOS_DIR);
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      console.log(`[eidos] Directory ${EIDOS_DIR} not found. Cloning from GitHub...`);
+      let result = spawnSync('git', ['clone', 'https://github.com/toshon-jennings/eidos.git', EIDOS_DIR], {
+        encoding: 'utf8',
+        timeout: 120000,
+      });
+      if (result.status !== 0) {
+        console.log(`[eidos] HTTPS clone failed. Trying SSH fallback...`);
+        result = spawnSync('git', ['clone', 'git@github.com:toshon-jennings/eidos.git', EIDOS_DIR], {
+          encoding: 'utf8',
+          timeout: 120000,
+        });
+      }
+      if (result.status !== 0) {
+        throw new Error(`Failed to clone Eidos repository (tried HTTPS and SSH): ${result.stderr || result.stdout || 'unknown error'}`);
+      }
+      console.log(`[eidos] Cloned successfully to ${EIDOS_DIR}`);
+
+      console.log(`[eidos] Running npm install in ${EIDOS_DIR}...`);
+      const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+      const installRes = spawnSync(npmCmd, ['install'], {
+        cwd: EIDOS_DIR,
+        encoding: 'utf8',
+        timeout: 180000,
+      });
+      if (installRes.status !== 0) {
+        throw new Error(`Failed to run npm install in Eidos directory: ${installRes.stderr || installRes.stdout || 'unknown error'}`);
+      }
+      console.log('[eidos] npm install completed.');
+    } else {
+      throw err;
+    }
+  }
+}
+
 async function eidosStartCompose(dockerPath) {
   // Use docker compose up -d in the eidos directory
   const result = spawnSync(dockerPath, ['compose', 'up', '-d', '--wait'], {
@@ -3706,6 +3789,9 @@ ipcMain.handle('eidos:start', async () => {
     }
 
     const dockerPath = dockerCheck.dockerPath || eidosDockerPath();
+
+    // Ensure Eidos directory exists (clone and install dependencies if missing)
+    await eidosEnsureDirectoryExists();
 
     // Step 2: Start the Docker Compose stack (idempotent — safe if already running)
     await eidosStartCompose(dockerPath);

@@ -67,6 +67,7 @@ contextBridge.exposeInMainWorld('electron', {
   getHermesInsights: (opts) => ipcRenderer.invoke('hermes:insights', opts),
   getHermesDashboardStatus: () => ipcRenderer.invoke('hermes:dashboard-status'),
   startHermesDashboard: () => ipcRenderer.invoke('hermes:dashboard-start'),
+  getHermesMemory: () => ipcRenderer.invoke('hermes:memory'),
   startHermesChat: (opts) => ipcRenderer.invoke('hermes:chat-start', opts),
   sendHermesChat: (opts) => ipcRenderer.invoke('hermes:chat-send', opts),
   stopHermesChat: () => ipcRenderer.invoke('hermes:chat-stop'),

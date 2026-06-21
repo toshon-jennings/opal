@@ -7,6 +7,7 @@ import WindowContextMenu from './WindowContextMenu';
 // Two-letter glyphs for dock chips (mirrors the Orbit/Odysseus dock aesthetic).
 const GLYPHS = {
     [MODES.CHAT]: 'CH',
+    [MODES.POWER_WORKSPACE]: 'PW',
     [MODES.COWORK]: 'CW',
     [MODES.CODE]: 'CD',
     [MODES.AGENTS]: 'AG',
