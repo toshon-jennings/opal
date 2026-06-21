@@ -83,4 +83,10 @@ contextBridge.exposeInMainWorld('electron', {
   gdashConnect: () => ipcRenderer.invoke('gdash:connect'),
   gdashDisconnect: () => ipcRenderer.invoke('gdash:disconnect'),
   gdashDashboard: () => ipcRenderer.invoke('gdash:dashboard'),
+  // Eidos — persistent memory service (Docker/OrbStack lifecycle + dashboard).
+  eidosStatus: () => ipcRenderer.invoke('eidos:status'),
+  eidosStart: () => ipcRenderer.invoke('eidos:start'),
+  eidosStop: () => ipcRenderer.invoke('eidos:stop'),
+  eidosRestart: () => ipcRenderer.invoke('eidos:restart'),
+  eidosProgress: () => ipcRenderer.invoke('eidos:progress'),
 });

@@ -3500,3 +3500,299 @@ ipcMain.handle('lighthouse:kill-process', async (event, { pid } = {}) => {
     return { ok: false, error: e.message };
   }
 });
+
+// ── Eidos — persistent memory service ──────────────────────────────
+// Manages the Docker/OrbStack lifecycle for the Eidos stack (memU,
+// Postgres, Temporal, Ollama) and the Next.js dashboard dev server.
+
+const EIDOS_DIR = path.join(app.getPath('home'), 'eidos');
+const EIDOS_DASHBOARD_PORT = 3000;
+const EIDOS_API_PORT = 8001;
+const EIDOS_DASHBOARD_URL = `http://localhost:${EIDOS_DASHBOARD_PORT}`;
+const EIDOS_API_URL = `http://localhost:${EIDOS_API_PORT}`;
+
+let eidosDashboardProcess = null;
+
+function eidosOrbStackPath() {
+  const home = app.getPath('home');
+  // OrbStack installs its CLI via Homebrew at /opt/homebrew/bin/orb or /usr/local/bin/orb
+  const orb = commandExists('orb', [
+    '/opt/homebrew/bin',
+    '/usr/local/bin',
+    path.join(home, '.local', 'bin'),
+  ]);
+  return orb;
+}
+
+function eidosDockerPath() {
+  return commandExists('docker', [
+    '/opt/homebrew/bin',
+    '/usr/local/bin',
+    '/Applications/OrbStack.app/Contents/MacOS',
+  ]);
+}
+
+async function eidosCheckDocker() {
+  const docker = eidosDockerPath();
+  if (!docker) {
+    // OrbStack might be installed but docker CLI not on PATH — try orbctl
+    const orb = eidosOrbStackPath();
+    if (orb) {
+      return { ok: true, runtime: 'orbstack', orbPath: orb };
+    }
+    return { ok: false, error: 'Neither Docker nor OrbStack CLI found. Install OrbStack from https://orbstack.dev' };
+  }
+
+  // Check if docker daemon is responsive
+  const result = spawnSync(docker, ['info', '-f', '{{.ServerVersion}}'], {
+    encoding: 'utf8',
+    timeout: 5000,
+  });
+  if (result.status === 0 && result.stdout.trim()) {
+    return { ok: true, runtime: 'docker', dockerPath: docker, version: result.stdout.trim() };
+  }
+
+  // Docker CLI exists but daemon not running — try starting OrbStack
+  const orb = eidosOrbStackPath();
+  if (orb) {
+    return { ok: false, runtime: 'orbstack-stopped', orbPath: orb, error: 'Docker daemon not running. OrbStack is installed but not started.' };
+  }
+
+  return { ok: false, error: 'Docker daemon is not running. Start Docker Desktop or OrbStack.' };
+}
+
+async function eidosCheckApiHealth() {
+  // memU doesn't have a /health endpoint; root returns 200 when ready
+  const result = await requestText(EIDOS_API_URL + '/', 3000);
+  return result.ok;
+}
+
+async function eidosCheckDashboardHealth() {
+  const result = await requestText(EIDOS_DASHBOARD_URL, 3000);
+  return result.ok;
+}
+
+async function eidosStartOrbStack(orbPath) {
+  // OrbStack CLI: `orb start` launches the VM
+  const result = spawnSync(orbPath, ['start'], {
+    encoding: 'utf8',
+    timeout: 30000,
+  });
+  if (result.status !== 0) {
+    throw new Error(`OrbStack start failed: ${result.stderr || result.stdout || 'unknown error'}`);
+  }
+  // Wait for docker daemon to be ready
+  const docker = eidosDockerPath();
+  if (!docker) throw new Error('Docker CLI not found after starting OrbStack');
+  const deadline = Date.now() + 60000;
+  while (Date.now() < deadline) {
+    const check = spawnSync(docker, ['info'], { encoding: 'utf8', timeout: 5000 });
+    if (check.status === 0) return docker;
+    await new Promise(r => setTimeout(r, 2000));
+  }
+  throw new Error('Timed out waiting for Docker daemon after starting OrbStack');
+}
+
+async function eidosStartCompose(dockerPath) {
+  // Use docker compose up -d in the eidos directory
+  const result = spawnSync(dockerPath, ['compose', 'up', '-d', '--wait'], {
+    cwd: EIDOS_DIR,
+    encoding: 'utf8',
+    timeout: 300000, // 5 min for pulls
+    env: {
+      ...process.env,
+      PATH: [path.dirname(dockerPath), process.env.PATH || ''].filter(Boolean).join(path.delimiter),
+    },
+  });
+  if (result.status !== 0) {
+    throw new Error(`docker compose up failed: ${result.stderr || result.stdout || 'unknown error'}`);
+  }
+}
+
+async function eidosStartDashboard() {
+  if (eidosDashboardProcess) {
+    // Already running — verify it's healthy
+    const healthy = await eidosCheckDashboardHealth();
+    if (healthy) return;
+    // Not healthy — kill and restart
+    try { eidosDashboardProcess.kill('SIGTERM'); } catch (_) {}
+    eidosDashboardProcess = null;
+  }
+
+  // Check if something is already on port 3000
+  const portCheck = await requestText(EIDOS_DASHBOARD_URL, 2000);
+  if (portCheck.ok) return; // Something healthy is already serving
+
+  // Start Next.js dev server
+  const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+  eidosDashboardProcess = spawn(npmCmd, ['run', 'dev', '--', '-p', String(EIDOS_DASHBOARD_PORT)], {
+    cwd: EIDOS_DIR,
+    env: {
+      ...process.env,
+      PORT: String(EIDOS_DASHBOARD_PORT),
+    },
+    stdio: 'pipe',
+  });
+
+  eidosDashboardProcess.on('error', (err) => {
+    console.error('[eidos] Dashboard process error:', err);
+    eidosDashboardProcess = null;
+  });
+
+  eidosDashboardProcess.on('exit', (code) => {
+    console.log(`[eidos] Dashboard process exited with code ${code}`);
+    eidosDashboardProcess = null;
+  });
+
+  // Wait for the dev server to be ready
+  const deadline = Date.now() + 60000;
+  while (Date.now() < deadline) {
+    const check = await eidosCheckDashboardHealth();
+    if (check) return;
+    await new Promise(r => setTimeout(r, 1500));
+  }
+  throw new Error('Timed out waiting for Eidos dashboard to start');
+}
+
+async function eidosStopCompose(dockerPath) {
+  const result = spawnSync(dockerPath, ['compose', 'down'], {
+    cwd: EIDOS_DIR,
+    encoding: 'utf8',
+    timeout: 60000,
+    env: {
+      ...process.env,
+      PATH: [path.dirname(dockerPath), process.env.PATH || ''].filter(Boolean).join(path.delimiter),
+    },
+  });
+  if (result.status !== 0) {
+    console.error('[eidos] docker compose down failed:', result.stderr || result.stdout);
+  }
+}
+
+ipcMain.handle('eidos:status', async () => {
+  try {
+    const dockerCheck = await eidosCheckDocker();
+    if (!dockerCheck.ok) {
+      return { state: 'no-docker', ...dockerCheck };
+    }
+
+    const dockerPath = dockerCheck.dockerPath || eidosDockerPath();
+    const apiHealthy = await eidosCheckApiHealth();
+    const dashboardHealthy = await eidosCheckDashboardHealth();
+
+    if (apiHealthy && dashboardHealthy) {
+      return { state: 'running', runtime: dockerCheck.runtime, api: EIDOS_API_URL, dashboard: EIDOS_DASHBOARD_URL };
+    }
+
+    // Docker is running but stack isn't fully up
+    return { state: 'docker-ready', runtime: dockerCheck.runtime, apiHealthy, dashboardHealthy };
+  } catch (err) {
+    return { state: 'error', error: err.message };
+  }
+});
+
+ipcMain.handle('eidos:start', async () => {
+  try {
+    // Step 1: Ensure Docker/OrbStack is available and running
+    let dockerCheck = await eidosCheckDocker();
+    if (!dockerCheck.ok) {
+      if (dockerCheck.runtime === 'orbstack-stopped' && dockerCheck.orbPath) {
+        await eidosStartOrbStack(dockerCheck.orbPath);
+        dockerCheck = await eidosCheckDocker();
+      }
+      if (!dockerCheck.ok) {
+        return { error: dockerCheck.error || 'Docker/OrbStack not available' };
+      }
+    }
+
+    const dockerPath = dockerCheck.dockerPath || eidosDockerPath();
+
+    // Step 2: Start the Docker Compose stack (idempotent — safe if already running)
+    await eidosStartCompose(dockerPath);
+
+    // Step 3: Wait for the memU API to be healthy
+    const apiDeadline = Date.now() + 120000;
+    let apiReady = false;
+    while (Date.now() < apiDeadline) {
+      apiReady = await eidosCheckApiHealth();
+      if (apiReady) break;
+      await new Promise(r => setTimeout(r, 3000));
+    }
+    if (!apiReady) {
+      return { error: 'Docker containers started but memU API did not become healthy within 2 minutes' };
+    }
+
+    // Step 4: Start the Next.js dashboard
+    await eidosStartDashboard();
+
+    return { ok: true, state: 'running', api: EIDOS_API_URL, dashboard: EIDOS_DASHBOARD_URL };
+  } catch (err) {
+    return { error: err.message };
+  }
+});
+
+// Progress polling — renderer calls this to get current step during startup
+ipcMain.handle('eidos:progress', async () => {
+  try {
+    const dockerCheck = await eidosCheckDocker();
+    if (!dockerCheck.ok) {
+      return { step: 0, label: 'Checking OrbStack / Docker', error: dockerCheck.error || null };
+    }
+
+    const apiHealthy = await eidosCheckApiHealth();
+    if (!apiHealthy) {
+      return { step: 2, label: 'Pulling & starting containers', error: null };
+    }
+
+    const dashboardHealthy = await eidosCheckDashboardHealth();
+    if (!dashboardHealthy) {
+      return { step: 3, label: 'Waiting for Eidos dashboard', error: null };
+    }
+
+    return { step: 4, label: 'Ready', done: true };
+  } catch (err) {
+    return { step: 0, label: 'Error', error: err.message };
+  }
+});
+
+ipcMain.handle('eidos:stop', async () => {
+  try {
+    // Stop the dashboard process first
+    if (eidosDashboardProcess) {
+      try { eidosDashboardProcess.kill('SIGTERM'); } catch (_) {}
+      eidosDashboardProcess = null;
+    }
+
+    // Stop the Docker Compose stack
+    const dockerPath = eidosDockerPath();
+    if (dockerPath) {
+      await eidosStopCompose(dockerPath);
+    }
+
+    return { ok: true };
+  } catch (err) {
+    return { error: err.message };
+  }
+});
+
+ipcMain.handle('eidos:restart', async () => {
+  try {
+    // Stop
+    if (eidosDashboardProcess) {
+      try { eidosDashboardProcess.kill('SIGTERM'); } catch (_) {}
+      eidosDashboardProcess = null;
+    }
+    const dockerPath = eidosDockerPath();
+    if (dockerPath) await eidosStopCompose(dockerPath);
+
+    // Start
+    const dockerCheck = await eidosCheckDocker();
+    if (!dockerCheck.ok) return { error: 'Docker not available after stop' };
+    const dp = dockerCheck.dockerPath || eidosDockerPath();
+    await eidosStartCompose(dp);
+    await eidosStartDashboard();
+    return { ok: true, state: 'running' };
+  } catch (err) {
+    return { error: err.message };
+  }
+});

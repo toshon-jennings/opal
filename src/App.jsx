@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, Component } from 'react';
 import perciLogo from './assets/perci-logo.png';
-import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, ARTIFACT_WINDOW_ID, RESEARCH_WINDOW_ID } from './context/ModeContext';
+import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, ARTIFACT_WINDOW_ID, RESEARCH_WINDOW_ID, EIDOS_WINDOW_ID } from './context/ModeContext';
 import ModeSwitcher from './components/ModeSwitcher';
 import ChatMode from './components/ChatMode';
 import CodeMode from './components/CodeMode';
@@ -19,6 +19,7 @@ import BarsMode from './components/BarsMode';
 import BillboardMode from './components/BillboardMode';
 import StudioOSMode from './components/StudioOSMode';
 import ProjectsMode from './components/ProjectsMode';
+import EidosMode from './components/EidosMode';
 import { SettingsModal } from './components/SettingsModal';
 import DesktopHost from './components/windows/DesktopHost';
 import Dock from './components/windows/Dock';
@@ -528,6 +529,7 @@ function AppContent() {
             case OPENCLAW_WINDOW_ID: return renderOpenClawWindow();
             case HERMES_WINDOW_ID: return <HermesMode />;
             case GDASH_WINDOW_ID: return <GDashMode onOpenSettings={() => setIsSettingsOpen(true)} />;
+            case EIDOS_WINDOW_ID: return <EidosMode />;
             case ARTIFACT_WINDOW_ID: return <ArtifactWindow />;
             case RESEARCH_WINDOW_ID: return <ResearchResultsWindow />;
             case YOUTUBE_WINDOW_ID:

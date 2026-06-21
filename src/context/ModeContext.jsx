@@ -36,6 +36,7 @@ export const GDASH_WINDOW_ID = 'gdash';
 export const ARTIFACT_WINDOW_ID = 'artifact';
 export const RESEARCH_WINDOW_ID = 'research';
 export const COMPARE_WINDOW_ID = 'compare';
+export const EIDOS_WINDOW_ID = 'eidos';
 
 // Titles shown in window headers and dock chips for each windowed surface.
 export const WINDOW_TITLES = {
@@ -60,12 +61,13 @@ export const WINDOW_TITLES = {
     [ARTIFACT_WINDOW_ID]: 'Artifact',
     [RESEARCH_WINDOW_ID]: 'Research Results',
     [COMPARE_WINDOW_ID]: 'Compare',
+    [EIDOS_WINDOW_ID]: 'Eidos',
 };
 
 // Windows whose content is an embedded <webview>/<iframe>; CSS transforms can make
 // embedded frames flicker (and reload), so these minimize with a plain fade instead
 // of the whirlpool spin.
-const NO_WHIRLPOOL_IDS = new Set([OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID]);
+const NO_WHIRLPOOL_IDS = new Set([OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID]);
 
 const WINDOW_DEFAULTS = { width: 960, height: 640, minWidth: 420, minHeight: 300, cascade: 34 };
 const DOCK_RESERVED_HEIGHT = 64;

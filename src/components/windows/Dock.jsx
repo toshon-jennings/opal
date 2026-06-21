@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ArrowUpToLine, Minus, Maximize2, Minimize2, X } from 'lucide-react';
-import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, ARTIFACT_WINDOW_ID, RESEARCH_WINDOW_ID, COMPARE_WINDOW_ID } from '../../context/ModeContext';
+import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, ARTIFACT_WINDOW_ID, RESEARCH_WINDOW_ID, COMPARE_WINDOW_ID, EIDOS_WINDOW_ID } from '../../context/ModeContext';
 import WindowContextMenu from './WindowContextMenu';
 
 // Two-letter glyphs for dock chips (mirrors the Orbit/Odysseus dock aesthetic).
@@ -24,6 +24,7 @@ const GLYPHS = {
     [ARTIFACT_WINDOW_ID]: 'AF',
     [RESEARCH_WINDOW_ID]: 'RS',
     [COMPARE_WINDOW_ID]: 'CP',
+    [EIDOS_WINDOW_ID]: 'EI',
 };
 
 // The bottom dock / taskbar. Chips animate in with a staggered "domino" spring
