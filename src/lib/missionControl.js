@@ -1,11 +1,12 @@
 import { createIntentReview } from './diffReview';
-import { evaluateMemoryQuality, ingestRunMemory, readHarnessMemory } from './harnessMemory';
+import { addHarnessMemory, evaluateMemoryQuality, ingestRunMemory, readHarnessMemory } from './harnessMemory';
 
 export const MISSION_RUNS_KEY = 'perci_mission_runs';
 export const MISSION_MEMORY_KEY = 'perci_mission_memory';
 export const MISSION_MEMORY_CANDIDATES_KEY = 'perci_mission_memory_candidates';
 export const MISSION_VALIDATION_TARGET_KEY = 'perci_mission_validation_target';
 export const MISSION_UPDATED_EVENT = 'perci:mission-runs-updated';
+export const MISSION_MEMORY_UPDATED_EVENT = 'perci:mission-memory-updated';
 
 const MAX_RUNS = 30;
 const MAX_EVENTS_PER_RUN = 24;
@@ -877,6 +878,45 @@ export function saveMemoryCandidates(candidates) {
     const normalized = Array.isArray(candidates) ? candidates.slice(0, 40) : [];
     localStorage.setItem(MISSION_MEMORY_CANDIDATES_KEY, JSON.stringify(normalized));
     return normalized;
+}
+
+export function resolveMemoryCandidate(candidateId, resolution = 'saved') {
+    const candidates = readMemoryCandidates();
+    const candidate = candidates.find(item => item.id === candidateId);
+    if (!candidate || candidate.status !== 'pending') {
+        return { candidate: null, candidates, memories: readHarnessMemory() };
+    }
+    const resolvedAt = new Date().toISOString();
+    const run = readMissionRuns().find(item => item.id === candidate.sourceRunId);
+    if (resolution === 'saved') {
+        addHarnessMemory({
+            force: true,
+            scope: run?.workingDirectory || 'global',
+            sourceRunId: candidate.sourceRunId,
+            sourceType: candidate.sourceType,
+            title: `Mission memory: ${candidate.sourceType}`,
+            status: 'saved',
+            tags: ['mission', candidate.sourceType, candidate.quality?.verdict].filter(Boolean),
+            quality: candidate.quality,
+            text: candidate.text,
+        });
+    }
+    const nextCandidates = saveMemoryCandidates(candidates.map(item => (
+        item.id === candidateId
+            ? { ...item, status: resolution === 'saved' ? 'saved' : 'discarded', resolvedAt }
+            : item
+    )));
+    const memories = readHarnessMemory();
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent(MISSION_MEMORY_UPDATED_EVENT, {
+            detail: { candidates: nextCandidates, memories }
+        }));
+    }
+    return {
+        candidate: { ...candidate, status: resolution === 'saved' ? 'saved' : 'discarded', resolvedAt },
+        candidates: nextCandidates,
+        memories,
+    };
 }
 
 export function buildMemoryCandidate(run) {

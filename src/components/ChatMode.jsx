@@ -30,6 +30,7 @@ import {
     getIntegrationTools,
     runChatWithTools
 } from '../lib/integrationTools';
+import { POWER_WORKSPACE_CHAT_HANDOFF_KEY } from '../lib/powerWorkspace';
 
 const PROVIDERS_REQUIRING_API_KEYS = new Set(['openai', 'groq', 'gemini', 'openrouter', 'anthropic', 'mistral']);
 
@@ -568,6 +569,30 @@ function ChatMode() {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isChangelogOpen, setIsChangelogOpen] = useState(false);
     const [activeTab, setActiveTab] = useState('chat'); // 'chat' or 'artifacts'
+    useEffect(() => {
+        const applyHandoff = (payload) => {
+            if (!payload || typeof payload !== 'object') return;
+            const chatId = String(payload.chatId || '').trim();
+            const prompt = String(payload.prompt || '').trim();
+            if (chatId && chats.some(chat => chat.id === chatId)) switchToChat(chatId);
+            if (prompt) {
+                setInput(prompt);
+                setActiveTab('chat');
+            }
+            localStorage.removeItem(POWER_WORKSPACE_CHAT_HANDOFF_KEY);
+        };
+        const readPendingHandoff = () => {
+            try {
+                return JSON.parse(localStorage.getItem(POWER_WORKSPACE_CHAT_HANDOFF_KEY) || 'null');
+            } catch {
+                return null;
+            }
+        };
+        applyHandoff(readPendingHandoff());
+        const handleHandoff = event => applyHandoff(event.detail);
+        window.addEventListener('perci-power-workspace-chat-handoff', handleHandoff);
+        return () => window.removeEventListener('perci-power-workspace-chat-handoff', handleHandoff);
+    }, [chats, switchToChat]);
     const [isSearchEnabled, setIsSearchEnabled] = useState(false);
     const [searchFocus, setSearchFocus] = useState(() => {
         if (typeof window !== 'undefined') {

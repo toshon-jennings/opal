@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     Bot, CheckCircle2, Download, Edit3, HelpCircle, KeyRound, RefreshCw,
-    Search, Settings, Sparkles, Trash2, Upload, X
+    Link2, Search, Settings, Sparkles, Trash2, Upload, X
 } from 'lucide-react';
 import { parseIdeaBrowserBar } from '../lib/barsIdeaBrowser';
+import {
+    POWER_WORKSPACE_SURFACE_HANDOFF_EVENT,
+    consumeWorkspaceSurfaceHandoff,
+    readPowerWorkspaceSnapshot,
+    setWorkspaceLink,
+} from '../lib/powerWorkspace';
 import './BarsMode.css';
 
 const IDEAS_KEY = 'perci_bars_ideas:v1';
@@ -111,11 +117,18 @@ function providerLabel(provider) {
 export default function BarsMode() {
     const initialIdeas = useMemo(() => loadIdeas(), []);
     const initialSettings = useMemo(() => loadSettings(), []);
+    const initialWorkspaceHandoff = useMemo(() => consumeWorkspaceSurfaceHandoff('bars'), []);
     const [ideas, setIdeas] = useState(initialIdeas);
-    const [activeId, setActiveId] = useState(initialIdeas[0]?.id || null);
+    const [activeId, setActiveId] = useState(
+        initialIdeas.some(idea => idea.id === initialWorkspaceHandoff?.itemRef)
+            ? initialWorkspaceHandoff.itemRef
+            : initialIdeas[0]?.id || null
+    );
     const [query, setQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [sortKey, setSortKey] = useState('score');
+    const [workspaceOnly, setWorkspaceOnly] = useState(false);
+    const [workspaceSnapshot, setWorkspaceSnapshot] = useState(() => readPowerWorkspaceSnapshot());
     const [form, setForm] = useState(emptyForm);
     const [editingId, setEditingId] = useState('');
     const [quickText, setQuickText] = useState('');
@@ -156,24 +169,41 @@ export default function BarsMode() {
         localStorage.setItem(SETTINGS_KEY, JSON.stringify({ providerId, model: modelChoice === '__custom' ? customModel : modelChoice }));
     }, [providerId, modelChoice, customModel]);
 
+    useEffect(() => {
+        const handleWorkspaceHandoff = (event) => {
+            if (event.detail?.target !== 'bars') return;
+            const handoff = consumeWorkspaceSurfaceHandoff('bars') || event.detail;
+            if (!ideas.some(idea => idea.id === handoff.itemRef)) return;
+            setWorkspaceOnly(false);
+            setActiveId(handoff.itemRef);
+        };
+        window.addEventListener(POWER_WORKSPACE_SURFACE_HANDOFF_EVENT, handleWorkspaceHandoff);
+        return () => window.removeEventListener(POWER_WORKSPACE_SURFACE_HANDOFF_EVENT, handleWorkspaceHandoff);
+    }, [ideas]);
+
     const activeIdea = useMemo(() => ideas.find(idea => idea.id === activeId) || ideas[0] || null, [ideas, activeId]);
     const visibleProviders = useMemo(() => providers.filter(item => item.available || item.kind === 'cloud'), [providers]);
     const provider = useMemo(() => visibleProviders.find(item => item.id === providerId) || null, [visibleProviders, providerId]);
     const inboxCount = useMemo(() => countStatus(ideas, 'Inbox'), [ideas]);
     const buildingCount = useMemo(() => countStatus(ideas, 'Building'), [ideas]);
     const streak = useMemo(() => captureStreak(ideas), [ideas]);
+    const linkedIdeaIds = useMemo(() => new Set(workspaceSnapshot.workspace.linkedIdeaIds), [workspaceSnapshot.workspace.linkedIdeaIds]);
+    const linkedIdeaCount = useMemo(() => ideas.filter(idea => linkedIdeaIds.has(idea.id)).length, [ideas, linkedIdeaIds]);
 
     const filteredIdeas = useMemo(() => {
         const needle = query.trim().toLowerCase();
         return ideas.filter(idea => {
             const haystack = [idea.title, idea.notes, idea.category, idea.next, idea.tags.join(' ')].join(' ').toLowerCase();
-            return (!needle || haystack.includes(needle)) && (statusFilter === 'all' || idea.status === statusFilter);
+            const matchesText = !needle || haystack.includes(needle);
+            const matchesStatus = statusFilter === 'all' || idea.status === statusFilter;
+            const matchesWorkspace = !workspaceOnly || linkedIdeaIds.has(idea.id);
+            return matchesText && matchesStatus && matchesWorkspace;
         }).sort((a, b) => {
             if (sortKey === 'updated') return new Date(b.updatedAt) - new Date(a.updatedAt);
             if (sortKey === 'created') return new Date(b.createdAt) - new Date(a.createdAt);
             return scoreIdea(b) - scoreIdea(a);
         });
-    }, [ideas, query, sortKey, statusFilter]);
+    }, [ideas, linkedIdeaIds, query, sortKey, statusFilter, workspaceOnly]);
 
     const modelOptions = useMemo(() => {
         const models = Array.isArray(provider?.models) ? provider.models : [];
@@ -184,6 +214,14 @@ export default function BarsMode() {
     }, [modelSearch, provider]);
 
     const selectedModel = modelChoice === '__custom' ? customModel.trim() : modelChoice;
+    const activeIdeaLinked = Boolean(activeIdea?.id && linkedIdeaIds.has(activeIdea.id));
+
+    const toggleWorkspaceIdea = useCallback((idea) => {
+        if (!idea?.id) return;
+        const workspace = setWorkspaceLink(workspaceSnapshot.workspace, 'linkedIdeaIds', idea.id, !linkedIdeaIds.has(idea.id));
+        setWorkspaceSnapshot({ ...readPowerWorkspaceSnapshot(), workspace });
+        flashSaveState(linkedIdeaIds.has(idea.id) ? 'Removed from Power Workspace' : 'Linked to Power Workspace');
+    }, [flashSaveState, linkedIdeaIds, workspaceSnapshot.workspace]);
 
     const detectProviders = useCallback(async () => {
         if (!window.electron?.detectBarsProviders) {
@@ -439,6 +477,7 @@ export default function BarsMode() {
                 <span><strong>{ideas.length}</strong> bars in the book</span>
                 <span><strong>{inboxCount}</strong> in the inbox</span>
                 <span><strong>{buildingCount}</strong> in the works</span>
+                <span><strong>{linkedIdeaCount}</strong> in workspace</span>
                 <span><strong>{streak}</strong> day streak</span>
             </div>
 
@@ -476,6 +515,9 @@ export default function BarsMode() {
                         </select>
                     </div>
                     <div className="bars-chip-row">
+                        <button type="button" className={workspaceOnly ? 'is-active' : ''} onClick={() => setWorkspaceOnly(value => !value)}>
+                            Workspace
+                        </button>
                         {['all', ...STATUS_OPTIONS].map(status => (
                             <button key={status} type="button" className={statusFilter === status ? 'is-active' : ''} onClick={() => setStatusFilter(status)}>
                                 {status === 'all' ? 'All' : status}
@@ -504,6 +546,10 @@ export default function BarsMode() {
                             {activeIdea?.status === 'Inbox' && <button type="button" onClick={() => promoteIdea(activeIdea)}><Sparkles size={14} /> Turn into idea</button>}
                             {activeIdea && (
                                 <>
+                                    <button type="button" onClick={() => toggleWorkspaceIdea(activeIdea)}>
+                                        <Link2 size={14} />
+                                        {activeIdeaLinked ? 'Unlink workspace' : 'Use in workspace'}
+                                    </button>
                                     <button type="button" onClick={() => editIdea(activeIdea)}><Edit3 size={14} /> Edit</button>
                                     <button type="button" className="is-danger" onClick={() => deleteIdea(activeIdea.id)}><Trash2 size={14} /></button>
                                 </>

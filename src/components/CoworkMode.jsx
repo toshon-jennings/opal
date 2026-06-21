@@ -26,6 +26,7 @@ import {
     recordCoworkSessionStart,
     recordCoworkToolCall
 } from '../lib/missionControl';
+import { POWER_WORKSPACE_COWORK_HANDOFF_KEY } from '../lib/powerWorkspace';
 
 const getDefaultSidebarWidth = () => {
     if (typeof window === 'undefined') return 360;
@@ -932,6 +933,74 @@ export default function CoworkMode() {
         }
     };
 
+    useEffect(() => {
+        const applyHandoff = (payload) => {
+            if (!payload || typeof payload !== 'object') return;
+            const folderPath = String(payload.folderPath || '').trim();
+            const prompt = String(payload.prompt || '').trim();
+
+            if (folderPath) {
+                setCodeState(prev => ({ ...prev, workingDirectory: folderPath }));
+                localStorage.setItem('working_directory', folderPath);
+                window.electron?.registerWorkspace?.(folderPath)
+                    ?.catch?.(err => console.error('Could not register Power Workspace folder:', err));
+            }
+            if (prompt) {
+                const session = {
+                    id: String(payload.sessionId || `workspace-cowork:${Date.now()}`),
+                    title: String(payload.sessionTitle || `${payload.workspaceName || 'Power Workspace'} workspace`).trim(),
+                    status: 'Started',
+                    project: 'perci',
+                    lastActivity: 'just now',
+                    workingDirectory: folderPath,
+                    workspaceId: String(payload.workspaceId || '').trim(),
+                    messages: [],
+                };
+                setCodeState(prev => ({
+                    ...prev,
+                    sessions: prev.sessions.some(item => item.id === session.id)
+                        ? prev.sessions
+                        : [session, ...prev.sessions],
+                }));
+                setActiveSession(session);
+                setTaskInput(prompt);
+                setSidebarView('sessions');
+            }
+            localStorage.removeItem(POWER_WORKSPACE_COWORK_HANDOFF_KEY);
+        };
+
+        const readPendingHandoff = () => {
+            try {
+                return JSON.parse(localStorage.getItem(POWER_WORKSPACE_COWORK_HANDOFF_KEY) || 'null');
+            } catch {
+                return null;
+            }
+        };
+
+        applyHandoff(readPendingHandoff());
+        const handleHandoffEvent = (event) => applyHandoff(event.detail);
+        window.addEventListener('perci-power-workspace-cowork-handoff', handleHandoffEvent);
+        return () => window.removeEventListener('perci-power-workspace-cowork-handoff', handleHandoffEvent);
+    }, [setCodeState]);
+
+    useEffect(() => {
+        const requestedSession = codeState.sessions.find(session => session.id === codeState.currentSessionId);
+        if (!requestedSession) return;
+        const isReview = !['Started', 'In progress'].includes(requestedSession.status);
+        const selectedSession = isReview
+            ? { ...requestedSession, reviewedAt: new Date().toISOString() }
+            : requestedSession;
+        setActiveSession(selectedSession);
+        setSidebarView('sessions');
+        setCodeState(prev => ({
+            ...prev,
+            currentSessionId: null,
+            sessions: prev.sessions.map(session => (
+                session.id === selectedSession.id ? selectedSession : session
+            )),
+        }));
+    }, [codeState.currentSessionId, codeState.sessions, setCodeState]);
+
     const handleImageUpload = (e) => {
         const file = e.target.files?.[0];
         if (file && file.type.startsWith('image/')) {
@@ -980,6 +1049,7 @@ export default function CoworkMode() {
             status: 'Started',
             project: 'perci',
             lastActivity: 'just now',
+            workingDirectory: codeState.workingDirectory,
             messages: [],
         };
         setCodeState(prev => ({ ...prev, sessions: [newSession, ...prev.sessions] }));
@@ -1038,6 +1108,7 @@ export default function CoworkMode() {
                 status: 'In progress',
                 project: 'perci',
                 lastActivity: 'just now',
+                workingDirectory: taskWorkingDirectory,
                 messages: [],
             };
             setCodeState(prev => ({ ...prev, sessions: [currentSession, ...prev.sessions] }));
@@ -1055,11 +1126,22 @@ export default function CoworkMode() {
         });
         
         // Update both active session and the global sessions list immediately
-        setActiveSession({ ...currentSession, messages: userHistoryMessages });
+        setActiveSession({
+            ...currentSession,
+            messages: userHistoryMessages,
+            status: 'In progress',
+            workingDirectory: taskWorkingDirectory,
+        });
         setCodeState(prev => ({
             ...prev,
             sessions: prev.sessions.map(s =>
-                s.id === currentSession.id ? { ...s, messages: userHistoryMessages, lastActivity: 'just now' } : s
+                s.id === currentSession.id ? {
+                    ...s,
+                    messages: userHistoryMessages,
+                    status: 'In progress',
+                    workingDirectory: taskWorkingDirectory,
+                    lastActivity: 'just now',
+                } : s
             ),
         }));
 
@@ -1313,6 +1395,7 @@ export default function CoworkMode() {
             status: 'In progress',
             project: 'perci',
             lastActivity: 'just now',
+            workingDirectory: routineFolder || codeState.workingDirectory,
             messages: [],
         };
         setCodeState(prev => ({ ...prev, sessions: [session, ...prev.sessions] }));

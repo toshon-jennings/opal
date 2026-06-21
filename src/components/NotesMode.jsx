@@ -10,6 +10,14 @@ import { useMode } from '../context/ModeContext';
 import { EditableTitle } from './EditableTitle';
 import { encryptNote, decryptNote, isEncrypted } from '../utils/note-crypto';
 import { normalizeNoteTags, parseNoteTags, setNoteTags, stripNoteFrontmatter, tagKey } from '../lib/notesTags';
+import {
+    POWER_WORKSPACE_SURFACE_HANDOFF_EVENT,
+    consumeWorkspaceSurfaceHandoff,
+    isNoteRefLinkedToWorkspace,
+    noteRefId,
+    readPowerWorkspaceSnapshot,
+    setWorkspaceLink,
+} from '../lib/powerWorkspace';
 import NotesGraph3D from './NotesGraph3D';
 
 function noteIdFromFileName(fileName) {
@@ -126,6 +134,7 @@ function SidebarNoteItem({ fileName, noteId, isActive, isLocked, onSelect, onRen
 export default function NotesMode() {
     const { codeState, setCodeState } = useMode();
     const workingDirectory = codeState?.workingDirectory;
+    const initialWorkspaceHandoff = useMemo(() => consumeWorkspaceSurfaceHandoff('notes'), []);
 
     const [notesFolder, setNotesFolder] = useState('');
     const [notesList, setNotesList] = useState([]); // Array of strings (filenames like "Index.md")
@@ -145,6 +154,19 @@ export default function NotesMode() {
     const [passwordInput, setPasswordInput] = useState('');
     const [passwordError, setPasswordError] = useState('');
     const [tagInput, setTagInput] = useState('');
+    const [workspaceOnly, setWorkspaceOnly] = useState(false);
+    const [workspaceSnapshot, setWorkspaceSnapshot] = useState(() => readPowerWorkspaceSnapshot());
+    const [pendingWorkspaceNoteRef, setPendingWorkspaceNoteRef] = useState(initialWorkspaceHandoff?.itemRef || '');
+
+    useEffect(() => {
+        const handleWorkspaceHandoff = (event) => {
+            if (event.detail?.target !== 'notes') return;
+            const handoff = consumeWorkspaceSurfaceHandoff('notes') || event.detail;
+            setPendingWorkspaceNoteRef(handoff.itemRef || '');
+        };
+        window.addEventListener(POWER_WORKSPACE_SURFACE_HANDOFF_EVENT, handleWorkspaceHandoff);
+        return () => window.removeEventListener(POWER_WORKSPACE_SURFACE_HANDOFF_EVENT, handleWorkspaceHandoff);
+    }, []);
 
     // Resolve notes folder path on mount and update register path
     useEffect(() => {
@@ -674,6 +696,15 @@ export default function NotesMode() {
         return notesList.find(fileName => noteIdFromFileName(fileName).toLowerCase() === String(noteId || '').toLowerCase());
     }, [notesList]);
 
+    useEffect(() => {
+        if (!pendingWorkspaceNoteRef || notesList.length === 0) return;
+        const fileName = findNoteFileById(noteRefId(pendingWorkspaceNoteRef));
+        if (!fileName) return;
+        setShowGraph(false);
+        if (fileName !== activeNote) void handleSelectNote(fileName);
+        setPendingWorkspaceNoteRef('');
+    }, [activeNote, findNoteFileById, notesList, pendingWorkspaceNoteRef]);
+
     const activeNoteLocked = !!activeNote && isEncrypted(filesMap[activeNote]) && !encryptedPasswords[activeNote];
     const activeTags = useMemo(() => {
         if (!activeNote || activeNoteLocked) return [];
@@ -802,6 +833,7 @@ export default function NotesMode() {
     }, [filesMap, noteIds, activeNote, activeNoteLocked, unsavedContent]);
 
     const activeNoteId = activeNote ? noteIdFromFileName(activeNote) : '';
+    const activeNoteLinked = Boolean(activeNote && isNoteRefLinkedToWorkspace(activeNote, workspaceSnapshot.workspace));
     const activeBacklinks = graph.backlinks[activeNoteId] || [];
     const activeOutgoing = Array.from(graph.outgoing[activeNoteId] || []);
     const activeUnlinked = graph.unlinkedMentions[activeNoteId] || [];
@@ -835,6 +867,12 @@ export default function NotesMode() {
             setError('Could not update note file to link mention.');
         }
     };
+
+    const toggleWorkspaceNote = useCallback(() => {
+        if (!activeNote) return;
+        const workspace = setWorkspaceLink(workspaceSnapshot.workspace, 'linkedNoteRefs', activeNote, !activeNoteLinked);
+        setWorkspaceSnapshot({ ...readPowerWorkspaceSnapshot(), workspace });
+    }, [activeNote, activeNoteLinked, workspaceSnapshot.workspace]);
 
     const renderMarkdownComponents = useMemo(() => ({
         h1: ({ children }) => (
@@ -971,14 +1009,15 @@ export default function NotesMode() {
     }, []);
 
     const filteredNotes = useMemo(() => {
-        if (!searchQuery) return notesList;
         const query = searchQuery.toLowerCase();
         return notesList.filter(fileName => {
+            if (workspaceOnly && !isNoteRefLinkedToWorkspace(fileName, workspaceSnapshot.workspace)) return false;
+            if (!query) return true;
             const title = fileName.replace(/\.md$/, '').toLowerCase();
             const content = (filesMap[fileName] || '').toLowerCase();
             return title.includes(query) || content.includes(query);
         });
-    }, [notesList, filesMap, searchQuery]);
+    }, [notesList, filesMap, searchQuery, workspaceOnly, workspaceSnapshot.workspace]);
 
     if (!notesFolder) {
         return (
@@ -1069,6 +1108,19 @@ export default function NotesMode() {
                     >
                         <Share2 size={13} />
                         {showGraph ? 'Hide Graph' : 'Knowledge Graph'}
+                    </button>
+
+                    <button
+                        onClick={() => setWorkspaceOnly(value => !value)}
+                        title={`Show notes linked to ${workspaceSnapshot.workspace.name}`}
+                        className={`w-full flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg border text-xs font-medium transition-all ${
+                            workspaceOnly
+                                ? 'border-orange-500/40 bg-orange-500/10 text-orange-300'
+                                : 'border-[var(--border)] bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)]'
+                        }`}
+                    >
+                        <Link2 size={13} />
+                        Workspace Notes
                     </button>
                 </div>
 
@@ -1170,9 +1222,26 @@ export default function NotesMode() {
                                 {isDirty && (
                                     <span className="flex h-2 w-2 rounded-full bg-[var(--accent)] animate-pulse" title="Unsaved changes" />
                                 )}
+                                {activeNoteLinked && (
+                                    <span className="rounded-full border border-orange-500/25 bg-orange-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-orange-300">
+                                        Workspace
+                                    </span>
+                                )}
                             </div>
 
                             <div className="flex items-center gap-3">
+                                <button
+                                    onClick={toggleWorkspaceNote}
+                                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                                        activeNoteLinked
+                                            ? 'border-orange-500/40 bg-orange-500/10 text-orange-300 hover:bg-orange-500/15'
+                                            : 'border-[var(--border)] bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)]'
+                                    }`}
+                                    title={activeNoteLinked ? 'Remove note from Power Workspace' : 'Link note to Power Workspace'}
+                                >
+                                    <Link2 size={12} />
+                                    {activeNoteLinked ? 'Unlink' : 'Link'}
+                                </button>
                                 <div className="flex rounded-lg border border-[var(--border)] p-0.5 bg-[var(--bg-primary)] text-xs">
                                     <button
                                         onClick={() => setViewMode('edit')}

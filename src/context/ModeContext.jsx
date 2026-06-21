@@ -89,10 +89,11 @@ function defaultBounds(index = 0) {
 
 function clampBounds(bounds) {
     const { width: vw, height: vh } = viewportSize();
-    const width = Math.max(WINDOW_DEFAULTS.minWidth, Math.min(bounds.width, vw));
-    const height = Math.max(WINDOW_DEFAULTS.minHeight, Math.min(bounds.height, vh - 80 - DOCK_RESERVED_HEIGHT));
-    const x = Math.min(Math.max(bounds.x, 0), Math.max(0, vw - 160));
-    const y = Math.min(Math.max(bounds.y, 0), Math.max(0, vh - 140 - DOCK_RESERVED_HEIGHT));
+    const availableHeight = Math.max(0, vh - DOCK_RESERVED_HEIGHT);
+    const width = Math.min(vw, Math.max(WINDOW_DEFAULTS.minWidth, Math.min(bounds.width, vw)));
+    const height = Math.min(availableHeight, Math.max(WINDOW_DEFAULTS.minHeight, Math.min(bounds.height, availableHeight)));
+    const x = Math.min(Math.max(bounds.x, 0), Math.max(0, vw - width));
+    const y = Math.min(Math.max(bounds.y, 0), Math.max(0, availableHeight - height));
     return { x, y, width, height };
 }
 
@@ -172,6 +173,28 @@ export function ModeProvider({ children }) {
     // The open set is persisted so windows survive a reload; per-mode geometry is
     // remembered separately so reopening a closed window restores its size.
     const [windows, setWindows] = useState(() => hydrateWindows(readJsonStorage('perci_open_windows', [])));
+
+    useEffect(() => {
+        let frame = 0;
+        const handleResize = () => {
+            window.cancelAnimationFrame(frame);
+            frame = window.requestAnimationFrame(() => {
+                setWindows(current => current.map(item => {
+                    const bounds = clampBounds(item.bounds);
+                    const restoreBounds = item.restoreBounds ? clampBounds(item.restoreBounds) : undefined;
+                    const boundsChanged = Object.keys(bounds).some(key => bounds[key] !== item.bounds[key]);
+                    const restoreChanged = restoreBounds && Object.keys(restoreBounds)
+                        .some(key => restoreBounds[key] !== item.restoreBounds[key]);
+                    return boundsChanged || restoreChanged ? { ...item, bounds, restoreBounds } : item;
+                }));
+            });
+        };
+        window.addEventListener('resize', handleResize);
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            window.cancelAnimationFrame(frame);
+        };
+    }, []);
     // The embed URL backing the YouTube window's iframe. The window itself lives
     // in `windows` (so it's a first-class dock citizen); this holds its content.
     const [youtubeUrl, setYoutubeUrl] = useState(null);

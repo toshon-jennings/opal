@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useMode, MODES } from '../context/ModeContext';
 import { hasElectronStore, loadElectronPersistence, saveElectronPersistence } from '../lib/persistentStore';
+import { POWER_WORKSPACE_PROJECT_HANDOFF_KEY } from '../lib/powerWorkspace';
 import TerminalPanel from './Terminal';
 import gitshellsBg from '../assets/gitshells-bg.jpg';
 import './ProjectsMode.css';
@@ -416,6 +417,46 @@ export default function ProjectsMode() {
       name: pathValue ? getDefaultProjectName(pathValue) : ''
     });
   };
+
+  useEffect(() => {
+    const applyHandoff = (payload) => {
+      if (!payload || typeof payload !== 'object') return;
+      const folderPath = String(payload.folderPath || '').trim();
+      if (!folderPath) return;
+
+      localStorage.setItem('working_directory', folderPath);
+      const project = projectsRef.current.find(item => String(item?.path || '').trim() === folderPath);
+      const projectId = project?.id || String(payload.matchedProjectId || '').trim();
+      const terminalId = project?.terminals?.[0]?.id || String(payload.matchedTerminalId || '').trim();
+
+      if (projectId) {
+        setActiveProjectId(projectId);
+        if (terminalId) setActiveTerminalId(terminalId);
+        setProjectDraft(null);
+        setAddProjectHint('');
+      } else {
+        setProjectDraft({
+          path: folderPath,
+          name: String(payload.workspaceName || '').trim() || getDefaultProjectName(folderPath)
+        });
+        setAddProjectHint('Register this workspace folder to open a shell for it.');
+      }
+      localStorage.removeItem(POWER_WORKSPACE_PROJECT_HANDOFF_KEY);
+    };
+
+    const readPendingHandoff = () => {
+      try {
+        return JSON.parse(localStorage.getItem(POWER_WORKSPACE_PROJECT_HANDOFF_KEY) || 'null');
+      } catch {
+        return null;
+      }
+    };
+
+    applyHandoff(readPendingHandoff());
+    const handleHandoffEvent = (event) => applyHandoff(event.detail);
+    window.addEventListener('perci-power-workspace-project-handoff', handleHandoffEvent);
+    return () => window.removeEventListener('perci-power-workspace-project-handoff', handleHandoffEvent);
+  }, []);
 
   const handleAddProject = async () => {
     if (isAddingProject) return;

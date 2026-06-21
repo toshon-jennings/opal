@@ -10,6 +10,7 @@ import {
     FileCode,
     GitBranch,
     History,
+    Link2,
     Maximize2,
     PauseCircle,
     PlayCircle,
@@ -29,7 +30,15 @@ import { readJsonStorage } from '../lib/persistentStore';
 import { readIntentReviews } from '../lib/diffReview';
 import { addHarnessMemory, readHarnessMemory } from '../lib/harnessMemory';
 import {
+    POWER_WORKSPACE_SURFACE_HANDOFF_EVENT,
+    consumeWorkspaceSurfaceHandoff,
+    isMissionRunRelevantToWorkspace,
+    readPowerWorkspaceSnapshot,
+    setWorkspaceLink,
+} from '../lib/powerWorkspace';
+import {
     MISSION_MEMORY_KEY,
+    MISSION_MEMORY_UPDATED_EVENT,
     buildFinishReport,
     buildMemoryCandidate,
     MISSION_UPDATED_EVENT,
@@ -38,6 +47,7 @@ import {
     readMemoryCandidates,
     recordMissionRunValidation,
     recordGatewayCheck,
+    resolveMemoryCandidate,
     saveMemoryCandidates,
     saveMissionRuns,
     setMissionValidationTarget
@@ -54,6 +64,7 @@ const STATUS_META = {
 
 const RUN_FILTERS = [
     { id: 'all', label: 'All' },
+    { id: 'workspace', label: 'Workspace' },
     { id: 'active', label: 'Active' },
     { id: 'blocked', label: 'Blocked' },
     { id: 'needs-validation', label: 'Needs validation' },
@@ -115,8 +126,13 @@ function cancelTerminalRun(runId) {
 
 export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRestartingOpenClaw }) {
     const { openClawConfig, setShowOpenClawDashboard } = useMode();
+    const initialWorkspaceHandoff = useMemo(() => consumeWorkspaceSurfaceHandoff('mission'), []);
     const [runs, setRuns] = useState(() => readMissionRuns());
-    const [selectedRunId, setSelectedRunId] = useState(() => runs[0]?.id || null);
+    const [selectedRunId, setSelectedRunId] = useState(() => (
+        runs.some(run => run.id === initialWorkspaceHandoff?.itemRef)
+            ? initialWorkspaceHandoff.itemRef
+            : runs[0]?.id || null
+    ));
     const [memoryNotes, setMemoryNotes] = useState(() => {
         const saved = readJsonStorage(MISSION_MEMORY_KEY, null);
         return Array.isArray(saved) ? saved : [];
@@ -133,10 +149,14 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
     const [guideModalOpen, setGuideModalOpen] = useState(false);
     const [liveEvents, setLiveEvents] = useState([]);
     const [runContextMenu, setRunContextMenu] = useState(null); // { run, x, y }
+    const [workspaceSnapshot, setWorkspaceSnapshot] = useState(() => readPowerWorkspaceSnapshot());
 
     const activeProfile = openClawConfig.profiles.find(profile => profile.id === openClawConfig.activeProfileId) || openClawConfig.profiles[0];
-    const filteredRuns = useMemo(() => runs.filter(run => matchesRunFilter(run, activeFilter)), [runs, activeFilter]);
+    const workspace = workspaceSnapshot.workspace;
+    const workspaceRunCount = useMemo(() => runs.filter(run => isMissionRunRelevantToWorkspace(run, workspace)).length, [runs, workspace]);
+    const filteredRuns = useMemo(() => runs.filter(run => matchesRunFilter(run, activeFilter, workspace)), [runs, activeFilter, workspace]);
     const selectedRun = filteredRuns.find(run => run.id === selectedRunId) || filteredRuns[0] || runs[0];
+    const selectedRunLinked = Boolean(selectedRun?.id && workspace.linkedMissionRunIds.includes(selectedRun.id));
     const gatewayRun = runs.find(run => run.id === 'mission-openclaw-health');
     const gatewayDetails = gatewayRun?.gateway || null;
     const finishReport = useMemo(() => buildFinishReport(selectedRun), [selectedRun]);
@@ -152,6 +172,7 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
             setRuns(nextRuns);
             setHarnessMemory(readHarnessMemory());
             setIntentReviews(readIntentReviews());
+            setWorkspaceSnapshot(readPowerWorkspaceSnapshot());
         };
 
         window.addEventListener(MISSION_UPDATED_EVENT, handleMissionUpdate);
@@ -161,6 +182,27 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
             window.removeEventListener('storage', handleMissionUpdate);
         };
     }, []);
+
+    useEffect(() => {
+        const handleMemoryUpdate = (event) => {
+            setMemoryCandidates(event.detail?.candidates || readMemoryCandidates());
+            setHarnessMemory(event.detail?.memories || readHarnessMemory());
+        };
+        window.addEventListener(MISSION_MEMORY_UPDATED_EVENT, handleMemoryUpdate);
+        return () => window.removeEventListener(MISSION_MEMORY_UPDATED_EVENT, handleMemoryUpdate);
+    }, []);
+
+    useEffect(() => {
+        const handleWorkspaceHandoff = (event) => {
+            if (event.detail?.target !== 'mission') return;
+            const handoff = consumeWorkspaceSurfaceHandoff('mission') || event.detail;
+            if (!runs.some(run => run.id === handoff.itemRef)) return;
+            setActiveFilter('all');
+            setSelectedRunId(handoff.itemRef);
+        };
+        window.addEventListener(POWER_WORKSPACE_SURFACE_HANDOFF_EVENT, handleWorkspaceHandoff);
+        return () => window.removeEventListener(POWER_WORKSPACE_SURFACE_HANDOFF_EVENT, handleWorkspaceHandoff);
+    }, [runs]);
 
     useEffect(() => {
         setSelectedRunId(current => (
@@ -360,30 +402,13 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
             },
             ...prev
         ].slice(0, 12));
-        addHarnessMemory({
-            scope: selectedRun?.workingDirectory || 'global',
-            sourceRunId: candidate.sourceRunId,
-            sourceType: candidate.sourceType,
-            title: `Mission memory: ${candidate.sourceType}`,
-            status: 'saved',
-            tags: ['mission', candidate.sourceType, candidate.quality?.verdict].filter(Boolean),
-            quality: candidate.quality,
-            text: candidate.text
-        });
-        setMemoryCandidates(prev => saveMemoryCandidates(prev.map(item => (
-            item.id === candidate.id
-                ? { ...item, status: 'saved', resolvedAt: new Date().toISOString() }
-                : item
-        ))));
-        setHarnessMemory(readHarnessMemory());
-    }, [selectedRun]);
+        const resolved = resolveMemoryCandidate(candidate.id, 'saved');
+        setMemoryCandidates(resolved.candidates);
+        setHarnessMemory(resolved.memories);
+    }, []);
 
     const discardMemoryCandidate = useCallback((candidate) => {
-        setMemoryCandidates(prev => saveMemoryCandidates(prev.map(item => (
-            item.id === candidate.id
-                ? { ...item, status: 'discarded', resolvedAt: new Date().toISOString() }
-                : item
-        ))));
+        setMemoryCandidates(resolveMemoryCandidate(candidate.id, 'discarded').candidates);
     }, []);
 
     const markValidation = useCallback((status) => {
@@ -392,6 +417,12 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
         setRuns(nextRuns);
         setValidationDraft('');
     }, [selectedRun, validationDraft]);
+
+    const toggleWorkspaceRun = useCallback(() => {
+        if (!selectedRun?.id) return;
+        const workspace = setWorkspaceLink(workspaceSnapshot.workspace, 'linkedMissionRunIds', selectedRun.id, !selectedRunLinked);
+        setWorkspaceSnapshot({ ...readPowerWorkspaceSnapshot(), workspace });
+    }, [selectedRun, selectedRunLinked, workspaceSnapshot.workspace]);
 
     const healthState = gatewayCheck
         ? (gatewayCheck.ok ? 'online' : 'offline')
@@ -441,6 +472,20 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
                             <Metric label="Blocked" value={counts.blocked || 0} />
                             <Metric label="Validate" value={counts.needsValidation || 0} />
                             <Metric label="Memory" value={pendingMemoryCandidates.length} />
+                        </div>
+
+                        <div className="mt-3 rounded-lg border border-orange-500/20 bg-orange-500/10 px-3 py-2">
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                    <div className="truncate text-xs font-semibold text-orange-300">{workspace.name}</div>
+                                    <div className="mt-0.5 truncate text-[11px] text-[var(--text-tertiary)]">
+                                        {workspace.folderPath || 'No workspace folder attached'}
+                                    </div>
+                                </div>
+                                <span className="shrink-0 rounded-md border border-orange-500/25 bg-[var(--bg-primary)] px-2 py-1 text-[11px] font-semibold text-orange-300">
+                                    {workspaceRunCount}
+                                </span>
+                            </div>
                         </div>
 
                         <div className="mt-4 flex flex-wrap gap-1.5">
@@ -496,6 +541,7 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
                                     ) : (
                                         <ActionButton icon={PlayCircle} label="Resume" onClick={() => updateRunStatus(selectedRun.id, 'running')} />
                                     )}
+                                    <ActionButton icon={Link2} label={selectedRunLinked ? 'Unlink workspace' : 'Link workspace'} onClick={toggleWorkspaceRun} />
                                     <ActionButton icon={RotateCcw} label="Retry" onClick={() => retryRun(selectedRun.id)} />
                                     <ActionButton icon={Square} label="Cancel" onClick={() => cancelRun(selectedRun)} />
                                 </div>
@@ -1771,8 +1817,9 @@ function truncateLabel(label = '') {
     return value.length > 16 ? `${value.slice(0, 14)}..` : value;
 }
 
-function matchesRunFilter(run, filter) {
+function matchesRunFilter(run, filter, workspace) {
     if (filter === 'all') return true;
+    if (filter === 'workspace') return isMissionRunRelevantToWorkspace(run, workspace);
     if (filter === 'active') return ['running', 'waiting'].includes(run.status);
     if (filter === 'blocked') return run.status === 'blocked';
     if (filter === 'needs-validation') return needsValidation(run);

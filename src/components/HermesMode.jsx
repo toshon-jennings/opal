@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     Activity, BarChart3, CheckCircle2, Clock, ExternalLink, Globe,
-    MessageSquare, RefreshCw, Send, Square, Terminal, TerminalSquare, XCircle, Zap
+    MessageSquare, RefreshCw, Send, Square, Terminal, TerminalSquare,
+    Trash2, XCircle, Zap
 } from 'lucide-react';
 import TerminalTabs from './TerminalTabs';
 import ChatTab from './ChatTab';
@@ -20,7 +21,8 @@ const TABS = [
     { id: 'terminal', label: 'Terminal', icon: TerminalSquare },
     { id: 'sessions', label: 'Sessions', icon: MessageSquare },
     { id: 'insights', label: 'Insights', icon: BarChart3 },
-    { id: 'webui', label: 'Web UI', icon: Globe },
+    { id: 'memory', label: 'Memory', icon: Zap },
+    { id: 'webui', label: 'Nous Web UI', icon: Globe },
 ];
 
 function formatClock(iso) {
@@ -405,6 +407,178 @@ function InsightsDashboard({ text, insightDays }) {
     );
 }
 
+function MemoryDashboard({ memoryData, onRefresh }) {
+    const { memory, user } = memoryData;
+
+    const memoryPct = memory.limit > 0 ? Math.min(100, Math.round((memory.chars / memory.limit) * 100)) : 0;
+    const userPct = user.limit > 0 ? Math.min(100, Math.round((user.chars / user.limit) * 100)) : 0;
+
+    const memoryColor = memoryPct >= 90 ? 'bg-red-500' : memoryPct >= 70 ? 'bg-amber-500' : 'bg-emerald-500';
+    const userColor = userPct >= 90 ? 'bg-red-500' : userPct >= 70 ? 'bg-amber-500' : 'bg-emerald-500';
+
+    const memoryTextColor = memoryPct >= 90 ? 'text-red-400' : memoryPct >= 70 ? 'text-amber-400' : 'text-emerald-400';
+    const userTextColor = userPct >= 90 ? 'text-red-400' : userPct >= 70 ? 'text-amber-400' : 'text-emerald-400';
+
+    return (
+        <div className="space-y-6 pb-8">
+            {/* Usage Overview Cards */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Memory Store Card */}
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500">
+                                <Zap size={18} />
+                            </div>
+                            <div>
+                                <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">Memory Store</p>
+                                <p className="text-lg font-bold text-[var(--text-primary)] mt-0.5">{memory.entries.length} entries</p>
+                            </div>
+                        </div>
+                        <span className={`text-2xl font-bold ${memoryTextColor}`}>{memoryPct}%</span>
+                    </div>
+                    <div className="h-2.5 w-full rounded-full bg-[var(--border)]/40 overflow-hidden">
+                        <div
+                            className={`h-full rounded-full ${memoryColor} transition-all duration-500`}
+                            style={{ width: `${Math.max(2, memoryPct)}%` }}
+                        />
+                    </div>
+                    <p className="mt-2 text-[11px] text-[var(--text-tertiary)]">
+                        {memory.chars.toLocaleString()} / {memory.limit.toLocaleString()} chars
+                        {memoryPct >= 90 && <span className="ml-2 text-red-400 font-semibold">— Critical</span>}
+                        {memoryPct >= 70 && memoryPct < 90 && <span className="ml-2 text-amber-400 font-semibold">— Warning</span>}
+                    </p>
+                </div>
+
+                {/* User Profile Card */}
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500">
+                                <MessageSquare size={18} />
+                            </div>
+                            <div>
+                                <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">User Profile</p>
+                                <p className="text-lg font-bold text-[var(--text-primary)] mt-0.5">{user.entries.length} entries</p>
+                            </div>
+                        </div>
+                        <span className={`text-2xl font-bold ${userTextColor}`}>{userPct}%</span>
+                    </div>
+                    <div className="h-2.5 w-full rounded-full bg-[var(--border)]/40 overflow-hidden">
+                        <div
+                            className={`h-full rounded-full ${userColor} transition-all duration-500`}
+                            style={{ width: `${Math.max(2, userPct)}%` }}
+                        />
+                    </div>
+                    <p className="mt-2 text-[11px] text-[var(--text-tertiary)]">
+                        {user.chars.toLocaleString()} / {user.limit.toLocaleString()} chars
+                        {userPct >= 90 && <span className="ml-2 text-red-400 font-semibold">— Critical</span>}
+                        {userPct >= 70 && userPct < 90 && <span className="ml-2 text-amber-400 font-semibold">— Warning</span>}
+                    </p>
+                </div>
+            </div>
+
+            {/* Memory Entries */}
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] shadow-sm">
+                <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-3">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                        Memory Entries <span className="text-[var(--text-tertiary)] font-normal">({memory.entries.length})</span>
+                    </h3>
+                    <button
+                        onClick={onRefresh}
+                        className="rounded-md p-1.5 text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+                        title="Refresh"
+                    >
+                        <RefreshCw size={13} />
+                    </button>
+                </div>
+                <div className="divide-y divide-[var(--border)]/40">
+                    {memory.entries.length === 0 ? (
+                        <div className="px-5 py-8 text-center text-xs text-[var(--text-tertiary)]">No memory entries.</div>
+                    ) : (
+                        memory.entries.map((entry, idx) => {
+                            const charCount = entry.length;
+                            return (
+                                <div key={idx} className="px-5 py-3 hover:bg-[var(--bg-hover)]/20 transition-colors">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <p className="text-[13px] leading-5 text-[var(--text-primary)] flex-1 whitespace-pre-wrap">{entry}</p>
+                                        <span className="shrink-0 text-[10px] font-mono text-[var(--text-tertiary)] mt-0.5">{charCount}c</span>
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+            </div>
+
+            {/* User Profile Entries */}
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] shadow-sm">
+                <div className="flex items-center justify-between border-b border-[var(--border)] px-5 py-3">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                        User Profile Entries <span className="text-[var(--text-tertiary)] font-normal">({user.entries.length})</span>
+                    </h3>
+                </div>
+                <div className="divide-y divide-[var(--border)]/40">
+                    {user.entries.length === 0 ? (
+                        <div className="px-5 py-8 text-center text-xs text-[var(--text-tertiary)]">No user profile entries.</div>
+                    ) : (
+                        user.entries.map((entry, idx) => {
+                            const charCount = entry.length;
+                            return (
+                                <div key={idx} className="px-5 py-3 hover:bg-[var(--bg-hover)]/20 transition-colors">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <p className="text-[13px] leading-5 text-[var(--text-primary)] flex-1 whitespace-pre-wrap">{entry}</p>
+                                        <span className="shrink-0 text-[10px] font-mono text-[var(--text-tertiary)] mt-0.5">{charCount}c</span>
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+            </div>
+
+            {/* Context Budget Impact */}
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5 shadow-sm">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)] border-b border-[var(--border)] pb-2 mb-4">
+                    Context Budget Impact
+                </h3>
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                    <div>
+                        <span className="text-[var(--text-tertiary)] block text-[10px] uppercase font-semibold">Total Overhead</span>
+                        <span className="text-[var(--text-primary)] font-medium">{(memory.chars + user.chars).toLocaleString()} chars</span>
+                    </div>
+                    <div>
+                        <span className="text-[var(--text-tertiary)] block text-[10px] uppercase font-semibold">Total Entries</span>
+                        <span className="text-[var(--text-primary)] font-medium">{memory.entries.length + user.entries.length}</span>
+                    </div>
+                    <div>
+                        <span className="text-[var(--text-tertiary)] block text-[10px] uppercase font-semibold">Avg Entry Size</span>
+                        <span className="text-[var(--text-primary)] font-medium">
+                            {memory.entries.length + user.entries.length > 0
+                                ? Math.round((memory.chars + user.chars) / (memory.entries.length + user.entries.length))
+                                : 0} chars
+                        </span>
+                    </div>
+                    <div>
+                        <span className="text-[var(--text-tertiary)] block text-[10px] uppercase font-semibold">Largest Entry</span>
+                        <span className="text-[var(--text-primary)] font-medium">
+                            {Math.max(
+                                ...memory.entries.map(e => e.length),
+                                ...user.entries.map(e => e.length),
+                                0
+                            ).toLocaleString()} chars
+                        </span>
+                    </div>
+                </div>
+                <p className="mt-4 pt-3 border-t border-[var(--text-tertiary)]/20 text-[10px] text-[var(--text-tertiary)] leading-relaxed">
+                    These entries are injected into the system prompt on every turn. High usage reduces the available context window for conversation.
+                    Keep total overhead under 2,000 chars for best results.
+                </p>
+            </div>
+        </div>
+    );
+}
+
 export default function HermesMode() {
     const isDesktop = Boolean(window.electron?.getHermesStatus);
 
@@ -431,6 +605,9 @@ export default function HermesMode() {
     const [insightDays, setInsightDays] = useState(30);
     const [insights, setInsights] = useState({ state: 'idle', byDays: {} });
     const [dashboard, setDashboard] = useState({ state: 'idle' });
+
+    // Memory state
+    const [memoryData, setMemoryData] = useState({ state: 'idle' });
 
     const runsEndRef = useRef(null);
     const activityEndRef = useRef(null);
@@ -527,13 +704,28 @@ export default function HermesMode() {
             : { state: 'stopped', url: result?.url, error: result?.error || 'Could not start the dashboard.' });
     };
 
+    const loadMemory = useCallback(async () => {
+        setMemoryData({ state: 'loading' });
+        try {
+            const result = await window.electron.getHermesMemory();
+            if (result?.ok) {
+                setMemoryData({ state: 'ready', ...result });
+            } else {
+                setMemoryData({ state: 'error', error: result?.error || 'Failed to load memory.' });
+            }
+        } catch (err) {
+            setMemoryData({ state: 'error', error: err.message || 'Failed to load memory.' });
+        }
+    }, []);
+
     // Lazy-load tab data on first visit.
     useEffect(() => {
         if (!isDesktop) return;
         if (activeTab === 'sessions' && sessions.state === 'idle') loadSessions();
         if (activeTab === 'insights' && !insights.byDays[insightDays] && insights.state !== 'loading') loadInsights(insightDays);
         if (activeTab === 'webui' && dashboard.state === 'idle') checkDashboard();
-    }, [activeTab, isDesktop, sessions.state, insights.byDays, insights.state, insightDays, dashboard.state, loadSessions, loadInsights, checkDashboard]);
+        if (activeTab === 'memory' && memoryData.state === 'idle') loadMemory();
+    }, [activeTab, isDesktop, sessions.state, insights.byDays, insights.state, insightDays, dashboard.state, memoryData.state, loadSessions, loadInsights, checkDashboard, loadMemory]);
 
     const vitals = useMemo(() => {
         if (status.state !== 'ready') return [];
@@ -609,21 +801,24 @@ export default function HermesMode() {
                 </div>
             </div>
             {/* Tab strip */}
-            <div className="flex shrink-0 items-center border-b border-[var(--border)] bg-[var(--bg-secondary)] px-2">
-                {TABS.map(tab => (
-                    <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
-                        className={`hermes-tab flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors ${
-                            activeTab === tab.id
-                                ? 'active text-amber-600 dark:text-amber-300'
-                                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'
-                        }`}
-                    >
-                        <tab.icon size={12} />
-                        {tab.label}
-                    </button>
-                ))}
+            <div className="flex shrink-0 items-center justify-between border-b border-[var(--border)] bg-[var(--bg-secondary)] px-2">
+                <div className="flex items-center">
+                    {TABS.map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            className={`hermes-tab flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors ${
+                                activeTab === tab.id
+                                    ? 'active text-amber-600 dark:text-amber-300'
+                                    : 'text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'
+                            }`}
+                        >
+                            <tab.icon size={12} />
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
+
             </div>
 
             {/* Chat — stays mounted (hidden) so session survives tab switches */}
@@ -924,6 +1119,55 @@ export default function HermesMode() {
                                 </div>
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* Memory */}
+            {activeTab === 'memory' && (
+                <div className="flex min-h-0 flex-1 flex-col">
+                    <div className="flex shrink-0 items-center justify-between border-b border-[var(--border)] px-4 py-2">
+                        <span className="text-xs text-[var(--text-secondary)]">
+                            {memoryData.state === 'ready'
+                                ? `${memoryData.memory.entries.length + memoryData.user.entries.length} entries · ${(memoryData.memory.chars + memoryData.user.chars).toLocaleString()} chars total`
+                                : 'Hermes Memory & User Profile'}
+                        </span>
+                        <button
+                            onClick={loadMemory}
+                            className="rounded-md p-1.5 text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+                            title="Refresh memory"
+                        >
+                            <RefreshCw size={13} className={memoryData.state === 'loading' ? 'animate-spin' : ''} />
+                        </button>
+                    </div>
+                    <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                        {memoryData.state === 'error' ? (
+                            <div className="flex h-full items-center justify-center py-12">
+                                <div className="max-w-sm text-center space-y-3">
+                                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10 text-red-400">
+                                        <XCircle size={22} />
+                                    </div>
+                                    <h4 className="text-sm font-semibold text-[var(--text-primary)]">Failed to load memory</h4>
+                                    <p className="font-mono text-xs text-red-400 max-w-xs break-words">{memoryData.error}</p>
+                                </div>
+                            </div>
+                        ) : memoryData.state === 'ready' ? (
+                            <MemoryDashboard memoryData={memoryData} onRefresh={loadMemory} />
+                        ) : memoryData.state === 'loading' ? (
+                            <div className="flex h-full items-center justify-center py-12">
+                                <div className="max-w-sm text-center space-y-4">
+                                    <div className="relative mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/10 text-amber-500 shadow-[0_0_36px_rgba(234,179,8,0.15)] animate-pulse">
+                                        <Zap size={24} />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-sm font-semibold text-[var(--text-primary)]">Loading memory…</h4>
+                                        <p className="mt-1 text-xs text-[var(--text-tertiary)]">
+                                            Reading MEMORY.md and USER.md
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : null}
                     </div>
                 </div>
             )}

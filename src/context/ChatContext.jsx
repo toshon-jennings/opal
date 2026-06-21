@@ -429,6 +429,8 @@ export function ChatProvider({ children }) {
             messages: options.messages || [],
             artifacts: options.artifacts || [],
             projectId: options.projectId || null,
+            workspaceId: options.workspaceId || null,
+            workingDirectory: options.workingDirectory || null,
             createdAt: Date.now(),
             updatedAt: Date.now()
         };
