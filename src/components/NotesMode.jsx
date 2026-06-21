@@ -1291,13 +1291,15 @@ export default function NotesMode() {
                             )}
 
                             {(viewMode === 'preview' || viewMode === 'split') && (
-                                <div className="flex-1 h-full overflow-y-auto p-6 bg-[var(--bg-primary)] max-w-4xl mx-auto prose prose-invert">
+                                <div className="flex-1 h-full overflow-y-auto bg-[var(--bg-primary)]">
+                                    <div className="p-6 max-w-4xl mx-auto prose prose-invert">
                                     <ReactMarkdown
                                         remarkPlugins={[remarkGfm]}
                                         components={renderMarkdownComponents}
                                     >
                                         {preprocessMarkdown(stripNoteFrontmatter(unsavedContent))}
                                     </ReactMarkdown>
+                                    </div>
                                 </div>
                             )}
                         </div>

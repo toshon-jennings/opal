@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Folder, FolderPlus, Terminal as TerminalIcon, Plus, X, 
   RefreshCw, RotateCcw, Edit2, Trash2,
-  ChevronRight, Copy, Check
+  ChevronRight, Copy, Check, Bell, BellOff, Volume2, VolumeX
 } from 'lucide-react';
 import { useMode, MODES } from '../context/ModeContext';
 import { hasElectronStore, loadElectronPersistence, saveElectronPersistence } from '../lib/persistentStore';
@@ -16,6 +16,8 @@ const GITSHELLS_PROJECTS_KEY = 'gitshells_projects';
 const SUPATERM_ACTIVE_PROJECT_KEY = 'supaterm_active_project_id';
 const SUPATERM_ACTIVE_TERMINAL_KEY = 'supaterm_active_terminal_id';
 const GITSHELLS_SIDEBAR_WIDTH_KEY = 'gitshells_sidebar_width';
+const GITSHELLS_NATIVE_NOTIFICATIONS_KEY = 'gitshells_native_notifications';
+const GITSHELLS_AUDIO_NOTIFICATIONS_KEY = 'gitshells_audio_notifications';
 const DEFAULT_SIDEBAR_WIDTH = 250;
 const MIN_SIDEBAR_WIDTH = 220;
 const MAX_SIDEBAR_WIDTH = 480;
@@ -201,6 +203,14 @@ export default function ProjectsMode() {
   const [addProjectHint, setAddProjectHint] = useState('');
   const [projectDraft, setProjectDraft] = useState(null);
   const [shellRename, setShellRename] = useState(null);
+  const [nativeNotificationsEnabled, setNativeNotificationsEnabled] = useState(() => {
+    const stored = localStorage.getItem(GITSHELLS_NATIVE_NOTIFICATIONS_KEY);
+    if (stored != null) return stored === '1';
+    return typeof Notification !== 'undefined' && Notification.permission === 'granted';
+  });
+  const [audioNotificationsEnabled, setAudioNotificationsEnabled] = useState(() => {
+    return localStorage.getItem(GITSHELLS_AUDIO_NOTIFICATIONS_KEY) === '1';
+  });
 
   const updateSidebarWidth = (width, render = true) => {
     const nextWidth = clampSidebarWidth(width);
@@ -260,15 +270,6 @@ export default function ProjectsMode() {
   const initializedDirs = useRef(new Set());
   const panelRefs = useRef({});
 
-  // Request Notification permission
-  useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      if (Notification.permission === 'default') {
-        Notification.requestPermission();
-      }
-    }
-  }, []);
-
   // Cleanup timers on unmount
   useEffect(() => {
     const timers = activityTimers.current;
@@ -294,8 +295,47 @@ export default function ProjectsMode() {
     };
   }, []);
 
+  const toggleNativeNotifications = async () => {
+    const nextEnabled = !nativeNotificationsEnabled;
+    if (nextEnabled && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') return;
+    }
+    setNativeNotificationsEnabled(nextEnabled);
+    localStorage.setItem(GITSHELLS_NATIVE_NOTIFICATIONS_KEY, nextEnabled ? '1' : '0');
+  };
+
+  const toggleAudioNotifications = () => {
+    const nextEnabled = !audioNotificationsEnabled;
+    setAudioNotificationsEnabled(nextEnabled);
+    localStorage.setItem(GITSHELLS_AUDIO_NOTIFICATIONS_KEY, nextEnabled ? '1' : '0');
+  };
+
+  const playNotificationSound = useCallback(() => {
+    if (!audioNotificationsEnabled) return;
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      const context = new AudioContext();
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.frequency.value = 660;
+      gain.gain.setValueAtTime(0.0001, context.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.08, context.currentTime + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.16);
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+      oscillator.start();
+      oscillator.stop(context.currentTime + 0.17);
+      oscillator.onended = () => context.close();
+    } catch (err) {
+      console.warn('Git Shells notification sound failed:', err);
+    }
+  }, [audioNotificationsEnabled]);
+
   const triggerNotification = useCallback((project, terminal) => {
-    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+    playNotificationSound();
+    if (nativeNotificationsEnabled && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
       const terminalIndex = project.terminals?.findIndex(item => item.id === terminal.id) ?? -1;
       const terminalLabel = getShellLabel(terminal, Math.max(terminalIndex, 0));
       const notif = new Notification(`Git Shells Ready - ${project.name}`, {
@@ -312,7 +352,7 @@ export default function ProjectsMode() {
         setUnreadTerminals(prev => ({ ...prev, [`${project.id}-${terminal.id}`]: false }));
       };
     }
-  }, [openWindow]);
+  }, [nativeNotificationsEnabled, openWindow, playNotificationSound]);
 
   const handleTerminalOutput = useCallback((projectId, terminalId, sessionId, data) => {
     // Record output history for prompt detection
@@ -324,6 +364,10 @@ export default function ProjectsMode() {
     // If the terminal is active and the app is visibly focused, don't notify.
     const isActiveVisibleTerminal = activeProjectId === projectId && activeTerminalId === terminalId && appFocusedRef.current;
     if (isActiveVisibleTerminal) return;
+
+    setUnreadTerminals(prev => prev[`${projectId}-${terminalId}`]
+      ? prev
+      : { ...prev, [`${projectId}-${terminalId}`]: true });
 
     // Reset silence timer
     if (activityTimers.current[sessionId]) {
@@ -341,7 +385,6 @@ export default function ProjectsMode() {
         const terminal = project?.terminals?.find(t => t.id === terminalId);
         if (project && terminal) {
           triggerNotification(project, terminal);
-          setUnreadTerminals(prev => ({ ...prev, [`${projectId}-${terminalId}`]: true }));
         }
       }
     }, 1500);
@@ -583,14 +626,34 @@ export default function ProjectsMode() {
             <TerminalIcon size={16} className="text-[var(--accent)]" />
             <span className="font-semibold text-sm text-[var(--text-primary)]">Git Shells</span>
           </div>
-          <button 
-            onClick={handleAddProject} 
-            disabled={isAddingProject}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)] text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all font-medium"
-          >
-            <FolderPlus size={13} className={isAddingProject ? 'animate-pulse' : ''} />
-            <span>{isAddingProject ? 'Adding...' : 'Add'}</span>
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={toggleNativeNotifications}
+              className={`p-1.5 rounded-lg border transition-colors ${nativeNotificationsEnabled ? 'border-amber-500/30 bg-amber-500/10 text-amber-500' : 'border-[var(--border)] text-[var(--text-tertiary)] hover:bg-[var(--bg-hover)]'}`}
+              title={nativeNotificationsEnabled ? 'Disable native shell notifications' : 'Enable native shell notifications'}
+              aria-label={nativeNotificationsEnabled ? 'Disable native shell notifications' : 'Enable native shell notifications'}
+            >
+              {nativeNotificationsEnabled ? <Bell size={13} /> : <BellOff size={13} />}
+            </button>
+            <button
+              type="button"
+              onClick={toggleAudioNotifications}
+              className={`p-1.5 rounded-lg border transition-colors ${audioNotificationsEnabled ? 'border-amber-500/30 bg-amber-500/10 text-amber-500' : 'border-[var(--border)] text-[var(--text-tertiary)] hover:bg-[var(--bg-hover)]'}`}
+              title={audioNotificationsEnabled ? 'Disable shell completion sound' : 'Enable shell completion sound'}
+              aria-label={audioNotificationsEnabled ? 'Disable shell completion sound' : 'Enable shell completion sound'}
+            >
+              {audioNotificationsEnabled ? <Volume2 size={13} /> : <VolumeX size={13} />}
+            </button>
+            <button
+              onClick={handleAddProject}
+              disabled={isAddingProject}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)] text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all font-medium"
+            >
+              <FolderPlus size={13} className={isAddingProject ? 'animate-pulse' : ''} />
+              <span>{isAddingProject ? 'Adding...' : 'Add'}</span>
+            </button>
+          </div>
         </div>
 
         <ProjectDraftForm

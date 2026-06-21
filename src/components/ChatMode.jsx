@@ -1706,7 +1706,8 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                             }}
                         />
                         <div className="pointer-events-none absolute inset-0 bg-[var(--bg-primary)]/55" />
-                        <div className="relative flex-1 min-h-0 overflow-y-auto px-4 md:px-6 py-6 md:py-8 flex flex-col gap-4 max-w-3xl mx-auto w-full">
+                        <div className="relative flex-1 min-h-0 overflow-y-auto">
+                            <div className="px-4 md:px-6 py-6 md:py-8 flex flex-col gap-4 max-w-3xl mx-auto w-full">
                             {messages.length === 0 ? (
                                 <div className="flex h-full items-center justify-center">
                                     <div className="w-full px-6 py-14 md:px-10">
@@ -1881,10 +1882,23 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                                 </div>
                             )}
                             <div ref={messagesEndRef} />
+                            </div>
                         </div>
 
                         {/* Input Area - Claude style */}
                         <div className="relative p-4 md:p-6 max-w-3xl mx-auto w-full">
+                    <div className="mb-2 flex justify-end">
+                        <button
+                            type="button"
+                            onClick={handleNewChat}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-1.5 text-sm font-medium text-[var(--text-secondary)] shadow-sm transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+                            aria-label="Start a new chat"
+                            title="Start a new chat"
+                        >
+                            <Plus size={15} />
+                            New chat
+                        </button>
+                    </div>
                     <input
                         ref={imageInputRef}
                         type="file"

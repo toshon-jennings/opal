@@ -84,8 +84,11 @@ const LOCAL_AGENT_TOOLS = [
     },
     {
         name: 'run_command',
-        description: 'Run a shell command in the WebContainer sandbox. NOT available for local-folder projects — only for sandboxed environments.',
-        parameters: { command: 'Shell command to execute, e.g. "npm install" or "node src/index.js".' }
+        description: 'Run an executable in the selected local workspace or WebContainer without a shell. Operators such as pipes, redirects, &&, and loops are not supported; make multiple tool calls instead.',
+        parameters: {
+            command: 'Executable name only, e.g. "git", "npm", or "node".',
+            arguments: 'JSON array of argument strings, e.g. ["status", "--short"]. Use [] when there are no arguments.'
+        }
     },
     {
         name: 'delegate_to_openclaw',
@@ -619,7 +622,8 @@ function RoutinesView({ onRunRoutine, workingDirectory, onChooseFolder }) {
     });
 
     return (
-        <div className="flex-1 overflow-y-auto p-8 max-w-4xl mx-auto w-full">
+        <div className="flex-1 overflow-y-auto">
+            <div className="p-8 max-w-4xl mx-auto w-full">
             {/* Header */}
             <div className="flex items-start justify-between mb-6">
                 <div>
@@ -752,6 +756,7 @@ function RoutinesView({ onRunRoutine, workingDirectory, onChooseFolder }) {
                     })}
                 </div>
             )}
+            </div>
         </div>
     );
 }
@@ -899,6 +904,7 @@ export default function CoworkMode() {
             if (!folderPath || folderPath === codeState.workingDirectory) return;
 
             try {
+                await window.electron.registerWorkspace?.(folderPath);
                 const files = await window.electron.listFiles(folderPath);
                 if (files.length > 0) {
                     setCodeState(prev => ({ ...prev, workingDirectory: folderPath }));
@@ -993,8 +999,9 @@ export default function CoworkMode() {
         }
     };
 
-    const handleTaskSubmit = async (e, prefillPrompt) => {
+    const handleTaskSubmit = async (e, prefillPrompt, workingDirectoryOverride) => {
         if (e) e.preventDefault();
+        const taskWorkingDirectory = workingDirectoryOverride || codeState.workingDirectory;
         const message = prefillPrompt || taskInput;
         if ((!message.trim() && attachments.length === 0) || isLoading) return;
         const currentAttachments = [...attachments];
@@ -1003,6 +1010,7 @@ export default function CoworkMode() {
         if (isBareAbsolutePath(message) && window.electron?.listFiles) {
             try {
                 const folderPath = message.trim();
+                await window.electron.registerWorkspace?.(folderPath);
                 const files = await window.electron.listFiles(folderPath);
                 if (files.length > 0) {
                     setCodeState(prev => ({ ...prev, workingDirectory: folderPath }));
@@ -1042,7 +1050,7 @@ export default function CoworkMode() {
         const displayMessage = message || attachmentSummary;
         const userHistoryMessages = [...(currentSession.messages || []), { role: 'user', content: displayMessage }];
         const missionRunId = recordCoworkSessionStart(currentSession, displayMessage, {
-            workingDirectory: codeState.workingDirectory,
+            workingDirectory: taskWorkingDirectory,
             files: currentAttachments.map(attachment => attachment.name).filter(Boolean)
         });
         
@@ -1075,7 +1083,7 @@ export default function CoworkMode() {
             });
             const client = LLMFactory.getClient(routedProvider, apiKeys[routedProvider], { lmStudioUrl, janUrl });
             const memoryContext = buildMemoryPrompt(displayMessage, {
-                scope: codeState.workingDirectory,
+                scope: taskWorkingDirectory,
                 files: currentAttachments.map(attachment => attachment.name).filter(Boolean),
                 sourceTypes: ['cowork', 'code', 'build', 'terminal']
             });
@@ -1091,11 +1099,11 @@ export default function CoworkMode() {
                 buildBudgetPrompt(budgetRun),
                 memoryContext.prompt,
                 permissionPrompt,
-                `The user's local project folder is: ${codeState.workingDirectory || '(not set — ask the user to choose a folder)'}`,
+                `The user's local project folder is: ${taskWorkingDirectory || '(not set — ask the user to choose a folder)'}`,
                 `You have access to local tools: read_file, write_file, list_directory, run_command.`,
                 buildIntegrationToolsPrompt(apiKeys),
                 `Use tools proactively to inspect the codebase, read files before editing them, and verify your changes.`,
-                `run_command is only available in WebContainer sandboxes, not local projects.`,
+                `For run_command, pass an executable name and a JSON array in arguments. It runs without shell operators and is restricted to the selected workspace.`,
                 `delegate_to_openclaw hands a task to the OpenClaw gateway agent — use it for long-running, scheduled, or multi-step orchestration (cron, browser automation, paired-node execution) that goes beyond local file edits.`,
                 `Current session task: ${currentSession.title}`
             ].join('\n');
@@ -1291,7 +1299,13 @@ export default function CoworkMode() {
     };
 
     // When a routine is run, create a session with its prompt and submit
-    const handleRunRoutine = (routine) => {
+    const handleRunRoutine = async (routine) => {
+        const routineFolder = String(routine.folder || '').trim();
+        if (routineFolder) {
+            await window.electron?.registerWorkspace?.(routineFolder);
+            setCodeState(prev => ({ ...prev, workingDirectory: routineFolder }));
+            localStorage.setItem('working_directory', routineFolder);
+        }
         setSidebarView('sessions');
         const session = {
             id: Date.now().toString(),
@@ -1304,7 +1318,7 @@ export default function CoworkMode() {
         setCodeState(prev => ({ ...prev, sessions: [session, ...prev.sessions] }));
         setActiveSession(session);
         // Submit after state settles
-        setTimeout(() => handleTaskSubmit(null, routine.prompt), 50);
+        setTimeout(() => handleTaskSubmit(null, routine.prompt, routineFolder || undefined), 50);
     };
 
     // ── Active session view ────────────────────────────────────────────────
@@ -1673,7 +1687,8 @@ export default function CoworkMode() {
                         workingDirectory={codeState.workingDirectory}
                         onChooseFolder={handleChooseFolder} />
                 ) : (
-                <main className="flex-1 overflow-y-auto p-12 max-w-5xl mx-auto w-full">
+                <main className="flex-1 overflow-y-auto">
+                    <div className="p-12 max-w-5xl mx-auto w-full">
                     <div className="flex items-center gap-3 mb-12">
                         <img src={perciLogo} alt="Perci" className="h-8 w-auto" />
                         <h1 className="text-2xl font-semibold text-[var(--text-primary)]">
@@ -1778,6 +1793,7 @@ export default function CoworkMode() {
                             <span className="flex items-center gap-1.5 bg-[var(--bg-secondary)] px-3 py-1.5 rounded-full border border-[var(--border)]"><Code size={14} /> Local</span>
                             <span className="flex items-center gap-1.5 bg-[var(--bg-secondary)] px-3 py-1.5 rounded-full border border-[var(--border)]"><Layout size={14} /> worktree</span>
                         </div>
+                    </div>
                     </div>
                 </main>
                 )}

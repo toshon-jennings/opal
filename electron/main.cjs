@@ -834,6 +834,15 @@ function createWindow() {
   mainWindow = win;
   attachRendererDiagnostics(win);
   appendRendererLog(`createWindow: renderer log at ${getRendererLogPath()}`);
+
+  // Grant clipboard-read/write permission so navigator.clipboard works in the renderer
+  win.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
+    if (permission === 'clipboard-read' || permission === 'clipboard-write' || permission === 'clipboard-sanitized-write') {
+      callback(true);
+      return;
+    }
+    callback(false);
+  });
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (isBundledAssetDocumentUrl(url)) {
       appendRendererLog(`blocked-bundled-asset-window url=${url}`);
@@ -2981,6 +2990,42 @@ ipcMain.handle('register-workspace', (event, workspacePath) => {
     allowedPaths.add(path.resolve(workspacePath));
   }
   return true;
+});
+
+ipcMain.handle('run-local-command', async (event, { command, args = [], cwd } = {}) => {
+  const executable = typeof command === 'string' ? command.trim() : '';
+  if (!/^[A-Za-z0-9._+-]+$/.test(executable)) {
+    return { error: 'Command must be an executable name without shell syntax.' };
+  }
+  if (!Array.isArray(args) || args.length > 100 || args.some(arg => typeof arg !== 'string' || arg.length > 10000)) {
+    return { error: 'Command arguments must be a JSON array of strings.' };
+  }
+  if (!isPathAllowed(cwd)) {
+    return { error: 'Access Denied: Working directory is outside the registered workspace.' };
+  }
+
+  return new Promise(resolve => {
+    const child = spawn(executable, args, {
+      cwd: path.resolve(cwd),
+      env: process.env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      shell: false
+    });
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+    const appendBounded = (current, chunk) => (current + chunk.toString()).slice(-1024 * 1024);
+    const finish = result => {
+      if (settled) return;
+      settled = true;
+      resolve(result);
+    };
+
+    child.stdout.on('data', chunk => { stdout = appendBounded(stdout, chunk); });
+    child.stderr.on('data', chunk => { stderr = appendBounded(stderr, chunk); });
+    child.on('error', err => finish({ error: err.message, output: stdout, stderr, exitCode: null }));
+    child.on('close', exitCode => finish({ output: stdout, stderr, exitCode }));
+  });
 });
 
 ipcMain.handle('list-files', async (event, dirPath) => {

@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('electron', {
   selectDirectory: () => ipcRenderer.invoke('select-directory'),
   getDefaultNotesPath: () => ipcRenderer.invoke('get-default-notes-path'),
   registerWorkspace: (path) => ipcRenderer.invoke('register-workspace', path),
+  runLocalCommand: (command, args, cwd) => ipcRenderer.invoke('run-local-command', { command, args, cwd }),
   onMenuAction: (callback) => ipcRenderer.on('menu-action', (event, action) => callback(action)),
   toggleDevTools: () => ipcRenderer.send('toggle-devtools'),
   listFiles: (path) => ipcRenderer.invoke('list-files', path),

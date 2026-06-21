@@ -76,6 +76,9 @@
     height: 100%;
     overflow-y: auto;
     padding: clamp(20px, 4vh, 48px) clamp(20px, 5vw, 72px) 96px;
+}
+
+.dash-scroll-inner {
     max-width: 1480px;
     margin: 0 auto;
 }
@@ -719,4 +722,8 @@
 .dash-tile-hermes .dash-tile-icon {
     background: #fff;
     border-color: rgba(255, 255, 255, 0.65);
+}
+
+.dash-tile-hermes .dash-tile-art {
+    background-size: auto 116%;
 }

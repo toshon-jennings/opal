@@ -47,34 +47,53 @@ function artifactExcerpt(content) {
 
 // Polished, clickable reference to an artifact, rendered inline in a chat message
 // wherever an `:::artifact{...}` directive appears.
-function ArtifactReferenceCard({ title, type, excerpt, onOpen }) {
+function ArtifactReferenceCard({ title, type, excerpt, onOpen, onCopy }) {
+    const [copied, setCopied] = React.useState(false);
     const { label, Icon } = describeArtifact(type);
+    const handleCopy = (e) => {
+        e.stopPropagation();
+        onCopy?.();
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
     return (
-        <button
-            type="button"
-            onClick={onOpen}
-            aria-label={`Open ${title}`}
-            className="group my-3 flex w-full items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--bg-tertiary)] p-3 text-left transition-all hover:border-[var(--accent)] hover:shadow-[0_8px_28px_var(--accent-glow)]"
-        >
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[rgba(var(--accent-rgb),0.12)] text-[var(--accent)]">
-                <Icon size={20} />
-            </div>
-            <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                    <span className="truncate text-sm font-semibold text-[var(--text-primary)]">{title}</span>
-                    <span className="shrink-0 rounded-full border border-[var(--border)] bg-[var(--bg-secondary)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--text-tertiary)]">
-                        {label}
-                    </span>
+        <div className="group my-3 flex w-full items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--bg-tertiary)] p-3 text-left">
+            <button
+                type="button"
+                onClick={onOpen}
+                aria-label={`Open ${title}`}
+                className="flex items-center gap-3 flex-1 min-w-0 text-left"
+            >
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[rgba(var(--accent-rgb),0.12)] text-[var(--accent)]">
+                    <Icon size={20} />
                 </div>
-                <div className="mt-0.5 truncate text-xs text-[var(--text-tertiary)]">
-                    {excerpt || 'Open to view and download'}
+                <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                        <span className="truncate text-sm font-semibold text-[var(--text-primary)]">{title}</span>
+                        <span className="shrink-0 rounded-full border border-[var(--border)] bg-[var(--bg-secondary)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[var(--text-tertiary)]">
+                            {label}
+                        </span>
+                    </div>
+                    <div className="mt-0.5 truncate text-xs text-[var(--text-tertiary)]">
+                        {excerpt || 'Open to view and download'}
+                    </div>
                 </div>
-            </div>
-            <div className="flex shrink-0 items-center gap-1 text-xs font-medium text-[var(--text-tertiary)] transition-colors group-hover:text-[var(--accent)]">
-                <span className="hidden sm:inline">Open</span>
-                <ExternalLink size={15} />
-            </div>
-        </button>
+                <div className="flex shrink-0 items-center gap-1 text-xs font-medium text-[var(--text-tertiary)] transition-colors group-hover:text-[var(--accent)]">
+                    <span className="hidden sm:inline">Open</span>
+                    <ExternalLink size={15} />
+                </div>
+            </button>
+            {onCopy && (
+                <button
+                    type="button"
+                    onClick={handleCopy}
+                    className="shrink-0 p-2 rounded-md text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+                    title="Copy artifact content"
+                >
+                    {copied ? <Check size={15} className="text-green-500" /> : <Copy size={15} />}
+                </button>
+            )}
+        </div>
     );
 }
 
@@ -628,6 +647,11 @@ export function ChatMessage({ message }) {
                                         setCurrentArtifactId(id);
                                         setIsArtifactOpen(true);
                                         if (openArtifactWindow) openArtifactWindow(id);
+                                    }}
+                                    onCopy={() => {
+                                        if (artifact?.content) {
+                                            navigator.clipboard.writeText(artifact.content);
+                                        }
                                     }}
                                 />
                             );

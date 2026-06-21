@@ -186,6 +186,7 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
             </div>
 
             <div className="dash-scroll">
+                <div className="dash-scroll-inner">
                 {/* ── Hero ── */}
                 <section className="dash-hero">
                     <div className="dash-hero-text">
@@ -413,6 +414,7 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                             <span className="dash-chip">{window.electron ? 'Desktop' : 'Web'}</span>
                         </div>
                     </aside>
+                </div>
                 </div>
             </div>
 

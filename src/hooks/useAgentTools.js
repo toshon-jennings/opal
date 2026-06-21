@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { executeIntegrationTool } from '../lib/integrationTools';
 
 /**
@@ -7,6 +7,8 @@ import { executeIntegrationTool } from '../lib/integrationTools';
  */
 export function useAgentTools(workingDirectory, webcontainerInstance, apiKeys = {}) {
     const [toolLog, setToolLog] = useState([]);
+    const workingDirectoryRef = useRef(workingDirectory);
+    workingDirectoryRef.current = workingDirectory;
 
     const log = useCallback((msg) => {
         setToolLog(prev => [...prev, String(msg)]);
@@ -19,11 +21,12 @@ export function useAgentTools(workingDirectory, webcontainerInstance, apiKeys = 
      * Absolute paths are returned unchanged.
      */
     const resolvePath = useCallback((p) => {
-        if (!p) return workingDirectory || '.';
+        const currentDirectory = workingDirectoryRef.current;
+        if (!p) return currentDirectory || '.';
         if (p.startsWith('/') || /^[A-Za-z]:[/\\]/.test(p)) return p; // already absolute
-        if (workingDirectory) return `${workingDirectory}/${p}`.replace(/\/+/g, '/');
+        if (currentDirectory) return `${currentDirectory}/${p}`.replace(/\/+/g, '/');
         return p;
-    }, [workingDirectory]);
+    }, []);
 
     /**
      * Execute a named tool with the given params object.
@@ -92,17 +95,34 @@ export function useAgentTools(workingDirectory, webcontainerInstance, apiKeys = 
 
                 // ── run_command ────────────────────────────────────────────
                 case 'run_command': {
-                    if (!webcontainerInstance) {
-                        return {
-                            error: 'Shell commands require the WebContainer sandbox. ' +
-                                   'They are intentionally disabled for local folder projects.'
-                        };
-                    }
                     const cmd = (params.command || '').trim();
-                    const [exe, ...args] = cmd.split(/\s+/);
-                    log(`$ ${cmd}`);
+                    let args;
+                    try {
+                        args = JSON.parse(params.arguments || '[]');
+                    } catch {
+                        return { error: 'arguments must be a JSON array of strings.' };
+                    }
+                    if (!Array.isArray(args) || args.some(arg => typeof arg !== 'string')) {
+                        return { error: 'arguments must be a JSON array of strings.' };
+                    }
+                    log(`$ ${[cmd, ...args].join(' ')}`);
 
-                    const proc = await webcontainerInstance.spawn(exe, args);
+                    if (window.electron?.runLocalCommand) {
+                        const cwd = workingDirectoryRef.current;
+                        if (!cwd) return { error: 'Choose a local workspace folder before running commands.' };
+                        await window.electron.registerWorkspace?.(cwd);
+                        const result = await window.electron.runLocalCommand(cmd, args, cwd);
+                        if (result.output) log(result.output);
+                        if (result.stderr) log(result.stderr);
+                        log(`exit ${result.exitCode ?? 'error'}`);
+                        return result;
+                    }
+
+                    if (!webcontainerInstance) {
+                        return { error: 'No command runtime is available.' };
+                    }
+
+                    const proc = await webcontainerInstance.spawn(cmd, args);
                     let output = '';
                     await proc.output.pipeTo(new WritableStream({
                         write(data) {

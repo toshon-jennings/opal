@@ -251,7 +251,10 @@ const TerminalPanel = forwardRef(function TerminalPanel({ sessionId = 'default',
         </div>
       </div>
       )}
-      <div className={`flex-1 min-h-0 px-2 pt-2 overflow-hidden ${embedded ? 'pb-2' : 'pb-6'}`}>
+      <div
+        className={`flex-1 min-h-0 px-2 pt-2 overflow-hidden ${embedded ? 'pb-2' : 'pb-6'}`}
+        onPointerDown={() => termInstanceRef.current?.focus()}
+      >
         <div ref={terminalRef} className="h-full w-full overflow-hidden" />
       </div>
     </div>
