@@ -915,7 +915,15 @@ app.whenReady().then(() => {
   if (!isDev) {
     autoUpdater.autoDownload = false;
 
+    // Helper to send state to renderer once mainWindow is ready
+    function sendUpdaterState(state) {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('updater:state', state);
+      }
+    }
+
     autoUpdater.on('update-available', (info) => {
+      sendUpdaterState('available');
       dialog.showMessageBox({
         type: 'info',
         title: 'Update Available',
@@ -923,12 +931,14 @@ app.whenReady().then(() => {
         buttons: ['Yes', 'Later']
       }).then((result) => {
         if (result.response === 0) {
+          sendUpdaterState('downloading');
           autoUpdater.downloadUpdate();
         }
       });
     });
 
     autoUpdater.on('update-downloaded', () => {
+      sendUpdaterState('downloaded');
       dialog.showMessageBox({
         type: 'info',
         title: 'Update Ready',
@@ -939,6 +949,15 @@ app.whenReady().then(() => {
           autoUpdater.quitAndInstall();
         }
       });
+    });
+
+    ipcMain.handle('updater:action', (event, action) => {
+      if (action === 'download') {
+        sendUpdaterState('downloading');
+        autoUpdater.downloadUpdate();
+      } else if (action === 'install') {
+        autoUpdater.quitAndInstall();
+      }
     });
 
     autoUpdater.checkForUpdates();

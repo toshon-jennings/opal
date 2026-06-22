@@ -35,7 +35,7 @@ import { ChatProvider } from './context/ChatContext';
 
 import nousLogo from './assets/nousresearch.png';
 import openClawLogo from './assets/openclaw-color.png';
-import { Moon, Sun, Monitor, Lock, Unlock, Plus, Terminal as TerminalIcon, Server, RefreshCw, ExternalLink, AlertCircle, BookOpen, Cpu } from 'lucide-react';
+import { Moon, Sun, Monitor, Lock, Unlock, Plus, Terminal as TerminalIcon, Server, RefreshCw, ExternalLink, AlertCircle, BookOpen, Cpu, Download } from 'lucide-react';
 import { useTheme, ThemeProvider } from './context/ThemeContext';
 import { useChat } from './context/ChatContext';
 import TerminalPanel from './components/Terminal';
@@ -110,6 +110,7 @@ function AppContent() {
     const [showModeGuide, setShowModeGuide] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [terminalCommand, setTerminalCommand] = useState('');
+    const [updaterState, setUpdaterState] = useState(null);
     const [openClawDashboardTab, setOpenClawDashboardTab] = useState('gateway');
     // Always land on the chat (Gateway) tab when the OpenClaw window (re)opens, so
     // switching to Models/Diary never "sticks" as the default view.
@@ -134,6 +135,12 @@ function AppContent() {
         () => getOpenClawDashboardUrl(activeOpenClawProfile),
         [activeOpenClawProfile]
     );
+
+    useEffect(() => {
+        if (window.electron?.onUpdaterState) {
+            return window.electron.onUpdaterState((state) => setUpdaterState(state));
+        }
+    }, []);
 
     // Listen for Electron Menu Actions
     useEffect(() => {
@@ -900,6 +907,33 @@ function AppContent() {
                     {currentMode === MODES.CHAT && (
                         <button onClick={createNewChat} className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-md transition-colors" title="New Chat">
                             <Plus size={18} />
+                        </button>
+                    )}
+
+                    {updaterState === 'available' && (
+                        <button
+                            onClick={() => window.electron?.triggerUpdaterAction('download')}
+                            className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 transition-colors text-sm font-medium border border-blue-500/20"
+                            title="Download Update"
+                        >
+                            <Download size={16} />
+                            Update Available
+                        </button>
+                    )}
+                    {updaterState === 'downloading' && (
+                        <div className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 bg-[var(--bg-hover)] text-[var(--text-secondary)] text-sm font-medium border border-[var(--border)]">
+                            <RefreshCw size={16} className="animate-spin" />
+                            Downloading...
+                        </div>
+                    )}
+                    {updaterState === 'downloaded' && (
+                        <button
+                            onClick={() => window.electron?.triggerUpdaterAction('install')}
+                            className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors text-sm font-medium border border-emerald-500/20"
+                            title="Restart to Install Update"
+                        >
+                            <RefreshCw size={16} />
+                            Restart to Update
                         </button>
                     )}
 

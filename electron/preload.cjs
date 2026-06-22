@@ -90,4 +90,10 @@ contextBridge.exposeInMainWorld('electron', {
   eidosStop: () => ipcRenderer.invoke('eidos:stop'),
   eidosRestart: () => ipcRenderer.invoke('eidos:restart'),
   eidosProgress: () => ipcRenderer.invoke('eidos:progress'),
+  onUpdaterState: (callback) => {
+    const listener = (event, state) => callback(state);
+    ipcRenderer.on('updater:state', listener);
+    return () => ipcRenderer.removeListener('updater:state', listener);
+  },
+  triggerUpdaterAction: (action) => ipcRenderer.invoke('updater:action', action),
 });
