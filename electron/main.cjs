@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu, shell, safeStorage } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const { installRedactedConsole } = require('./redact-console.cjs');
 const path = require('path');
 const fsSync = require('fs');
@@ -911,6 +912,10 @@ function cleanedDesktopUserAgent(rawUa) {
 }
 
 app.whenReady().then(() => {
+  if (!isDev) {
+    autoUpdater.checkForUpdatesAndNotify();
+  }
+
   app.on('web-contents-created', (_event, contents) => {
     // Google's GIS popup (allowed below) is created with the default UA, which
     // Google rejects. Reload it with a clean Chrome UA so consent can proceed.

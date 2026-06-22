@@ -48,7 +48,14 @@
       "target": [
         "AppImage"
       ]
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "toshon-jennings",
+        "repo": "perci"
+      }
+    ]
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
@@ -58,6 +65,7 @@
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
     "clsx": "^2.1.0",
+    "electron-updater": "^6.8.9",
     "framer-motion": "^11.0.8",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.4",
