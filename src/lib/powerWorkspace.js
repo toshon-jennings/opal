@@ -10,15 +10,6 @@ export const MISSION_RUNS_KEY = 'perci_mission_runs';
 export const SUPATERM_ACTIVE_PROJECT_KEY = 'supaterm_active_project_id';
 export const SUPATERM_ACTIVE_TERMINAL_KEY = 'supaterm_active_terminal_id';
 
-function safeJson(value, fallback) {
-    try {
-        const parsed = JSON.parse(value || '');
-        return parsed ?? fallback;
-    } catch {
-        return fallback;
-    }
-}
-
 function cleanString(value) {
     return String(value || '').trim();
 }
@@ -279,11 +270,11 @@ export function chooseNextWorkspaceAction({ workspace, ideas = [], missionRuns =
     };
 }
 
-export function readPowerWorkspaceSnapshot(storage = globalThis.localStorage) {
-    const storedWorkspace = safeJson(storage?.getItem?.(POWER_WORKSPACE_KEY), {});
-    const workingDirectory = cleanString(storage?.getItem?.('working_directory'));
-    const projects = safeJson(storage?.getItem?.(GITSHELLS_PROJECTS_KEY), []);
-    const activeProjectId = cleanString(storage?.getItem?.('supaterm_active_project_id'));
+export function readPowerWorkspaceSnapshot() {
+    const storedWorkspace = readJsonStorage(POWER_WORKSPACE_KEY, {});
+    const workingDirectory = readStringStorage('working_directory', '');
+    const projects = readJsonStorage(GITSHELLS_PROJECTS_KEY, []);
+    const activeProjectId = readStringStorage('supaterm_active_project_id', '');
     const activeProject = Array.isArray(projects)
         ? projects.find(project => project?.id === activeProjectId)
             || projects.find(project => cleanString(project?.path) === workingDirectory)
@@ -294,7 +285,7 @@ export function readPowerWorkspaceSnapshot(storage = globalThis.localStorage) {
         folderPath: activeProject?.path || workingDirectory,
     };
     const workspace = normalizePowerWorkspace(storedWorkspace, fallback);
-    const allIdeas = sortByUpdatedAt(safeJson(storage?.getItem?.(BARS_IDEAS_KEY), []))
+    const allIdeas = sortByUpdatedAt(readJsonStorage(BARS_IDEAS_KEY, []))
         .map(idea => ({
             id: cleanString(idea.id),
             title: cleanString(idea.title) || 'Untitled idea',
@@ -302,7 +293,7 @@ export function readPowerWorkspaceSnapshot(storage = globalThis.localStorage) {
             next: cleanString(idea.next),
             updatedAt: cleanString(idea.updatedAt || idea.createdAt),
         }));
-    const relevantMissionRuns = sortByUpdatedAt(safeJson(storage?.getItem?.(MISSION_RUNS_KEY), []))
+    const relevantMissionRuns = sortByUpdatedAt(readJsonStorage(MISSION_RUNS_KEY, []))
         .filter(run => {
             if (!workspace.folderPath && workspace.linkedMissionRunIds.length === 0) return true;
             return isMissionRunRelevantToWorkspace(run, workspace);
@@ -330,7 +321,7 @@ export function readPowerWorkspaceSnapshot(storage = globalThis.localStorage) {
         activeProjectName: cleanString(activeProject?.name),
         terminalCount: Array.isArray(activeProject?.terminals) ? activeProject.terminals.length : 0,
     };
-    const memoryCandidates = sortByUpdatedAt(safeJson(storage?.getItem?.(MISSION_MEMORY_CANDIDATES_KEY), []))
+    const memoryCandidates = sortByUpdatedAt(readJsonStorage(MISSION_MEMORY_CANDIDATES_KEY, []))
         .filter(candidate => candidate?.status === 'pending' && relevantRunIds.has(cleanString(candidate.sourceRunId)))
         .slice(0, 3)
         .map(candidate => ({
@@ -340,7 +331,7 @@ export function readPowerWorkspaceSnapshot(storage = globalThis.localStorage) {
             text: cleanString(candidate.text),
             createdAt: cleanString(candidate.createdAt),
         }));
-    const memories = sortByUpdatedAt(safeJson(storage?.getItem?.(HARNESS_MEMORY_KEY), []))
+    const memories = sortByUpdatedAt(readJsonStorage(HARNESS_MEMORY_KEY, []))
         .filter(memory => (
             Boolean(workspace.folderPath && cleanString(memory?.scope) === workspace.folderPath)
             || relevantRunIds.has(cleanString(memory?.sourceRunId))
@@ -367,16 +358,16 @@ export function readPowerWorkspaceSnapshot(storage = globalThis.localStorage) {
     };
 }
 
-export function savePowerWorkspace(workspace, storage = globalThis.localStorage) {
+export function savePowerWorkspace(workspace) {
     const normalized = normalizePowerWorkspace({
         ...workspace,
         updatedAt: new Date().toISOString(),
     });
-    storage?.setItem?.(POWER_WORKSPACE_KEY, JSON.stringify(normalized));
+    writeStringStorage(POWER_WORKSPACE_KEY, JSON.stringify(normalized));
     return normalized;
 }
 
-export function setWorkspaceLink(workspace, linkKey, itemId, isLinked, storage = globalThis.localStorage) {
+export function setWorkspaceLink(workspace, linkKey, itemId, isLinked) {
     const normalized = normalizePowerWorkspace(workspace);
     const currentIds = uniqueStrings(normalized[linkKey]);
     const targetId = cleanString(itemId);
@@ -386,10 +377,10 @@ export function setWorkspaceLink(workspace, linkKey, itemId, isLinked, storage =
     const nextIds = isLinked
         ? uniqueStrings([...currentIds, targetId])
         : currentIds.filter(id => id !== targetId);
-    return savePowerWorkspace({ ...normalized, [linkKey]: nextIds }, storage);
+    return savePowerWorkspace({ ...normalized, [linkKey]: nextIds });
 }
 
-export function prepareWorkspaceSurfaceHandoff(target, itemRef, storage = globalThis.localStorage) {
+export function prepareWorkspaceSurfaceHandoff(target, itemRef) {
     const normalizedTarget = cleanString(target).toLowerCase();
     const normalizedRef = cleanString(itemRef);
     if (!['bars', 'notes', 'mission'].includes(normalizedTarget) || !normalizedRef) return null;
@@ -398,15 +389,15 @@ export function prepareWorkspaceSurfaceHandoff(target, itemRef, storage = global
         itemRef: normalizedRef,
         createdAt: new Date().toISOString(),
     };
-    storage?.setItem?.(POWER_WORKSPACE_SURFACE_HANDOFF_KEY, JSON.stringify(handoff));
+    writeStringStorage(POWER_WORKSPACE_SURFACE_HANDOFF_KEY, JSON.stringify(handoff));
     emitWorkspaceHandoff(POWER_WORKSPACE_SURFACE_HANDOFF_EVENT, handoff);
     return handoff;
 }
 
-export function consumeWorkspaceSurfaceHandoff(target, storage = globalThis.localStorage) {
-    const handoff = safeJson(storage?.getItem?.(POWER_WORKSPACE_SURFACE_HANDOFF_KEY), null);
+export function consumeWorkspaceSurfaceHandoff(target) {
+    const handoff = readJsonStorage(POWER_WORKSPACE_SURFACE_HANDOFF_KEY, null);
     if (!handoff || cleanString(handoff.target).toLowerCase() !== cleanString(target).toLowerCase()) return null;
-    storage?.removeItem?.(POWER_WORKSPACE_SURFACE_HANDOFF_KEY);
+    removeStorageKey(POWER_WORKSPACE_SURFACE_HANDOFF_KEY);
     return {
         target: cleanString(handoff.target).toLowerCase(),
         itemRef: cleanString(handoff.itemRef),
@@ -414,8 +405,8 @@ export function consumeWorkspaceSurfaceHandoff(target, storage = globalThis.loca
     };
 }
 
-export function prepareWorkspaceCoworkHandoff(workspace, storage = globalThis.localStorage, context = null) {
-    const normalized = savePowerWorkspace(workspace, storage);
+export function prepareWorkspaceCoworkHandoff(workspace, context = null) {
+    const normalized = savePowerWorkspace(workspace);
     const contextTitle = cleanString(context?.title || context?.ref);
     const handoff = {
         sessionId: `workspace-cowork:${Date.now()}`,
@@ -429,29 +420,29 @@ export function prepareWorkspaceCoworkHandoff(workspace, storage = globalThis.lo
         createdAt: new Date().toISOString(),
     };
     if (normalized.folderPath) {
-        storage?.setItem?.('working_directory', normalized.folderPath);
+        writeStringStorage('working_directory', normalized.folderPath);
     }
-    storage?.setItem?.(POWER_WORKSPACE_COWORK_HANDOFF_KEY, JSON.stringify(handoff));
+    writeStringStorage(POWER_WORKSPACE_COWORK_HANDOFF_KEY, JSON.stringify(handoff));
     emitWorkspaceHandoff('perci-power-workspace-cowork-handoff', handoff);
     return handoff;
 }
 
-export function prepareWorkspaceChatHandoff(workspace, chatId, storage = globalThis.localStorage) {
-    const normalized = savePowerWorkspace(workspace, storage);
+export function prepareWorkspaceChatHandoff(workspace, chatId) {
+    const normalized = savePowerWorkspace(workspace);
     const handoff = {
         chatId: cleanString(chatId),
         workspaceId: normalized.id,
         prompt: buildWorkspaceChatPrompt(normalized),
         createdAt: new Date().toISOString(),
     };
-    storage?.setItem?.(POWER_WORKSPACE_CHAT_HANDOFF_KEY, JSON.stringify(handoff));
+    writeStringStorage(POWER_WORKSPACE_CHAT_HANDOFF_KEY, JSON.stringify(handoff));
     emitWorkspaceHandoff('perci-power-workspace-chat-handoff', handoff);
     return handoff;
 }
 
-export function prepareWorkspaceProjectHandoff(workspace, storage = globalThis.localStorage) {
-    const normalized = savePowerWorkspace(workspace, storage);
-    const projects = safeJson(storage?.getItem?.(GITSHELLS_PROJECTS_KEY), []);
+export function prepareWorkspaceProjectHandoff(workspace) {
+    const normalized = savePowerWorkspace(workspace);
+    const projects = readJsonStorage(GITSHELLS_PROJECTS_KEY, []);
     const matchingProject = Array.isArray(projects)
         ? projects.find(project => cleanString(project?.path) === normalized.folderPath)
         : null;
@@ -466,18 +457,19 @@ export function prepareWorkspaceProjectHandoff(workspace, storage = globalThis.l
     };
 
     if (normalized.folderPath) {
-        storage?.setItem?.('working_directory', normalized.folderPath);
+        writeStringStorage('working_directory', normalized.folderPath);
     }
     if (handoff.matchedProjectId) {
-        storage?.setItem?.(SUPATERM_ACTIVE_PROJECT_KEY, handoff.matchedProjectId);
+        writeStringStorage(SUPATERM_ACTIVE_PROJECT_KEY, handoff.matchedProjectId);
     }
     if (handoff.matchedTerminalId) {
-        storage?.setItem?.(SUPATERM_ACTIVE_TERMINAL_KEY, handoff.matchedTerminalId);
+        writeStringStorage(SUPATERM_ACTIVE_TERMINAL_KEY, handoff.matchedTerminalId);
     }
 
-    storage?.setItem?.(POWER_WORKSPACE_PROJECT_HANDOFF_KEY, JSON.stringify(handoff));
+    writeStringStorage(POWER_WORKSPACE_PROJECT_HANDOFF_KEY, JSON.stringify(handoff));
     emitWorkspaceHandoff('perci-power-workspace-project-handoff', handoff);
     return handoff;
 }
 import { HARNESS_MEMORY_KEY } from './harnessMemory';
 import { MISSION_MEMORY_CANDIDATES_KEY } from './missionControl';
+import { readStringStorage, readJsonStorage, writeStringStorage, removeStorageKey } from './persistentStore';

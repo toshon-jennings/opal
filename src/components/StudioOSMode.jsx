@@ -5,15 +5,16 @@ import {
 } from 'lucide-react';
 import studioLogoLight from '../assets/studioos-logo-light.png';
 import studioLogoDark from '../assets/studioos-logo-dark.png';
+import { readStringStorage, writeStringStorage } from '../lib/persistentStore';
 
 // ── StudioOS brand ──────────────────────────────────────────────────────────
 const STUDIO_BLUE = '#3b82f6'; // StudioOS brand accent (theme-color)
 
 // Genuine StudioOS API. Defaults to production; override (e.g. a local
-// `vercel dev` instance) is persisted in localStorage.
+// `vercel dev` instance) is persisted via persistentStore.
 const DEFAULT_API_BASE = 'https://studioos.dev';
 const getApiBase = () =>
-    (localStorage.getItem('studioos_api_base') || DEFAULT_API_BASE).replace(/\/+$/, '');
+    (readStringStorage('studioos_api_base', DEFAULT_API_BASE) || DEFAULT_API_BASE).replace(/\/+$/, '');
 
 // Genuine StudioOS logo — theme-switched for contrast (see index.css).
 function StudioLogo({ size = 32, className = '' }) {
@@ -58,7 +59,7 @@ function relativeTime(iso) {
 // ── Main Component ─────────────────────────────────────────────────────────
 
 export default function StudioOSMode() {
-    const [apiKey, setApiKey] = useState(() => localStorage.getItem('studioos_api_key') || '');
+    const [apiKey, setApiKey] = useState(() => readStringStorage('studioos_api_key') || '');
     const [apiBase, setApiBase] = useState(getApiBase);
     const [showKeyInput, setShowKeyInput] = useState(!apiKey);
     const [loading, setLoading] = useState(false);
@@ -188,9 +189,9 @@ export default function StudioOSMode() {
 
     const saveApiKey = () => {
         if (!apiKey.trim()) return;
-        localStorage.setItem('studioos_api_key', apiKey.trim());
+        writeStringStorage('studioos_api_key', apiKey.trim());
         const base = (apiBase.trim() || DEFAULT_API_BASE).replace(/\/+$/, '');
-        localStorage.setItem('studioos_api_base', base);
+        writeStringStorage('studioos_api_base', base);
         setApiBase(base);
         setShowKeyInput(false);
         void loadOverview();
@@ -294,7 +295,7 @@ export default function StudioOSMode() {
                         <span>Open StudioOS</span>
                         <ExternalLink size={12} />
                     </button>
-                    {apiKey && localStorage.getItem('studioos_api_key') && (
+                    {apiKey && readStringStorage('studioos_api_key') && (
                         <button onClick={() => setShowKeyInput(false)} className="mt-2 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]">Cancel</button>
                     )}
                     <p className="mt-3 text-[11px] text-[var(--text-tertiary)]">

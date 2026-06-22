@@ -2,13 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     MessageSquare, Bot,
     Plus, ArrowUpRight, Server, Sparkles, CheckCircle2, AlertTriangle, Layers, Settings,
-    Radar, BookOpen, GraduationCap, Globe,
+    Radar, BookOpen, GraduationCap, Globe, Paperclip,
 } from 'lucide-react';
 import {
     ChatIcon, CoworkIcon, CodeIcon, NotesIcon, AgentsIcon, ResearchIcon,
     OfficeIcon, MissionIcon, BuildIcon, ProjectsIcon,
 } from './ModeIcons';
-import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID } from '../context/ModeContext';
+import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID } from '../context/ModeContext';
 import { useChat } from '../context/ChatContext';
 import PerciMascot from './PerciMascot';
 import { AGENT_DEFINITIONS, ACTIVE_JOB_STATUSES, ATTENTION_JOB_STATUSES } from './AgentsPanel';
@@ -30,6 +30,8 @@ import barsLogo from '../assets/bars-logo.svg';
 import billboardLogo from '../assets/billboard-logo.svg';
 import openclawLogo from '../assets/openclaw-logo.svg';
 import studioosLogo from '../assets/studioos-logo-dark.png';
+import klipitLogo from '../assets/klipit-logo.png';
+import klipitBg from '../assets/klipit-bg.jpeg';
 import './DashboardMode.css';
 
 const JOBS_POLL_MS = 10000;
@@ -47,6 +49,7 @@ const NATIVE_TILES = [
     { id: MODES.OFFICE, icon: OfficeIcon, title: 'Office', desc: 'Visit the crew at Perci HQ', hue: '#fbbf24' },
     { id: MODES.MISSION, icon: MissionIcon, title: 'Mission', desc: 'Supervise runs and checks', hue: '#60a5fa' },
     { id: MODES.BUILD, icon: BuildIcon, title: 'Build', desc: 'Generate and ship projects', hue: '#fb7185' },
+    { id: LOCALHOST_WINDOW_ID, icon: Globe, title: 'Localhost', desc: 'Preview any local dev server', hue: '#34d399', artwork: true, bgImage: localhostBg },
 ];
 
 // OS-level tools and external runtimes. Bars belongs here when its Perci
@@ -57,7 +60,7 @@ const SYSTEM_TILES = [
     { id: HERMES_WINDOW_ID, icon: null, logo: hermesLogo, title: 'Hermes', desc: 'CLI agent — chat, console, sessions', hue: '#eab308', artwork: true },
     { id: GDASH_WINDOW_ID, icon: null, logo: gdashLogo, title: 'G-Dash', desc: 'Google Workspace dashboard', hue: '#4285f4', artwork: true, bgImage: gdashBg },
     { id: EIDOS_WINDOW_ID, icon: null, logo: eidosLogo, title: 'Eidos', desc: 'Persistent memory for AI agents', hue: '#8b5cf6', artwork: true, bgImage: eidosBg },
-    { id: LOCALHOST_WINDOW_ID, icon: Globe, title: 'Localhost', desc: 'Preview any local dev server', hue: '#34d399', artwork: true, bgImage: localhostBg },
+    { id: KLIPIT_WINDOW_ID, icon: null, logo: klipitLogo, title: 'Klipit', desc: 'Securely klip the web', hue: '#ec4899', artwork: true, bgImage: klipitBg },
     { id: MODES.BARS, icon: null, logo: barsLogo, title: 'BARS', desc: 'Idea notebook', hue: '#f59e0b', artwork: true, bgImage: barsBg },
     { id: MODES.CONCERNS, icon: null, logo: billboardLogo, title: 'Bill Board', desc: 'Services, keys & subscriptions', hue: '#06b6d4', artwork: true, bgImage: billboardBg },
     { id: MODES.STUDIOOS, icon: Layers, logo: studioosLogo, title: 'StudioOS', desc: 'View/manage your StudioOS workspace', hue: '#3b82f6', artwork: true, bgImage: studioosBg },

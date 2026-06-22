@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Text, Billboard } from '@react-three/drei';
 import { Settings, X, Share2, Link2, Crosshair } from 'lucide-react';
+import { readStringStorage, writeStringStorage } from '../lib/persistentStore';
 
 /* Perci Notes — 3D knowledge graph.
  * Renders every note as a node and every [[wikilink]] / md-link as an edge,
@@ -47,7 +48,7 @@ const CLUSTER_PALETTE = [
 
 function loadSettings() {
     try {
-        const raw = localStorage.getItem(SETTINGS_KEY);
+        const raw = readStringStorage(SETTINGS_KEY, '{}');
         if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
     } catch { /* ignore */ }
     return { ...DEFAULT_SETTINGS };
@@ -702,7 +703,7 @@ export default function NotesGraph3D({ noteIds, graph, activeNoteId, onOpenNote,
     }, []);
 
     useEffect(() => {
-        try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* ignore */ }
+        try { writeStringStorage(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* ignore */ }
     }, [settings]);
 
     const set = (patch) => setSettings(s => ({ ...s, ...patch }));

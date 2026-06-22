@@ -1,3 +1,5 @@
+import { readStringStorage, writeStringStorage } from './persistentStore';
+
 export const DIFF_REVIEW_KEY = 'perci_diff_reviews';
 
 export function createIntentReview({ title = 'Workspace review', command = '', output = '', files = [], validation = null } = {}) {
@@ -20,7 +22,7 @@ export function createIntentReview({ title = 'Workspace review', command = '', o
 
 export function readIntentReviews() {
     try {
-        const parsed = JSON.parse(localStorage.getItem(DIFF_REVIEW_KEY) || '[]');
+        const parsed = JSON.parse(readStringStorage(DIFF_REVIEW_KEY, '[]'));
         return Array.isArray(parsed) ? parsed : [];
     } catch {
         return [];
@@ -29,7 +31,7 @@ export function readIntentReviews() {
 
 export function saveIntentReview(review) {
     const reviews = [review, ...readIntentReviews().filter(item => item.id !== review.id)].slice(0, 30);
-    localStorage.setItem(DIFF_REVIEW_KEY, JSON.stringify(reviews));
+    writeStringStorage(DIFF_REVIEW_KEY, JSON.stringify(reviews));
     return reviews;
 }
 

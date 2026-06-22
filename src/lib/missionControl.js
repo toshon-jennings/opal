@@ -1,5 +1,6 @@
 import { createIntentReview } from './diffReview';
 import { addHarnessMemory, evaluateMemoryQuality, ingestRunMemory, readHarnessMemory } from './harnessMemory';
+import { readStringStorage, writeStringStorage, removeStorageKey } from './persistentStore';
 
 export const MISSION_RUNS_KEY = 'perci_mission_runs';
 export const MISSION_MEMORY_KEY = 'perci_mission_memory';
@@ -81,7 +82,7 @@ export function createSeedMissionRuns() {
 }
 
 export function readMissionRuns() {
-    const saved = localStorage.getItem(MISSION_RUNS_KEY);
+    const saved = readStringStorage(MISSION_RUNS_KEY, '[]');
     if (!saved) return createSeedMissionRuns();
     try {
         const parsed = JSON.parse(saved);
@@ -95,7 +96,7 @@ export function readMissionRuns() {
 
 export function saveMissionRuns(runs) {
     const normalized = Array.isArray(runs) ? runs.map(normalizeRun).slice(0, MAX_RUNS) : createSeedMissionRuns();
-    localStorage.setItem(MISSION_RUNS_KEY, JSON.stringify(normalized));
+    writeStringStorage(MISSION_RUNS_KEY, JSON.stringify(normalized));
     window.dispatchEvent(new CustomEvent(MISSION_UPDATED_EVENT, { detail: normalized }));
     return normalized;
 }
@@ -807,12 +808,12 @@ export function recordMissionRunValidation(runId, status, summary = '') {
 
 export function setMissionValidationTarget(runId) {
     if (!runId) {
-        localStorage.removeItem(MISSION_VALIDATION_TARGET_KEY);
+        removeStorageKey(MISSION_VALIDATION_TARGET_KEY);
         return null;
     }
     const run = readMissionRuns().find(item => item.id === runId);
     if (!isRunNeedingValidation(run)) {
-        localStorage.removeItem(MISSION_VALIDATION_TARGET_KEY);
+        removeStorageKey(MISSION_VALIDATION_TARGET_KEY);
         return null;
     }
     const target = {
@@ -820,7 +821,7 @@ export function setMissionValidationTarget(runId) {
         title: run.title,
         updatedAt: new Date().toISOString()
     };
-    localStorage.setItem(MISSION_VALIDATION_TARGET_KEY, JSON.stringify(target));
+    writeStringStorage(MISSION_VALIDATION_TARGET_KEY, JSON.stringify(target));
     return target;
 }
 
@@ -864,7 +865,7 @@ export function buildFinishReport(run) {
 }
 
 export function readMemoryCandidates() {
-    const saved = localStorage.getItem(MISSION_MEMORY_CANDIDATES_KEY);
+    const saved = readStringStorage(MISSION_MEMORY_CANDIDATES_KEY, '[]');
     if (!saved) return [];
     try {
         const parsed = JSON.parse(saved);
@@ -876,7 +877,7 @@ export function readMemoryCandidates() {
 
 export function saveMemoryCandidates(candidates) {
     const normalized = Array.isArray(candidates) ? candidates.slice(0, 40) : [];
-    localStorage.setItem(MISSION_MEMORY_CANDIDATES_KEY, JSON.stringify(normalized));
+    writeStringStorage(MISSION_MEMORY_CANDIDATES_KEY, JSON.stringify(normalized));
     return normalized;
 }
 
@@ -1044,7 +1045,7 @@ function resolveValidationTarget(command, explicitRunId) {
 }
 
 function readValidationTarget() {
-    const saved = localStorage.getItem(MISSION_VALIDATION_TARGET_KEY);
+    const saved = readStringStorage(MISSION_VALIDATION_TARGET_KEY, 'null');
     if (!saved) return null;
     try {
         const parsed = JSON.parse(saved);

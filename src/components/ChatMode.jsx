@@ -31,6 +31,7 @@ import {
     runChatWithTools
 } from '../lib/integrationTools';
 import { POWER_WORKSPACE_CHAT_HANDOFF_KEY } from '../lib/powerWorkspace';
+import { readStringStorage, writeStringStorage, removeStorageKey } from '../lib/persistentStore';
 
 const PROVIDERS_REQUIRING_API_KEYS = new Set(['openai', 'groq', 'gemini', 'openrouter', 'anthropic', 'mistral']);
 
@@ -558,13 +559,13 @@ function ChatMode() {
     } = useChat();
     const [input, setInput] = useState(() => {
         if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('perci_draft_input');
+            const saved = readStringStorage('perci_draft_input');
             return saved || '';
         }
         return '';
     });
     useEffect(() => {
-        localStorage.setItem('perci_draft_input', input);
+        writeStringStorage('perci_draft_input', input);
     }, [input]);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isChangelogOpen, setIsChangelogOpen] = useState(false);
@@ -579,11 +580,11 @@ function ChatMode() {
                 setInput(prompt);
                 setActiveTab('chat');
             }
-            localStorage.removeItem(POWER_WORKSPACE_CHAT_HANDOFF_KEY);
+            removeStorageKey(POWER_WORKSPACE_CHAT_HANDOFF_KEY);
         };
         const readPendingHandoff = () => {
             try {
-                return JSON.parse(localStorage.getItem(POWER_WORKSPACE_CHAT_HANDOFF_KEY) || 'null');
+                return JSON.parse(readStringStorage(POWER_WORKSPACE_CHAT_HANDOFF_KEY, 'null'));
             } catch {
                 return null;
             }
@@ -596,12 +597,12 @@ function ChatMode() {
     const [isSearchEnabled, setIsSearchEnabled] = useState(false);
     const [searchFocus, setSearchFocus] = useState(() => {
         if (typeof window !== 'undefined') {
-            return localStorage.getItem('searchFocus') || 'web';
+            return readStringStorage('searchFocus', 'web');
         }
         return 'web';
     });
     useEffect(() => {
-        localStorage.setItem('searchFocus', searchFocus);
+        writeStringStorage('searchFocus', searchFocus);
     }, [searchFocus]);
     const [isSearching, setIsSearching] = useState(false);
     const [searchMode, setSearchMode] = useState('web');
@@ -627,11 +628,11 @@ function ChatMode() {
     const [artifactPreviewUrl, setArtifactPreviewUrl] = useState('');
     // Width (px) of the artifact preview panel, resizable via the splitter. Persisted.
     const [artifactWidth, setArtifactWidth] = useState(() => {
-        const stored = parseInt(localStorage.getItem('artifact_panel_width') || '', 10);
+        const stored = parseInt(readStringStorage('artifact_panel_width') || '', 10);
         return Number.isFinite(stored) ? Math.min(Math.max(stored, 360), 1280) : 560;
     });
     useEffect(() => {
-        try { localStorage.setItem('artifact_panel_width', String(artifactWidth)); } catch { /* ignore */ }
+        try { writeStringStorage('artifact_panel_width', String(artifactWidth)); } catch { /* ignore */ }
     }, [artifactWidth]);
     // Drag the splitter between the chat and the artifact panel. The panel sits on
     // the right, so dragging left widens it (and shrinks the chat), and vice versa.
@@ -727,7 +728,7 @@ function ChatMode() {
         if (trimmedInput === '/changelog') {
             setIsChangelogOpen(true);
             setInput('');
-            localStorage.removeItem('perci_draft_input');
+            removeStorageKey('perci_draft_input');
             return;
         }
         if (!input.trim() && attachments.length === 0 || isLoading) return;
@@ -750,7 +751,7 @@ function ChatMode() {
             .filter(a => a.type === 'image' && a.previewUrl)
             .map(a => ({ name: a.name, dataUrl: a.previewUrl }));
         setInput('');
-        localStorage.removeItem('perci_draft_input');
+        removeStorageKey('perci_draft_input');
         setAttachments([]); // Clear attachments after sending
         const attachmentSummary = currentAttachments.length > 0
             ? currentAttachments.map(a => `[${a.type === 'image' ? 'Image' : 'File'}: ${a.name}]`).join('\n')

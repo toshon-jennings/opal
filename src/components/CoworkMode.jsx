@@ -13,7 +13,7 @@ import { SettingsModal } from './SettingsModal';
 import { PermissionsDropdown } from './PermissionsDropdown';
 import { useAgentTools } from '../hooks/useAgentTools';
 import perciLogo from '../assets/perci-logo.png';
-import { hasElectronStore, loadElectronPersistence, saveElectronPersistence } from '../lib/persistentStore';
+import { hasElectronStore, loadElectronPersistence, saveElectronPersistence, readStringStorage, writeStringStorage, removeStorageKey } from '../lib/persistentStore';
 import { normalizeAssistantSpacing } from '../lib/textFormatting';
 import { ProviderModelPicker } from './ProviderModelPicker';
 import { buildBudgetPrompt, createBudgetRun, estimateCharsFromMessages, recordBudgetIteration, recordBudgetResponse, recordBudgetToolCalls } from '../lib/budgetGovernor';
@@ -215,7 +215,7 @@ function CoworkModelSelector({ selectedProvider, selectedModel, availableModels,
 
 function loadRoutines() {
     try {
-        return JSON.parse(localStorage.getItem('cowork_routines') || '[]');
+        return JSON.parse(readStringStorage('cowork_routines', '[]'));
     } catch {
         return [];
     }
@@ -223,7 +223,7 @@ function loadRoutines() {
 
 function saveRoutines(routines) {
     const serializedRoutines = JSON.stringify(routines);
-    localStorage.setItem('cowork_routines', serializedRoutines);
+    writeStringStorage('cowork_routines', serializedRoutines);
     if (hasElectronStore()) {
         saveElectronPersistence({ cowork_routines: serializedRoutines })
             .catch(err => console.error('Failed to persist routines:', err));
@@ -573,7 +573,7 @@ function RoutinesView({ onRunRoutine, workingDirectory, onChooseFolder }) {
         loadElectronPersistence()
             .then((data) => {
                 if (!isMounted || typeof data?.cowork_routines !== 'string') return;
-                localStorage.setItem('cowork_routines', data.cowork_routines);
+                writeStringStorage('cowork_routines', data.cowork_routines);
                 setRoutines(loadRoutines());
             })
             .catch(err => console.error('Failed to hydrate routines:', err));
@@ -826,7 +826,7 @@ export default function CoworkMode() {
     const [sidebarWidth, setSidebarWidth] = useState(getDefaultSidebarWidth);
     const [conversationWidth, setConversationWidth] = useState(400);
     const [previewUrl, setPreviewUrl] = useState(() => {
-        return localStorage.getItem('perci_preview_url') || 'http://localhost:5173';
+        return readStringStorage('perci_preview_url', 'http://localhost:5173');
     });
     const isResizingSidebarRef = useRef(false);
     const isResizingConversationRef = useRef(false);
@@ -884,7 +884,7 @@ export default function CoworkMode() {
             formattedUrl = `http://${url}`;
         }
         setPreviewUrl(formattedUrl);
-        localStorage.setItem('perci_preview_url', formattedUrl);
+        writeStringStorage('perci_preview_url', formattedUrl);
     };
 
     useEffect(() => {
@@ -909,7 +909,7 @@ export default function CoworkMode() {
                 const files = await window.electron.listFiles(folderPath);
                 if (files.length > 0) {
                     setCodeState(prev => ({ ...prev, workingDirectory: folderPath }));
-                    localStorage.setItem('working_directory', folderPath);
+                    writeStringStorage('working_directory', folderPath);
                 }
             } catch (err) {
                 console.error('Could not apply folder path from session:', err);
@@ -929,7 +929,7 @@ export default function CoworkMode() {
         }
         if (folderPath) {
             setCodeState(prev => ({ ...prev, workingDirectory: folderPath }));
-            localStorage.setItem('working_directory', folderPath);
+            writeStringStorage('working_directory', folderPath);
         }
     };
 
@@ -941,7 +941,7 @@ export default function CoworkMode() {
 
             if (folderPath) {
                 setCodeState(prev => ({ ...prev, workingDirectory: folderPath }));
-                localStorage.setItem('working_directory', folderPath);
+                writeStringStorage('working_directory', folderPath);
                 window.electron?.registerWorkspace?.(folderPath)
                     ?.catch?.(err => console.error('Could not register Power Workspace folder:', err));
             }
@@ -966,12 +966,12 @@ export default function CoworkMode() {
                 setTaskInput(prompt);
                 setSidebarView('sessions');
             }
-            localStorage.removeItem(POWER_WORKSPACE_COWORK_HANDOFF_KEY);
+            removeStorageKey(POWER_WORKSPACE_COWORK_HANDOFF_KEY);
         };
 
         const readPendingHandoff = () => {
             try {
-                return JSON.parse(localStorage.getItem(POWER_WORKSPACE_COWORK_HANDOFF_KEY) || 'null');
+                return JSON.parse(readStringStorage(POWER_WORKSPACE_COWORK_HANDOFF_KEY, 'null'));
             } catch {
                 return null;
             }
@@ -1084,7 +1084,7 @@ export default function CoworkMode() {
                 const files = await window.electron.listFiles(folderPath);
                 if (files.length > 0) {
                     setCodeState(prev => ({ ...prev, workingDirectory: folderPath }));
-                    localStorage.setItem('working_directory', folderPath);
+                    writeStringStorage('working_directory', folderPath);
                 }
             } catch (err) {
                 console.error('Could not set working directory from message:', err);
@@ -1386,7 +1386,7 @@ export default function CoworkMode() {
         if (routineFolder) {
             await window.electron?.registerWorkspace?.(routineFolder);
             setCodeState(prev => ({ ...prev, workingDirectory: routineFolder }));
-            localStorage.setItem('working_directory', routineFolder);
+            writeStringStorage('working_directory', routineFolder);
         }
         setSidebarView('sessions');
         const session = {

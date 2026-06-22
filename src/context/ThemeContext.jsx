@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { readStringStorage, writeStringStorage } from '../lib/persistentStore';
 
 const ThemeContext = createContext();
 const THEME_STORAGE_KEY = 'theme';
@@ -15,7 +16,7 @@ function getStoredThemeMode() {
         return THEME_MODES.SYSTEM;
     }
 
-    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+    const savedTheme = readStringStorage(THEME_STORAGE_KEY, THEME_MODES.SYSTEM);
     return Object.values(THEME_MODES).includes(savedTheme) ? savedTheme : THEME_MODES.SYSTEM;
 }
 
@@ -64,7 +65,7 @@ export function ThemeProvider({ children }) {
 
         document.documentElement.classList.toggle('dark', isDarkMode);
         document.documentElement.style.colorScheme = resolvedTheme;
-        localStorage.setItem(THEME_STORAGE_KEY, themeMode);
+        writeStringStorage(THEME_STORAGE_KEY, themeMode);
     }, [isDarkMode, resolvedTheme, themeMode]);
 
     const toggleTheme = () => {

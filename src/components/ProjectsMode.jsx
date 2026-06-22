@@ -5,7 +5,7 @@ import {
   ChevronRight, Copy, Check, Bell, BellOff, Volume2, VolumeX
 } from 'lucide-react';
 import { useMode, MODES } from '../context/ModeContext';
-import { hasElectronStore, loadElectronPersistence, saveElectronPersistence } from '../lib/persistentStore';
+import { hasElectronStore, loadElectronPersistence, saveElectronPersistence, readStringStorage, writeStringStorage, removeStorageKey } from '../lib/persistentStore';
 import { POWER_WORKSPACE_PROJECT_HANDOFF_KEY } from '../lib/powerWorkspace';
 import TerminalPanel from './Terminal';
 import gitshellsBg from '../assets/gitshells-bg.jpg';
@@ -115,10 +115,10 @@ export default function ProjectsMode() {
   
   // Projects State
   const [projects, setProjects] = useState(() => {
-    return parseStoredProjects(localStorage.getItem(GITSHELLS_PROJECTS_KEY));
+    return parseStoredProjects(readStringStorage(GITSHELLS_PROJECTS_KEY));
   });
   const [sidebarWidth, setSidebarWidth] = useState(() => {
-    return clampSidebarWidth(localStorage.getItem(GITSHELLS_SIDEBAR_WIDTH_KEY));
+    return clampSidebarWidth(readStringStorage(GITSHELLS_SIDEBAR_WIDTH_KEY));
   });
 
   const projectsRef = useRef(projects);
@@ -137,12 +137,12 @@ export default function ProjectsMode() {
         const electronData = await loadElectronPersistence();
         if (!isMounted) return;
         if (typeof electronData?.gitshells_projects === 'string') {
-          localStorage.setItem(GITSHELLS_PROJECTS_KEY, electronData.gitshells_projects);
+          writeStringStorage(GITSHELLS_PROJECTS_KEY, electronData.gitshells_projects);
           setProjects(parseStoredProjects(electronData.gitshells_projects));
         }
         if (typeof electronData?.gitshells_sidebar_width === 'string') {
           const storedWidth = clampSidebarWidth(electronData.gitshells_sidebar_width);
-          localStorage.setItem(GITSHELLS_SIDEBAR_WIDTH_KEY, String(storedWidth));
+          writeStringStorage(GITSHELLS_SIDEBAR_WIDTH_KEY, String(storedWidth));
           sidebarWidthRef.current = storedWidth;
           setSidebarWidth(storedWidth);
         }
@@ -164,7 +164,7 @@ export default function ProjectsMode() {
   useEffect(() => {
     projectsRef.current = projects;
     const serialized = JSON.stringify(projects);
-    localStorage.setItem(GITSHELLS_PROJECTS_KEY, serialized);
+    writeStringStorage(GITSHELLS_PROJECTS_KEY, serialized);
     if (electronPersistenceReadyRef.current) {
       saveElectronPersistence({ gitshells_projects: serialized })
         .catch(err => console.error('Failed to persist Git Shells projects:', err));
@@ -173,26 +173,26 @@ export default function ProjectsMode() {
 
   // Selected state
   const [activeProjectId, setActiveProjectId] = useState(() => {
-    return localStorage.getItem(SUPATERM_ACTIVE_PROJECT_KEY) || localStorage.getItem('perci_active_project_id') || null;
+    return readStringStorage(SUPATERM_ACTIVE_PROJECT_KEY) || readStringStorage('perci_active_project_id') || null;
   });
   
   const [activeTerminalId, setActiveTerminalId] = useState(() => {
-    return localStorage.getItem(SUPATERM_ACTIVE_TERMINAL_KEY) || localStorage.getItem('perci_active_terminal_id') || null;
+    return readStringStorage(SUPATERM_ACTIVE_TERMINAL_KEY) || readStringStorage('perci_active_terminal_id') || null;
   });
 
   useEffect(() => {
     if (activeProjectId) {
-      localStorage.setItem(SUPATERM_ACTIVE_PROJECT_KEY, activeProjectId);
+      writeStringStorage(SUPATERM_ACTIVE_PROJECT_KEY, activeProjectId);
     } else {
-      localStorage.removeItem(SUPATERM_ACTIVE_PROJECT_KEY);
+      removeStorageKey(SUPATERM_ACTIVE_PROJECT_KEY);
     }
   }, [activeProjectId]);
 
   useEffect(() => {
     if (activeTerminalId) {
-      localStorage.setItem(SUPATERM_ACTIVE_TERMINAL_KEY, activeTerminalId);
+      writeStringStorage(SUPATERM_ACTIVE_TERMINAL_KEY, activeTerminalId);
     } else {
-      localStorage.removeItem(SUPATERM_ACTIVE_TERMINAL_KEY);
+      removeStorageKey(SUPATERM_ACTIVE_TERMINAL_KEY);
     }
   }, [activeTerminalId]);
 
@@ -205,12 +205,12 @@ export default function ProjectsMode() {
   const [projectDraft, setProjectDraft] = useState(null);
   const [shellRename, setShellRename] = useState(null);
   const [nativeNotificationsEnabled, setNativeNotificationsEnabled] = useState(() => {
-    const stored = localStorage.getItem(GITSHELLS_NATIVE_NOTIFICATIONS_KEY);
+    const stored = readStringStorage(GITSHELLS_NATIVE_NOTIFICATIONS_KEY);
     if (stored != null) return stored === '1';
     return typeof Notification !== 'undefined' && Notification.permission === 'granted';
   });
   const [audioNotificationsEnabled, setAudioNotificationsEnabled] = useState(() => {
-    return localStorage.getItem(GITSHELLS_AUDIO_NOTIFICATIONS_KEY) === '1';
+    return readStringStorage(GITSHELLS_AUDIO_NOTIFICATIONS_KEY) === '1';
   });
 
   const updateSidebarWidth = (width, render = true) => {
@@ -224,7 +224,7 @@ export default function ProjectsMode() {
 
   const persistSidebarWidth = () => {
     const value = String(sidebarWidthRef.current);
-    localStorage.setItem(GITSHELLS_SIDEBAR_WIDTH_KEY, value);
+    writeStringStorage(GITSHELLS_SIDEBAR_WIDTH_KEY, value);
     if (electronPersistenceReadyRef.current) {
       saveElectronPersistence({ gitshells_sidebar_width: value })
         .catch(err => console.error('Failed to persist Git Shells sidebar width:', err));
@@ -303,13 +303,13 @@ export default function ProjectsMode() {
       if (permission !== 'granted') return;
     }
     setNativeNotificationsEnabled(nextEnabled);
-    localStorage.setItem(GITSHELLS_NATIVE_NOTIFICATIONS_KEY, nextEnabled ? '1' : '0');
+    writeStringStorage(GITSHELLS_NATIVE_NOTIFICATIONS_KEY, nextEnabled ? '1' : '0');
   };
 
   const toggleAudioNotifications = () => {
     const nextEnabled = !audioNotificationsEnabled;
     setAudioNotificationsEnabled(nextEnabled);
-    localStorage.setItem(GITSHELLS_AUDIO_NOTIFICATIONS_KEY, nextEnabled ? '1' : '0');
+    writeStringStorage(GITSHELLS_AUDIO_NOTIFICATIONS_KEY, nextEnabled ? '1' : '0');
   };
 
   const playNotificationSound = useCallback(() => {
@@ -424,7 +424,7 @@ export default function ProjectsMode() {
       const folderPath = String(payload.folderPath || '').trim();
       if (!folderPath) return;
 
-      localStorage.setItem('working_directory', folderPath);
+      writeStringStorage('working_directory', folderPath);
       const project = projectsRef.current.find(item => String(item?.path || '').trim() === folderPath);
       const projectId = project?.id || String(payload.matchedProjectId || '').trim();
       const terminalId = project?.terminals?.[0]?.id || String(payload.matchedTerminalId || '').trim();
@@ -441,12 +441,12 @@ export default function ProjectsMode() {
         });
         setAddProjectHint('Register this workspace folder to open a shell for it.');
       }
-      localStorage.removeItem(POWER_WORKSPACE_PROJECT_HANDOFF_KEY);
+      removeStorageKey(POWER_WORKSPACE_PROJECT_HANDOFF_KEY);
     };
 
     const readPendingHandoff = () => {
       try {
-        return JSON.parse(localStorage.getItem(POWER_WORKSPACE_PROJECT_HANDOFF_KEY) || 'null');
+        return JSON.parse(readStringStorage(POWER_WORKSPACE_PROJECT_HANDOFF_KEY, 'null'));
       } catch {
         return null;
       }

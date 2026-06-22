@@ -1,4 +1,4 @@
-import { readJsonStorage } from './persistentStore';
+import { readJsonStorage, writeStringStorage } from './persistentStore';
 
 export const HARNESS_MEMORY_KEY = 'perci_harness_memory';
 const MAX_MEMORY_ITEMS = 120;
@@ -13,7 +13,7 @@ export function saveHarnessMemory(items) {
     const normalized = Array.isArray(items)
         ? items.map(normalizeMemoryItem).filter(Boolean).slice(0, MAX_MEMORY_ITEMS)
         : [];
-    localStorage.setItem(HARNESS_MEMORY_KEY, JSON.stringify(normalized));
+    writeStringStorage(HARNESS_MEMORY_KEY, JSON.stringify(normalized));
     return normalized;
 }
 

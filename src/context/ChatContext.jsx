@@ -2,17 +2,19 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import { ModelService, getModelCapabilities } from '../lib/llm/ModelService';
 import {
     API_KEY_STORAGE_KEYS,
-    clearLocalApiKeys,
-    getLocalApiKeySnapshot,
-    getLocalPersistenceSnapshot,
+    clearApiKeys,
+    getApiKeySnapshot,
+    getPersistenceSnapshot,
     hasElectronStore,
     hasPersistedUserData,
     loadElectronPersistence,
     readJsonStorage,
     readStringStorage,
+    removeStorageKey,
     saveElectronPersistence,
     serializeJson,
-    writeLocalPersistenceSnapshot
+    writePersistenceSnapshot,
+    writeStringStorage
 } from '../lib/persistentStore';
 import { normalizeAssistantSpacing } from '../lib/textFormatting';
 import { fetchWeather, fetchWeatherForLocale } from '../lib/weatherService';
@@ -38,7 +40,7 @@ function normalizeLocalServerUrl(url, fallback = DEFAULT_LM_STUDIO_URL) {
 
 function readApiKeysFromStorage() {
     return Object.entries(API_KEY_PROVIDERS).reduce((keys, [provider, storageKey]) => {
-        keys[provider] = localStorage.getItem(storageKey) || '';
+        keys[provider] = readStringStorage(storageKey, '');
         return keys;
     }, {});
 }
@@ -162,7 +164,7 @@ export function ChatProvider({ children }) {
 
     const setUserName = useCallback((name) => {
         setUserNameState(name);
-        localStorage.setItem('user_name', name);
+        writeStringStorage('user_name', name);
         if (electronPersistenceReadyRef.current) {
             saveElectronPersistence({ user_name: name }).catch(err => console.error('Failed to persist user name:', err));
         }
@@ -174,7 +176,7 @@ export function ChatProvider({ children }) {
 
     const setCustomInstructions = useCallback((instructions) => {
         setCustomInstructionsState(instructions);
-        localStorage.setItem('custom_instructions', instructions);
+        writeStringStorage('custom_instructions', instructions);
         if (electronPersistenceReadyRef.current) {
             saveElectronPersistence({ custom_instructions: instructions }).catch(err => console.error('Failed to persist custom instructions:', err));
         }
@@ -193,7 +195,7 @@ export function ChatProvider({ children }) {
     const setWeatherSyncEnabled = useCallback((enabled) => {
         const strVal = enabled ? 'true' : 'false';
         setWeatherSyncEnabledState(enabled);
-        localStorage.setItem('weather_sync_enabled', strVal);
+        writeStringStorage('weather_sync_enabled', strVal);
         if (electronPersistenceReadyRef.current) {
             saveElectronPersistence({ weather_sync_enabled: strVal }).catch(err => console.error('Failed to persist weather sync enabled:', err));
         }
@@ -201,7 +203,7 @@ export function ChatProvider({ children }) {
 
     const setWeatherLocation = useCallback((location) => {
         setWeatherLocationState(location);
-        localStorage.setItem('weather_location', location);
+        writeStringStorage('weather_location', location);
         if (electronPersistenceReadyRef.current) {
             saveElectronPersistence({ weather_location: location }).catch(err => console.error('Failed to persist weather location:', err));
         }
@@ -237,7 +239,7 @@ export function ChatProvider({ children }) {
     const setLmStudioUrl = useCallback((url) => {
         const normalizedUrl = normalizeLocalServerUrl(url);
         setLmStudioUrlState(normalizedUrl);
-        localStorage.setItem('lm_studio_url', normalizedUrl);
+        writeStringStorage('lm_studio_url', normalizedUrl);
         if (electronPersistenceReadyRef.current) {
             saveElectronPersistence({ lm_studio_url: normalizedUrl }).catch(err => console.error('Failed to persist LM Studio URL:', err));
         }
@@ -246,7 +248,7 @@ export function ChatProvider({ children }) {
     }, []);
 
     useEffect(() => {
-        localStorage.setItem('lm_studio_url', lmStudioUrl);
+        writeStringStorage('lm_studio_url', lmStudioUrl);
         if (electronPersistenceReadyRef.current) {
             saveElectronPersistence({ lm_studio_url: lmStudioUrl }).catch(err => console.error('Failed to persist LM Studio URL:', err));
         }
@@ -259,7 +261,7 @@ export function ChatProvider({ children }) {
     const setJanUrl = useCallback((url) => {
         const normalizedUrl = normalizeLocalServerUrl(url, DEFAULT_JAN_URL);
         setJanUrlState(normalizedUrl);
-        localStorage.setItem('jan_url', normalizedUrl);
+        writeStringStorage('jan_url', normalizedUrl);
         if (electronPersistenceReadyRef.current) {
             saveElectronPersistence({ jan_url: normalizedUrl }).catch(err => console.error('Failed to persist Jan URL:', err));
         }
@@ -267,7 +269,7 @@ export function ChatProvider({ children }) {
     }, []);
 
     useEffect(() => {
-        localStorage.setItem('jan_url', janUrl);
+        writeStringStorage('jan_url', janUrl);
         if (electronPersistenceReadyRef.current) {
             saveElectronPersistence({ jan_url: janUrl }).catch(err => console.error('Failed to persist Jan URL:', err));
         }
@@ -280,7 +282,7 @@ export function ChatProvider({ children }) {
 
     const setSearchEngine = useCallback((engine) => {
         setSearchEngineState(engine);
-        localStorage.setItem('search_engine', engine);
+        writeStringStorage('search_engine', engine);
         if (electronPersistenceReadyRef.current) {
             saveElectronPersistence({ search_engine: engine }).catch(err => console.error('Failed to persist search engine:', err));
         }
@@ -292,7 +294,7 @@ export function ChatProvider({ children }) {
 
     const setSearxngUrl = useCallback((url) => {
         setSearxngUrlState(url);
-        localStorage.setItem('searxng_url', url);
+        writeStringStorage('searxng_url', url);
         if (electronPersistenceReadyRef.current) {
             saveElectronPersistence({ searxng_url: url }).catch(err => console.error('Failed to persist SearxNG URL:', err));
         }
@@ -306,10 +308,10 @@ export function ChatProvider({ children }) {
             try {
                 const electronData = await loadElectronPersistence();
                 if (!isMounted) return;
-                const localApiKeys = getLocalApiKeySnapshot();
+                const localApiKeys = getApiKeySnapshot();
 
                 if (hasPersistedUserData(electronData)) {
-                    writeLocalPersistenceSnapshot(electronData);
+                    writePersistenceSnapshot(electronData);
                     const nextApiKeys = readApiKeysFromSnapshot(electronData, localApiKeys);
 
                     const persistedChats = readJsonStorage('chat_history', null);
@@ -337,16 +339,16 @@ export function ChatProvider({ children }) {
                     setSelectedModel(readStringStorage('selected_model'));
                     setApiKeys(nextApiKeys);
                     await saveElectronPersistence({
-                        ...getLocalPersistenceSnapshot(),
+                        ...getPersistenceSnapshot(),
                         ...nonEmptyApiKeysToStorageSnapshot(nextApiKeys)
                     });
                 } else {
                     await saveElectronPersistence({
-                        ...getLocalPersistenceSnapshot(),
+                        ...getPersistenceSnapshot(),
                         ...nonEmptyApiKeysToStorageSnapshot(readApiKeysFromSnapshot(localApiKeys))
                     });
                 }
-                clearLocalApiKeys();
+                clearApiKeys();
             } catch (err) {
                 console.error('Failed to hydrate Electron persistence:', err);
             } finally {
@@ -366,8 +368,8 @@ export function ChatProvider({ children }) {
     useEffect(() => {
         if (!isIncognitoMode) {
             const serializedChats = serializeJson(chats);
-            localStorage.setItem('chat_history', serializedChats);
-            localStorage.setItem('current_chat_id', currentChatId);
+            writeStringStorage('chat_history', serializedChats);
+            writeStringStorage('current_chat_id', currentChatId);
             if (electronPersistenceReadyRef.current) {
                 saveElectronPersistence({
                     chat_history: serializedChats,
@@ -379,7 +381,7 @@ export function ChatProvider({ children }) {
 
     useEffect(() => {
         const serializedProjects = serializeJson(projects);
-        localStorage.setItem('perci_projects', serializedProjects);
+        writeStringStorage('perci_projects', serializedProjects);
         if (electronPersistenceReadyRef.current) {
             saveElectronPersistence({ perci_projects: serializedProjects }).catch(err => console.error('Failed to persist projects:', err));
         }
@@ -519,7 +521,7 @@ export function ChatProvider({ children }) {
 
     useEffect(() => {
         const serialized = serializeJson(customModels);
-        localStorage.setItem('custom_models', serialized);
+        writeStringStorage('custom_models', serialized);
         if (electronPersistenceReadyRef.current) {
             saveElectronPersistence({ custom_models: serialized }).catch(err => console.error('Failed to persist custom models:', err));
         }
@@ -569,16 +571,16 @@ export function ChatProvider({ children }) {
         setApiKeys(prev => ({ ...prev, [provider]: key }));
         const storageKey = API_KEY_PROVIDERS[provider] || `${provider}_key`;
         if (hasElectronStore()) {
-            localStorage.removeItem(storageKey);
+            removeStorageKey(storageKey);
             saveElectronPersistence({ [storageKey]: key }).catch(err => console.error(`Failed to persist ${provider} API key:`, err));
         } else {
-            localStorage.setItem(storageKey, key);
+            writeStringStorage(storageKey, key);
         }
     };
 
     const updateProvider = (provider) => {
         setSelectedProvider(provider);
-        localStorage.setItem('selected_provider', provider);
+        writeStringStorage('selected_provider', provider);
         if (electronPersistenceReadyRef.current) {
             saveElectronPersistence({ selected_provider: provider }).catch(err => console.error('Failed to persist selected provider:', err));
         }
@@ -593,7 +595,7 @@ export function ChatProvider({ children }) {
 
     const updateModel = (modelId) => {
         setSelectedModel(modelId);
-        localStorage.setItem('selected_model', modelId);
+        writeStringStorage('selected_model', modelId);
         if (electronPersistenceReadyRef.current) {
             saveElectronPersistence({ selected_model: modelId }).catch(err => console.error('Failed to persist selected model:', err));
         }

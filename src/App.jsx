@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, Component } from 'react';
 import perciLogo from './assets/perci-logo.png';
-import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, ARTIFACT_WINDOW_ID, RESEARCH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID } from './context/ModeContext';
+import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, ARTIFACT_WINDOW_ID, RESEARCH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID } from './context/ModeContext';
 import ModeSwitcher from './components/ModeSwitcher';
 import ChatMode from './components/ChatMode';
 import CodeMode from './components/CodeMode';
@@ -28,6 +28,7 @@ import Dock from './components/windows/Dock';
 import ArtifactWindow from './components/windows/ArtifactWindow';
 import ResearchResultsWindow from './components/windows/ResearchResultsWindow';
 import { ModeGuideModal } from './components/ModeGuideModal';
+import { readStringStorage, writeStringStorage } from './lib/persistentStore';
 import { OpenClawModelsPanel } from './components/OpenClawModelsPanel';
 import { BuildModeProvider } from './context/BuildModeContext'; // Keeping original context for now, but primary logic will be in BuildContext
 import { BuildProvider } from './context/BuildContext';
@@ -541,6 +542,7 @@ function AppContent() {
             case GDASH_WINDOW_ID: return <GDashMode onOpenSettings={() => setIsSettingsOpen(true)} />;
             case EIDOS_WINDOW_ID: return <EidosMode />;
             case LOCALHOST_WINDOW_ID: return <LocalhostMode />;
+            case KLIPIT_WINDOW_ID: return <LocalhostMode isKlipit={true} />;
             case ARTIFACT_WINDOW_ID: return <ArtifactWindow />;
             case RESEARCH_WINDOW_ID: return <ResearchResultsWindow />;
             case YOUTUBE_WINDOW_ID:
@@ -623,16 +625,16 @@ function AppContent() {
                 const result = await window.electron.readOpenClawDiary();
                 if (result?.ok) {
                     setDiaryContent(result.content || '');
-                    // Sync timestamp from localStorage if available
-                    const savedTime = localStorage.getItem('openclaw-user-diary-saved');
+                    // Sync timestamp from persistentStore if available
+                    const savedTime = readStringStorage('openclaw-user-diary-saved');
                     if (savedTime) setDiaryLastSaved(new Date(savedTime));
                     return;
                 }
             }
             // Web fallback
-            const saved = localStorage.getItem('openclaw-user-diary');
+            const saved = readStringStorage('openclaw-user-diary');
             if (saved) setDiaryContent(saved);
-            const savedTime = localStorage.getItem('openclaw-user-diary-saved');
+            const savedTime = readStringStorage('openclaw-user-diary-saved');
             if (savedTime) setDiaryLastSaved(new Date(savedTime));
         }
         loadDiary();
@@ -649,9 +651,9 @@ function AppContent() {
                 await window.electron.writeOpenClawDiary(value);
             } else {
                 // Web fallback
-                localStorage.setItem('openclaw-user-diary', value);
+                writeStringStorage('openclaw-user-diary', value);
             }
-            localStorage.setItem('openclaw-user-diary-saved', now.toISOString());
+            writeStringStorage('openclaw-user-diary-saved', now.toISOString());
             setDiaryLastSaved(now);
             setDiarySaving(false);
         }, 800);

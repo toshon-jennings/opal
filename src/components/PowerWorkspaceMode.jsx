@@ -178,7 +178,7 @@ export default function PowerWorkspaceMode() {
     };
 
     const startCoworkWithContext = (context) => {
-        prepareWorkspaceCoworkHandoff(draft, globalThis.localStorage, context);
+        prepareWorkspaceCoworkHandoff(draft, context);
         openWindow(MODES.COWORK);
         refresh();
     };

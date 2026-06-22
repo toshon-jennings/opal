@@ -5,6 +5,7 @@ import {
     Users, Code, FlaskConical, Building2, ActivitySquare, Hammer, Plug
 } from 'lucide-react';
 import { MODES } from '../context/ModeContext';
+import { readStringStorage, writeStringStorage, removeStorageKey } from '../lib/persistentStore';
 import './OnboardingCard.css';
 
 const STEPS = [
@@ -72,7 +73,7 @@ const STEPS = [
 
 export function hasOnboardingBeenSeen() {
     try {
-        return localStorage.getItem('perci_onboarding_complete') === '1';
+        return readStringStorage('perci_onboarding_complete') === '1';
     } catch {
         return false;
     }
@@ -80,13 +81,13 @@ export function hasOnboardingBeenSeen() {
 
 export function markOnboardingComplete() {
     try {
-        localStorage.setItem('perci_onboarding_complete', '1');
+        writeStringStorage('perci_onboarding_complete', '1');
     } catch { /* noop */ }
 }
 
 export function resetOnboarding() {
     try {
-        localStorage.removeItem('perci_onboarding_complete');
+        removeStorageKey('perci_onboarding_complete');
     } catch { /* noop */ }
 }
 

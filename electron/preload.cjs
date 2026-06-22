@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('electron', {
   getAppData: () => ipcRenderer.invoke('app-data:get'),
   setAppData: (data) => ipcRenderer.invoke('app-data:set', data),
   getAppDataPath: () => ipcRenderer.invoke('app-data:path'),
+  getKlipitExtensionId: () => ipcRenderer.invoke('get-klipit-extension-id'),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   webSearch: (query, options) => ipcRenderer.invoke('web-search', { query, options }),
   // StudioOS API proxy — avoids CORS by routing through the main process.

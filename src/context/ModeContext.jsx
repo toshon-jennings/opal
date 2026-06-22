@@ -5,7 +5,8 @@ import {
     readJsonStorage,
     readStringStorage,
     saveElectronPersistence,
-    serializeJson
+    serializeJson,
+    writeStringStorage
 } from '../lib/persistentStore';
 
 const ModeContext = createContext();
@@ -39,6 +40,7 @@ export const RESEARCH_WINDOW_ID = 'research';
 export const COMPARE_WINDOW_ID = 'compare';
 export const EIDOS_WINDOW_ID = 'eidos';
 export const LOCALHOST_WINDOW_ID = 'localhost';
+export const KLIPIT_WINDOW_ID = 'klipit';
 
 // Titles shown in window headers and dock chips for each windowed surface.
 export const WINDOW_TITLES = {
@@ -66,12 +68,13 @@ export const WINDOW_TITLES = {
     [COMPARE_WINDOW_ID]: 'Compare',
     [EIDOS_WINDOW_ID]: 'Eidos',
     [LOCALHOST_WINDOW_ID]: 'Localhost',
+    [KLIPIT_WINDOW_ID]: 'Klipit',
 };
 
 // Windows whose content is an embedded <webview>/<iframe>; CSS transforms can make
 // embedded frames flicker (and reload), so these minimize with a plain fade instead
 // of the whirlpool spin.
-const NO_WHIRLPOOL_IDS = new Set([OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID]);
+const NO_WHIRLPOOL_IDS = new Set([OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID]);
 
 const WINDOW_DEFAULTS = { width: 960, height: 640, minWidth: 420, minHeight: 300, cascade: 34 };
 const DOCK_RESERVED_HEIGHT = 64;
@@ -218,7 +221,7 @@ export function ModeProvider({ children }) {
 
     // Persist the open window set (which modes are open, their state + geometry).
     useEffect(() => {
-        localStorage.setItem('perci_open_windows', serializeJson(windows));
+        writeStringStorage('perci_open_windows', serializeJson(windows));
     }, [windows]);
 
     // Per-mode geometry memory. Kept in a ref (not React state) so move/resize
@@ -237,7 +240,7 @@ export function ModeProvider({ children }) {
         }
         if (changed) {
             windowBoundsRef.current = next;
-            localStorage.setItem('perci_window_bounds', serializeJson(next));
+            writeStringStorage('perci_window_bounds', serializeJson(next));
         }
     }, [windows]);
 
@@ -425,9 +428,9 @@ export function ModeProvider({ children }) {
                 const electronData = await loadElectronPersistence();
                 if (!isMounted) return;
                 if (typeof electronData?.perci_code_state === 'string') {
-                    localStorage.setItem('perci_code_state', electronData.perci_code_state);
+                    writeStringStorage('perci_code_state', electronData.perci_code_state);
                     if (typeof electronData.working_directory === 'string') {
-                        localStorage.setItem('working_directory', electronData.working_directory);
+                        writeStringStorage('working_directory', electronData.working_directory);
                         if (window.electron?.registerWorkspace && electronData.working_directory) {
                             window.electron.registerWorkspace(electronData.working_directory);
                         }
@@ -460,9 +463,9 @@ export function ModeProvider({ children }) {
             expandedFolders: Array.from(codeState.expandedFolders || [])
         };
         const serializedCodeState = serializeJson(stateToSave);
-        localStorage.setItem('perci_code_state', serializedCodeState);
+        writeStringStorage('perci_code_state', serializedCodeState);
         if (codeState.workingDirectory) {
-            localStorage.setItem('working_directory', codeState.workingDirectory);
+            writeStringStorage('working_directory', codeState.workingDirectory);
             if (window.electron?.registerWorkspace) {
                 window.electron.registerWorkspace(codeState.workingDirectory);
             }
@@ -499,7 +502,7 @@ export function ModeProvider({ children }) {
                 const electronData = await loadElectronPersistence();
                 if (!isMounted) return;
                 if (typeof electronData?.openclaw_config === 'string') {
-                    localStorage.setItem('openclaw_config', electronData.openclaw_config);
+                    writeStringStorage('openclaw_config', electronData.openclaw_config);
                     setOpenClawConfig(normalizeOpenClawConfig(readJsonStorage('openclaw_config', DEFAULT_OPENCLAW_CONFIG)));
                 }
             } catch (err) {
@@ -515,7 +518,7 @@ export function ModeProvider({ children }) {
 
     useEffect(() => {
         const serializedOpenClawConfig = serializeJson(openClawConfig);
-        localStorage.setItem('openclaw_config', serializedOpenClawConfig);
+        writeStringStorage('openclaw_config', serializedOpenClawConfig);
         if (electronPersistenceReadyRef.current) {
             saveElectronPersistence({
                 openclaw_config: serializedOpenClawConfig

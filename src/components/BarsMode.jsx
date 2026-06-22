@@ -11,6 +11,7 @@ import {
     setWorkspaceLink,
 } from '../lib/powerWorkspace';
 import './BarsMode.css';
+import { readStringStorage, writeStringStorage } from '../lib/persistentStore';
 
 const IDEAS_KEY = 'perci_bars_ideas:v1';
 const SETTINGS_KEY = 'perci_bars_ai_settings:v1';
@@ -58,11 +59,11 @@ function normalizeIdea(idea = {}) {
 }
 
 function loadIdeas() {
-    return safeJson(localStorage.getItem(IDEAS_KEY), []).map(normalizeIdea);
+    return safeJson(readStringStorage(IDEAS_KEY, "[]"), []).map(normalizeIdea);
 }
 
 function loadSettings() {
-    const saved = safeJson(localStorage.getItem(SETTINGS_KEY), {});
+    const saved = safeJson(readStringStorage(SETTINGS_KEY, "{}"), {});
     return { providerId: saved.providerId || '', model: saved.model || '' };
 }
 
@@ -162,11 +163,11 @@ export default function BarsMode() {
     useEffect(() => () => window.clearTimeout(saveStateTimerRef.current), []);
 
     useEffect(() => {
-        localStorage.setItem(IDEAS_KEY, JSON.stringify(ideas));
+        writeStringStorage(IDEAS_KEY, JSON.stringify(ideas));
     }, [ideas]);
 
     useEffect(() => {
-        localStorage.setItem(SETTINGS_KEY, JSON.stringify({ providerId, model: modelChoice === '__custom' ? customModel : modelChoice }));
+        writeStringStorage(SETTINGS_KEY, JSON.stringify({ providerId, model: modelChoice === '__custom' ? customModel : modelChoice }));
     }, [providerId, modelChoice, customModel]);
 
     useEffect(() => {

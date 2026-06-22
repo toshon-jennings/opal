@@ -109,7 +109,7 @@ npm run electron:build:linux # Linux
 
 ### API Keys
 
-Perci requires API keys for cloud providers. Keys are stored locally in the browser's localStorage — never sent to any server. Add them in Settings → API Keys.
+Perci requires API keys for cloud providers. Keys are stored locally in the Electron app-data file (encrypted via OS safeStorage) — never sent to any server. Add them in Settings → API Keys.
 
 Local models (Ollama, LM Studio, vLLM) require no API key.
 

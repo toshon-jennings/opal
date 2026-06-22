@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Bot, RefreshCw, Send, FolderOpen, Clock, CheckCircle2, AlertTriangle, XCircle, Hourglass, Copy, Check, ChevronRight, TerminalSquare, Search } from 'lucide-react';
 import { useMode, HERMES_WINDOW_ID } from '../context/ModeContext';
+import { readStringStorage, writeStringStorage } from '../lib/persistentStore';
 
 // ─── Agent definitions ─────────────────────────────────────────────────────
 
@@ -334,7 +335,7 @@ function mergeJobsById(current, incoming) {
 
 function restorePersistedJobs() {
   try {
-    const raw = localStorage.getItem(AGENTS_PERSIST_KEY);
+    const raw = readStringStorage(AGENTS_PERSIST_KEY, "{}");
     if (!raw) return {};
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return {};
@@ -414,14 +415,14 @@ export default function AgentsPanel() {
   const [searchQuery, setSearchQuery] = useState('');
   const [workingDirectory, setWorkingDirectory] = useState(() => {
     try {
-      return localStorage.getItem('working_directory') || '';
+      return readStringStorage('working_directory');
     } catch {
       return '';
     }
   });
   const [modelByAgent, setModelByAgent] = useState(() => {
     try {
-      const parsed = JSON.parse(localStorage.getItem(AGENT_MODEL_PERSIST_KEY) || '{}');
+      const parsed = JSON.parse(readStringStorage(AGENT_MODEL_PERSIST_KEY, '{}'));
       return parsed && typeof parsed === 'object' ? parsed : {};
     } catch {
       return {};
@@ -481,14 +482,14 @@ export default function AgentsPanel() {
   // Persist jobs
   useEffect(() => {
     try {
-      localStorage.setItem(AGENTS_PERSIST_KEY, JSON.stringify(jobsByAgent));
+      writeStringStorage(AGENTS_PERSIST_KEY, JSON.stringify(jobsByAgent));
     } catch {}
   }, [jobsByAgent]);
 
   // Persist per-agent model choices
   useEffect(() => {
     try {
-      localStorage.setItem(AGENT_MODEL_PERSIST_KEY, JSON.stringify(modelByAgent));
+      writeStringStorage(AGENT_MODEL_PERSIST_KEY, JSON.stringify(modelByAgent));
     } catch {}
   }, [modelByAgent]);
 
@@ -627,7 +628,7 @@ export default function AgentsPanel() {
       const folderPath = await window.electron.selectDirectory();
       if (!folderPath) return;
       setWorkingDirectory(folderPath);
-      localStorage.setItem('working_directory', folderPath);
+      writeStringStorage('working_directory', folderPath);
       setNotice(`Folder set to ${folderName(folderPath)}.`);
     } catch (error) {
       setNotice(error?.message || 'Could not choose folder.');

@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import billboardLogo from '../assets/billboard-logo.svg';
 import './BillboardMode.css';
+import { readStringStorage, writeStringStorage, removeStorageKey } from '../lib/persistentStore';
 
 // ── localStorage keys ────────────────────────────────────────────
 const CONCERNS_KEY   = 'perci_concerns:v1';
@@ -90,7 +91,7 @@ async function decryptData(blob, password) {
 // ── Persistence helpers ──────────────────────────────────────────
 function loadConcerns() {
     try {
-        const raw = localStorage.getItem(CONCERNS_KEY);
+        const raw = readStringStorage(CONCERNS_KEY, "[]");
         if (!raw) return STARTER;
         const parsed = JSON.parse(raw);
         return Array.isArray(parsed) && parsed.length > 0 ? parsed : STARTER;
@@ -99,19 +100,19 @@ function loadConcerns() {
 
 // Keeps the localStorage keys identical so user's existing Concerns data is seamlessly preserved as Bill Board data.
 function saveConcerns(concerns) {
-    localStorage.setItem(CONCERNS_KEY, JSON.stringify(concerns));
+    writeStringStorage(CONCERNS_KEY, JSON.stringify(concerns));
 }
 
 function loadSettings() {
     try {
-        const raw = localStorage.getItem(SETTINGS_KEY);
+        const raw = readStringStorage(SETTINGS_KEY, "{}");
         return raw ? JSON.parse(raw) : {};
     } catch { return {}; }
 }
 
 // Keeps settings key identical for seamless migration
 function saveSettings(settings) {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    writeStringStorage(SETTINGS_KEY, JSON.stringify(settings));
 }
 
 // ── Format helpers ───────────────────────────────────────────────
@@ -178,7 +179,7 @@ export default function BillboardMode() {
     const toastTimer             = useRef(null);
 
     // Encryption
-    const [isEncrypted, setIsEncrypted]       = useState(() => !!localStorage.getItem(ENCRYPT_KEY));
+    const [isEncrypted, setIsEncrypted]       = useState(() => !!readStringStorage(ENCRYPT_KEY));
     const [showEncryptDialog, setShowEncryptDialog] = useState(false);
     const [encryptPassword, setEncryptPassword] = useState('');
     const [encryptConfirm, setEncryptConfirm]   = useState('');
@@ -293,7 +294,7 @@ export default function BillboardMode() {
         }
         try {
             const blob = await encryptData(concerns, encryptPassword);
-            localStorage.setItem(ENCRYPT_KEY, blob);
+            writeStringStorage(ENCRYPT_KEY, blob);
             setIsEncrypted(true);
             setShowEncryptDialog(false);
             setEncryptPassword('');
@@ -305,7 +306,7 @@ export default function BillboardMode() {
     }, [encryptPassword, encryptConfirm, concerns, showToast]);
 
     const handleRemoveEncryption = useCallback(() => {
-        localStorage.removeItem(ENCRYPT_KEY);
+        removeStorageKey(ENCRYPT_KEY);
         setIsEncrypted(false);
         setShowEncryptDialog(false);
         setEncryptPassword('');
@@ -717,7 +718,7 @@ export default function BillboardMode() {
                         ) : (
                             <>
                                 <p className="cn-encryption-info">
-                                    This will remove the encrypted backup from localStorage. Your Bill Board data will remain but API keys will only be stored in plain text.
+                                    This will remove the encrypted backup from the app-data file. Your Bill Board data will remain but API keys will only be stored in plain text.
                                 </p>
                                 <div className="cn-dialog-footer">
                                     <button className="cn-btn" onClick={() => setShowEncryptDialog(false)}>Cancel</button>

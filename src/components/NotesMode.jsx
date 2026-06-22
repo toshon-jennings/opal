@@ -9,6 +9,7 @@ import {
 import { useMode } from '../context/ModeContext';
 import { EditableTitle } from './EditableTitle';
 import { encryptNote, decryptNote, isEncrypted } from '../utils/note-crypto';
+import { readStringStorage, writeStringStorage } from '../lib/persistentStore';
 import { normalizeNoteTags, parseNoteTags, setNoteTags, stripNoteFrontmatter, tagKey } from '../lib/notesTags';
 import {
     POWER_WORKSPACE_SURFACE_HANDOFF_EVENT,
@@ -173,7 +174,7 @@ export default function NotesMode() {
         let isMounted = true;
         async function initNotesFolder() {
             // 1. Try local storage
-            let savedFolder = localStorage.getItem('perci_notes_folder');
+            let savedFolder = readStringStorage('perci_notes_folder');
             
             // 2. Backward compatibility: if workingDirectory is set but no custom folder,
             // default to ${workingDirectory}/notes to preserve existing notes.
@@ -192,7 +193,7 @@ export default function NotesMode() {
 
             if (isMounted && savedFolder) {
                 setNotesFolder(savedFolder);
-                localStorage.setItem('perci_notes_folder', savedFolder);
+                writeStringStorage('perci_notes_folder', savedFolder);
                 if (window.electron?.registerWorkspace) {
                     await window.electron.registerWorkspace(savedFolder);
                 }
@@ -208,7 +209,7 @@ export default function NotesMode() {
         try {
             const folderPath = await window.electron.selectDirectory();
             if (folderPath) {
-                localStorage.setItem('perci_notes_folder', folderPath);
+                writeStringStorage('perci_notes_folder', folderPath);
                 setNotesFolder(folderPath);
                 if (window.electron?.registerWorkspace) {
                     await window.electron.registerWorkspace(folderPath);

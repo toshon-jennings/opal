@@ -277,7 +277,7 @@ function OverviewTab() {
                     <GuideSection title="Technical notes" icon={TerminalSquare}>
                         <BulletList
                             items={[
-                                'Mission Control data is currently stored locally in the app profile via localStorage.',
+                                'Mission Control data is stored locally in the encrypted Electron app-data file.',
                                 'Recent Mission history keeps up to 30 runs, with up to 24 events stored per run.',
                                 'Pending memory candidates are stored separately from saved memory so you can review them before approval.',
                                 'A fresh profile can include starter Mission entries so the page is not completely empty the first time you open it.',

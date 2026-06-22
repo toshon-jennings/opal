@@ -3,6 +3,7 @@ import { FlaskConical, FolderOpen, Play, RefreshCw, ChevronDown, ChevronRight, A
 import skillText from '../assets/autoresearch-skill.md?raw';
 import karpathySkillText from '../assets/karpathy-skill.md?raw';
 import TrainingResults from './TrainingResults';
+import { readStringStorage, writeStringStorage } from '../lib/persistentStore';
 
 const SUBMODE_KEY = 'autoresearch_submode';
 
@@ -95,11 +96,11 @@ function parseJsonl(text) {
 
 export default function AutoresearchPanel() {
   const [targetDir, setTargetDir] = useState(() => {
-    try { return localStorage.getItem('working_directory') || ''; } catch { return ''; }
+    try { return readStringStorage('working_directory') || ''; } catch { return ''; }
   });
   const [tab, setTab] = useState('research');
   const [submode, setSubmode] = useState(() => {
-    try { return localStorage.getItem(SUBMODE_KEY) === 'training' ? 'training' : 'prompt'; } catch { return 'prompt'; }
+    try { return readStringStorage(SUBMODE_KEY) === 'training' ? 'training' : 'prompt'; } catch { return 'prompt'; }
   });
   const [target, setTarget] = useState('');
   const [agent, setAgent] = useState('claude_code');
@@ -143,7 +144,7 @@ export default function AutoresearchPanel() {
   // Persist the chosen sub-mode and clear stale results when switching, so the
   // other schema's rows don't flash in the wrong view before the next refresh.
   useEffect(() => {
-    try { localStorage.setItem(SUBMODE_KEY, submode); } catch { /* ignore */ }
+    try { writeStringStorage(SUBMODE_KEY, submode); } catch { /* ignore */ }
     setState(null);
     setRuns([]);
     setBestPrompt('');
@@ -184,7 +185,7 @@ export default function AutoresearchPanel() {
       const folderPath = await window.electron.selectDirectory();
       if (!folderPath) return;
       setTargetDir(folderPath);
-      try { localStorage.setItem('working_directory', folderPath); } catch { /* ignore */ }
+      try { writeStringStorage('working_directory', folderPath); } catch { /* ignore */ }
       setNotice(null);
     } catch (err) {
       setNotice(err?.message || 'Could not choose folder.');

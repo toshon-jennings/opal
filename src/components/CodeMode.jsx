@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, Component } from 'reac
 import { useMode, MODES } from '../context/ModeContext';
 import { useChat } from '../context/ChatContext';
 import { useTheme } from '../context/ThemeContext';
+import { writeStringStorage } from '../lib/persistentStore';
 import { LLMFactory } from '../lib/llm/clients';
 import FileExplorer from './FileExplorer';
 import { SecondaryModeNav } from './SecondaryModeNav';
@@ -173,7 +174,7 @@ export default function CodeMode() {
                 activeFile: null,
                 unsavedChanges: false
             }));
-            localStorage.setItem('working_directory', folderPath);
+            writeStringStorage('working_directory', folderPath);
         }
     };
 

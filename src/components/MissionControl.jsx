@@ -95,7 +95,7 @@ function getCheckpointClass(state) {
 
 function cancelTerminalRun(runId) {
     return new Promise((resolve) => {
-        const port = localStorage.getItem('perci_terminal_port') || '3001';
+        const port = readStringStorage('perci_terminal_port', '3001');
         const socket = new WebSocket(`ws://localhost:${port}/?sessionId=default&telemetry=1`);
         const timeout = setTimeout(() => {
             socket.close();
@@ -213,7 +213,7 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
     }, [filteredRuns]);
 
     useEffect(() => {
-        localStorage.setItem(MISSION_MEMORY_KEY, JSON.stringify(memoryNotes));
+        writeStringStorage(MISSION_MEMORY_KEY, JSON.stringify(memoryNotes));
     }, [memoryNotes]);
 
     useEffect(() => {

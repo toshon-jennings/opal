@@ -1,8 +1,10 @@
 export const TERMINAL_PORT_KEY = 'perci_terminal_port';
 export const TERMINAL_PORT_CANDIDATES = [3001, 3002];
 
+import { readStringStorage, writeStringStorage } from './persistentStore';
+
 export function getTerminalPortCandidates() {
-    const saved = Number(localStorage.getItem(TERMINAL_PORT_KEY));
+    const saved = Number(readStringStorage(TERMINAL_PORT_KEY, ''));
     const candidates = Number.isFinite(saved) && saved > 0
         ? [saved, ...TERMINAL_PORT_CANDIDATES]
         : TERMINAL_PORT_CANDIDATES;
@@ -11,7 +13,7 @@ export function getTerminalPortCandidates() {
 
 export function rememberTerminalPort(port) {
     if (Number.isFinite(Number(port))) {
-        localStorage.setItem(TERMINAL_PORT_KEY, String(port));
+        writeStringStorage(TERMINAL_PORT_KEY, String(port));
     }
 }
 
