@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, Component } from 'react';
 import perciLogo from './assets/perci-logo.png';
-import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, ARTIFACT_WINDOW_ID, RESEARCH_WINDOW_ID, EIDOS_WINDOW_ID } from './context/ModeContext';
+import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, ARTIFACT_WINDOW_ID, RESEARCH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID } from './context/ModeContext';
 import ModeSwitcher from './components/ModeSwitcher';
 import ChatMode from './components/ChatMode';
 import CodeMode from './components/CodeMode';
@@ -21,6 +21,7 @@ import BillboardMode from './components/BillboardMode';
 import StudioOSMode from './components/StudioOSMode';
 import ProjectsMode from './components/ProjectsMode';
 import EidosMode from './components/EidosMode';
+import LocalhostMode from './components/LocalhostMode';
 import { SettingsModal } from './components/SettingsModal';
 import DesktopHost from './components/windows/DesktopHost';
 import Dock from './components/windows/Dock';
@@ -532,6 +533,7 @@ function AppContent() {
             case HERMES_WINDOW_ID: return <HermesMode />;
             case GDASH_WINDOW_ID: return <GDashMode onOpenSettings={() => setIsSettingsOpen(true)} />;
             case EIDOS_WINDOW_ID: return <EidosMode />;
+            case LOCALHOST_WINDOW_ID: return <LocalhostMode />;
             case ARTIFACT_WINDOW_ID: return <ArtifactWindow />;
             case RESEARCH_WINDOW_ID: return <ResearchResultsWindow />;
             case YOUTUBE_WINDOW_ID:
@@ -878,7 +880,7 @@ function AppContent() {
     return (
         <div className="app h-screen max-h-screen flex flex-col bg-[var(--bg-primary)] overflow-hidden">
             {/* Top Navigation / Header */}
-            <header className={`app-header glass-header select-none sticky top-0 z-50 flex-shrink-0 flex items-center justify-between px-6 pb-2.5 ${window.electron ? 'pt-8' : 'pt-2.5'}`}>
+            <header className={`app-header glass-header select-none sticky top-0 z-50 flex-shrink-0 flex items-center justify-between px-6 pb-2.5 ${window.electron ? 'pt-8' : 'pt-2.5'}`} style={{ WebkitAppRegion: 'drag' }}>
                 <div className="flex items-center gap-2.5">
                     {/* Professional macOS-style Logo Container */}
                     <div 
@@ -894,7 +896,7 @@ function AppContent() {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4" style={{ WebkitAppRegion: 'no-drag' }}>
                     {currentMode === MODES.CHAT && (
                         <button onClick={createNewChat} className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-md transition-colors" title="New Chat">
                             <Plus size={18} />

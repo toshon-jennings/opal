@@ -883,12 +883,55 @@ function createWindow() {
   }
 }
 
+// Apps loaded in the Localhost <webview> (e.g. the TCS dashboard) sign in with
+// Google Identity Services, which opens a consent popup to accounts.google.com
+// and returns the token via window.opener. Recognize those URLs so the
+// window-open handler can let them open in-app instead of ejecting them to the
+// system browser (which would sever the window.opener channel GIS needs).
+function isGoogleOAuthUrl(rawUrl) {
+  try {
+    const { hostname, pathname } = new URL(rawUrl);
+    if (hostname === 'accounts.google.com') return true;
+    if (hostname.endsWith('.google.com') && pathname.startsWith('/o/oauth2')) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+// Strip the Electron/app tokens from the default user-agent so Google accepts
+// the embedded consent popup (otherwise it returns disallowed_useragent).
+function cleanedDesktopUserAgent(rawUa) {
+  const appToken = app.getName().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return rawUa
+    .replace(new RegExp(`\\s${appToken}\\/\\S+`, 'i'), '')
+    .replace(/\sElectron\/\S+/i, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 app.whenReady().then(() => {
   app.on('web-contents-created', (_event, contents) => {
+    // Google's GIS popup (allowed below) is created with the default UA, which
+    // Google rejects. Reload it with a clean Chrome UA so consent can proceed.
+    if (contents.getType() === 'webview') {
+      contents.on('did-create-window', (child, details) => {
+        const cleanUA = cleanedDesktopUserAgent(contents.session.getUserAgent());
+        void child.webContents.loadURL(details.url, { userAgent: cleanUA });
+      });
+    }
+
     contents.setWindowOpenHandler(({ url }) => {
       if (isBundledAssetDocumentUrl(url)) {
         appendRendererLog(`blocked-global-bundled-asset-window url=${url}`);
         return { action: 'deny' };
+      }
+
+      // Let Google sign-in popups from embedded webviews open in-app so the
+      // token can post back to the opener; everything else is still ejected.
+      if (contents.getType() === 'webview' && isGoogleOAuthUrl(url)) {
+        appendRendererLog(`allow-webview-google-oauth-window url=${url}`);
+        return { action: 'allow' };
       }
 
       try {

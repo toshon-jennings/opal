@@ -2,13 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     MessageSquare, Bot,
     Plus, ArrowUpRight, Server, Sparkles, CheckCircle2, AlertTriangle, Layers, Settings,
-    Radar, BookOpen, GraduationCap,
+    Radar, BookOpen, GraduationCap, Globe,
 } from 'lucide-react';
 import {
     ChatIcon, CoworkIcon, CodeIcon, NotesIcon, AgentsIcon, ResearchIcon,
     OfficeIcon, MissionIcon, BuildIcon, ProjectsIcon,
 } from './ModeIcons';
-import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID } from '../context/ModeContext';
+import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID } from '../context/ModeContext';
 import { useChat } from '../context/ChatContext';
 import PerciMascot from './PerciMascot';
 import { AGENT_DEFINITIONS, ACTIVE_JOB_STATUSES, ATTENTION_JOB_STATUSES } from './AgentsPanel';
@@ -16,7 +16,7 @@ import OnboardingCard, { hasOnboardingBeenSeen } from './OnboardingCard';
 import { BeginnerGuideModal } from './BeginnerGuideModal';
 import lhLogo from '../assets/lh-logo.png';
 import hermesLogo from '../assets/nousresearch.png';
-import gdashLogo from '../assets/gdash-logo.png';
+import gdashLogo from '../assets/gdash2-cropped.png';
 import gdashBg from '../assets/gdash-bg.jpg';
 import lighthouseBg from '../assets/lighthouse-bg.jpg';
 import openclawBg from '../assets/openclaw-bg.jpg';
@@ -24,7 +24,8 @@ import barsBg from '../assets/bars-bg.jpg';
 import billboardBg from '../assets/billboard-bg.jpg';
 import studioosBg from '../assets/studioos-bg.jpg';
 import eidosLogo from '../assets/eidos-logo.png';
-import eidosBg from '../assets/eidos-bg.jpg';
+import eidosBg from '../assets/logo-opal-shadow.png';
+import localhostBg from '../assets/localhost.jpeg';
 import barsLogo from '../assets/bars-logo.svg';
 import billboardLogo from '../assets/billboard-logo.svg';
 import openclawLogo from '../assets/openclaw-logo.svg';
@@ -56,6 +57,7 @@ const SYSTEM_TILES = [
     { id: HERMES_WINDOW_ID, icon: null, logo: hermesLogo, title: 'Hermes', desc: 'CLI agent — chat, console, sessions', hue: '#eab308', artwork: true },
     { id: GDASH_WINDOW_ID, icon: null, logo: gdashLogo, title: 'G-Dash', desc: 'Google Workspace dashboard', hue: '#4285f4', artwork: true, bgImage: gdashBg },
     { id: EIDOS_WINDOW_ID, icon: null, logo: eidosLogo, title: 'Eidos', desc: 'Persistent memory for AI agents', hue: '#8b5cf6', artwork: true, bgImage: eidosBg },
+    { id: LOCALHOST_WINDOW_ID, icon: Globe, title: 'Localhost', desc: 'Preview any local dev server', hue: '#34d399', artwork: true, bgImage: localhostBg },
     { id: MODES.BARS, icon: null, logo: barsLogo, title: 'BARS', desc: 'Idea notebook', hue: '#f59e0b', artwork: true, bgImage: barsBg },
     { id: MODES.CONCERNS, icon: null, logo: billboardLogo, title: 'Bill Board', desc: 'Services, keys & subscriptions', hue: '#06b6d4', artwork: true, bgImage: billboardBg },
     { id: MODES.STUDIOOS, icon: Layers, logo: studioosLogo, title: 'StudioOS', desc: 'View/manage your StudioOS workspace', hue: '#3b82f6', artwork: true, bgImage: studioosBg },
