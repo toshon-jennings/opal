@@ -287,24 +287,33 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
 
                         <div className="dash-launch-group">
                             <div className="dash-tiles dash-tiles-system">
-                                {SYSTEM_TILES.map(({ id, icon: Icon, logo, title, desc, hue, artwork, bgImage }, i) => (
-                                <button
-                                    key={id}
-                                    type="button"
-                                    className={`dash-tile dash-tile-system${artwork ? ' dash-tile-hero' : ''}${id === HERMES_WINDOW_ID ? ' dash-tile-hermes' : ''}`}
-                                    style={{ '--tile': hue, '--i': i + NATIVE_TILES.length }}
-                                    onClick={() => openWindow(id)}
-                                >
-                                    {artwork && (
-                                        <span
-                                            className="dash-tile-art"
-                                            aria-hidden="true"
-                                            style={bgImage ? { backgroundImage: `url('${bgImage}')` } : undefined}
-                                        />
-                                    )}
-                                    <span className="dash-tile-icon">
-                                        {logo ? <img src={logo} alt="" className="dash-tile-logo" /> : <Icon size={20} />}
-                                    </span>
+                                {SYSTEM_TILES.map(({ id, icon: Icon, logo, title, desc, hue, artwork, bgImage }, i) => {
+                                    const isWhiteBox = id === GDASH_WINDOW_ID || id === MODES.STUDIOOS || id === MODES.LIGHTHOUSE;
+                                    const isFillCover = id === EIDOS_WINDOW_ID || id === KLIPIT_WINDOW_ID || id === MODES.BARS || id === MODES.CONCERNS;
+                                    let logoStyle;
+                                    if (id === GDASH_WINDOW_ID || id === MODES.LIGHTHOUSE) logoStyle = { width: '100%', height: '100%', borderRadius: 'inherit', objectFit: 'contain', padding: '5px' };
+                                    else if (id === MODES.STUDIOOS) logoStyle = { width: '100%', height: '100%', borderRadius: 'inherit', objectFit: 'contain', padding: '2px' };
+                                    else if (isFillCover) logoStyle = { width: '100%', height: '100%', borderRadius: 'inherit', objectFit: 'cover' };
+                                    else if (id === HERMES_WINDOW_ID) logoStyle = { width: '28px', height: '28px' };
+
+                                    return (
+                                    <button
+                                        key={id}
+                                        type="button"
+                                        className={`dash-tile dash-tile-system${artwork ? ' dash-tile-hero' : ''}${id === HERMES_WINDOW_ID ? ' dash-tile-hermes' : ''}`}
+                                        style={{ '--tile': hue, '--i': i + NATIVE_TILES.length }}
+                                        onClick={() => openWindow(id)}
+                                    >
+                                        {artwork && (
+                                            <span
+                                                className="dash-tile-art"
+                                                aria-hidden="true"
+                                                style={bgImage ? { backgroundImage: `url('${bgImage}')` } : undefined}
+                                            />
+                                        )}
+                                        <span className={`dash-tile-icon ${isWhiteBox || isFillCover ? 'overflow-hidden' : ''} ${isWhiteBox ? '!bg-white' : ''}`}>
+                                            {logo ? <img src={logo} alt="" className="dash-tile-logo" style={logoStyle} /> : <Icon size={20} />}
+                                        </span>
                                     <span className="dash-tile-name">
                                         {title}
                                         {id === OPENCLAW_WINDOW_ID && (
@@ -315,7 +324,8 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                                     {openIds.has(id) && <span className="dash-tile-open">open</span>}
                                     <ArrowUpRight size={13} className="dash-tile-arrow" />
                                 </button>
-                                ))}
+                                );
+                                })}
                             </div>
                         </div>
                     </section>

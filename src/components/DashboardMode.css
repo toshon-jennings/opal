@@ -329,6 +329,11 @@
     font-size: 11px;
     line-height: 1.4;
     color: var(--text-tertiary);
+    transition: color 0.18s ease;
+}
+
+.dash-tile:hover .dash-tile-desc {
+    color: white;
 }
 
 .dash-tile-arrow {
