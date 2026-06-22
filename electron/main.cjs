@@ -913,7 +913,35 @@ function cleanedDesktopUserAgent(rawUa) {
 
 app.whenReady().then(() => {
   if (!isDev) {
-    autoUpdater.checkForUpdatesAndNotify();
+    autoUpdater.autoDownload = false;
+
+    autoUpdater.on('update-available', (info) => {
+      dialog.showMessageBox({
+        type: 'info',
+        title: 'Update Available',
+        message: `A new version of Perci is available (v${info.version}). Do you want to download it now?`,
+        buttons: ['Yes', 'Later']
+      }).then((result) => {
+        if (result.response === 0) {
+          autoUpdater.downloadUpdate();
+        }
+      });
+    });
+
+    autoUpdater.on('update-downloaded', () => {
+      dialog.showMessageBox({
+        type: 'info',
+        title: 'Update Ready',
+        message: 'The update has been downloaded. Restart the application to apply the updates.',
+        buttons: ['Restart', 'Later']
+      }).then((result) => {
+        if (result.response === 0) {
+          autoUpdater.quitAndInstall();
+        }
+      });
+    });
+
+    autoUpdater.checkForUpdates();
   }
 
   app.on('web-contents-created', (_event, contents) => {
