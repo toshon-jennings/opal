@@ -18,6 +18,12 @@ contextBridge.exposeInMainWorld('electron', {
   getKlipitExtensionId: () => ipcRenderer.invoke('get-klipit-extension-id'),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   webSearch: (query, options) => ipcRenderer.invoke('web-search', { query, options }),
+  showContextMenu: (params) => ipcRenderer.send('show-context-menu', params),
+  onContextMenuAction: (callback) => {
+    const listener = (event, data) => callback(data);
+    ipcRenderer.on('context-menu-action', listener);
+    return () => ipcRenderer.removeListener('context-menu-action', listener);
+  },
   // StudioOS API proxy — avoids CORS by routing through the main process.
   studioos: {
     fetch: ({ apiBase, apiKey, path, method, body }) =>

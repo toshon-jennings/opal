@@ -449,6 +449,20 @@
     text-overflow: clip;
 }
 
+/* Lighthouse specific hover effects */
+.dash-tile-lighthouse .dash-tile-logo {
+    transition: filter 0.1s ease, transform 0.1s ease;
+}
+
+.dash-tile-lighthouse:hover .dash-tile-logo {
+    filter: drop-shadow(0 0 8px color-mix(in srgb, var(--tile) 90%, transparent)) brightness(1.5) contrast(1.25);
+    transform: scale(1.05);
+}
+
+.dash-tile-lighthouse:hover .dash-tile-icon {
+    box-shadow: 0 0 20px color-mix(in srgb, var(--tile) 50%, transparent) !important;
+}
+
 .dash-tile-system .dash-tile-desc {
     font-size: 11.5px;
     line-height: 1.45;

@@ -1055,6 +1055,16 @@ app.on('window-all-closed', () => {
   }
 });
 
+app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
+  const urlObj = new URL(url);
+  if (urlObj.hostname === 'localhost' || urlObj.hostname === '127.0.0.1') {
+    event.preventDefault();
+    callback(true);
+  } else {
+    callback(false);
+  }
+});
+
 // Splash screen gate — fires when the video finishes playing
 ipcMain.on('splash:done', () => {
   splashGate.splashDone = true;
@@ -1205,6 +1215,45 @@ async function writeAppData(data) {
 ipcMain.on('toggle-devtools', (event) => {
   if (!isDev) return;
   event.sender.toggleDevTools();
+});
+
+ipcMain.on('show-context-menu', (event, params) => {
+  const template = [];
+  const { clipboard } = require('electron');
+
+  if (params.linkURL) {
+    template.push({ label: 'Open Link in New Tab', click: () => event.sender.send('context-menu-action', { action: 'open-new-tab', url: params.linkURL, target: params.target }) });
+    template.push({ label: 'Open Link in Default Browser', click: () => shell.openExternal(params.linkURL) });
+    template.push({ label: 'Copy Link Address', click: () => clipboard.writeText(params.linkURL) });
+    template.push({ type: 'separator' });
+  }
+
+  if (params.hasImageContents && params.srcURL) {
+    template.push({ label: 'Copy Image Address', click: () => clipboard.writeText(params.srcURL) });
+    template.push({ type: 'separator' });
+  }
+
+  if (params.selectionText) {
+    template.push({ role: 'copy' });
+    template.push({ type: 'separator' });
+  }
+
+  if (params.isEditable) {
+    template.push({ role: 'cut' });
+    template.push({ role: 'copy' });
+    template.push({ role: 'paste' });
+    template.push({ type: 'separator' });
+  }
+
+  template.push({ label: 'Back', click: () => event.sender.send('context-menu-action', { action: 'back', target: params.target }) });
+  template.push({ label: 'Forward', click: () => event.sender.send('context-menu-action', { action: 'forward', target: params.target }) });
+  template.push({ label: 'Reload', click: () => event.sender.send('context-menu-action', { action: 'reload', target: params.target }) });
+  template.push({ type: 'separator' });
+  template.push({ label: 'Inspect Element', click: () => event.sender.send('context-menu-action', { action: 'inspect', x: params.x, y: params.y, target: params.target }) });
+
+  const menu = Menu.buildFromTemplate(template);
+  const bw = BrowserWindow.fromWebContents(event.sender);
+  menu.popup({ window: bw });
 });
 
 ipcMain.handle('app-data:path', async () => getAppDataPath());

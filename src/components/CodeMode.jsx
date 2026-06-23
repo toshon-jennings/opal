@@ -2,13 +2,17 @@ import React, { useState, useEffect, useRef, useCallback, Component } from 'reac
 import { useMode, MODES } from '../context/ModeContext';
 import { useChat } from '../context/ChatContext';
 import { useTheme } from '../context/ThemeContext';
-import { writeStringStorage } from '../lib/persistentStore';
+import { readStringStorage, writeStringStorage } from '../lib/persistentStore';
 import { LLMFactory } from '../lib/llm/clients';
 import FileExplorer from './FileExplorer';
 import { SecondaryModeNav } from './SecondaryModeNav';
 import { SettingsModal } from './SettingsModal';
 import { Settings, Plus, Send, Code, Terminal, Play, Layout, Users, ChevronRight, Save, Sidebar, Globe, RefreshCw, X, FileCode, MessageSquare, History, Search, FolderOpen } from 'lucide-react';
 import { PermissionsDropdown } from './PermissionsDropdown';
+import { CavemanDropdown } from './CavemanDropdown';
+import { cavemanDirective } from '../lib/caveman';
+import { PonytailDropdown } from './PonytailDropdown';
+import { ponytailDirective } from '../lib/ponytail';
 
 import MonacoEditor from '@monaco-editor/react';
 import ReactMarkdown from 'react-markdown';
@@ -83,6 +87,16 @@ export default function CodeMode() {
     const [showHistory, setShowHistory] = useState(true);
     const [previewKey, setPreviewKey] = useState(0);
     const [permissionLevel, setPermissionLevel] = useState('full');
+    const [cavemanLevel, setCavemanLevel] = useState(() => readStringStorage('caveman_level_code', 'off'));
+    const handleCavemanChange = (level) => {
+        setCavemanLevel(level);
+        writeStringStorage('caveman_level_code', level);
+    };
+    const [ponytailLevel, setPonytailLevel] = useState(() => readStringStorage('ponytail_level_code', 'off'));
+    const handlePonytailChange = (level) => {
+        setPonytailLevel(level);
+        writeStringStorage('ponytail_level_code', level);
+    };
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
     // Resizable widths
@@ -333,7 +347,9 @@ export default function CodeMode() {
                 memoryContext.prompt,
                 permissionPrompt,
                 buildIntegrationToolsPrompt(apiKeys),
-                `Context: ${fileContext}`
+                `Context: ${fileContext}`,
+                ...(cavemanDirective(cavemanLevel).trim() ? [cavemanDirective(cavemanLevel).trim()] : []),
+                ...(ponytailDirective(ponytailLevel).trim() ? [ponytailDirective(ponytailLevel).trim()] : [])
             ].join('\n\n');
             const messagesForLLM = [{ role: 'system', content: systemPrompt }, ...updatedMessages];
             appendMissionRunEvent(missionRunId, {
@@ -533,6 +549,8 @@ export default function CodeMode() {
                         />
                         <div className="mt-2 flex items-center gap-1">
                             <PermissionsDropdown value={permissionLevel} onChange={setPermissionLevel} />
+                            <CavemanDropdown value={cavemanLevel} onChange={handleCavemanChange} />
+                            <PonytailDropdown value={ponytailLevel} onChange={handlePonytailChange} />
                         </div>
                         <button
                             type={isLoading ? 'button' : 'submit'}

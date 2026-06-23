@@ -300,16 +300,20 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                                     <button
                                         key={id}
                                         type="button"
-                                        className={`dash-tile dash-tile-system${artwork ? ' dash-tile-hero' : ''}${id === HERMES_WINDOW_ID ? ' dash-tile-hermes' : ''}`}
+                                        className={`dash-tile dash-tile-system${artwork ? ' dash-tile-hero' : ''}${id === HERMES_WINDOW_ID ? ' dash-tile-hermes' : ''}${id === MODES.LIGHTHOUSE ? ' dash-tile-lighthouse' : ''}`}
                                         style={{ '--tile': hue, '--i': i + NATIVE_TILES.length }}
                                         onClick={() => openWindow(id)}
                                     >
                                         {artwork && (
                                             <span
-                                                className="dash-tile-art"
+                                                className="dash-tile-art flex items-center justify-center overflow-hidden"
                                                 aria-hidden="true"
                                                 style={bgImage ? { backgroundImage: `url('${bgImage}')` } : undefined}
-                                            />
+                                            >
+                                                {id === KLIPIT_WINDOW_ID && (
+                                                    <Globe className="absolute -right-6 -bottom-6 text-white/80" size={140} strokeWidth={1.5} />
+                                                )}
+                                            </span>
                                         )}
                                         <span className={`dash-tile-icon ${isWhiteBox || isFillCover ? 'overflow-hidden' : ''} ${isWhiteBox ? '!bg-white' : ''}`}>
                                             {logo ? <img src={logo} alt="" className="dash-tile-logo" style={logoStyle} /> : <Icon size={20} />}

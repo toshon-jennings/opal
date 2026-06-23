@@ -1,20 +1,68 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, ExternalLink, Globe, Home, RefreshCw, Settings, Plus, X, Paperclip, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
+import { ArrowLeft, ArrowRight, ArrowUp, ArrowDown, ExternalLink, Globe, Home, RefreshCw, Settings, Plus, X, Paperclip, Trash2, PanelRight, Radar, Play, Bookmark, Star, Search } from 'lucide-react';
 import { readStringStorage, writeStringStorage, removeStorageKey } from '../lib/persistentStore';
 import { useTheme } from '../context/ThemeContext';
+import klipitLogo from '../assets/klipit-logo.png';
+import localhostBg from '../assets/localhost-bg.jpeg';
 
 const QUICK_PORTS = [3000, 5173, 8080, 4200];
-const LAST_URL_KEY = 'perci_localhost_last_url';
-const HOME_KEY = 'perci_localhost_home';
-const ALLOW_HTTP_KEY = 'perci_localhost_allow_http';
 
-function normalizeAddress(raw, forceHttps = false) {
+const PROCESS_NAME_MAP = {
+  'com.docke': 'Docker Desktop', 'Docker': 'Docker Desktop', 'docker': 'Docker',
+  'ControlCe': 'AirPlay Receiver', 'rapportd': 'AirPlay / Handoff',
+  'LM Studio': 'LM Studio', 'node': 'Node.js', 'node.exe': 'Node.js',
+  'next-server': 'Next.js', 'next-dev': 'Next.js (dev)', 'vite': 'Vite',
+  'python3.1': 'Hermes Agent', 'python3': 'Python', 'python': 'Python',
+  'ollama': 'Ollama', 'Ollama': 'Ollama', 'keybase': 'Keybase',
+  'kbfs': 'Keybase FS', 'Raycast': 'Raycast', 'Electron': 'Electron',
+  'Antigravi': 'Antigravity', 'app_inkwe': 'Inkweasel',
+  'language_': 'Language Server', 'lmlink-co': 'LM Link',
+  'Mountain': 'Mountain', 'sshd': 'SSH', 'postgres': 'PostgreSQL',
+  'redis-server': 'Redis', 'nginx': 'nginx',
+};
+
+function friendlyProcessName(raw) {
+  if (!raw) return '';
+  const name = String(raw).split('/').pop();
+  if (PROCESS_NAME_MAP[name]) return PROCESS_NAME_MAP[name];
+  const base = name.replace(/\d+(\.\d+)*$/, '').toLowerCase();
+  if (base === 'python') return 'Python';
+  if (base === 'node') return 'Node.js';
+  return name;
+}
+
+// Only show ports bound to localhost — the ones useful for an embedded browser
+function isLocalhostPort(p) {
+  const bind = (p.bind_address || '').toLowerCase();
+  return (
+    bind === '127.0.0.1' ||
+    bind === '::1' ||
+    bind === 'localhost' ||
+    bind === '0.0.0.0' ||
+    bind === '::' ||
+    bind === ''
+  );
+}
+
+const getStorageKeys = (isKlipit) => ({
+    LAST_URL: isKlipit ? 'perci_klipit_last_url' : 'perci_localhost_last_url',
+    HOME: isKlipit ? 'perci_klipit_home' : 'perci_localhost_home',
+    ALLOW_HTTP: isKlipit ? 'perci_klipit_allow_http' : 'perci_localhost_allow_http',
+    BOOKMARKS: isKlipit ? 'perci_klipit_bookmarks' : 'perci_localhost_bookmarks',
+    SEARCH_ENGINE: isKlipit ? 'perci_klipit_search' : 'perci_localhost_search',
+});
+
+function normalizeAddress(raw, engine = 'google') {
     const value = raw.trim();
     if (!value) return '';
     if (/^[a-z][a-z0-9+.-]*:\/\//i.test(value)) return value;
     if (/^\d+(\/.*)?$/.test(value)) return `http://localhost:${value}`;
     if (value.startsWith('localhost:') || value === 'localhost') return `http://${value}`;
-    return forceHttps ? `https://${value}` : `http://${value}`;
+    if (value.includes(' ') || !value.includes('.')) {
+        if (engine === 'duckduckgo') return `https://duckduckgo.com/?q=${encodeURIComponent(value)}`;
+        return `https://www.google.com/search?q=${encodeURIComponent(value)}`;
+    }
+    return `https://${value}`;
 }
 
 function addressLabel(url) {
@@ -22,20 +70,35 @@ function addressLabel(url) {
 }
 
 
-function LocalhostTab({ id, initialUrl, hidden, onTitleChange, isKlipit, isDarkMode }) {
+function LocalhostTab({ id, initialUrl, hidden, onTitleChange, isKlipit, isDarkMode, onNewTab }) {
+    const keys = useMemo(() => getStorageKeys(isKlipit), [isKlipit]);
     const [url, setUrl] = useState(initialUrl);
     const [title, setTitle] = useState(addressLabel(initialUrl) || 'New Tab');
     const [inputValue, setInputValue] = useState(() => addressLabel(initialUrl));
     const [isLoading, setIsLoading] = useState(false);
     const [loadError, setLoadError] = useState(null);
     const [navState, setNavState] = useState({ canGoBack: false, canGoForward: false });
-    const [homeAddress, setHomeAddress] = useState(() => readStringStorage(HOME_KEY, ''));
-    const [homeInput, setHomeInput] = useState(() => addressLabel(readStringStorage(HOME_KEY, '')));
+    const [homeAddress, setHomeAddress] = useState(() => readStringStorage(keys.HOME, ''));
+    const [homeInput, setHomeInput] = useState(() => addressLabel(readStringStorage(keys.HOME, '')));
     const [showSettings, setShowSettings] = useState(false);
-    const [allowHttp, setAllowHttp] = useState(() => readStringStorage(ALLOW_HTTP_KEY, 'false') === 'true');
+    const [allowHttp, setAllowHttp] = useState(() => readStringStorage(keys.ALLOW_HTTP, 'false') === 'true');
+    const [bookmarks, setBookmarks] = useState(() => {
+        try {
+            return JSON.parse(readStringStorage(keys.BOOKMARKS, '[]'));
+        } catch {
+            return [];
+        }
+    });
+    const [showBookmarks, setShowBookmarks] = useState(false);
+    const [searchEngine, setSearchEngine] = useState(() => readStringStorage(keys.SEARCH_ENGINE, 'google'));
+    const [showFindBar, setShowFindBar] = useState(false);
+    const [findText, setFindText] = useState('');
+    const [findResult, setFindResult] = useState({ activeMatchOrdinal: 0, matches: 0 });
+    const findInputRef = useRef(null);
     const [klipitId, setKlipitId] = useState(null);
     const [klipitError, setKlipitError] = useState(null);
     const [sidebarWidth, setSidebarWidth] = useState(320); // default 320px
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const isDragging = useRef(false);
     const webviewRef = useRef(null);
     const klipitWebviewRef = useRef(null);
@@ -44,6 +107,13 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, isKlipit, isDarkM
     useEffect(() => {
         const webview = klipitWebviewRef.current;
         if (!webview || !isKlipit) return;
+
+        const handleContextMenu = (e) => {
+            e.preventDefault();
+            if (window.electron?.showContextMenu) {
+                window.electron.showContextMenu({ ...e.params, target: 'klipit' });
+            }
+        };
 
         const syncTheme = () => {
             try {
@@ -65,11 +135,13 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, isKlipit, isDarkM
         const onReady = () => syncTheme();
         webview.addEventListener('dom-ready', onReady);
         webview.addEventListener('did-stop-loading', onReady);
+        webview.addEventListener('context-menu', handleContextMenu);
         syncTheme(); // try right away
 
         return () => {
             webview.removeEventListener('dom-ready', onReady);
             webview.removeEventListener('did-stop-loading', onReady);
+            webview.removeEventListener('context-menu', handleContextMenu);
         };
     }, [isDarkMode, klipitId, isKlipit]);
     
@@ -99,6 +171,29 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, isKlipit, isDarkM
         };
     }, [id]);
 
+    useEffect(() => {
+        if (!window.electron?.onContextMenuAction) return;
+        const unlisten = window.electron.onContextMenuAction((data) => {
+            const myTarget = isKlipit ? 'klipit' : id;
+            if (data.target !== myTarget) return;
+
+            const wv = isKlipit ? klipitWebviewRef.current : webviewRef.current;
+            if (!wv) return;
+            
+            if (data.action === 'open-new-tab' && onNewTab) {
+                console.log('[LocalhostTab] Open in new tab called with URL:', data.url);
+                onNewTab(data.url);
+                return;
+            }
+
+            if (data.action === 'back') wv.goBack();
+            else if (data.action === 'forward') wv.goForward();
+            else if (data.action === 'reload') wv.reload();
+            else if (data.action === 'inspect') wv.inspectElement(data.x, data.y);
+        });
+        return unlisten;
+    }, [id, isKlipit, onNewTab]);
+
     const handleMouseDown = (e) => {
         e.preventDefault();
         isDragging.current = true;
@@ -124,8 +219,67 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, isKlipit, isDarkM
         }
     }, [isKlipit]);
 
+    const toggleBookmark = useCallback(() => {
+        if (!url) return;
+        setBookmarks(prev => {
+            const exists = prev.some(b => b.url === url);
+            const next = exists ? prev.filter(b => b.url !== url) : [...prev, { url, title: title || url }];
+            writeStringStorage(keys.BOOKMARKS, JSON.stringify(next));
+            return next;
+        });
+    }, [url, title, keys.BOOKMARKS]);
+
+    const isBookmarked = useMemo(() => bookmarks.some(b => b.url === url), [bookmarks, url]);
+
+    // Handle Find in Page
+    useEffect(() => {
+        if (hidden) return;
+        const handleKeyDown = (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+                e.preventDefault();
+                setShowFindBar(true);
+                setTimeout(() => findInputRef.current?.focus(), 50);
+            } else if (e.key === 'Escape' && showFindBar) {
+                setShowFindBar(false);
+                try {
+                    webviewRef.current?.stopFindInPage('clearSelection');
+                } catch (err) {
+                    // Ignore
+                }
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [hidden, showFindBar]);
+
+    const handleFindNext = useCallback((forward = true) => {
+        if (!findText) return;
+        try {
+            webviewRef.current?.findInPage(findText, { forward, findNext: true });
+        } catch (e) {
+            // Webview might not be ready
+        }
+    }, [findText]);
+
+    useEffect(() => {
+        if (showFindBar && findText) {
+            try {
+                webviewRef.current?.findInPage(findText);
+            } catch (e) {
+                // Ignore
+            }
+        } else if (!showFindBar) {
+            try {
+                webviewRef.current?.stopFindInPage('clearSelection');
+            } catch (e) {
+                // Ignore
+            }
+            setFindResult({ activeMatchOrdinal: 0, matches: 0 });
+        }
+    }, [findText, showFindBar]);
+
     const navigate = useCallback((raw) => {
-        const next = normalizeAddress(raw, isKlipit);
+        const next = normalizeAddress(raw, searchEngine);
         if (!next) return;
         
         try {
@@ -143,23 +297,23 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, isKlipit, isDarkM
         setLoadError(null);
         setUrl(next);
         setInputValue(addressLabel(next));
-        if (!hidden) writeStringStorage(LAST_URL_KEY, next);
-    }, [hidden, allowHttp]);
+        if (!hidden) writeStringStorage(keys.LAST_URL, next);
+    }, [hidden, allowHttp, keys.LAST_URL]);
 
     const saveHome = useCallback((raw) => {
-        const next = normalizeAddress(raw, isKlipit);
+        const next = normalizeAddress(raw);
         setHomeAddress(next);
         setHomeInput(addressLabel(next));
-        if (next) writeStringStorage(HOME_KEY, next);
-        else removeStorageKey(HOME_KEY);
+        if (next) writeStringStorage(keys.HOME, next);
+        else removeStorageKey(keys.HOME);
         setShowSettings(false);
-    }, []);
+    }, [isKlipit, keys.HOME]);
 
     const toggleAllowHttp = useCallback(() => {
         const next = !allowHttp;
         setAllowHttp(next);
-        writeStringStorage(ALLOW_HTTP_KEY, next ? 'true' : 'false');
-    }, [allowHttp]);
+        writeStringStorage(keys.ALLOW_HTTP, next ? 'true' : 'false');
+    }, [allowHttp, keys.ALLOW_HTTP]);
 
     const goHome = useCallback(() => {
         if (homeAddress) navigate(homeAddress);
@@ -199,6 +353,25 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, isKlipit, isDarkM
                 // ignore
             }
         };
+        const myTarget = isKlipit ? 'klipit' : id;
+
+        const handleContextMenu = (e) => {
+            e.preventDefault();
+            if (window.electron?.showContextMenu) {
+                window.electron.showContextMenu({ ...e.params, target: myTarget });
+            }
+        };
+        const handleNewWindow = (e) => {
+            e.preventDefault();
+            if (onNewTab) onNewTab(e.url);
+        };
+
+        const handleFoundInPage = (e) => {
+            setFindResult({
+                activeMatchOrdinal: e.result.activeMatchOrdinal,
+                matches: e.result.matches
+            });
+        };
 
         webview.addEventListener('did-start-loading', handleStart);
         webview.addEventListener('did-stop-loading', handleStop);
@@ -207,6 +380,9 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, isKlipit, isDarkM
         webview.addEventListener('did-fail-load', handleFail);
         webview.addEventListener('page-title-updated', handleTitle);
         webview.addEventListener('will-navigate', handleWillNavigate);
+        webview.addEventListener('context-menu', handleContextMenu);
+        webview.addEventListener('new-window', handleNewWindow);
+        webview.addEventListener('found-in-page', handleFoundInPage);
 
         return () => {
             webview.removeEventListener('did-start-loading', handleStart);
@@ -216,6 +392,9 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, isKlipit, isDarkM
             webview.removeEventListener('did-fail-load', handleFail);
             webview.removeEventListener('page-title-updated', handleTitle);
             webview.removeEventListener('will-navigate', handleWillNavigate);
+            webview.removeEventListener('context-menu', handleContextMenu);
+            webview.removeEventListener('new-window', handleNewWindow);
+            webview.removeEventListener('found-in-page', handleFoundInPage);
         };
     }, [url, id, onTitleChange, allowHttp]);
 
@@ -254,17 +433,24 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, isKlipit, isDarkM
                 >
                     <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
                 </button>
-                {!isKlipit && (
-                    <button
-                        type="button"
-                        disabled={!homeAddress}
-                        onClick={goHome}
-                        className="micro-interaction rounded-md p-1.5 text-[var(--text-tertiary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] disabled:opacity-30 disabled:hover:bg-transparent"
-                        title={homeAddress ? `Home (${addressLabel(homeAddress)})` : 'Set a home address in Settings'}
-                    >
-                        <Home size={14} />
-                    </button>
-                )}
+                <button
+                    type="button"
+                    disabled={!homeAddress}
+                    onClick={goHome}
+                    className="micro-interaction rounded-md p-1.5 text-[var(--text-tertiary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] disabled:opacity-30 disabled:hover:bg-transparent"
+                    title={homeAddress ? `Home (${addressLabel(homeAddress)})` : 'Set a home address in Settings'}
+                >
+                    <Home size={14} />
+                </button>
+                <button
+                    type="button"
+                    disabled={!url}
+                    onClick={toggleBookmark}
+                    className={`micro-interaction rounded-md p-1.5 transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-30 disabled:hover:bg-transparent ${isBookmarked ? 'text-[var(--accent)]' : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'}`}
+                    title={isBookmarked ? 'Remove bookmark' : 'Bookmark this page'}
+                >
+                    <Star size={14} className={isBookmarked ? 'fill-current' : ''} />
+                </button>
                 <form onSubmit={handleSubmit} className="min-w-0 flex-1">
                     <div className={`flex items-center gap-2 rounded-md border px-2.5 py-1.5 ${isKlipit ? 'border-[#dac39c] dark:border-[#494030] bg-[#fff8e9] dark:bg-[#211c14]' : 'border-[var(--border)] bg-[var(--bg-primary)]'}`}>
                         <Globe size={12} className="shrink-0 text-[var(--text-tertiary)]" />
@@ -273,7 +459,7 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, isKlipit, isDarkM
                             value={inputValue}
                             onChange={(e) => setInputValue(e.target.value)}
                             onFocus={(e) => e.target.select()}
-                            placeholder={isKlipit ? "Enter an address to Klip..." : "Port or address, e.g. 3000 or localhost:5173/app"}
+                            placeholder={isKlipit ? "Search or enter an address..." : "Port or address, e.g. 3000 or localhost:5173"}
                             className="w-full min-w-0 bg-transparent text-xs text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none"
                             spellCheck={false}
                         />
@@ -289,17 +475,76 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, isKlipit, isDarkM
                 >
                     <ExternalLink size={14} />
                 </a>
+                {isKlipit && (
+                    <button
+                        type="button"
+                        onClick={() => setIsSidebarOpen(o => !o)}
+                        className={`micro-interaction rounded-md p-1.5 transition-colors ${isSidebarOpen ? 'text-[var(--accent)] bg-[var(--accent)]/10' : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'}`}
+                        title={isSidebarOpen ? "Hide Klipit" : "Show Klipit"}
+                    >
+                        <PanelRight size={14} />
+                    </button>
+                )}
                 <div className="relative">
-                    {!isKlipit && (
-                        <button
-                            type="button"
-                            onClick={() => setShowSettings((v) => !v)}
-                            className="micro-interaction rounded-md p-1.5 text-[var(--text-tertiary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
-                            title="Localhost settings"
-                        >
-                            <Settings size={14} />
-                        </button>
+                    <button
+                        type="button"
+                        onClick={() => setShowBookmarks((v) => !v)}
+                        className={`micro-interaction rounded-md p-1.5 transition-colors hover:bg-[var(--bg-hover)] ${showBookmarks ? 'text-[var(--text-primary)] bg-[var(--bg-hover)]' : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'}`}
+                        title="Bookmarks"
+                    >
+                        <Bookmark size={14} />
+                    </button>
+                    {showBookmarks && (
+                        <>
+                            <div className="fixed inset-0 z-20" onClick={() => setShowBookmarks(false)} />
+                            <div className="absolute right-0 top-full z-30 mt-2 w-64 max-h-96 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--bg-primary)] p-2 shadow-xl">
+                                <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">Bookmarks</p>
+                                {bookmarks.length === 0 ? (
+                                    <p className="px-1 py-2 text-xs text-[var(--text-tertiary)]">No bookmarks yet. Click the star icon to save pages.</p>
+                                ) : (
+                                    <div className="flex flex-col gap-0.5">
+                                        {bookmarks.map((bm, i) => (
+                                            <div key={i} className="group flex items-center justify-between rounded-md px-2 py-1.5 hover:bg-[var(--bg-hover)]">
+                                                <button
+                                                    type="button"
+                                                    className="flex-1 truncate text-left text-xs text-[var(--text-primary)]"
+                                                    onClick={() => { navigate(bm.url); setShowBookmarks(false); }}
+                                                    title={bm.url}
+                                                >
+                                                    {bm.title || bm.url}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="invisible p-1 text-[var(--text-tertiary)] hover:text-red-400 group-hover:visible"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setBookmarks(prev => {
+                                                            const next = prev.filter(b => b.url !== bm.url);
+                                                            writeStringStorage(keys.BOOKMARKS, JSON.stringify(next));
+                                                            return next;
+                                                        });
+                                                    }}
+                                                    title="Remove"
+                                                >
+                                                    <X size={12} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </>
                     )}
+                </div>
+                <div className="relative">
+                    <button
+                        type="button"
+                        onClick={() => setShowSettings((v) => !v)}
+                        className="micro-interaction rounded-md p-1.5 text-[var(--text-tertiary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+                        title="Localhost settings"
+                    >
+                        <Settings size={14} />
+                    </button>
                     {showSettings && (
                         <>
                             <div className="fixed inset-0 z-20" onClick={() => setShowSettings(false)} />
@@ -359,6 +604,25 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, isKlipit, isDarkM
                                         </div>
                                     </label>
                                 </div>
+                                <div className="mt-3 pt-3 border-t border-[var(--border)]">
+                                    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">Search Engine</p>
+                                    <div className="flex items-center gap-2">
+                                        <button 
+                                            type="button"
+                                            onClick={() => { setSearchEngine('google'); writeStringStorage(keys.SEARCH_ENGINE, 'google'); }}
+                                            className={`flex-1 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors ${searchEngine === 'google' ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]' : 'border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'}`}
+                                        >
+                                            Google
+                                        </button>
+                                        <button 
+                                            type="button"
+                                            onClick={() => { setSearchEngine('duckduckgo'); writeStringStorage(keys.SEARCH_ENGINE, 'duckduckgo'); }}
+                                            className={`flex-1 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors ${searchEngine === 'duckduckgo' ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]' : 'border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'}`}
+                                        >
+                                            DuckDuckGo
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </>
                     )}
@@ -367,7 +631,7 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, isKlipit, isDarkM
 
             {loadError && (
                 <div className="flex shrink-0 items-center justify-between gap-3 border-b border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs text-red-400">
-                    <span className="truncate">{loadError} — is anything running on this address?</span>
+                    <span className="truncate">{loadError.desc}</span>
                     <button type="button" onClick={() => webviewRef.current?.reload()} className="shrink-0 font-medium hover:text-red-300">
                         Retry
                     </button>
@@ -376,6 +640,30 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, isKlipit, isDarkM
 
             <div className="flex flex-1 min-h-0 relative">
                 <div className="relative min-h-0 flex-1 bg-white min-w-0">
+                    {showFindBar && (
+                        <div className="absolute right-4 top-4 z-10 flex items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--bg-primary)] p-1.5 shadow-lg">
+                            <Search size={12} className="ml-1 text-[var(--text-tertiary)]" />
+                            <input
+                                ref={findInputRef}
+                                type="text"
+                                value={findText}
+                                onChange={(e) => setFindText(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleFindNext(!e.shiftKey);
+                                }}
+                                placeholder="Find in page..."
+                                className="w-40 bg-transparent px-1 py-1 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none"
+                            />
+                            <span className="text-xs text-[var(--text-tertiary)] w-10 text-right">
+                                {findResult.matches > 0 ? `${findResult.activeMatchOrdinal}/${findResult.matches}` : '0/0'}
+                            </span>
+                            <div className="ml-1 flex items-center gap-0.5 border-l border-[var(--border)] pl-1.5">
+                                <button type="button" onClick={() => handleFindNext(false)} className="rounded-md p-1 hover:bg-[var(--bg-hover)] text-[var(--text-secondary)]"><ArrowUp size={14} /></button>
+                                <button type="button" onClick={() => handleFindNext(true)} className="rounded-md p-1 hover:bg-[var(--bg-hover)] text-[var(--text-secondary)]"><ArrowDown size={14} /></button>
+                                <button type="button" onClick={() => setShowFindBar(false)} className="ml-1 rounded-md p-1 hover:bg-[var(--bg-hover)] text-[var(--text-secondary)]"><X size={14} /></button>
+                            </div>
+                        </div>
+                    )}
                     {url ? (
                         <webview
                             ref={webviewRef}
@@ -394,7 +682,7 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, isKlipit, isDarkM
                              }}>
                              <div className="absolute inset-0 bg-black/0 dark:bg-black/70 mix-blend-multiply pointer-events-none transition-colors duration-300" />
                              <div className="p-8 rounded-2xl bg-white/50 dark:bg-black/50 backdrop-blur-md border border-white/20 dark:border-white/10 shadow-xl flex flex-col items-center relative z-10">
-                                 <Paperclip size={32} className="text-[#126d62] dark:text-[#5ec4b2] mb-4" />
+                                 <img src={klipitLogo} alt="Klipit Logo" className="w-12 h-12 object-contain mb-4 filter drop-shadow-md brightness-90 contrast-125" />
                                  <h2 className="text-xl font-medium text-[#251d17] dark:text-[#f0e9da] mb-2 font-serif" style={{ fontFamily: '"Fraunces", ui-serif, Georgia, serif' }}>What would you like to Klip today?</h2>
                                  <p className="text-sm text-[#695442] dark:text-[#b3a994] max-w-sm text-balance">
                                      Enter an address above to preview a page. Use the sidebar to clip it securely into your commonplace book.
@@ -402,12 +690,22 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, isKlipit, isDarkM
                              </div>
                         </div>
                     ) : (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[var(--bg-primary)] p-8">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)]">
-                                <Globe size={22} className="text-[var(--text-tertiary)]" />
-                            </div>
-                            <p className="text-sm text-[var(--text-secondary)]">Point this at any local dev server</p>
-                            <div className="flex flex-wrap items-center justify-center gap-2">
+                        <div className="absolute inset-0 flex flex-col items-center justify-center p-8 bg-[var(--bg-primary)]">
+                            <div 
+                                className="absolute inset-0 opacity-[0.15] dark:opacity-[0.05] pointer-events-none transition-opacity"
+                                style={{
+                                    backgroundImage: `url(${localhostBg})`,
+                                    backgroundSize: 'cover',
+                                    backgroundPosition: 'center',
+                                    filter: 'grayscale(100%) contrast(120%)',
+                                }}
+                            />
+                            <div className="relative z-10 flex flex-col items-center justify-center gap-4">
+                                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--bg-primary)] shadow-sm backdrop-blur-md bg-opacity-80">
+                                    <Globe size={26} className="text-[var(--text-tertiary)]" />
+                                </div>
+                                <p className="text-sm font-medium text-[var(--text-secondary)] bg-[var(--bg-primary)]/50 px-3 py-1 rounded-full backdrop-blur-md">Point this at any local dev server</p>
+                                <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
                                 {QUICK_PORTS.map((port) => (
                                     <button
                                         key={port}
@@ -418,11 +716,12 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, isKlipit, isDarkM
                                         :{port}
                                     </button>
                                 ))}
+                                </div>
                             </div>
                         </div>
                     )}
                 </div>
-                {isKlipit && (
+                {isKlipit && isSidebarOpen && (
                     <>
                         <div 
                             className="absolute top-0 bottom-0 z-30 cursor-col-resize bg-transparent hover:bg-pink-500/50 active:bg-pink-500 transition-colors"
@@ -467,14 +766,60 @@ export default function LocalhostMode({ isKlipit }) {
     const isElectron = !!window.electron;
     const { isDarkMode } = useTheme();
     const [tabs, setTabs] = useState(() => {
-        const savedUrl = readStringStorage(LAST_URL_KEY, '');
+        const keys = getStorageKeys(isKlipit);
+        const savedUrl = readStringStorage(keys.LAST_URL, '');
         return [{ id: Date.now().toString(), url: savedUrl, title: addressLabel(savedUrl) || 'New Tab' }];
     });
     const [activeTabId, setActiveTabId] = useState(tabs[0].id);
 
+    // ── Lighthouse discovered servers ──────────────────────────────────
+    const [discoveredServers, setDiscoveredServers] = useState([]);
+    const [scanning, setScanning] = useState(false);
+    const [lastScanTime, setLastScanTime] = useState(null);
+    const scanSeqRef = useRef(0);
+
+    const scanForServers = useCallback(async () => {
+        if (!isElectron?.lighthouseScan) return;
+        const seq = ++scanSeqRef.current;
+        setScanning(true);
+        try {
+            const result = await window.electron.lighthouseScan();
+            if (seq !== scanSeqRef.current) return; // stale
+            const servers = (result.ports || [])
+                .filter(isLocalhostPort)
+                .sort((a, b) => Number(a.port || 0) - Number(b.port || 0));
+            setDiscoveredServers(servers);
+            setLastScanTime(result.last_scan || null);
+        } catch (err) {
+            console.error('[LocalhostMode] Lighthouse scan failed:', err);
+        } finally {
+            if (seq === scanSeqRef.current) {
+                setScanning(false);
+            }
+        }
+    }, [isElectron]);
+
+    // Auto-scan on mount
+    useEffect(() => {
+        scanForServers();
+    }, [scanForServers]);
+
     const handleTitleChange = useCallback((id, title) => {
         setTabs(currentTabs => currentTabs.map(t => t.id === id ? { ...t, title } : t));
     }, []);
+
+    const handleNewTab = useCallback((url) => {
+        console.log('[LocalhostMode] Creating new tab with URL:', url);
+        const newId = Date.now().toString();
+        setTabs(prev => [...prev, { id: newId, url, title: 'New Tab' }]);
+        setActiveTabId(newId);
+    }, []);
+
+    // Open a discovered server into a new tab
+    const openDiscovered = useCallback((port) => {
+        const url = `http://localhost:${port}`;
+        handleNewTab(url);
+    }, [handleNewTab]);
 
     if (!isElectron) {
         return (
@@ -494,6 +839,64 @@ export default function LocalhostMode({ isKlipit }) {
 
     return (
         <div className="h-full w-full flex flex-col bg-[var(--bg-primary)]">
+            {/* Discovered servers toolbar */}
+            <div className={`shrink-0 border-b border-[var(--border)] bg-[var(--bg-secondary)]/30 px-3 py-2 ${isKlipit ? 'border-[#dac39c] dark:border-[#322c20] bg-[#f1e4cf]/50 dark:bg-[#141009]/50' : ''}`}>
+                <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
+                        <Radar size={13} className={scanning ? 'animate-pulse text-[var(--accent)]' : ''} />
+                        <span>Running</span>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={scanForServers}
+                        disabled={scanning}
+                        className="micro-interaction rounded-md p-1 text-[var(--text-tertiary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] disabled:opacity-40"
+                        title="Scan for running servers"
+                    >
+                        <RefreshCw size={12} className={scanning ? 'animate-spin' : ''} />
+                    </button>
+                    {lastScanTime && (
+                        <span className="text-[10px] text-[var(--text-tertiary)]">Scanned {lastScanTime}</span>
+                    )}
+                    <div className="flex-1" />
+                    {discoveredServers.length > 0 && (
+                        <span className="text-[10px] text-[var(--text-tertiary)]">{discoveredServers.length} server{discoveredServers.length !== 1 ? 's' : ''}</span>
+                    )}
+                </div>
+                {discoveredServers.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                        {discoveredServers.map((srv) => {
+                            const label = srv.service_name || srv.project || friendlyProcessName(srv.process_name) || 'Unknown';
+                            return (
+                                <button
+                                    key={`${srv.port}-${srv.bind_address || '0.0.0.0'}`}
+                                    type="button"
+                                    onClick={() => openDiscovered(srv.port)}
+                                    className={`group flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors ${
+                                        isKlipit
+                                            ? 'border-[#dac39c] dark:border-[#494030] bg-[#fff8e9] dark:bg-[#211c14] text-[#695442] dark:text-[#b3a994] hover:bg-[#f1e4cf] dark:hover:bg-[#322c20]'
+                                            : 'border-[var(--border)] bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'
+                                    }`}
+                                    title={`localhost:${srv.port} — ${label}${srv.process_name ? ` (${srv.process_name})` : ''}`}
+                                >
+                                    <Play size={9} className="shrink-0 opacity-50 group-hover:opacity-100 transition-opacity" />
+                                    <span className="font-semibold">:{srv.port}</span>
+                                    <span className="opacity-70">{label}</span>
+                                    {srv.bind_address && srv.bind_address !== '127.0.0.1' && srv.bind_address !== '0.0.0.0' && (
+                                        <span className="opacity-40 text-[9px]">({srv.bind_address})</span>
+                                    )}
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
+                {discoveredServers.length === 0 && !scanning && (
+                    <div className="mt-1.5 text-[11px] text-[var(--text-tertiary)]">
+                        No local servers detected. Start a dev server and hit scan.
+                    </div>
+                )}
+            </div>
+
             <div className="flex items-center gap-1 border-b border-[var(--border)] bg-[var(--bg-secondary)]/30 px-2 pt-2">
                 {tabs.map((tab) => (
                     <div
@@ -552,6 +955,7 @@ export default function LocalhostMode({ isKlipit }) {
                         onTitleChange={handleTitleChange}
                         isKlipit={isKlipit}
                         isDarkMode={isDarkMode}
+                        onNewTab={handleNewTab}
                     />
                 ))}
             </div>

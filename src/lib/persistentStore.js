@@ -42,6 +42,9 @@ const PERSISTED_KEYS = [
     'perci_bars_ai_settings:v1',
     'user_name',
     'custom_instructions',
+    'caveman_level_chat',
+    'caveman_level_code',
+    'ponytail_level_code',
     'selected_provider',
     'selected_model',
     'openclaw_config',
@@ -57,6 +60,12 @@ const PERSISTED_KEYS = [
     'theme',
     'openclaw-user-diary',
     'openclaw-user-diary-saved',
+    'perci_localhost_last_url',
+    'perci_localhost_home',
+    'perci_localhost_allow_http',
+    'perci_klipit_last_url',
+    'perci_klipit_home',
+    'perci_klipit_allow_http',
     ...API_KEY_STORAGE_KEYS
 ];
 
