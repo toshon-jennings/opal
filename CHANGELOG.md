@@ -1,6 +1,25 @@
 # Changelog
 
-## [0.24.0] - 2026-06-20
+## [0.31.0] - 2026-06-24
+### Added
+- **Ensemble mode** — multi-model deliberation engine with fan-out/judge pipeline. Panel of models responds in parallel, then a judge synthesizes.
+- **MarkItDown mode** — document conversion tool with dedicated UI for transforming files to Markdown.
+- **Skills mode** — skill management interface with search, editing, and browsing of installed agent skills.
+- **Mission Control** — run context menu rendering moved into scope; added missing persistent storage string helper imports.
+
+### Fixed
+- **Mission Control render crash** — resolved by ensuring all imported helpers are declared and context menu state stays in component scope.
+- **LocalhostMode** — restored missing lucide-react icon imports (Star, Bookmark, Search, ArrowUp, ArrowDown) that caused runtime crash.
+- **LocalhostMode Lighthouse guard** — fixed `isElectron?.lighthouseScan` always evaluating to `undefined` (boolean optional-chain pitfall); changed to `window.electron?.lighthouseScan`.
+
+## [0.30.1] - 2026-06-22
+### Added
+- **Localhost — Lighthouse launcher** — clickable Lighthouse logo button at the top of Localhost mode, styled like the Dashboard tile (logo chip, artwork background, amber hover glow). Opens the full Lighthouse port scanner.
+- **Localhost — discovered servers** — collapsible "Running" panel that scans for open localhost ports via Lighthouse and shows one-click server chips. Collapsed by default.
+
+### Fixed
+- **Localhost — `Star`/`Bookmark`/`Search`/`ArrowUp`/`ArrowDown` imports** — restored missing lucide-react icon imports that caused a runtime crash.
+- **Localhost — Lighthouse scan guard** — fixed `isElectron?.lighthouseScan` always evaluating to `undefined` (boolean optional-chain); changed to `window.electron?.lighthouseScan`.
 ### Added
 - **Knowledge Graph FX** — curved bezier edges, traveling pulse lights along edges, idle node twinkle, and additive glow halos. New settings panel controls for curvature, pulse speed/count, twinkle, and glow.
 

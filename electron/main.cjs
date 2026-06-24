@@ -836,6 +836,22 @@ function createWindow() {
   attachRendererDiagnostics(win);
   appendRendererLog(`createWindow: renderer log at ${getRendererLogPath()}`);
 
+  win.webContents.session.webRequest.onHeadersReceived(
+    { urls: ['http://127.0.0.1:8920/*', 'http://localhost:8920/*'] },
+    (details, callback) => {
+      const responseHeaders = { ...(details.responseHeaders || {}) };
+      for (const key of Object.keys(responseHeaders)) {
+        const lower = key.toLowerCase();
+        if (lower === 'x-frame-options' || lower === 'content-security-policy') {
+          delete responseHeaders[key];
+        }
+      }
+      responseHeaders['Access-Control-Allow-Origin'] = ['*'];
+      responseHeaders['Cross-Origin-Resource-Policy'] = ['cross-origin'];
+      callback({ responseHeaders });
+    }
+  );
+
   // Grant clipboard-read/write permission so navigator.clipboard works in the renderer
   win.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
     if (permission === 'clipboard-read' || permission === 'clipboard-write' || permission === 'clipboard-sanitized-write') {
@@ -2416,6 +2432,216 @@ async function askBars(payload = {}) {
   return { providerId: provider.id, model, answer };
 }
 
+const MARKITDOWN_VISION_MODEL = 'openai/gpt-4o-mini';
+const MARKITDOWN_VISION_MAX_DATA_URL_BYTES = 22 * 1024 * 1024;
+const MARKITDOWN_IMAGE_DATA_URL_RE = /^data:image\/(png|jpe?g|webp|gif);base64,/i;
+const MARKITDOWN_UI_PORT = 8920;
+const MARKITDOWN_UI_URL = `http://127.0.0.1:${MARKITDOWN_UI_PORT}`;
+const MARKITDOWN_UI_WEBUI_DIR = process.env.MARKITDOWN_UI_WEBUI_DIR
+  || path.join(app.getPath('home'), 'markitdown-ui', 'webui');
+const MARKITDOWN_UI_RUNNER = path.join(MARKITDOWN_UI_WEBUI_DIR, 'run.sh');
+const MARKITDOWN_EXIFTOOL_CANDIDATES = ['/opt/homebrew/bin/exiftool', '/usr/local/bin/exiftool', '/usr/bin/exiftool'];
+const MARKITDOWN_BREW_CANDIDATES = ['/opt/homebrew/bin/brew', '/usr/local/bin/brew'];
+let markitdownServerProcess = null;
+
+function findExistingExecutable(candidates) {
+  for (const candidate of candidates) {
+    try {
+      if (fsSync.existsSync(candidate)) return candidate;
+    } catch {
+      /* ignore unreadable candidates */
+    }
+  }
+  return null;
+}
+
+function findExecutableOnPath(command) {
+  const result = spawnSync('which', [command], {
+    encoding: 'utf8',
+    env: process.env,
+    shell: false
+  });
+  return result.status === 0 ? result.stdout.trim() : '';
+}
+
+function findExifToolExecutable() {
+  return findExistingExecutable(MARKITDOWN_EXIFTOOL_CANDIDATES) || findExecutableOnPath('exiftool');
+}
+
+function findBrewExecutable() {
+  return findExistingExecutable(MARKITDOWN_BREW_CANDIDATES) || findExecutableOnPath('brew');
+}
+
+function normalizeMarkdownImageName(filename) {
+  const name = typeof filename === 'string' && filename.trim() ? filename.trim() : 'image';
+  return name.replace(/`/g, "'");
+}
+
+async function describeMarkItDownImage(payload = {}) {
+  const dataUrl = typeof payload.dataUrl === 'string' ? payload.dataUrl : '';
+  if (!MARKITDOWN_IMAGE_DATA_URL_RE.test(dataUrl)) {
+    throw new Error('MarkItDownUI can only analyze PNG, JPEG, WebP, or GIF image uploads.');
+  }
+  if (Buffer.byteLength(dataUrl, 'utf8') > MARKITDOWN_VISION_MAX_DATA_URL_BYTES) {
+    throw new Error('Image is too large for Perci OpenRouter vision extraction.');
+  }
+
+  const data = await readAppData();
+  const key = typeof data.openrouter_key === 'string' ? data.openrouter_key : '';
+  if (!key) {
+    throw new Error('Add an OpenRouter API key in Perci Settings first.');
+  }
+
+  const filename = normalizeMarkdownImageName(payload.filename);
+  const response = await fetchJsonStrict('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    timeoutMs: 120000,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + key,
+      'HTTP-Referer': 'https://perci.local',
+      'X-Title': 'Perci MarkItDownUI'
+    },
+    body: JSON.stringify({
+      model: MARKITDOWN_VISION_MODEL,
+      temperature: 0.1,
+      max_tokens: 1800,
+      stream: false,
+      messages: [
+        {
+          role: 'system',
+          content: 'You convert images into useful Markdown. Extract visible text faithfully. Preserve tables, lists, labels, forms, and UI structure when possible. If the image is mostly visual, give a concise factual description. Do not invent hidden details.'
+        },
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'Convert this image upload into useful Markdown for MarkItDownUI. Filename: `' + filename + '`.'
+            },
+            {
+              type: 'image_url',
+              image_url: { url: dataUrl }
+            }
+          ]
+        }
+      ]
+    })
+  });
+
+  const markdown = response?.choices?.[0]?.message?.content?.trim();
+  if (!markdown) throw new Error('OpenRouter returned no vision text.');
+  return {
+    model: MARKITDOWN_VISION_MODEL,
+    markdown: markdown.startsWith('#')
+      ? markdown
+      : '# ' + filename + '\n\n' + markdown + '\n\n---\n\nVision model: `' + MARKITDOWN_VISION_MODEL + '`'
+  };
+}
+
+async function getMarkItDownServerStatus() {
+  const health = await requestJson(`${MARKITDOWN_UI_URL}/api/health`, 1200);
+  return {
+    ok: health.ok,
+    url: MARKITDOWN_UI_URL,
+    port: MARKITDOWN_UI_PORT,
+    pid: markitdownServerProcess && !markitdownServerProcess.killed ? markitdownServerProcess.pid : null,
+    error: health.ok ? '' : health.error || `HTTP ${health.status || 'unreachable'}`
+  };
+}
+
+async function waitForMarkItDownServer(timeoutMs = 20000) {
+  const startedAt = Date.now();
+  let lastStatus = await getMarkItDownServerStatus();
+  while (!lastStatus.ok && Date.now() - startedAt < timeoutMs) {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    lastStatus = await getMarkItDownServerStatus();
+  }
+  return lastStatus;
+}
+
+async function startMarkItDownServer() {
+  const current = await getMarkItDownServerStatus();
+  if (current.ok) {
+    return { ...current, started: false, message: 'MarkItDownUI is already running.' };
+  }
+
+  if (markitdownServerProcess && !markitdownServerProcess.killed && markitdownServerProcess.exitCode == null) {
+    const status = await waitForMarkItDownServer();
+    return { ...status, started: false, message: status.ok ? 'MarkItDownUI is starting.' : status.error };
+  }
+
+  if (!fsSync.existsSync(MARKITDOWN_UI_RUNNER)) {
+    throw new Error(`MarkItDownUI launcher not found at ${MARKITDOWN_UI_RUNNER}`);
+  }
+
+  markitdownServerProcess = spawn(MARKITDOWN_UI_RUNNER, [], {
+    cwd: MARKITDOWN_UI_WEBUI_DIR,
+    env: { ...process.env, MARKITDOWN_UI_PORT: String(MARKITDOWN_UI_PORT) },
+    stdio: ['ignore', 'pipe', 'pipe'],
+    shell: false
+  });
+
+  markitdownServerProcess.stdout?.on('data', chunk => {
+    appendRendererLog(`[markitdown] ${String(chunk).trim()}`);
+  });
+  markitdownServerProcess.stderr?.on('data', chunk => {
+    appendRendererLog(`[markitdown:error] ${String(chunk).trim()}`);
+  });
+  markitdownServerProcess.on('exit', (code, signal) => {
+    appendRendererLog(`[markitdown] exited code=${code ?? ''} signal=${signal ?? ''}`);
+  });
+  markitdownServerProcess.on('error', err => {
+    appendRendererLog(`[markitdown:error] ${err.message}`);
+  });
+
+  const status = await waitForMarkItDownServer();
+  if (!status.ok) {
+    return { ...status, started: true, message: status.error || 'MarkItDownUI did not become ready yet.' };
+  }
+  return { ...status, started: true, message: 'MarkItDownUI started.' };
+}
+
+async function installMarkItDownExifTool() {
+  const existing = findExifToolExecutable();
+  if (existing) {
+    return { ok: true, installed: false, path: existing, message: 'ExifTool is already installed.' };
+  }
+
+  const brew = findBrewExecutable();
+  if (!brew) {
+    throw new Error('Homebrew is not installed or not available on PATH.');
+  }
+
+  return new Promise((resolve, reject) => {
+    const child = spawn(brew, ['install', 'exiftool'], {
+      env: process.env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      shell: false
+    });
+    let output = '';
+    const append = (chunk) => {
+      output = (output + String(chunk)).slice(-12000);
+      appendRendererLog(`[markitdown:exiftool] ${String(chunk).trim()}`);
+    };
+    child.stdout?.on('data', append);
+    child.stderr?.on('data', append);
+    child.on('error', err => reject(err));
+    child.on('exit', (code) => {
+      const installedPath = findExifToolExecutable();
+      if (code === 0 && installedPath) {
+        resolve({ ok: true, installed: true, path: installedPath, message: 'ExifTool installed.' });
+        return;
+      }
+      if (installedPath) {
+        resolve({ ok: true, installed: true, path: installedPath, message: 'ExifTool installed, but Homebrew returned a warning.' });
+        return;
+      }
+      reject(new Error(output.trim() || `Homebrew exited with code ${code}.`));
+    });
+  });
+}
+
 
 ipcMain.handle('models:discover-providers', async () => {
   try {
@@ -2430,6 +2656,10 @@ ipcMain.handle('bars:ask', async (event, payload) => askBars(payload));
 ipcMain.handle('bars:get-api-key-status', async () => getBarsApiKeyStatus());
 ipcMain.handle('bars:save-api-keys', async (event, payload) => saveBarsApiKeys(payload));
 ipcMain.handle('bars:clear-api-keys', async () => clearBarsApiKeys());
+ipcMain.handle('markitdown:describe-image', async (event, payload) => describeMarkItDownImage(payload));
+ipcMain.handle('markitdown:server-status', async () => getMarkItDownServerStatus());
+ipcMain.handle('markitdown:start-server', async () => startMarkItDownServer());
+ipcMain.handle('markitdown:install-exiftool', async () => installMarkItDownExifTool());
 
 ipcMain.handle('models:start-jan-server', async (event, options = {}) => {
   const janCommand = getJanCommandPath();
@@ -3789,8 +4019,275 @@ const EIDOS_DASHBOARD_PORT = 3000;
 const EIDOS_API_PORT = 8001;
 const EIDOS_DASHBOARD_URL = `http://localhost:${EIDOS_DASHBOARD_PORT}`;
 const EIDOS_API_URL = `http://localhost:${EIDOS_API_PORT}`;
+const EIDOS_GIT_STALE_MS = 14 * 24 * 60 * 60 * 1000;
+const EIDOS_GIT_MAX_REPOS = 24;
 
 let eidosDashboardProcess = null;
+
+function eidosGitPath() {
+  return commandExists('git', [
+    '/opt/homebrew/bin',
+    '/usr/local/bin',
+  ]);
+}
+
+function eidosRunGit(args, { timeout = 6000 } = {}) {
+  const git = eidosGitPath();
+  if (!git) {
+    return { ok: false, status: null, stdout: '', stderr: 'Git CLI not found' };
+  }
+
+  const envPath = [path.dirname(git), process.env.PATH || ''].filter(Boolean).join(path.delimiter);
+  const result = spawnSync(git, args, {
+    encoding: 'utf8',
+    timeout,
+    env: {
+      ...process.env,
+      PATH: envPath,
+    },
+  });
+  if (result.error) {
+    return { ok: false, status: null, stdout: result.stdout || '', stderr: result.error.message };
+  }
+  return {
+    ok: result.status === 0,
+    status: result.status,
+    stdout: result.stdout || '',
+    stderr: result.stderr || '',
+  };
+}
+
+function eidosParseStoredGitShellProjects(raw) {
+  if (typeof raw !== 'string' || !raw.trim()) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function eidosCollectCandidateRepoPaths(appData) {
+  const home = app.getPath('home');
+  const candidates = new Set();
+  const gitShellProjects = eidosParseStoredGitShellProjects(appData?.gitshells_projects);
+
+  const addCandidate = (value) => {
+    if (typeof value !== 'string') return;
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === '/' || trimmed === home) return;
+    candidates.add(trimmed);
+  };
+
+  for (const project of gitShellProjects) {
+    addCandidate(project?.path);
+  }
+  addCandidate(appData?.working_directory);
+  addCandidate(EIDOS_DIR);
+  addCandidate(app.getAppPath());
+  for (const workspacePath of allowedPaths) {
+    addCandidate(workspacePath);
+  }
+
+  return {
+    paths: [...candidates],
+    gitShellProjectCount: gitShellProjects.length,
+  };
+}
+
+function eidosResolveRepoRoot(candidatePath) {
+  if (typeof candidatePath !== 'string' || !candidatePath.trim()) return '';
+  const resolved = path.resolve(candidatePath.trim());
+
+  try {
+    if (!fsSync.statSync(resolved).isDirectory()) return '';
+  } catch {
+    return '';
+  }
+
+  const rootResult = eidosRunGit(['-C', resolved, 'rev-parse', '--show-toplevel'], { timeout: 3000 });
+  if (!rootResult.ok) return '';
+
+  const repoRoot = rootResult.stdout.trim();
+  if (!repoRoot) return '';
+
+  try {
+    if (!fsSync.statSync(repoRoot).isDirectory()) return '';
+  } catch {
+    return '';
+  }
+  return path.resolve(repoRoot);
+}
+
+function eidosCollectRepoSnapshot(repoRoot, nowMs) {
+  const statusResult = eidosRunGit(['-C', repoRoot, 'status', '--porcelain'], { timeout: 6000 });
+  if (!statusResult.ok) return null;
+
+  let stagedFiles = 0;
+  let unstagedFiles = 0;
+  let untrackedFiles = 0;
+  const changedPaths = new Set();
+
+  for (const line of statusResult.stdout.split('\n')) {
+    if (!line) continue;
+    const xy = line.slice(0, 2);
+    if (xy === '??') {
+      untrackedFiles += 1;
+    } else {
+      if (xy[0] !== ' ' && xy[0] !== '?') stagedFiles += 1;
+      if (xy[1] !== ' ' && xy[1] !== '?') unstagedFiles += 1;
+    }
+
+    const rawPath = line.slice(3).trim();
+    if (!rawPath) continue;
+    const normalizedPath = rawPath.includes(' -> ')
+      ? rawPath.split(' -> ').pop()
+      : rawPath;
+    if (normalizedPath) changedPaths.add(normalizedPath.replace(/^"|"$/g, ''));
+  }
+
+  let branch = 'detached';
+  const branchResult = eidosRunGit(['-C', repoRoot, 'rev-parse', '--abbrev-ref', 'HEAD'], { timeout: 3000 });
+  if (branchResult.ok && branchResult.stdout.trim()) {
+    const nextBranch = branchResult.stdout.trim();
+    branch = nextBranch === 'HEAD' ? 'detached' : nextBranch;
+  }
+
+  let upstream = '';
+  const upstreamResult = eidosRunGit(['-C', repoRoot, 'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}'], { timeout: 3000 });
+  if (upstreamResult.ok) {
+    upstream = upstreamResult.stdout.trim();
+  }
+
+  let aheadCommits = 0;
+  let behindCommits = 0;
+  if (upstream) {
+    const aheadBehindResult = eidosRunGit(['-C', repoRoot, 'rev-list', '--left-right', '--count', `HEAD...${upstream}`], { timeout: 3000 });
+    if (aheadBehindResult.ok) {
+      const match = aheadBehindResult.stdout.trim().match(/^(\d+)\s+(\d+)$/);
+      if (match) {
+        aheadCommits = Number.parseInt(match[1], 10) || 0;
+        behindCommits = Number.parseInt(match[2], 10) || 0;
+      }
+    }
+  }
+
+  let lastCommitAt = null;
+  let lastCommitMessage = '';
+  const lastCommitResult = eidosRunGit(['-C', repoRoot, 'log', '-1', '--format=%ct%x09%s'], { timeout: 3000 });
+  if (lastCommitResult.ok && lastCommitResult.stdout.trim()) {
+    const [rawTimestamp, ...messageParts] = lastCommitResult.stdout.trim().split('\t');
+    const timestamp = Number.parseInt(rawTimestamp, 10);
+    if (Number.isFinite(timestamp) && timestamp > 0) {
+      lastCommitAt = timestamp * 1000;
+    }
+    lastCommitMessage = messageParts.join('\t').trim();
+  }
+
+  const changedFiles = changedPaths.size;
+  const openCommits = aheadCommits;
+  const hasOpenWork = changedFiles > 0 || openCommits > 0 || behindCommits > 0;
+  const stale = lastCommitAt != null ? (nowMs - lastCommitAt) > EIDOS_GIT_STALE_MS : false;
+  const attentionScore = (changedFiles * 2) + (openCommits * 5) + (behindCommits * 3) + (stale ? 1 : 0);
+
+  return {
+    id: createHash('sha1').update(repoRoot).digest('hex').slice(0, 12),
+    name: path.basename(repoRoot),
+    path: repoRoot,
+    branch,
+    upstream,
+    openCommits,
+    aheadCommits,
+    behindCommits,
+    stagedFiles,
+    unstagedFiles,
+    untrackedFiles,
+    changedFiles,
+    hasOpenWork,
+    stale,
+    attentionScore,
+    lastCommitAt,
+    lastCommitMessage,
+  };
+}
+
+async function eidosBuildInsightsPayload() {
+  const nowMs = Date.now();
+  const appData = await readAppData();
+  const { paths: candidatePaths, gitShellProjectCount } = eidosCollectCandidateRepoPaths(appData);
+
+  const repoRoots = new Set();
+  const repos = [];
+
+  for (const candidatePath of candidatePaths) {
+    if (repos.length >= EIDOS_GIT_MAX_REPOS) break;
+    const repoRoot = eidosResolveRepoRoot(candidatePath);
+    if (!repoRoot || repoRoots.has(repoRoot)) continue;
+    repoRoots.add(repoRoot);
+    const snapshot = eidosCollectRepoSnapshot(repoRoot, nowMs);
+    if (snapshot) repos.push(snapshot);
+  }
+
+  repos.sort((a, b) => (
+    b.attentionScore - a.attentionScore
+    || (b.lastCommitAt || 0) - (a.lastCommitAt || 0)
+    || a.name.localeCompare(b.name)
+  ));
+
+  const openRepoCount = repos.filter(repo => repo.hasOpenWork).length;
+  const reposWithOpenCommits = repos.filter(repo => repo.openCommits > 0).length;
+  const reposNeedingPull = repos.filter(repo => repo.behindCommits > 0).length;
+  const cleanRepoCount = repos.length - openRepoCount;
+  const staleRepoCount = repos.filter(repo => repo.stale).length;
+  const totalOpenCommits = repos.reduce((sum, repo) => sum + repo.openCommits, 0);
+  const totalChangedFiles = repos.reduce((sum, repo) => sum + repo.changedFiles, 0);
+  const totalUntrackedFiles = repos.reduce((sum, repo) => sum + repo.untrackedFiles, 0);
+  const branchCount = new Set(repos.map(repo => repo.branch).filter(Boolean)).size;
+  const attentionRepos = repos.filter(repo => repo.hasOpenWork).slice(0, 8);
+
+  let dockerCheck = { ok: false, runtime: 'unknown' };
+  try {
+    dockerCheck = await eidosCheckDocker();
+  } catch {}
+
+  let apiHealthy = false;
+  let dashboardHealthy = false;
+  try {
+    [apiHealthy, dashboardHealthy] = await Promise.all([
+      eidosCheckApiHealth(),
+      eidosCheckDashboardHealth(),
+    ]);
+  } catch {}
+
+  return {
+    ok: true,
+    generatedAt: new Date(nowMs).toISOString(),
+    summary: {
+      repoCount: repos.length,
+      openRepoCount,
+      cleanRepoCount,
+      reposWithOpenCommits,
+      reposNeedingPull,
+      staleRepoCount,
+      branchCount,
+      totalOpenCommits,
+      totalChangedFiles,
+      totalUntrackedFiles,
+    },
+    services: {
+      runtime: dockerCheck?.runtime || 'unknown',
+      apiHealthy,
+      dashboardHealthy,
+    },
+    repos,
+    attentionRepos,
+    sources: {
+      candidateCount: candidatePaths.length,
+      gitShellProjectCount,
+      hasWorkingDirectory: typeof appData?.working_directory === 'string' && appData.working_directory.trim().length > 0,
+    },
+  };
+}
 
 function eidosOrbStackPath() {
   const home = app.getPath('home');
@@ -4076,6 +4573,42 @@ ipcMain.handle('eidos:progress', async () => {
   }
 });
 
+ipcMain.handle('eidos:insights', async () => {
+  try {
+    return await eidosBuildInsightsPayload();
+  } catch (err) {
+    return {
+      ok: false,
+      error: err.message,
+      generatedAt: new Date().toISOString(),
+      summary: {
+        repoCount: 0,
+        openRepoCount: 0,
+        cleanRepoCount: 0,
+        reposWithOpenCommits: 0,
+        reposNeedingPull: 0,
+        staleRepoCount: 0,
+        branchCount: 0,
+        totalOpenCommits: 0,
+        totalChangedFiles: 0,
+        totalUntrackedFiles: 0,
+      },
+      services: {
+        runtime: 'unknown',
+        apiHealthy: false,
+        dashboardHealthy: false,
+      },
+      repos: [],
+      attentionRepos: [],
+      sources: {
+        candidateCount: 0,
+        gitShellProjectCount: 0,
+        hasWorkingDirectory: false,
+      },
+    };
+  }
+});
+
 ipcMain.handle('eidos:stop', async () => {
   try {
     // Stop the dashboard process first
@@ -4116,4 +4649,476 @@ ipcMain.handle('eidos:restart', async () => {
   } catch (err) {
     return { error: err.message };
   }
+});
+
+// ── Skills management: detect installed agent CLIs ─────────────────────────
+const AGENT_CLI_DEFS = [
+  { id: 'claude', label: 'Claude Code', binary: 'claude', versionFlag: '--version' },
+  { id: 'codex', label: 'OpenAI Codex', binary: 'codex', versionFlag: '--version' },
+  { id: 'hermes', label: 'Hermes Agent', binary: 'hermes', versionFlag: '--version' },
+  { id: 'openclaw', label: 'OpenClaw', binary: 'openclaw', versionFlag: '--version' },
+  { id: 'opencode', label: 'OpenCode', binary: 'opencode', versionFlag: '--version' },
+  { id: 'antigravity', label: 'Antigravity', binary: 'antigravity', versionFlag: '--version' },
+  { id: 'aider', label: 'Aider', binary: 'aider', versionFlag: '--version' },
+  { id: 'cursor', label: 'Cursor', binary: 'cursor', versionFlag: '--version' },
+  { id: 'continue', label: 'Continue', binary: 'continue', versionFlag: '--version' },
+  { id: 'kilocode', label: 'Kilo Code', binary: 'kilocode', versionFlag: '--version' },
+  { id: 'create-pr', label: 'Create PR', binary: 'create-pr', versionFlag: '--version' },
+  { id: 'mistral', label: 'Mistral CLI', binary: 'mistral', versionFlag: '--version' },
+  { id: 'github-copilot', label: 'GitHub Copilot', binary: 'gh', versionFlag: '--version', versionMatch: /copilot/ },
+  { id: 'pi', label: 'Pi (by Inflection)', binary: 'pi', versionFlag: '--version' },
+  { id: 'dispatch', label: 'Dispatch', binary: 'dispatch', versionFlag: '--version' },
+  { id: 'goose', label: 'Goose', binary: 'goose', versionFlag: '--version' },
+  { id: 'plandex', label: 'Plandex', binary: 'plandex', versionFlag: '--version' },
+  { id: 'cline', label: 'Cline', binary: 'cline', versionFlag: '--version' },
+];
+
+const CODING_EXPERT_TOOL_DEFS = [
+  {
+    id: 'skillsInstaller',
+    layer: 'playbook',
+    label: 'skills.sh installer',
+    binaries: ['skills'],
+    versionArgs: ['--version'],
+    installHint: 'Use npx skills@latest add mattpocock/skills and npx skills@latest add addyosmani/agent-skills.',
+  },
+  {
+    id: 'npx',
+    layer: 'playbook',
+    label: 'npx',
+    binaries: ['npx'],
+    versionArgs: ['--version'],
+    installHint: 'Install Node.js/npm so Perci can run the skills.sh installer command you approve.',
+  },
+  {
+    id: 'codebaseMemory',
+    layer: 'memory',
+    label: 'codebase-memory-mcp',
+    binaries: ['codebase-memory-mcp', 'codebase-memory'],
+    versionArgs: ['--version'],
+    installHint: 'Install DeusData/codebase-memory-mcp, then index the workspace.',
+  },
+  {
+    id: 'agentReach',
+    layer: 'reach',
+    label: 'Agent Reach',
+    binaries: ['agent-reach'],
+    versionArgs: ['--version'],
+    installHint: 'Install Agent Reach from its upstream install guide, then run agent-reach doctor.',
+  },
+  {
+    id: 'skillSpector',
+    layer: 'safety',
+    label: 'SkillSpector',
+    binaries: ['skillspector'],
+    versionArgs: ['--version'],
+    installHint: 'Install SkillSpector and scan external skills before enabling them.',
+  },
+  {
+    id: 'uv',
+    layer: 'safety',
+    label: 'uv',
+    binaries: ['uv'],
+    versionArgs: ['--version'],
+    installHint: 'Install uv if you want the documented SkillSpector uv tool install path.',
+  },
+];
+
+function resolveBinary(binary) {
+  const command = process.platform === 'win32' ? 'where' : 'which';
+  try {
+    const result = spawnSync(command, [binary], {
+      encoding: 'utf8',
+      timeout: 3000,
+      windowsHide: true,
+    });
+    if (result.status !== 0) return null;
+    const first = (result.stdout || '').split(/\r?\n/).map(line => line.trim()).find(Boolean);
+    return first || null;
+  } catch {
+    return null;
+  }
+}
+
+function readBinaryVersion(binary, args) {
+  if (!args?.length) return null;
+  try {
+    const result = spawnSync(binary, args, {
+      encoding: 'utf8',
+      timeout: 3000,
+      windowsHide: true,
+    });
+    if (result.status !== 0 && !result.stdout && !result.stderr) return null;
+    const output = `${result.stdout || ''}${result.stderr ? `\n${result.stderr}` : ''}`;
+    return output.split(/\r?\n/).map(line => line.trim()).find(Boolean) || null;
+  } catch {
+    return null;
+  }
+}
+
+function detectCodingExpertTool(def) {
+  for (const binary of def.binaries) {
+    const resolvedPath = resolveBinary(binary);
+    if (!resolvedPath) continue;
+    return {
+      id: def.id,
+      layer: def.layer,
+      label: def.label,
+      binary,
+      installed: true,
+      path: resolvedPath,
+      version: readBinaryVersion(binary, def.versionArgs),
+      installHint: def.installHint,
+    };
+  }
+  return {
+    id: def.id,
+    layer: def.layer,
+    label: def.label,
+    binary: def.binaries[0],
+    installed: false,
+    path: null,
+    version: null,
+    installHint: def.installHint,
+  };
+}
+
+function detectCodebaseMemoryArtifacts() {
+  const roots = uniquePaths([
+    process.cwd(),
+    app.getAppPath(),
+    ...Array.from(allowedPaths),
+  ]);
+  return roots.map(root => {
+    const artifactPath = path.join(root, '.codebase-memory', 'graph.db.zst');
+    return {
+      root,
+      artifactPath,
+      exists: fsSync.existsSync(artifactPath),
+    };
+  });
+}
+
+ipcMain.handle('skills:detect-agents', async () => {
+  const results = [];
+  for (const def of AGENT_CLI_DEFS) {
+    const resolvedPath = resolveBinary(def.binary);
+    if (!resolvedPath) continue;
+    let version = readBinaryVersion(def.binary, [def.versionFlag]);
+    if (version && def.versionMatch && !def.versionMatch.test(version)) {
+      // `gh --version` shows "gh version 2.x.x ..." — keep it
+      version = version.replace(/^gh\s+version\s+/i, '');
+    }
+    results.push({ id: def.id, label: def.label, binary: def.binary, path: resolvedPath, version });
+  }
+  return results;
+});
+
+ipcMain.handle('skills:get-coding-expert-status', async () => {
+  const tools = CODING_EXPERT_TOOL_DEFS.map(detectCodingExpertTool);
+  const codebaseMemoryArtifacts = detectCodebaseMemoryArtifacts();
+  return {
+    checkedAt: new Date().toISOString(),
+    tools,
+    codebaseMemoryArtifacts,
+    summary: {
+      installedToolCount: tools.filter(tool => tool.installed).length,
+      totalToolCount: tools.length,
+      indexedWorkspaceCount: codebaseMemoryArtifacts.filter(artifact => artifact.exists).length,
+    },
+  };
+});
+
+// Direct scan of .agents/skills with upstream attribution for Engineering Playbook
+const PLAYBOOK_MATT_POCOCK_IDS = new Set([
+  'ask-matt', 'codebase-design', 'diagnosing-bugs', 'domain-modeling',
+  'grill-with-docs', 'improve-codebase-architecture', 'implement',
+  'prototype', 'resolving-merge-conflicts', 'setup-matt-pocock-skills',
+  'tdd', 'to-issues', 'to-prd', 'triage',
+]);
+
+const PLAYBOOK_ADDY_OSMANI_IDS = new Set([
+  'api-and-interface-design', 'browser-testing-with-devtools',
+  'ci-cd-and-automation', 'code-review-and-quality', 'code-simplification',
+  'context-engineering', 'debugging-and-error-recovery',
+  'deprecation-and-migration', 'documentation-and-adrs',
+  'doubt-driven-development', 'edit-article', 'frontend-ui-engineering',
+  'git-guardrails-claude-code', 'git-workflow-and-versioning',
+  'idea-refine', 'incremental-implementation', 'interview-me',
+  'observability-and-instrumentation', 'performance-optimization',
+  'planning-and-task-breakdown', 'security-and-hardening',
+  'shipping-and-launch', 'source-driven-development',
+  'spec-driven-development', 'test-driven-development',
+  'using-agent-skills',
+]);
+
+ipcMain.handle('skills:get-playbook-skills', async () => {
+  const path = require('path');
+  const fs = require('fs');
+  const cwd = process.cwd();
+  const agentsSkillsDir = path.join(cwd, '.agents', 'skills');
+  const result = {
+    mattpocock: { count: 0, skills: [] },
+    addyosmani: { count: 0, skills: [] },
+    total: 0,
+    missing: [],
+  };
+  if (!fs.existsSync(agentsSkillsDir)) return result;
+  let entries = [];
+  try { entries = fs.readdirSync(agentsSkillsDir, { withFileTypes: true }); }
+  catch { return result; }
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const skillMd = path.join(agentsSkillsDir, entry.name, 'SKILL.md');
+    if (!fs.existsSync(skillMd)) continue;
+    let desc = '';
+    try {
+      const content = fs.readFileSync(skillMd, 'utf8');
+      const m = content.match(/^description:\s*>([\s\S]*?)^---/m) ||
+                content.match(/^description:\s*(.+)$/m);
+      if (m) desc = m[1].trim().replace(/\s+/g, ' ').slice(0, 120);
+    } catch { /* ignore */ }
+    const skillEntry = { id: entry.name, description: desc };
+    if (PLAYBOOK_MATT_POCOCK_IDS.has(entry.name)) {
+      result.mattpocock.count++;
+      result.mattpocock.skills.push(skillEntry);
+    } else if (PLAYBOOK_ADDY_OSMANI_IDS.has(entry.name)) {
+      result.addyosmani.count++;
+      result.addyosmani.skills.push(skillEntry);
+    }
+    result.total++;
+  }
+  // Identify upstream IDs that are missing from disk
+  for (const id of PLAYBOOK_MATT_POCOCK_IDS) {
+    if (!fs.existsSync(path.join(agentsSkillsDir, id, 'SKILL.md'))) result.missing.push({ id, source: 'mattpocock' });
+  }
+  for (const id of PLAYBOOK_ADDY_OSMANI_IDS) {
+    if (!fs.existsSync(path.join(agentsSkillsDir, id, 'SKILL.md'))) result.missing.push({ id, source: 'addyosmani' });
+  }
+  return result;
+});
+
+// ── Skills management: recursively find all SKILL.md files ──────────────────
+function parseSkillFrontmatter(filePath) {
+  const fs = require('fs');
+  let frontmatter = {};
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+    if (fmMatch) {
+      const fm = fmMatch[1];
+      const nameMatch = fm.match(/^name:\s*(.+)$/m);
+      const descMatch = fm.match(/^description:\s*(.+)$/m);
+      if (nameMatch) frontmatter.name = nameMatch[1].trim().replace(/^["']|["']$/g, '');
+      if (descMatch) frontmatter.description = descMatch[1].trim().replace(/^["']|["']$/g, '');
+    }
+  } catch { /* ignore */ }
+  return frontmatter;
+}
+
+function scanSkillsRecursive(dir, depth, maxDepth = 6) {
+  const fs = require('fs');
+  const path = require('path');
+  if (!fs.existsSync(dir)) return [];
+  if (depth > maxDepth) return []; // safety limit
+  const results = [];
+  let entries = [];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return results;
+  }
+  for (const entry of entries) {
+    // Accept real directories and symlinks that resolve to a directory —
+    // OpenClaw "installs" skills by symlinking them into ~/.openclaw/plugin-skills.
+    let isDir = entry.isDirectory();
+    if (!isDir && entry.isSymbolicLink()) {
+      try { isDir = fs.statSync(path.join(dir, entry.name)).isDirectory(); }
+      catch { isDir = false; } // skip broken symlinks
+    }
+    if (!isDir) continue;
+    const skillMd = path.join(dir, entry.name, 'SKILL.md');
+    if (fs.existsSync(skillMd)) {
+      // Found a skill — parse frontmatter
+      const frontmatter = parseSkillFrontmatter(skillMd);
+      results.push({
+        id: entry.name,
+        name: frontmatter.name || entry.name,
+        description: frontmatter.description || '',
+        path: path.join(dir, entry.name),
+      });
+    } else {
+      // Not a skill dir — recurse into subdirectories
+      results.push(...scanSkillsRecursive(path.join(dir, entry.name), depth + 1, maxDepth));
+    }
+  }
+  return results;
+}
+
+function scanMarkdownSkills(dir, source, kind) {
+  const fs = require('fs');
+  const path = require('path');
+  if (!fs.existsSync(dir)) return [];
+  let entries = [];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const results = [];
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...scanMarkdownSkills(fullPath, source, kind));
+      continue;
+    }
+    if (!entry.isFile() || !/\.(md|mdc)$/i.test(entry.name)) continue;
+    const frontmatter = parseSkillFrontmatter(fullPath);
+    const id = entry.name.replace(/\.(md|mdc)$/i, '');
+    results.push({
+      id,
+      name: frontmatter.name || id,
+      description: frontmatter.description || '',
+      path: fullPath,
+      source,
+      kind,
+    });
+  }
+  return results;
+}
+
+function uniquePaths(paths) {
+  return [...new Set(paths.filter(Boolean))];
+}
+
+function existingProjectRoots(homeDir) {
+  const fs = require('fs');
+  const path = require('path');
+  const roots = [homeDir, process.cwd(), app.getAppPath()];
+  try {
+    for (const entry of fs.readdirSync(homeDir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      if (entry.name.startsWith('.') || ['Library', 'Applications', 'Desktop', 'Documents', 'Downloads', 'node_modules'].includes(entry.name)) {
+        continue;
+      }
+      const root = path.join(homeDir, entry.name);
+      if (
+        fs.existsSync(path.join(root, '.cursor')) ||
+        fs.existsSync(path.join(root, '.claude')) ||
+        fs.existsSync(path.join(root, '.agents'))
+      ) {
+        roots.push(root);
+      }
+    }
+  } catch { /* ignore */ }
+  return uniquePaths(roots);
+}
+
+function addSkillSource(skillsById, skill, source, root, kind = 'skill') {
+  const id = skill.id;
+  const sourceEntry = { source, path: skill.path, root, kind };
+  const existing = skillsById.get(id);
+  if (!existing) {
+    skillsById.set(id, {
+      ...skill,
+      source,
+      sources: [source],
+      sourceDetails: [sourceEntry],
+    });
+    return;
+  }
+
+  if (!existing.sources.includes(source)) {
+    existing.sources.push(source);
+  }
+  existing.sourceDetails.push(sourceEntry);
+}
+
+ipcMain.handle('skills:get-installed', async () => {
+  const path = require('path');
+  const fs = require('fs');
+  const home = app.getPath('home');
+  const projectRoots = existingProjectRoots(home);
+  const scanRoots = [
+    { source: 'hermes', dir: path.join(home, '.hermes', 'skills') },
+    { source: 'hermes', dir: path.join(home, '.hermes', 'hermes-agent', 'skills') },
+    { source: 'codex', dir: path.join(home, '.codex', 'skills') },
+    { source: 'codex', dir: path.join(home, '.codex', 'vendor_imports', 'skills') },
+    { source: 'codex', dir: path.join(home, '.codex', 'plugins', 'cache') },
+    { source: 'system', dir: path.join(home, '.agents', 'skills') },
+    { source: 'claude', dir: path.join(home, '.claude', 'skills') },
+    { source: 'opencode', dir: path.join(home, '.opencode', 'skills') },
+    { source: 'openclaw', dir: path.join(home, '.openclaw', 'skills') },
+    { source: 'openclaw', dir: path.join(home, '.openclaw', 'plugin-skills') },
+    { source: 'cursor', dir: path.join(home, '.cursor', 'skills') },
+    { source: 'aider', dir: path.join(home, '.aider', 'skills') },
+    { source: 'antigravity', dir: path.join(home, '.antigravity', 'skills') },
+    { source: 'antigravity', dir: path.join(home, '.gemini', 'antigravity-cli', 'builtin', 'skills') },
+    { source: 'github-copilot', dir: path.join(home, '.copilot', 'skills') },
+    { source: 'cline', dir: path.join(home, '.cline', 'skills') },
+    { source: 'pi', dir: path.join(home, '.pi', 'agent', 'skills') },
+    { source: 'orbit', dir: path.join(home, 'Orbit', 'skills') },
+    { source: 'agent-zero', dir: path.join(home, 'agent-zero', 'agent-zero', 'usr', 'skills') },
+  ];
+  try {
+    const profilesDir = path.join(home, '.hermes', 'profiles');
+    for (const entry of fs.readdirSync(profilesDir, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        scanRoots.push({ source: 'hermes', dir: path.join(profilesDir, entry.name, 'skills') });
+      }
+    }
+  } catch { /* ignore */ }
+  for (const root of projectRoots.filter(root => root !== home)) {
+    scanRoots.push({ source: 'claude', dir: path.join(root, '.claude', 'skills') });
+    scanRoots.push({ source: 'cursor', dir: path.join(root, '.cursor', 'skills') });
+  }
+  const commandRoots = uniquePaths([
+    path.join(home, '.claude', 'commands'),
+    ...projectRoots.map(root => path.join(root, '.claude', 'commands')),
+  ]);
+  const cursorRuleRoots = uniquePaths([
+    path.join(home, '.cursor', 'rules'),
+    path.join(home, '.cursor', 'projects'),
+    ...projectRoots.map(root => path.join(root, '.cursor', 'rules')),
+  ]);
+
+  const skillsById = new Map();
+  for (const { source, dir } of scanRoots) {
+    if (!fs.existsSync(dir)) continue;
+    const found = scanSkillsRecursive(dir, 0);
+    for (const s of found) {
+      addSkillSource(skillsById, s, source, dir);
+    }
+  }
+  for (const dir of commandRoots) {
+    for (const s of scanSkillsRecursive(dir, 0)) {
+      addSkillSource(skillsById, s, 'claude', dir, 'command');
+    }
+    for (const s of scanMarkdownSkills(dir, 'claude', 'command')) {
+      addSkillSource(skillsById, s, 'claude', dir, 'command');
+    }
+  }
+  for (const dir of cursorRuleRoots) {
+    for (const s of scanMarkdownSkills(dir, 'cursor', 'rule')) {
+      addSkillSource(skillsById, s, 'cursor', dir, 'rule');
+    }
+  }
+  return [...skillsById.values()].sort((a, b) => a.name.localeCompare(b.name));
+});
+
+// ── Skills metadata: per-skill user notes / agent compat ───────────────────
+const SKILLS_DATA_PATH = path.join(app.getPath('userData'), 'skills-data.json');
+
+ipcMain.handle('skills:get-metadata', async () => {
+  try {
+    const raw = require('fs').readFileSync(SKILLS_DATA_PATH, 'utf8');
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+});
+
+ipcMain.handle('skills:set-metadata', async (event, data) => {
+  require('fs').writeFileSync(SKILLS_DATA_PATH, JSON.stringify(data, null, 2), 'utf8');
+  return { ok: true };
 });

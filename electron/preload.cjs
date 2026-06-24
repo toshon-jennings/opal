@@ -55,6 +55,10 @@ contextBridge.exposeInMainWorld('electron', {
   getBarsApiKeyStatus: () => ipcRenderer.invoke('bars:get-api-key-status'),
   saveBarsApiKeys: (payload) => ipcRenderer.invoke('bars:save-api-keys', payload),
   clearBarsApiKeys: () => ipcRenderer.invoke('bars:clear-api-keys'),
+  describeMarkItDownImage: (payload) => ipcRenderer.invoke('markitdown:describe-image', payload),
+  startMarkItDownServer: () => ipcRenderer.invoke('markitdown:start-server'),
+  getMarkItDownServerStatus: () => ipcRenderer.invoke('markitdown:server-status'),
+  installMarkItDownExifTool: () => ipcRenderer.invoke('markitdown:install-exiftool'),
   getHermesStatus: () => ipcRenderer.invoke('hermes:status'),
   runHermesTask: (opts) => ipcRenderer.invoke('hermes:run', opts),
   cancelHermesRun: () => ipcRenderer.invoke('hermes:run-cancel'),
@@ -97,10 +101,17 @@ contextBridge.exposeInMainWorld('electron', {
   eidosStop: () => ipcRenderer.invoke('eidos:stop'),
   eidosRestart: () => ipcRenderer.invoke('eidos:restart'),
   eidosProgress: () => ipcRenderer.invoke('eidos:progress'),
+  eidosInsights: () => ipcRenderer.invoke('eidos:insights'),
   onUpdaterState: (callback) => {
     const listener = (event, state) => callback(state);
     ipcRenderer.on('updater:state', listener);
     return () => ipcRenderer.removeListener('updater:state', listener);
   },
   triggerUpdaterAction: (action) => ipcRenderer.invoke('updater:action', action),
+  detectAgentCLIs: () => ipcRenderer.invoke('skills:detect-agents'),
+  getInstalledSkills: () => ipcRenderer.invoke('skills:get-installed'),
+  getCodingExpertStatus: () => ipcRenderer.invoke('skills:get-coding-expert-status'),
+  getPlaybookSkills: () => ipcRenderer.invoke('skills:get-playbook-skills'),
+  setSkillMetadata: (data) => ipcRenderer.invoke('skills:set-metadata', data),
+  getSkillMetadata: () => ipcRenderer.invoke('skills:get-metadata'),
 });

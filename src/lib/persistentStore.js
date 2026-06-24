@@ -45,6 +45,7 @@ const PERSISTED_KEYS = [
     'caveman_level_chat',
     'caveman_level_code',
     'ponytail_level_code',
+    'ponytail_level_chat',
     'selected_provider',
     'selected_model',
     'openclaw_config',
@@ -63,9 +64,11 @@ const PERSISTED_KEYS = [
     'perci_localhost_last_url',
     'perci_localhost_home',
     'perci_localhost_allow_http',
+    'perci_localhost_history',
     'perci_klipit_last_url',
     'perci_klipit_home',
     'perci_klipit_allow_http',
+    'perci_klipit_history',
     ...API_KEY_STORAGE_KEYS
 ];
 

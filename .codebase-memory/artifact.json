@@ -1,0 +1,11 @@
+{
+    "schema_version": 1,
+    "commit": "50268d89c3916767f48462a9d29ceb059a92852c",
+    "indexed_at": "2026-06-24T00:02:21Z",
+    "project": "Users-toshonjennings-opal",
+    "nodes": 2361,
+    "edges": 5659,
+    "original_size": 7274496,
+    "compressed_size": 1873755,
+    "compression_level": 9
+}

@@ -1,0 +1,683 @@
+.eidos-front-root {
+    position: relative;
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg-primary);
+    --eidos-ink: var(--text-primary);
+    --eidos-muted: var(--text-secondary);
+    --eidos-soft: var(--text-tertiary);
+    --eidos-line: color-mix(in srgb, var(--border) 82%, var(--text-primary));
+    --eidos-panel: color-mix(in srgb, var(--bg-secondary) 96%, var(--text-primary) 4%);
+    --eidos-panel-strong: color-mix(in srgb, var(--bg-tertiary) 92%, var(--text-primary) 8%);
+    --eidos-contrast: light-dark(#111111, #f5f5f5);
+    --eidos-on-contrast: light-dark(#ffffff, #111111);
+    --eidos-accent-base: #6b7280;
+    --eidos-cyan: var(--eidos-accent-base);
+    --eidos-blue: var(--eidos-accent-base);
+    --eidos-teal: var(--eidos-accent-base);
+    --eidos-amber: var(--eidos-accent-base);
+    --eidos-cyan-soft: color-mix(in srgb, var(--eidos-accent-base) 22%, transparent);
+    --eidos-blue-soft: color-mix(in srgb, var(--eidos-accent-base) 20%, transparent);
+    --eidos-amber-soft: color-mix(in srgb, var(--eidos-accent-base) 24%, transparent);
+}
+
+.eidos-front-bg {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.eidos-front-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(70px);
+    opacity: 0.5;
+    animation: eidos-float 18s ease-in-out infinite;
+}
+
+.eidos-front-orb-main {
+    width: 420px;
+    height: 420px;
+    top: -160px;
+    left: -100px;
+    background: radial-gradient(circle, var(--eidos-cyan-soft), transparent 70%);
+}
+
+.eidos-front-orb-side {
+    width: 340px;
+    height: 340px;
+    right: -80px;
+    bottom: -120px;
+    background: radial-gradient(circle, var(--eidos-amber-soft), transparent 70%);
+    animation-delay: -6s;
+}
+
+.eidos-front-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(color-mix(in srgb, var(--eidos-cyan) 10%, transparent) 1px, transparent 1px),
+        linear-gradient(90deg, color-mix(in srgb, var(--eidos-blue) 10%, transparent) 1px, transparent 1px);
+    background-size: 50px 50px;
+    mask-image: radial-gradient(ellipse 70% 65% at 50% 35%, black 30%, transparent 80%);
+}
+
+.eidos-front-scroll {
+    position: relative;
+    height: 100%;
+    overflow-y: auto;
+    padding: clamp(20px, 3vw, 36px);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.eidos-contrib-card {
+    padding: 14px 16px 16px;
+    border-radius: 14px;
+    border: 1px solid color-mix(in srgb, var(--eidos-cyan) 24%, var(--eidos-line));
+    background:
+        linear-gradient(135deg, var(--eidos-cyan-soft), transparent 36%),
+        linear-gradient(315deg, var(--eidos-amber-soft), transparent 34%),
+        var(--eidos-panel);
+    box-shadow: 0 12px 28px color-mix(in srgb, var(--eidos-blue) 10%, transparent);
+    animation: eidos-rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.eidos-contrib-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.eidos-contrib-head span,
+.eidos-contrib-head a {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+}
+
+.eidos-contrib-head span {
+    color: color-mix(in srgb, var(--eidos-cyan) 70%, var(--eidos-ink));
+}
+
+.eidos-contrib-head a {
+    color: var(--eidos-muted);
+    text-decoration: none;
+}
+
+.eidos-contrib-head a:hover {
+    color: var(--eidos-ink);
+}
+
+.eidos-contrib-graph {
+    display: block;
+    width: 100%;
+    min-height: 132px;
+    border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--eidos-blue) 20%, var(--eidos-line));
+    background: light-dark(#ffffff, #0b1117);
+    object-fit: contain;
+}
+
+.eidos-front-hero {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 20px 22px;
+    border-radius: 16px;
+    background:
+        linear-gradient(130deg, var(--eidos-blue-soft), transparent 42%),
+        var(--eidos-panel);
+    border: 1px solid color-mix(in srgb, var(--eidos-blue) 22%, var(--eidos-line));
+    animation: eidos-rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.eidos-front-kicker {
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: color-mix(in srgb, var(--eidos-cyan) 62%, var(--eidos-soft));
+}
+
+.eidos-front-title-row {
+    margin: 7px 0 4px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--eidos-ink);
+}
+
+.eidos-front-title-row svg {
+    flex: 0 0 auto;
+    color: color-mix(in srgb, var(--eidos-cyan) 70%, var(--eidos-ink));
+}
+
+.eidos-front-title {
+    margin: 0;
+    font-size: clamp(28px, 4.8vw, 46px);
+    line-height: 1.04;
+    font-weight: 700;
+    letter-spacing: 0;
+    color: var(--eidos-ink);
+}
+
+.eidos-front-subtitle {
+    margin: 0;
+    max-width: 58ch;
+    font-size: 14px;
+    color: var(--eidos-muted);
+}
+
+.eidos-front-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.eidos-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 12px;
+    border-radius: 9px;
+    border: 1px solid var(--eidos-line);
+    background: var(--eidos-panel);
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 600;
+    transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.eidos-cta:hover:not(:disabled) {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--eidos-cyan) 48%, var(--border));
+    background: var(--eidos-panel-strong);
+}
+
+.eidos-cta:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.eidos-cta-primary {
+    color: var(--eidos-on-contrast);
+    border-color: transparent;
+    background: linear-gradient(135deg, var(--eidos-blue), var(--eidos-cyan));
+    box-shadow: 0 8px 18px color-mix(in srgb, var(--eidos-cyan) 22%, transparent);
+}
+
+.eidos-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.eidos-kpi-card {
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--eidos-line);
+    background: var(--eidos-panel);
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.eidos-kpi-card span {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 700;
+    color: var(--text-tertiary);
+}
+
+.eidos-kpi-card strong {
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--text-primary);
+}
+
+.eidos-kpi-card small {
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.eidos-kpi-card[data-tone='attention'] strong { color: color-mix(in srgb, var(--eidos-cyan) 72%, var(--eidos-ink)); }
+.eidos-kpi-card[data-tone='active'] strong { color: color-mix(in srgb, var(--eidos-blue) 70%, var(--eidos-ink)); }
+.eidos-kpi-card[data-tone='warning'] strong { color: color-mix(in srgb, var(--eidos-amber) 78%, var(--eidos-ink)); }
+
+.eidos-front-grid-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 12px;
+}
+
+.eidos-panel {
+    padding: 14px;
+    border-radius: 12px;
+    border: 1px solid var(--eidos-line);
+    background: var(--eidos-panel);
+    backdrop-filter: blur(8px);
+    animation: eidos-rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.eidos-panel-main {
+    padding-bottom: 10px;
+}
+
+.eidos-panel-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.eidos-panel-head h2 {
+    margin: 0;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 700;
+    color: var(--text-tertiary);
+}
+
+.eidos-panel-head p {
+    margin: 3px 0 0;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.eidos-panel-head > span {
+    font-size: 11px;
+    color: var(--text-secondary);
+    border: 1px solid var(--eidos-line);
+    border-radius: 9px;
+    padding: 2px 8px;
+}
+
+.eidos-inline-error {
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--eidos-line);
+    background: var(--eidos-panel-strong);
+    color: var(--eidos-ink);
+    font-size: 12px;
+}
+
+.eidos-repo-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.eidos-repo-card {
+    padding: 10px 11px;
+    border-radius: 10px;
+    border: 1px solid var(--eidos-line);
+    background: var(--eidos-panel-strong);
+}
+
+.eidos-repo-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.eidos-repo-title {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.eidos-repo-title strong {
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+.eidos-repo-title span {
+    font-size: 10px;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.eidos-repo-age {
+    font-size: 10px;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+}
+
+.eidos-repo-stack {
+    margin-top: 7px;
+    height: 6px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: var(--bg-primary);
+    border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+    display: flex;
+}
+
+.eidos-repo-stack > span {
+    min-width: 0;
+}
+
+.eidos-repo-stack .is-dirty { background: linear-gradient(90deg, var(--eidos-cyan), var(--eidos-teal)); }
+.eidos-repo-stack .is-ahead { background: linear-gradient(90deg, var(--eidos-blue), var(--eidos-cyan)); }
+.eidos-repo-stack .is-behind { background: linear-gradient(90deg, var(--eidos-amber), color-mix(in srgb, var(--eidos-amber) 60%, var(--eidos-blue))); }
+
+.eidos-repo-meta {
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.eidos-chip {
+    display: inline-flex;
+    align-items: center;
+    height: 21px;
+    padding: 0 8px;
+    border-radius: 7px;
+    border: 1px solid var(--eidos-line);
+    background: var(--eidos-panel);
+    font-size: 10px;
+    color: var(--text-secondary);
+}
+
+.eidos-chip.is-dirty,
+.eidos-chip.is-ahead,
+.eidos-chip.is-behind {
+    color: var(--eidos-muted);
+}
+
+.eidos-chip.is-dirty { border-color: color-mix(in srgb, var(--eidos-cyan) 34%, var(--border)); }
+.eidos-chip.is-ahead { border-color: color-mix(in srgb, var(--eidos-blue) 34%, var(--border)); }
+.eidos-chip.is-behind { border-color: color-mix(in srgb, var(--eidos-amber) 40%, var(--border)); }
+
+.eidos-repo-path {
+    margin: 8px 0 0;
+    font-size: 10.5px;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.eidos-rail {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.eidos-health-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+}
+
+.eidos-health-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--eidos-line);
+    background: var(--eidos-panel-strong);
+    color: var(--text-secondary);
+}
+
+.eidos-health-pill.is-online {
+    color: var(--eidos-ink);
+    border-color: color-mix(in srgb, var(--eidos-teal) 35%, var(--border));
+}
+
+.eidos-health-pill.is-offline {
+    color: var(--eidos-muted);
+    border-color: color-mix(in srgb, var(--text-primary) 16%, var(--border));
+}
+
+.eidos-clean-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.eidos-clean-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 8px;
+    border-radius: 9px;
+    border: 1px solid var(--eidos-line);
+    background: var(--eidos-panel-strong);
+}
+
+.eidos-clean-list span {
+    font-size: 12px;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.eidos-clean-list small {
+    font-size: 10px;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.eidos-panel-matrix {
+    margin-top: 2px;
+}
+
+.eidos-matrix {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 8px;
+}
+
+.eidos-matrix-item {
+    border-radius: 9px;
+    border: 1px solid var(--eidos-line);
+    background: var(--eidos-panel-strong);
+    padding: 9px 10px;
+}
+
+.eidos-matrix-item.is-hot {
+    border-color: color-mix(in srgb, var(--eidos-cyan) 32%, var(--border));
+    background: color-mix(in srgb, var(--bg-tertiary) 88%, var(--eidos-cyan) 12%);
+}
+
+.eidos-matrix-item.is-cool {
+    border-color: color-mix(in srgb, var(--eidos-teal) 24%, var(--border));
+}
+
+.eidos-matrix-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-primary);
+}
+
+.eidos-matrix-top strong {
+    font-size: 12px;
+}
+
+.eidos-matrix-bottom {
+    margin-top: 5px;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 10px;
+    color: var(--text-secondary);
+}
+
+.eidos-empty-state {
+    margin: 4px 0;
+    font-size: 12px;
+    color: var(--text-tertiary);
+    line-height: 1.5;
+}
+
+.eidos-front-footer {
+    margin-top: auto;
+    padding: 8px 2px 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    color: var(--text-tertiary);
+    font-size: 11px;
+}
+
+.eidos-front-footer p {
+    margin: 0;
+}
+
+.eidos-footer-link {
+    border: none;
+    background: none;
+    color: color-mix(in srgb, var(--eidos-cyan) 64%, var(--eidos-ink));
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.eidos-dashboard-root {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-primary);
+}
+
+.eidos-dashboard-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-secondary);
+}
+
+.eidos-toolbar-btn {
+    border: 1px solid var(--border);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border-radius: 9px;
+    font-size: 11px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 10px;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.eidos-toolbar-btn:hover {
+    border-color: color-mix(in srgb, var(--eidos-cyan) 45%, var(--border));
+    background: var(--bg-hover);
+}
+
+.eidos-toolbar-btn-primary {
+    border-color: color-mix(in srgb, var(--eidos-blue) 40%, var(--border));
+}
+
+.eidos-dashboard-webview {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    border: 0;
+    background: white;
+}
+
+@keyframes eidos-rise {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes eidos-float {
+    0%, 100% {
+        transform: translate(0, 0) scale(1);
+    }
+    50% {
+        transform: translate(26px, -18px) scale(1.05);
+    }
+}
+
+@media (max-width: 1120px) {
+    .eidos-front-grid-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .eidos-rail {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    }
+}
+
+@media (max-width: 800px) {
+    .eidos-kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .eidos-front-hero {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .eidos-contrib-head {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .eidos-front-footer {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .eidos-front-root * {
+        animation: none !important;
+        transition: none !important;
+    }
+}

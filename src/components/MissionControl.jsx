@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { useMode } from '../context/ModeContext';
 import { MissionControlGuideModal } from './MissionControlGuideModal';
-import { readJsonStorage } from '../lib/persistentStore';
+import { readJsonStorage, readStringStorage, writeStringStorage } from '../lib/persistentStore';
 import { readIntentReviews } from '../lib/diffReview';
 import { addHarnessMemory, readHarnessMemory } from '../lib/harnessMemory';
 import {
@@ -903,7 +903,115 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
                         />
                     </aside>
             </div>
+            <RunContextMenu
+                runContextMenu={runContextMenu}
+                closeRunContextMenu={closeRunContextMenu}
+                updateRunStatus={updateRunStatus}
+                retryRun={retryRun}
+                cancelRun={cancelRun}
+            />
         </div>
+    );
+}
+
+function RunContextMenu({ runContextMenu, closeRunContextMenu, updateRunStatus, retryRun, cancelRun }) {
+    if (!runContextMenu) return null;
+
+    return (
+        <>
+            <div
+                className="fixed inset-0 z-[9998]"
+                onClick={closeRunContextMenu}
+                onContextMenu={(e) => { e.preventDefault(); closeRunContextMenu(); }}
+            />
+            <div
+                className="perci-context-menu"
+                style={{
+                    left: Math.min(runContextMenu.x, window.innerWidth - 210),
+                    top: Math.min(runContextMenu.y, window.innerHeight - 180),
+                    transformOrigin: 'top left',
+                }}
+                role="menu"
+                onPointerDown={(e) => e.stopPropagation()}
+            >
+                <div className="px-3 py-2 text-[11px] font-semibold text-[var(--text-tertiary)]">
+                    {runContextMenu.run.title}
+                </div>
+                <div className="perci-context-sep" role="separator" />
+                {runContextMenu.run.status === 'running' && (
+                    <button
+                        type="button"
+                        role="menuitem"
+                        className="perci-context-item"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            updateRunStatus(runContextMenu.run.id, 'waiting');
+                            closeRunContextMenu();
+                        }}
+                    >
+                        <PauseCircle size={14} className="perci-context-icon" />
+                        <span>Pause</span>
+                    </button>
+                )}
+                {(runContextMenu.run.status === 'waiting' || runContextMenu.run.status === 'blocked') && (
+                    <button
+                        type="button"
+                        role="menuitem"
+                        className="perci-context-item"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            updateRunStatus(runContextMenu.run.id, 'running');
+                            closeRunContextMenu();
+                        }}
+                    >
+                        <PlayCircle size={14} className="perci-context-icon" />
+                        <span>Resume</span>
+                    </button>
+                )}
+                <button
+                    type="button"
+                    role="menuitem"
+                    className="perci-context-item"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        retryRun(runContextMenu.run.id);
+                        closeRunContextMenu();
+                    }}
+                >
+                    <RotateCcw size={14} className="perci-context-icon" />
+                    <span>Retry</span>
+                </button>
+                {runContextMenu.run.status !== 'cancelled' && runContextMenu.run.status !== 'completed' && (
+                    <button
+                        type="button"
+                        role="menuitem"
+                        className="perci-context-item"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            cancelRun(runContextMenu.run);
+                            closeRunContextMenu();
+                        }}
+                    >
+                        <Square size={14} className="perci-context-icon" />
+                        <span>Cancel</span>
+                    </button>
+                )}
+                <div className="perci-context-sep" role="separator" />
+                <button
+                    type="button"
+                    role="menuitem"
+                    className="perci-context-item destructive"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        updateRunStatus(runContextMenu.run.id, 'cancelled');
+                        closeRunContextMenu();
+                    }}
+                >
+                    <XOctagon size={14} className="perci-context-icon" />
+                    <span>Mark cancelled</span>
+                </button>
+            </div>
+        </>
     );
 }
 
@@ -1648,104 +1756,6 @@ function MissionPulsePanel({ runs = [], selectedNode, selectedRun }) {
                     </div>
                 </div>
             </div>
-
-            {/* Run context menu */}
-            {runContextMenu && (
-                <>
-                    <div
-                        className="fixed inset-0 z-[9998]"
-                        onClick={closeRunContextMenu}
-                        onContextMenu={(e) => { e.preventDefault(); closeRunContextMenu(); }}
-                    />
-                    <div
-                        className="perci-context-menu"
-                        style={{
-                            left: Math.min(runContextMenu.x, window.innerWidth - 210),
-                            top: Math.min(runContextMenu.y, window.innerHeight - 180),
-                            transformOrigin: 'top left',
-                        }}
-                        role="menu"
-                        onPointerDown={(e) => e.stopPropagation()}
-                    >
-                        <div className="px-3 py-2 text-[11px] font-semibold text-[var(--text-tertiary)]">
-                            {runContextMenu.run.title}
-                        </div>
-                        <div className="perci-context-sep" role="separator" />
-                        {runContextMenu.run.status === 'running' && (
-                            <button
-                                type="button"
-                                role="menuitem"
-                                className="perci-context-item"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    updateRunStatus(runContextMenu.run.id, 'waiting');
-                                    closeRunContextMenu();
-                                }}
-                            >
-                                <PauseCircle size={14} className="perci-context-icon" />
-                                <span>Pause</span>
-                            </button>
-                        )}
-                        {(runContextMenu.run.status === 'waiting' || runContextMenu.run.status === 'blocked') && (
-                            <button
-                                type="button"
-                                role="menuitem"
-                                className="perci-context-item"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    updateRunStatus(runContextMenu.run.id, 'running');
-                                    closeRunContextMenu();
-                                }}
-                            >
-                                <PlayCircle size={14} className="perci-context-icon" />
-                                <span>Resume</span>
-                            </button>
-                        )}
-                        <button
-                            type="button"
-                            role="menuitem"
-                            className="perci-context-item"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                retryRun(runContextMenu.run.id);
-                                closeRunContextMenu();
-                            }}
-                        >
-                            <RotateCcw size={14} className="perci-context-icon" />
-                            <span>Retry</span>
-                        </button>
-                        {runContextMenu.run.status !== 'cancelled' && runContextMenu.run.status !== 'completed' && (
-                            <button
-                                type="button"
-                                role="menuitem"
-                                className="perci-context-item"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    cancelRun(runContextMenu.run);
-                                    closeRunContextMenu();
-                                }}
-                            >
-                                <Square size={14} className="perci-context-icon" />
-                                <span>Cancel</span>
-                            </button>
-                        )}
-                        <div className="perci-context-sep" role="separator" />
-                        <button
-                            type="button"
-                            role="menuitem"
-                            className="perci-context-item destructive"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                updateRunStatus(runContextMenu.run.id, 'cancelled');
-                                closeRunContextMenu();
-                            }}
-                        >
-                            <XOctagon size={14} className="perci-context-icon" />
-                            <span>Mark cancelled</span>
-                        </button>
-                    </div>
-                </>
-            )}
         </div>
     );
 }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, Component } from 'react';
 import perciLogo from './assets/perci-logo.png';
-import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, ARTIFACT_WINDOW_ID, RESEARCH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID } from './context/ModeContext';
+import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, ARTIFACT_WINDOW_ID, RESEARCH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID } from './context/ModeContext';
 import ModeSwitcher from './components/ModeSwitcher';
 import ChatMode from './components/ChatMode';
 import CodeMode from './components/CodeMode';
@@ -17,11 +17,14 @@ import DashboardMode from './components/DashboardMode';
 import PowerWorkspaceMode from './components/PowerWorkspaceMode';
 import NotesMode from './components/NotesMode';
 import BarsMode from './components/BarsMode';
+import MarkItDownMode from './components/MarkItDownMode';
 import BillboardMode from './components/BillboardMode';
 import StudioOSMode from './components/StudioOSMode';
 import ProjectsMode from './components/ProjectsMode';
 import EidosMode from './components/EidosMode';
 import LocalhostMode from './components/LocalhostMode';
+import SkillsMode from './components/SkillsMode';
+import EnsembleMode from './components/EnsembleMode';
 import { SettingsModal } from './components/SettingsModal';
 import DesktopHost from './components/windows/DesktopHost';
 import Dock from './components/windows/Dock';
@@ -36,7 +39,7 @@ import { ChatProvider } from './context/ChatContext';
 
 import nousLogo from './assets/nousresearch.png';
 import openClawLogo from './assets/openclaw-color.png';
-import { Moon, Sun, Monitor, Lock, Unlock, Plus, Terminal as TerminalIcon, Server, RefreshCw, ExternalLink, AlertCircle, BookOpen, Cpu, Download } from 'lucide-react';
+import { Moon, Sun, Monitor, Lock, Unlock, Plus, Terminal as TerminalIcon, Server, RefreshCw, ExternalLink, AlertCircle, BookOpen, Cpu, Download, Puzzle } from 'lucide-react';
 import { useTheme, ThemeProvider } from './context/ThemeContext';
 import { useChat } from './context/ChatContext';
 import TerminalPanel from './components/Terminal';
@@ -102,6 +105,7 @@ function AppContent() {
     } = useMode();
     const openClawWindowOpen = windows.some(w => w.id === OPENCLAW_WINDOW_ID && w.state !== 'minimized');
     const hermesWindowOpen = windows.some(w => w.id === HERMES_WINDOW_ID && w.state !== 'minimized');
+    const skillsWindowOpen = windows.some(w => w.id === SKILLS_WINDOW_ID && w.state !== 'minimized');
     const { isDarkMode, themeMode, cycleThemeMode } = useTheme();
     const { isIncognitoMode, toggleIncognitoMode, createNewChat } = useChat();
     const [openClawStatus, setOpenClawStatus] = useState({ state: 'idle' });
@@ -526,9 +530,11 @@ function AppContent() {
             case MODES.LIGHTHOUSE: return <LighthouseMode />;
             case MODES.NOTES: return <NotesMode />;
             case MODES.BARS: return <BarsMode />;
+            case MODES.MARKITDOWN: return <MarkItDownMode />;
             case MODES.CONCERNS: return <BillboardMode />;
             case MODES.STUDIOOS: return <StudioOSMode />;
             case MODES.PROJECTS: return <ProjectsMode />;
+            case MODES.ENSEMBLE: return <EnsembleMode />;
             case MODES.MISSION:
                 return (
                     <MissionControl
@@ -543,6 +549,7 @@ function AppContent() {
             case EIDOS_WINDOW_ID: return <EidosMode />;
             case LOCALHOST_WINDOW_ID: return <LocalhostMode />;
             case KLIPIT_WINDOW_ID: return <LocalhostMode isKlipit={true} />;
+            case SKILLS_WINDOW_ID: return <SkillsMode />;
             case ARTIFACT_WINDOW_ID: return <ArtifactWindow />;
             case RESEARCH_WINDOW_ID: return <ResearchResultsWindow />;
             case YOUTUBE_WINDOW_ID:
@@ -977,6 +984,15 @@ function AppContent() {
                     >
                         <img src={nousLogo} alt="Hermes" className="h-4 w-4 rounded-full bg-white object-cover ring-1 ring-[var(--border)]" />
                         <span className="hidden xl:inline">Hermes</span>
+                    </button>
+
+                    <button
+                        onClick={() => openWindow(SKILLS_WINDOW_ID)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all text-[11px] uppercase tracking-wider skills-branded ${skillsWindowOpen ? 'active' : ''}`}
+                        title="Skills Management"
+                    >
+                        <Puzzle size={16} />
+                        <span className="hidden xl:inline">Skills</span>
                     </button>
 
                     <button onClick={() => setShowGlobalTerminal(v => !v)} className={`p-1.5 rounded-md transition-colors ${showGlobalTerminal ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'}`} title="Toggle Terminal">

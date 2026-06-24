@@ -894,6 +894,38 @@ html.dark .hermes-branded.active {
   border-radius: 50%;
 }
 
+.skills-branded {
+  background-color: rgba(139, 92, 246, 0.1);
+  color: #a78bfa;
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  font-weight: 600;
+  border-radius: 9999px;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+html.dark .skills-branded {
+  background-color: rgba(139, 92, 246, 0.15);
+}
+
+.skills-branded:hover {
+  background-color: rgba(139, 92, 246, 0.2);
+  border-color: rgba(139, 92, 246, 0.4);
+}
+
+html.dark .skills-branded:hover {
+  background-color: rgba(139, 92, 246, 0.25);
+}
+
+.skills-branded.active {
+  background-color: rgba(139, 92, 246, 0.25);
+  color: #c4b5fd;
+  border: none;
+}
+
+html.dark .skills-branded.active {
+  background-color: rgba(139, 92, 246, 0.3);
+}
+
 /* ─────────────────────────────────────────────────────────────
    Window + Dock system
    Chat is the always-mounted base; other modes float as windows.

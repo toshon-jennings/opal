@@ -2,13 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     MessageSquare, Bot,
     Plus, ArrowUpRight, Server, Sparkles, CheckCircle2, AlertTriangle, Layers, Settings,
-    Radar, BookOpen, GraduationCap, Globe, Paperclip,
+    Radar, BookOpen, GraduationCap, Globe, Paperclip, GitMerge,
 } from 'lucide-react';
 import {
     ChatIcon, CoworkIcon, CodeIcon, NotesIcon, AgentsIcon, ResearchIcon,
-    OfficeIcon, MissionIcon, BuildIcon, ProjectsIcon,
+    OfficeIcon, MissionIcon, BuildIcon, ProjectsIcon, SkillsIcon,
 } from './ModeIcons';
-import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID } from '../context/ModeContext';
+import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID } from '../context/ModeContext';
 import { useChat } from '../context/ChatContext';
 import PerciMascot from './PerciMascot';
 import { AGENT_DEFINITIONS, ACTIVE_JOB_STATUSES, ATTENTION_JOB_STATUSES } from './AgentsPanel';
@@ -27,6 +27,8 @@ import eidosLogo from '../assets/eidos-logo.png';
 import eidosBg from '../assets/logo-opal-shadow.png';
 import localhostBg from '../assets/localhost.jpeg';
 import barsLogo from '../assets/bars-logo.svg';
+import markitdownLogo from '../assets/markitdown-logo.jpeg';
+import markitdownBg from '../assets/markitdown-bg.jpeg';
 import billboardLogo from '../assets/billboard-logo.svg';
 import openclawLogo from '../assets/openclaw-logo.svg';
 import studioosLogo from '../assets/studioos-logo-dark.png';
@@ -40,6 +42,7 @@ const JOBS_POLL_MS = 10000;
 const NATIVE_TILES = [
     { id: MODES.POWER_WORKSPACE, icon: Sparkles, title: 'Workspace', desc: 'Ideas, runs & next action', hue: '#fb923c' },
     { id: MODES.CHAT, icon: ChatIcon, title: 'Chat', desc: 'Converse with any model', hue: '#f97316' },
+    { id: MODES.ENSEMBLE, icon: GitMerge, title: 'Ensemble', desc: 'Panel + judge synthesis', hue: '#818cf8' },
     { id: MODES.COWORK, icon: CoworkIcon, title: 'Cowork', desc: 'Session-based deep work', hue: '#22d3ee' },
     { id: MODES.CODE, icon: CodeIcon, title: 'Code', desc: 'Edit and run your repos', hue: '#a78bfa' },
     { id: MODES.PROJECTS, icon: ProjectsIcon, title: 'Git Shells', desc: 'Manage terminals by project', hue: '#fb923c' },
@@ -49,6 +52,7 @@ const NATIVE_TILES = [
     { id: MODES.OFFICE, icon: OfficeIcon, title: 'Office', desc: 'Visit the crew at Perci HQ', hue: '#fbbf24' },
     { id: MODES.MISSION, icon: MissionIcon, title: 'Mission', desc: 'Supervise runs and checks', hue: '#60a5fa' },
     { id: MODES.BUILD, icon: BuildIcon, title: 'Build', desc: 'Generate and ship projects', hue: '#fb7185' },
+    { id: SKILLS_WINDOW_ID, icon: SkillsIcon, title: 'Skills', desc: 'Manage skills & agent CLIs', hue: '#8b5cf6' },
     { id: LOCALHOST_WINDOW_ID, icon: Globe, title: 'Localhost', desc: 'Preview any local dev server', hue: '#34d399', artwork: true, bgImage: localhostBg },
 ];
 
@@ -59,9 +63,10 @@ const SYSTEM_TILES = [
     { id: OPENCLAW_WINDOW_ID, icon: Server, logo: openclawLogo, title: 'OpenClaw', desc: 'Gateway dashboard', hue: '#ef4444', artwork: true, bgImage: openclawBg },
     { id: HERMES_WINDOW_ID, icon: null, logo: hermesLogo, title: 'Hermes', desc: 'CLI agent — chat, console, sessions', hue: '#eab308', artwork: true },
     { id: GDASH_WINDOW_ID, icon: null, logo: gdashLogo, title: 'G-Dash', desc: 'Google Workspace dashboard', hue: '#4285f4', artwork: true, bgImage: gdashBg },
-    { id: EIDOS_WINDOW_ID, icon: null, logo: eidosLogo, title: 'Eidos', desc: 'Persistent memory for AI agents', hue: '#8b5cf6', artwork: true, bgImage: eidosBg },
+    { id: EIDOS_WINDOW_ID, icon: null, logo: eidosLogo, title: 'Eidos', desc: 'Persistent memory for AI agents', hue: '#6b7280', artwork: true, bgImage: eidosBg },
     { id: KLIPIT_WINDOW_ID, icon: null, logo: klipitLogo, title: 'Klipit', desc: 'Securely klip the web', hue: '#ec4899', artwork: true, bgImage: klipitBg },
     { id: MODES.BARS, icon: null, logo: barsLogo, title: 'BARS', desc: 'Idea notebook', hue: '#f59e0b', artwork: true, bgImage: barsBg },
+    { id: MODES.MARKITDOWN, icon: null, logo: markitdownLogo, title: 'MarkItDownUI', desc: 'Convert files and URLs to Markdown', hue: '#0ea5e9', artwork: true, bgImage: markitdownBg },
     { id: MODES.CONCERNS, icon: null, logo: billboardLogo, title: 'Bill Board', desc: 'Services, keys & subscriptions', hue: '#06b6d4', artwork: true, bgImage: billboardBg },
     { id: MODES.STUDIOOS, icon: Layers, logo: studioosLogo, title: 'StudioOS', desc: 'View/manage your StudioOS workspace', hue: '#3b82f6', artwork: true, bgImage: studioosBg },
 ];
@@ -289,7 +294,7 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                             <div className="dash-tiles dash-tiles-system">
                                 {SYSTEM_TILES.map(({ id, icon: Icon, logo, title, desc, hue, artwork, bgImage }, i) => {
                                     const isWhiteBox = id === GDASH_WINDOW_ID || id === MODES.STUDIOOS || id === MODES.LIGHTHOUSE;
-                                    const isFillCover = id === EIDOS_WINDOW_ID || id === KLIPIT_WINDOW_ID || id === MODES.BARS || id === MODES.CONCERNS;
+                                    const isFillCover = id === EIDOS_WINDOW_ID || id === KLIPIT_WINDOW_ID || id === MODES.BARS || id === MODES.MARKITDOWN || id === MODES.CONCERNS;
                                     let logoStyle;
                                     if (id === GDASH_WINDOW_ID || id === MODES.LIGHTHOUSE) logoStyle = { width: '100%', height: '100%', borderRadius: 'inherit', objectFit: 'contain', padding: '5px' };
                                     else if (id === MODES.STUDIOOS) logoStyle = { width: '100%', height: '100%', borderRadius: 'inherit', objectFit: 'contain', padding: '2px' };

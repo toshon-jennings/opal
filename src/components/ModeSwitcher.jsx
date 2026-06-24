@@ -1,6 +1,6 @@
 import { useMode, MODES } from '../context/ModeContext';
 import {
-    DashboardIcon, ChatIcon, CoworkIcon, CodeIcon, NotesIcon, ResearchIcon,
+    DashboardIcon, ChatIcon, EnsembleIcon, CoworkIcon, CodeIcon, NotesIcon, ResearchIcon,
     AgentsIcon, OfficeIcon, BuildIcon, MissionIcon, PortsIcon, ProjectsIcon,
 } from './ModeIcons';
 
@@ -19,6 +19,7 @@ export default function ModeSwitcher() {
     const modes = [
         { id: MODES.DASHBOARD, icon: DashboardIcon, label: '' },
         { id: MODES.CHAT,   icon: ChatIcon,         label: 'Chat' },
+        { id: MODES.ENSEMBLE, icon: EnsembleIcon,   label: 'Ensemble' },
         { id: MODES.COWORK, icon: CoworkIcon,       label: 'Cowork' },
         { id: MODES.CODE,   icon: CodeIcon,         label: 'Code' },
         { id: MODES.PROJECTS, icon: ProjectsIcon,   label: 'Git Shells' },

@@ -23,6 +23,8 @@ import PerciMascot from './PerciMascot';
 import { PermissionsDropdown } from './PermissionsDropdown';
 import { CavemanDropdown } from './CavemanDropdown';
 import { cavemanDirective } from '../lib/caveman';
+import { PonytailDropdown } from './PonytailDropdown';
+import { ponytailDirective } from '../lib/ponytail';
 import LivePreviewPanel from './LivePreviewPanel';
 import { ProviderModelPicker } from './ProviderModelPicker';
 import chatHeroBackground from '../assets/chat-hero-background.jpeg';
@@ -631,6 +633,11 @@ function ChatMode() {
         setCavemanLevel(level);
         writeStringStorage('caveman_level_chat', level);
     };
+    const [ponytailLevel, setPonytailLevel] = useState(() => readStringStorage('ponytail_level_chat', 'off'));
+    const handlePonytailChange = (level) => {
+        setPonytailLevel(level);
+        writeStringStorage('ponytail_level_chat', level);
+    };
     const [previewKey, setPreviewKey] = useState(0);
     const [artifactPreviewUrl, setArtifactPreviewUrl] = useState('');
     // Width (px) of the artifact preview panel, resizable via the splitter. Persisted.
@@ -1027,7 +1034,7 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                 ? '\n\nPermission level: Read only — you may only read, summarize, or discuss information. Do not suggest or perform any actions that create, modify, or delete files or data.'
                 : '';
             const integrationPrompt = `\n\nTOOLS:\n${buildIntegrationToolsPrompt(apiKeys)}`;
-            const systemPrompt = `${baseSystemPrompt}${artifactInstruction}${customInstructionsPrompt}${projectSystemPrompt}${permissionPrompt}${integrationPrompt}${cavemanDirective(cavemanLevel)}`;
+            const systemPrompt = `${baseSystemPrompt}${artifactInstruction}${customInstructionsPrompt}${projectSystemPrompt}${permissionPrompt}${integrationPrompt}${cavemanDirective(cavemanLevel)}${ponytailDirective(ponytailLevel)}`;
 
             const messagesWithContext = [
                 { role: 'system', content: systemPrompt },
@@ -1981,6 +1988,7 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                                     />
                                 <PermissionsDropdown value={permissionLevel} onChange={setPermissionLevel} />
                                 <CavemanDropdown value={cavemanLevel} onChange={handleCavemanChange} />
+                                <PonytailDropdown value={ponytailLevel} onChange={handlePonytailChange} />
                                 <button
                                     onClick={handleNavigateMessages}
                                     className="p-2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-lg transition-colors"

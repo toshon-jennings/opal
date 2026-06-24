@@ -25,9 +25,11 @@ export const MODES = {
     LIGHTHOUSE: 'lighthouse', // Port scanning and conflict detection
     NOTES: 'notes',    // Markdown wiki notes with backlinks
     BARS: 'bars',      // OS-surface idea notebook
+    MARKITDOWN: 'markitdown', // Local MarkItDownUI converter
     CONCERNS: 'concerns', // Bill Board — service/subscription/API-key tracker
     STUDIOOS: 'studioos', // StudioOS Lite — view/manage StudioOS workspace
     PROJECTS: 'projects', // Project-based terminal command center
+    ENSEMBLE: 'ensemble', // Multi-model deliberation (panel → judge → synthesis)
 };
 
 // Non-mode windows (surfaces that open as windows but aren't in the MODES enum).
@@ -41,6 +43,7 @@ export const COMPARE_WINDOW_ID = 'compare';
 export const EIDOS_WINDOW_ID = 'eidos';
 export const LOCALHOST_WINDOW_ID = 'localhost';
 export const KLIPIT_WINDOW_ID = 'klipit';
+export const SKILLS_WINDOW_ID = 'skills';
 
 // Titles shown in window headers and dock chips for each windowed surface.
 export const WINDOW_TITLES = {
@@ -56,9 +59,11 @@ export const WINDOW_TITLES = {
     [MODES.LIGHTHOUSE]: 'Lighthouse',
     [MODES.NOTES]: 'Workspace Notes',
     [MODES.BARS]: 'BARS',
+    [MODES.MARKITDOWN]: 'MarkItDownUI',
     [MODES.CONCERNS]: 'Bill Board',
     [MODES.STUDIOOS]: 'StudioOS',
     [MODES.PROJECTS]: 'Git Shells',
+    [MODES.ENSEMBLE]: 'Ensemble',
     [OPENCLAW_WINDOW_ID]: 'OpenClaw',
     [HERMES_WINDOW_ID]: 'Hermes',
     [YOUTUBE_WINDOW_ID]: 'YouTube',
@@ -69,6 +74,7 @@ export const WINDOW_TITLES = {
     [EIDOS_WINDOW_ID]: 'Eidos',
     [LOCALHOST_WINDOW_ID]: 'Localhost',
     [KLIPIT_WINDOW_ID]: 'Klipit',
+    [SKILLS_WINDOW_ID]: 'Skills',
 };
 
 // Windows whose content is an embedded <webview>/<iframe>; CSS transforms can make
