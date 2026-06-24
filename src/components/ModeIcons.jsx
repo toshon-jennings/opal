@@ -204,6 +204,20 @@ export function MissionIcon(props) {
     );
 }
 
+/* Perci Map — route lines and station dots. */
+export function SurfaceMapIcon(props) {
+    return (
+        <Svg {...props}>
+            <path d="M5 17 9 9l5 5 5-8" {...shell} />
+            <path d="M5 17h7l7-7" />
+            <circle cx="5" cy="17" r="1.5" {...ink} />
+            <circle cx="9" cy="9" r="1.5" {...ink} />
+            <circle cx="14" cy="14" r="1.5" {...ink} />
+            <circle cx="19" cy="6" r="1.5" {...ink} />
+        </Svg>
+    );
+}
+
 /* Ports — radar with sweep wedge and a blip. */
 export function PortsIcon(props) {
     return (

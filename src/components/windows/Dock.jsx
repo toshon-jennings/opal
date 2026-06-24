@@ -1,13 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ArrowUpToLine, Minus, Maximize2, Minimize2, X } from 'lucide-react';
 import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, ARTIFACT_WINDOW_ID, RESEARCH_WINDOW_ID, COMPARE_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID } from '../../context/ModeContext';
+import { readStringStorage, writeStringStorage } from '../../lib/persistentStore';
 import WindowContextMenu from './WindowContextMenu';
+import SirPerciLauncher from './SirPerciLauncher';
 
 // Two-letter glyphs for dock chips (mirrors the Orbit/Odysseus dock aesthetic).
 const GLYPHS = {
     [MODES.CHAT]: 'CH',
     [MODES.POWER_WORKSPACE]: 'PW',
+    [MODES.SURFACE_MAP]: 'PM',
     [MODES.COWORK]: 'CW',
     [MODES.CODE]: 'CD',
     [MODES.AGENTS]: 'AG',
@@ -35,14 +38,21 @@ const GLYPHS = {
 // (each chip delayed by its index) and animate out on close. Clicking a focused
 // window's chip minimizes it (whirlpooling into the dock); clicking any other
 // chip focuses/restores it.
-export default function Dock() {
+export default function Dock({ onOpenSettings, onAutoHideChange }) {
     const { windows, focusWindow, minimizeWindow, toggleMaximizeWindow, closeWindow } = useMode();
     const reduce = useReducedMotion();
     const [menu, setMenu] = useState(null); // { id, x, y }
+    const [autoHide, setAutoHide] = useState(() => readStringStorage('perci_dock_autohide', 'false') === 'true');
+    const [launcherOpen, setLauncherOpen] = useState(false);
 
-    if (!windows.length) return null;
+    useEffect(() => { onAutoHideChange?.(autoHide); }, [autoHide, onAutoHideChange]);
 
-    const topZ = Math.max(...windows.map(w => w.z));
+    const toggleAutoHide = (next) => {
+        setAutoHide(next);
+        writeStringStorage('perci_dock_autohide', next ? 'true' : 'false');
+    };
+
+    const topZ = windows.length ? Math.max(...windows.map(w => w.z)) : 0;
 
     const openMenu = (e, id) => {
         e.preventDefault();
@@ -73,45 +83,63 @@ export default function Dock() {
     ] : [];
 
     return (
-        <div className="perci-dock" role="toolbar" aria-label="Open windows">
-            <AnimatePresence initial>
-                {windows.map((win, i) => {
-                    const focused = win.z === topZ && win.state !== 'minimized';
-                    return (
-                        <motion.button
-                            key={win.id}
-                            type="button"
-                            layout
-                            initial={reduce ? { opacity: 0 } : { opacity: 0, y: 22, scale: 0.82 }}
-                            animate={reduce ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
-                            exit={reduce ? { opacity: 0 } : { opacity: 0, y: 16, scale: 0.6 }}
-                            transition={reduce
-                                ? { duration: 0.12 }
-                                : { type: 'spring', stiffness: 520, damping: 26, delay: i * 0.045 }}
-                            className={`perci-dock-item${focused ? ' active' : ''}${win.state === 'minimized' ? ' minimized' : ''}`}
-                            title={`${focused ? 'Minimize' : 'Open'} ${win.title}`}
-                            onClick={() => (focused ? minimizeWindow(win.id) : focusWindow(win.id))}
-                            onContextMenu={(e) => openMenu(e, win.id)}
-                        >
-                            <span className="perci-dock-glyph">{GLYPHS[win.modeId] || win.title.slice(0, 2).toUpperCase()}</span>
-                            <span className="perci-dock-label">{win.title}</span>
-                            {focused && <span className="perci-dock-dot" />}
-                        </motion.button>
-                    );
-                })}
-            </AnimatePresence>
+        <>
+            {autoHide && <div className="perci-dock-hover-zone" />}
+            <div
+                className="perci-dock"
+                data-autohide={autoHide ? 'true' : undefined}
+                data-force-visible={launcherOpen ? 'true' : undefined}
+                role="toolbar"
+                aria-label="Open windows"
+            >
+                <div className="perci-dock-chips">
+                    <AnimatePresence initial>
+                        {windows.map((win, i) => {
+                            const focused = win.z === topZ && win.state !== 'minimized';
+                            return (
+                                <motion.button
+                                    key={win.id}
+                                    type="button"
+                                    layout
+                                    initial={reduce ? { opacity: 0 } : { opacity: 0, y: 22, scale: 0.82 }}
+                                    animate={reduce ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+                                    exit={reduce ? { opacity: 0 } : { opacity: 0, y: 16, scale: 0.6 }}
+                                    transition={reduce
+                                        ? { duration: 0.12 }
+                                        : { type: 'spring', stiffness: 520, damping: 26, delay: i * 0.045 }}
+                                    className={`perci-dock-item${focused ? ' active' : ''}${win.state === 'minimized' ? ' minimized' : ''}`}
+                                    title={`${focused ? 'Minimize' : 'Open'} ${win.title}`}
+                                    onClick={() => (focused ? minimizeWindow(win.id) : focusWindow(win.id))}
+                                    onContextMenu={(e) => openMenu(e, win.id)}
+                                >
+                                    <span className="perci-dock-glyph">{GLYPHS[win.modeId] || win.title.slice(0, 2).toUpperCase()}</span>
+                                    <span className="perci-dock-label">{win.title}</span>
+                                    {focused && <span className="perci-dock-dot" />}
+                                </motion.button>
+                            );
+                        })}
+                    </AnimatePresence>
+                </div>
 
-            <AnimatePresence>
-                {menuWin && (
-                    <WindowContextMenu
-                        key={menuWin.id}
-                        x={menu.x}
-                        y={menu.y}
-                        items={menuItems}
-                        onClose={() => setMenu(null)}
-                    />
-                )}
-            </AnimatePresence>
-        </div>
+                <SirPerciLauncher
+                    autoHide={autoHide}
+                    onToggleAutoHide={toggleAutoHide}
+                    onOpenSettings={onOpenSettings}
+                    onOpenChange={setLauncherOpen}
+                />
+
+                <AnimatePresence>
+                    {menuWin && (
+                        <WindowContextMenu
+                            key={menuWin.id}
+                            x={menu.x}
+                            y={menu.y}
+                            items={menuItems}
+                            onClose={() => setMenu(null)}
+                        />
+                    )}
+                </AnimatePresence>
+            </div>
+        </>
     );
 }

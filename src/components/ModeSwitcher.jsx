@@ -1,7 +1,7 @@
 import { useMode, MODES } from '../context/ModeContext';
 import {
     DashboardIcon, ChatIcon, EnsembleIcon, CoworkIcon, CodeIcon, NotesIcon, ResearchIcon,
-    AgentsIcon, OfficeIcon, BuildIcon, MissionIcon, PortsIcon, ProjectsIcon,
+    AgentsIcon, OfficeIcon, BuildIcon, MissionIcon, ProjectsIcon, PortsIcon, SurfaceMapIcon,
 } from './ModeIcons';
 
 // Duotone palettes for the custom mode icons (see ModeIcons.jsx).
@@ -18,6 +18,7 @@ export default function ModeSwitcher() {
 
     const modes = [
         { id: MODES.DASHBOARD, icon: DashboardIcon, label: '' },
+        { id: MODES.SURFACE_MAP, icon: SurfaceMapIcon, label: 'Map' },
         { id: MODES.CHAT,   icon: ChatIcon,         label: 'Chat' },
         { id: MODES.ENSEMBLE, icon: EnsembleIcon,   label: 'Ensemble' },
         { id: MODES.COWORK, icon: CoworkIcon,       label: 'Cowork' },
@@ -29,7 +30,7 @@ export default function ModeSwitcher() {
         { id: MODES.OFFICE, icon: OfficeIcon,       label: 'Office' },
         { id: MODES.BUILD,  icon: BuildIcon,        label: 'Build' },
         { id: MODES.MISSION, icon: MissionIcon,     label: 'Mission' },
-        { id: MODES.LIGHTHOUSE, icon: PortsIcon,    label: 'Ports' },
+        { id: MODES.LIGHTHOUSE, icon: PortsIcon,     label: 'Ports' },
     ];
 
     return (

@@ -14,6 +14,7 @@ const ModeContext = createContext();
 export const MODES = {
     DASHBOARD: 'dashboard', // Always-mounted home dashboard (the "desktop")
     POWER_WORKSPACE: 'power-workspace', // Coherent project loop for power users
+    SURFACE_MAP: 'surface-map', // Beck-style conceptual map of Perci surfaces
     CHAT: 'chat',      // Normal conversation interface
     COWORK: 'cowork',  // Session-based task interface (Claude style)
     MISSION: 'mission', // Agent run supervision and inspection
@@ -49,6 +50,7 @@ export const SKILLS_WINDOW_ID = 'skills';
 export const WINDOW_TITLES = {
     [MODES.CHAT]: 'Chat',
     [MODES.POWER_WORKSPACE]: 'Power Workspace',
+    [MODES.SURFACE_MAP]: 'Perci Map',
     [MODES.COWORK]: 'Cowork',
     [MODES.CODE]: 'Code',
     [MODES.AGENTS]: 'Agents',

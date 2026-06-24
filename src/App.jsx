@@ -15,6 +15,7 @@ import GDashMode from './components/GDashMode';
 import LighthouseMode from './components/LighthouseMode';
 import DashboardMode from './components/DashboardMode';
 import PowerWorkspaceMode from './components/PowerWorkspaceMode';
+import PerciMapMode from './components/PerciMapMode';
 import NotesMode from './components/NotesMode';
 import BarsMode from './components/BarsMode';
 import MarkItDownMode from './components/MarkItDownMode';
@@ -114,6 +115,7 @@ function AppContent() {
     const [isRestartingOpenClaw, setIsRestartingOpenClaw] = useState(false);
     const [showModeGuide, setShowModeGuide] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [dockAutoHide, setDockAutoHide] = useState(() => readStringStorage('perci_dock_autohide', 'false') === 'true');
     const [terminalCommand, setTerminalCommand] = useState('');
     const [updaterState, setUpdaterState] = useState(null);
     const [openClawDashboardTab, setOpenClawDashboardTab] = useState('gateway');
@@ -521,6 +523,7 @@ function AppContent() {
         switch (modeId) {
             case MODES.CHAT: return <ChatMode />;
             case MODES.POWER_WORKSPACE: return <PowerWorkspaceMode />;
+            case MODES.SURFACE_MAP: return <PerciMapMode />;
             case MODES.COWORK: return <CoworkMode />;
             case MODES.CODE: return <CodeMode />;
             case MODES.AGENTS: return <AgentsPanel />;
@@ -1021,7 +1024,7 @@ function AppContent() {
 
             {/* Mode-Specific UI */}
             <main className="app-main relative flex-1 min-h-0 overflow-hidden flex flex-col">
-                <div className={`flex-1 min-h-0 overflow-hidden relative${windows.length ? ' perci-dock-reserved' : ''}`}>
+                <div className={`flex-1 min-h-0 overflow-hidden relative${dockAutoHide ? '' : ' perci-dock-reserved'}`}>
                     {/* The dashboard is the always-mounted base; every mode floats as a window on top. */}
                     <ModeErrorBoundary>
                         <DashboardMode
@@ -1031,7 +1034,7 @@ function AppContent() {
                     </ModeErrorBoundary>
 
                     <DesktopHost renderContent={renderWindowContent} />
-                    <Dock />
+                    <Dock onOpenSettings={() => setIsSettingsOpen(true)} onAutoHideChange={setDockAutoHide} />
 
                     <ModeGuideModal isOpen={showModeGuide} onClose={() => setShowModeGuide(false)} />
                     <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
