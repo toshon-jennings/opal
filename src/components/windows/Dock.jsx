@@ -11,6 +11,7 @@ const GLYPHS = {
     [MODES.CHAT]: 'CH',
     [MODES.POWER_WORKSPACE]: 'PW',
     [MODES.SURFACE_MAP]: 'PM',
+    [MODES.PERCI_NOW]: 'NW',
     [MODES.COWORK]: 'CW',
     [MODES.CODE]: 'CD',
     [MODES.AGENTS]: 'AG',

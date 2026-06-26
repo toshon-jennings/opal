@@ -6,13 +6,10 @@ import {
     Hammer,
     Map as MapIcon,
     Route,
-    RotateCcw,
     Search,
     Server,
     Share2,
     ShieldCheck,
-    ZoomIn,
-    ZoomOut,
 } from 'lucide-react';
 import { useMode, MODES } from '../context/ModeContext';
 import {
@@ -24,13 +21,16 @@ import {
     getSurfaceMapSummary,
     getVisibleSurfaceStationIds,
 } from '../lib/perciSurfaceMap';
+import {
+    MAP_HEIGHT,
+    MAP_WIDTH,
+    Districts,
+    MapGrid,
+    MapZoomBar,
+    Station,
+    useMapZoom,
+} from './PerciSurfaceCanvas';
 import './PerciMapMode.css';
-
-const MAP_WIDTH = 1320;
-const MAP_HEIGHT = 860;
-const MIN_ZOOM = 0.7;
-const MAX_ZOOM = 1.55;
-const ZOOM_STEP = 0.15;
 
 const ROUTE_ICONS = {
     movement: Route,
@@ -54,7 +54,7 @@ export default function PerciMapMode() {
     const { openWindow, setCurrentMode } = useMode();
     const [activeTypes, setActiveTypes] = useState(() => Object.keys(SURFACE_ROUTE_TYPES));
     const [selectedStationId, setSelectedStationId] = useState('workspace');
-    const [zoom, setZoom] = useState(0.9);
+    const { zoom, setBoundedZoom, zoomOut, zoomIn, resetZoom } = useMapZoom(0.9);
 
     const stationById = useMemo(
         () => new Map(PERCI_SURFACE_STATIONS.map(station => [station.id, station])),
@@ -86,13 +86,6 @@ export default function PerciMapMode() {
     };
 
     const showAllRoutes = () => setActiveTypes(Object.keys(SURFACE_ROUTE_TYPES));
-    const setBoundedZoom = (value) => {
-        const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value));
-        setZoom(Number(next.toFixed(2)));
-    };
-    const zoomOut = () => setBoundedZoom(zoom - ZOOM_STEP);
-    const zoomIn = () => setBoundedZoom(zoom + ZOOM_STEP);
-    const resetZoom = () => setBoundedZoom(0.9);
 
     const openStation = (station) => {
         setSelectedStationId(station.id);
@@ -150,27 +143,13 @@ export default function PerciMapMode() {
 
             <div className="perci-map-content">
                 <section className="perci-map-canvas" aria-label="Perci surface transit map">
-                    <div className="perci-map-zoombar" aria-label="Map zoom controls">
-                        <button type="button" onClick={zoomOut} disabled={zoom <= MIN_ZOOM} aria-label="Zoom out">
-                            <ZoomOut size={14} />
-                        </button>
-                        <input
-                            type="range"
-                            min={Math.round(MIN_ZOOM * 100)}
-                            max={Math.round(MAX_ZOOM * 100)}
-                            step="5"
-                            value={Math.round(zoom * 100)}
-                            onChange={(event) => setBoundedZoom(Number(event.target.value) / 100)}
-                            aria-label="Map zoom"
-                        />
-                        <button type="button" onClick={zoomIn} disabled={zoom >= MAX_ZOOM} aria-label="Zoom in">
-                            <ZoomIn size={14} />
-                        </button>
-                        <button type="button" onClick={resetZoom} aria-label="Reset zoom">
-                            <RotateCcw size={14} />
-                            <span>{Math.round(zoom * 100)}%</span>
-                        </button>
-                    </div>
+                    <MapZoomBar
+                        zoom={zoom}
+                        onZoomOut={zoomOut}
+                        onZoomIn={zoomIn}
+                        onReset={resetZoom}
+                        onChange={setBoundedZoom}
+                    />
                     <svg
                         viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`}
                         role="img"
@@ -182,7 +161,7 @@ export default function PerciMapMode() {
                     >
                         <title id="perci-map-title">Perci surface relationship map</title>
                         <desc id="perci-map-desc">Stations represent Perci surfaces grouped into districts. Colored routes represent movement, shared context, agent work, build output, research, local runtime, governance, and expenses.</desc>
-                        <Districts />
+                        <Districts districts={SURFACE_MAP_DISTRICTS} />
                         <MapGrid />
                         {visibleRoutes.map((route, index) => (
                             <RoutePath
@@ -197,9 +176,11 @@ export default function PerciMapMode() {
                             <Station
                                 key={station.id}
                                 station={station}
-                                visible={visibleStationIds.has(station.id)}
+                                extraClassNames={[
+                                    visibleStationIds.has(station.id) ? 'is-visible' : 'is-muted',
+                                    selectedRoutes.some(route => route.stationIds.includes(station.id)) ? 'is-related' : '',
+                                ]}
                                 selected={selectedStation.id === station.id}
-                                related={selectedRoutes.some(route => route.stationIds.includes(station.id))}
                                 onOpen={() => openStation(station)}
                             />
                         ))}
@@ -283,38 +264,6 @@ function Metric({ label, value }) {
     );
 }
 
-function Districts() {
-    return (
-        <g className="perci-map-districts" aria-hidden="true">
-            {SURFACE_MAP_DISTRICTS.map(district => (
-                <g key={district.id} className="perci-map-district">
-                    <rect
-                        x={district.x}
-                        y={district.y}
-                        width={district.width}
-                        height={district.height}
-                        rx="12"
-                    />
-                    <text x={district.x + 14} y={district.y + 22}>
-                        {district.label}
-                    </text>
-                </g>
-            ))}
-        </g>
-    );
-}
-
-function MapGrid() {
-    const verticals = [80, 200, 320, 440, 560, 680, 800, 920, 1040, 1160, 1280];
-    const horizontals = [80, 160, 240, 320, 400, 480, 560, 640, 720, 800];
-    return (
-        <g className="perci-map-grid" aria-hidden="true">
-            {verticals.map(x => <line key={`v-${x}`} x1={x} y1="28" x2={x} y2="832" />)}
-            {horizontals.map(y => <line key={`h-${y}`} x1="36" y1={y} x2="1284" y2={y} />)}
-        </g>
-    );
-}
-
 function RoutePath({ route, routeIndex, stationById, selectedStationId }) {
     const routeType = SURFACE_ROUTE_TYPES[route.type];
     const points = route.stationIds
@@ -348,52 +297,3 @@ function RoutePath({ route, routeIndex, stationById, selectedStationId }) {
     );
 }
 
-function Station({ station, visible, selected, related, onOpen }) {
-    const label = station.label.length > 12 ? `${station.label.slice(0, 11)}…` : station.label;
-    const labelProps = getLabelProps(station);
-    const className = [
-        'perci-map-station',
-        visible ? 'is-visible' : 'is-muted',
-        selected ? 'is-selected' : '',
-        related ? 'is-related' : '',
-        `is-${station.kind}`,
-    ].filter(Boolean).join(' ');
-
-    const handleKeyDown = (event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            onOpen();
-        }
-    };
-
-    return (
-        <g
-            className={className}
-            transform={`translate(${station.x} ${station.y})`}
-            role="button"
-            tabIndex={0}
-            aria-label={`Open ${station.label}`}
-            onClick={onOpen}
-            onKeyDown={handleKeyDown}
-        >
-            <circle className="perci-station-ring" r="15" />
-            <circle className="perci-station-dot" r={station.kind === 'home' ? 8 : 6.5} />
-            <text
-                x={labelProps.x}
-                y={labelProps.y}
-                textAnchor={labelProps.anchor}
-                className="perci-station-label"
-            >
-                {label}
-            </text>
-        </g>
-    );
-}
-
-function getLabelProps(station) {
-    if (station.x < 135) return { x: 18, y: 4, anchor: 'start' };
-    if (station.x > 1160) return { x: -18, y: 4, anchor: 'end' };
-    if (station.y > 720) return { x: 0, y: -18, anchor: 'middle' };
-    if (station.y < 120) return { x: 0, y: 24, anchor: 'middle' };
-    return { x: 0, y: 24, anchor: 'middle' };
-}

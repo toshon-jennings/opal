@@ -85,8 +85,7 @@
 }
 
 .perci-route-filter,
-.perci-route-reset,
-.perci-open-station {
+.perci-route-reset {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -122,7 +121,6 @@
 
 .perci-route-filter:hover,
 .perci-route-reset:hover,
-.perci-open-station:hover,
 .perci-route-row:hover {
     transform: translateY(-1px);
     border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
@@ -133,94 +131,6 @@
     grid-template-columns: minmax(0, 1fr) 320px;
     min-height: 0;
     flex: 1;
-}
-
-.perci-map-canvas {
-    position: relative;
-    min-width: 0;
-    min-height: 0;
-    overflow: auto;
-    padding: 18px;
-}
-
-.perci-map-zoombar {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    display: flex;
-    width: fit-content;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 10px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--bg-primary) 94%, transparent);
-    padding: 6px;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-}
-
-.perci-map-zoombar button {
-    display: inline-flex;
-    min-width: 30px;
-    height: 30px;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    border-radius: 6px;
-    color: var(--text-secondary);
-    transition: background-color 0.16s ease, color 0.16s ease;
-}
-
-.perci-map-zoombar button:hover:not(:disabled) {
-    background: var(--bg-hover);
-    color: var(--text-primary);
-}
-
-.perci-map-zoombar button:disabled {
-    cursor: not-allowed;
-    opacity: 0.38;
-}
-
-.perci-map-zoombar button span {
-    min-width: 34px;
-    font-size: 11px;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-}
-
-.perci-map-zoombar input[type="range"] {
-    width: 116px;
-    accent-color: var(--accent);
-}
-
-.perci-map-canvas svg {
-    display: block;
-    width: var(--map-width);
-    height: var(--map-height);
-    min-width: min(100%, var(--map-width));
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg-primary);
-}
-
-.perci-map-district rect {
-    fill: color-mix(in srgb, var(--bg-secondary) 62%, transparent);
-    stroke: color-mix(in srgb, var(--border) 86%, transparent);
-    stroke-width: 1.2;
-}
-
-.perci-map-district text {
-    fill: var(--text-tertiary);
-    font-size: 12px;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0;
-}
-
-.perci-map-grid line {
-    stroke: color-mix(in srgb, var(--border) 62%, transparent);
-    stroke-width: 1;
-    opacity: 0.42;
 }
 
 .perci-map-route {
@@ -260,96 +170,10 @@
     stroke-linejoin: round;
 }
 
-.perci-map-station {
-    cursor: pointer;
-    outline: none;
-    opacity: 1;
-    transition: opacity 0.16s ease, transform 0.16s ease;
-}
-
 .perci-map-station.is-muted {
     opacity: 0.24;
 }
 
-.perci-map-station:focus-visible .perci-station-ring,
-.perci-map-station:hover .perci-station-ring,
-.perci-map-station.is-selected .perci-station-ring {
-    stroke: var(--accent);
-    stroke-width: 3;
-}
-
-.perci-station-ring {
-    fill: var(--bg-primary);
-    stroke: var(--border);
-    stroke-width: 2;
-}
-
-.perci-station-dot {
-    fill: var(--text-primary);
-}
-
-.perci-map-station.is-home .perci-station-dot {
-    fill: var(--accent);
-}
-
-.perci-map-station.is-system .perci-station-dot {
-    fill: #0891b2;
-}
-
-.perci-map-station.is-utility .perci-station-dot {
-    fill: #7c3aed;
-}
-
-.perci-map-station.is-selected .perci-station-dot {
-    fill: var(--accent);
-}
-
-.perci-station-label {
-    fill: var(--text-primary);
-    font-size: 11px;
-    font-weight: 750;
-    paint-order: stroke;
-    pointer-events: none;
-    stroke: var(--bg-primary);
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    stroke-width: 5;
-}
-
-.perci-map-inspector {
-    min-width: 0;
-    overflow-y: auto;
-    border-left: 1px solid var(--border);
-    background: color-mix(in srgb, var(--bg-secondary) 62%, transparent);
-    padding: 18px;
-}
-
-.perci-station-detail {
-    display: grid;
-    gap: 10px;
-    padding-bottom: 18px;
-    border-bottom: 1px solid var(--border);
-}
-
-.perci-station-kind {
-    width: fit-content;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    background: var(--bg-primary);
-    padding: 4px 8px;
-    font-size: 10px;
-    font-weight: 800;
-    text-transform: uppercase;
-    color: var(--text-tertiary);
-}
-
-.perci-station-district {
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--accent);
-}
-
-.perci-station-detail h2,
 .perci-route-list h3 {
     margin: 0;
     font-family: 'Outfit', system-ui, sans-serif;
@@ -357,18 +181,11 @@
     font-weight: 650;
 }
 
-.perci-station-detail p,
 .perci-map-empty {
     margin: 0;
     font-size: 13px;
     line-height: 1.55;
     color: var(--text-secondary);
-}
-
-.perci-open-station {
-    width: fit-content;
-    padding: 7px 12px;
-    color: var(--text-primary);
 }
 
 .perci-route-list {
@@ -443,28 +260,13 @@
         grid-template-columns: 1fr;
         overflow-y: auto;
     }
-
-    .perci-map-canvas {
-        overflow: auto;
-    }
-
-    .perci-map-zoombar {
-        position: static;
-    }
-
-    .perci-map-inspector {
-        border-left: 0;
-        border-top: 1px solid var(--border);
-    }
 }
 
 @media (prefers-reduced-motion: reduce) {
     .perci-route-filter,
     .perci-route-reset,
-    .perci-open-station,
     .perci-route-row,
-    .perci-map-route,
-    .perci-map-station {
+    .perci-map-route {
         transition: none;
     }
 }

@@ -130,24 +130,47 @@ export const INTEGRATION_TOOLS = [
 const WRITE_TOOL_NAMES = new Set(['github_create_issue']);
 
 export function getIntegrationTools({ allowWrites = true, apiKeys = null } = {}) {
-    const availableTools = apiKeys
+    const timesfmTools = [
+        {
+            name: 'timesfm_forecast',
+            description: 'Generate zero-shot time-series forecasts using the Google Research TimesFM model.',
+            parameters: {
+                history: 'A JSON array of chronological historical numeric values.',
+                horizon: 'The number of future time steps to forecast. Defaults to 24.'
+            }
+        },
+        {
+            name: 'timesfm_plot',
+            description: 'Generate a base64 markdown chart image comparing history and forecast.',
+            parameters: {
+                history: 'A JSON array of chronological historical numeric values.',
+                forecast_values: 'A JSON array of forecasted numeric values returned by timesfm_forecast.'
+            }
+        }
+    ];
+
+    const githubTools = apiKeys
         ? (apiKeys.github ? INTEGRATION_TOOLS : [])
         : INTEGRATION_TOOLS;
+
+    const availableTools = [...githubTools, ...timesfmTools];
+
     return allowWrites
         ? availableTools
         : availableTools.filter(tool => !WRITE_TOOL_NAMES.has(tool.name));
 }
 
 export function hasConfiguredIntegrationTools(apiKeys = {}) {
-    return Boolean(apiKeys.github);
+    return true;
 }
 
 export function buildIntegrationToolsPrompt(apiKeys = {}) {
-    const enabled = [];
+    const enabled = ['TimesFM (Local)'];
     if (apiKeys.github) enabled.push('GitHub');
 
     return [
         `External integration tools: ${enabled.length ? enabled.join('; ') : 'none configured'}.`,
+        'Use TimesFM tools (timesfm_forecast, timesfm_plot) when the user asks for time-series forecasting, predictions, or trend analysis.',
         'Use GitHub tools when the user asks for repository, issue, pull request, or GitHub code information.',
         'If the GitHub token is missing, tell the user it needs to be configured in Settings instead of guessing.',
         'For external write actions, confirm the intended change in your final response.'
@@ -243,6 +266,65 @@ export async function executeIntegrationTool(name, params = {}, apiKeys = {}) {
             });
             return { number: data.number, title: data.title, html_url: data.html_url, state: data.state };
         }
+        case 'timesfm_forecast': {
+            if (!window.electron?.runLocalCommand) {
+                throw new Error('Local command execution is not supported in this environment.');
+            }
+            let history = params.history;
+            if (typeof history === 'string') {
+                try { history = JSON.parse(history); } catch (_) {}
+            }
+            if (!history || !Array.isArray(history)) {
+                throw new Error('Parameter "history" must be a JSON array of numeric values.');
+            }
+            const horizon = Number(params.horizon) || 24;
+            const projectDir = '/Users/toshonjennings/opal';
+            const cmd = 'bash';
+            const args = [
+                '-c',
+                `"${projectDir}/timesfm-venv/bin/python" "${projectDir}/timesfm_mcp_server.py" forecast '${JSON.stringify(history)}' ${horizon}`
+            ];
+            
+            const run = await window.electron.runLocalCommand(cmd, args, projectDir);
+            if (!run.ok) {
+                throw new Error(run.error || run.stderr || 'TimesFM execution failed.');
+            }
+            
+            try {
+                return JSON.parse(run.stdout);
+            } catch (e) {
+                return { error: 'Failed to parse TimesFM forecast output.', raw: run.stdout };
+            }
+        }
+        case 'timesfm_plot': {
+            if (!window.electron?.runLocalCommand) {
+                throw new Error('Local command execution is not supported in this environment.');
+            }
+            let history = params.history;
+            let forecast_values = params.forecast_values;
+            if (typeof history === 'string') {
+                try { history = JSON.parse(history); } catch (_) {}
+            }
+            if (typeof forecast_values === 'string') {
+                try { forecast_values = JSON.parse(forecast_values); } catch (_) {}
+            }
+            if (!history || !Array.isArray(history) || !forecast_values || !Array.isArray(forecast_values)) {
+                throw new Error('Parameters "history" and "forecast_values" must be JSON arrays.');
+            }
+            const projectDir = '/Users/toshonjennings/opal';
+            const cmd = 'bash';
+            const args = [
+                '-c',
+                `"${projectDir}/timesfm-venv/bin/python" "${projectDir}/timesfm_mcp_server.py" plot '${JSON.stringify(history)}' '${JSON.stringify(forecast_values)}'`
+            ];
+            
+            const run = await window.electron.runLocalCommand(cmd, args, projectDir);
+            if (!run.ok) {
+                throw new Error(run.error || run.stderr || 'TimesFM plotting failed.');
+            }
+            
+            return { plot_markdown: run.stdout.trim() };
+        }
         default:
             return { error: `Unknown integration tool: "${name}"` };
     }
@@ -264,6 +346,7 @@ export async function runChatWithTools({
     let finalThinking = '';
 
     for (let iteration = 0; iteration < maxIterations; iteration++) {
+        if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
         let iterContent = '';
         let iterThinking = '';
         const { content, toolCalls } = await client.streamChatWithTools(
@@ -280,6 +363,8 @@ export async function runChatWithTools({
             modelId,
             { signal }
         );
+
+        if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
 
         finalContent = content || iterContent;
         finalThinking = iterThinking;
@@ -303,6 +388,7 @@ export async function runChatWithTools({
 
         const toolResults = [];
         for (const toolCall of toolCalls) {
+            if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
             onToolCall?.(toolCall);
             const result = await executeTool(toolCall.name, toolCall.args || {});
             toolResults.push({
@@ -312,6 +398,7 @@ export async function runChatWithTools({
                 content: JSON.stringify(result)
             });
         }
+        if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
         llmMessages = [...llmMessages, ...toolResults];
     }
 

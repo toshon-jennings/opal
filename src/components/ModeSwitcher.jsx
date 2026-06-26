@@ -1,8 +1,9 @@
 import { useMode, MODES } from '../context/ModeContext';
 import {
     DashboardIcon, ChatIcon, EnsembleIcon, CoworkIcon, CodeIcon, NotesIcon, ResearchIcon,
-    AgentsIcon, OfficeIcon, BuildIcon, MissionIcon, ProjectsIcon, PortsIcon, SurfaceMapIcon,
+    AgentsIcon, OfficeIcon, BuildIcon, MissionIcon, ProjectsIcon, SurfaceMapIcon, PerciNowIcon,
 } from './ModeIcons';
+import { Globe } from 'lucide-react';
 
 // Duotone palettes for the custom mode icons (see ModeIcons.jsx).
 // Secondary is a translucent tint so the primary outline/detail stays
@@ -14,29 +15,32 @@ const ICON_RESTING = {
 };
 
 export default function ModeSwitcher() {
-    const { currentMode, setCurrentMode } = useMode();
+    const { currentMode, setCurrentMode, windows } = useMode();
+
+    const perciNowOpen = windows.some(w => w.id === MODES.PERCI_NOW && w.state !== 'minimized');
 
     const modes = [
         { id: MODES.DASHBOARD, icon: DashboardIcon, label: '' },
         { id: MODES.SURFACE_MAP, icon: SurfaceMapIcon, label: 'Map' },
+        { id: MODES.PERCI_NOW, icon: PerciNowIcon, label: 'Now' },
         { id: MODES.CHAT,   icon: ChatIcon,         label: 'Chat' },
         { id: MODES.ENSEMBLE, icon: EnsembleIcon,   label: 'Ensemble' },
         { id: MODES.COWORK, icon: CoworkIcon,       label: 'Cowork' },
         { id: MODES.CODE,   icon: CodeIcon,         label: 'Code' },
         { id: MODES.PROJECTS, icon: ProjectsIcon,   label: 'Git Shells' },
         { id: MODES.NOTES,  icon: NotesIcon,        label: 'Notes' },
-        { id: MODES.AUTORESEARCH, icon: ResearchIcon, label: 'Research' },
+        { id: MODES.AUTORESEARCH, icon: ResearchIcon, label: 'Autoresearch' },
         { id: MODES.AGENTS, icon: AgentsIcon,       label: 'Agents' },
         { id: MODES.OFFICE, icon: OfficeIcon,       label: 'Office' },
         { id: MODES.BUILD,  icon: BuildIcon,        label: 'Build' },
         { id: MODES.MISSION, icon: MissionIcon,     label: 'Mission' },
-        { id: MODES.LIGHTHOUSE, icon: PortsIcon,     label: 'Ports' },
+        { id: MODES.LIGHTHOUSE, icon: Globe,          label: 'Localhost', color: '#f97316' },
     ];
 
     return (
         <div className="flex gap-0.5 p-1 rounded-xl glass-panel layout-transition">
             {modes.map(mode => {
-                const active = currentMode === mode.id;
+                const active = currentMode === mode.id || (mode.id === MODES.PERCI_NOW && perciNowOpen);
                 return (
                     <button
                         key={mode.id}
@@ -50,7 +54,7 @@ export default function ModeSwitcher() {
                         {active && (
                             <span
                                 className="absolute inset-0 rounded-lg layout-transition"
-                                style={{
+                                style={mode.color ? { background: 'linear-gradient(135deg, ' + mode.color + ', color-mix(in srgb, ' + mode.color + ' 70%, white))', boxShadow: '0 0 16px color-mix(in srgb, ' + mode.color + ' 50%, transparent)' } : {
                                     background: 'linear-gradient(135deg, var(--accent), var(--accent-cyan))',
                                     boxShadow: '0 0 16px var(--accent-glow)',
                                 }}
@@ -59,11 +63,11 @@ export default function ModeSwitcher() {
                         <mode.icon
                             size={15}
                             className="relative z-10 transition-colors duration-200"
-                            style={active ? ICON_ACTIVE : ICON_RESTING}
+                            style={mode.color ? { '--mi-primary': mode.color, '--mi-secondary': 'color-mix(in srgb, ' + mode.color + ' 50%, transparent)', color: active ? 'white' : mode.color } : active ? ICON_ACTIVE : ICON_RESTING}
                         />
                         <span
                             className="relative z-10 hidden lg:inline transition-colors duration-200"
-                            style={{ color: active ? 'white' : 'var(--text-secondary)' }}
+                            style={{ color: mode.color ? mode.color : active ? 'white' : 'var(--text-secondary)' }}
                         >
                             {mode.label}
                         </span>

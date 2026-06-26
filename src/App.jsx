@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, Component } from 'react';
 import perciLogo from './assets/perci-logo.png';
-import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, ARTIFACT_WINDOW_ID, RESEARCH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID, CLEANMAC_WINDOW_ID, PACKAGES_WINDOW_ID } from './context/ModeContext';
+import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, ARTIFACT_WINDOW_ID, RESEARCH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID, CLEANMAC_WINDOW_ID, PACKAGES_WINDOW_ID, AGENTMAIL_WINDOW_ID } from './context/ModeContext';
 import ModeSwitcher from './components/ModeSwitcher';
 import ChatMode from './components/ChatMode';
 import CodeMode from './components/CodeMode';
@@ -28,6 +28,7 @@ import LocalhostMode from './components/LocalhostMode';
 import SkillsMode from './components/SkillsMode';
 import EnsembleMode from './components/EnsembleMode';
 import CleanmacMode from './components/CleanmacMode';
+import AgentMailMode from './components/AgentMailMode';
 import PackagesMode from './components/PackagesMode';
 import { SettingsModal } from './components/SettingsModal';
 import DesktopHost from './components/windows/DesktopHost';
@@ -43,7 +44,7 @@ import { ChatProvider } from './context/ChatContext';
 
 import nousLogo from './assets/nousresearch.png';
 import openClawLogo from './assets/openclaw-color.png';
-import { Moon, Sun, Monitor, Lock, Unlock, Plus, Terminal as TerminalIcon, Server, RefreshCw, ExternalLink, AlertCircle, BookOpen, Cpu, Download, Puzzle, Sparkles, Package } from 'lucide-react';
+import { Moon, Sun, Monitor, Lock, Unlock, Plus, Terminal as TerminalIcon, Server, RefreshCw, ExternalLink, AlertCircle, BookOpen, Cpu, Download, Puzzle, Sparkles, Package, Inbox } from 'lucide-react';
 import { useTheme, ThemeProvider } from './context/ThemeContext';
 import { useChat } from './context/ChatContext';
 import TerminalPanel from './components/Terminal';
@@ -111,6 +112,7 @@ function AppContent() {
     const hermesWindowOpen = windows.some(w => w.id === HERMES_WINDOW_ID && w.state !== 'minimized');
     const skillsWindowOpen = windows.some(w => w.id === SKILLS_WINDOW_ID && w.state !== 'minimized');
     const packagesWindowOpen = windows.some(w => w.id === PACKAGES_WINDOW_ID && w.state !== 'minimized');
+    const agentmailWindowOpen = windows.some(w => w.id === AGENTMAIL_WINDOW_ID && w.state !== 'minimized');
     const { isDarkMode, themeMode, cycleThemeMode } = useTheme();
     const { isIncognitoMode, toggleIncognitoMode, createNewChat } = useChat();
     const [openClawStatus, setOpenClawStatus] = useState({ state: 'idle' });
@@ -575,6 +577,7 @@ function AppContent() {
             case KLIPIT_WINDOW_ID: return <LocalhostMode isKlipit={true} />;
             case SKILLS_WINDOW_ID: return <SkillsMode />;
             case CLEANMAC_WINDOW_ID: return <CleanmacMode />;
+            case AGENTMAIL_WINDOW_ID: return <AgentMailMode />;
             case PACKAGES_WINDOW_ID: return <PackagesMode />;
             case ARTIFACT_WINDOW_ID: return <ArtifactWindow />;
             case RESEARCH_WINDOW_ID: return <ResearchResultsWindow />;
@@ -987,7 +990,7 @@ function AppContent() {
                         onClick={() => openWindow(MODES.POWER_WORKSPACE)}
                         className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 transition-colors ${
                             windows.some(w => w.modeId === MODES.POWER_WORKSPACE && w.state !== 'minimized')
-                                ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                                ? 'bg-[rgba(249,115,22,0.2)] text-[#f97316] border border-[rgba(249,115,22,0.3)]'
                                 : 'text-[var(--accent)] hover:text-[var(--accent-hover)] hover:bg-[var(--bg-hover)]'
                         }`}
                         title="Power Workspace — ideas, runs & next action"
@@ -1035,13 +1038,25 @@ function AppContent() {
                         <span className="absolute -top-1 -right-1 w-3 h-3 bg-[var(--accent-secondary)] rounded-full transition-all duration-300 group-hover:translate-x-3 group-hover:-translate-y-1 group-hover:opacity-0 pointer-events-none" />
                     </button>
 
-                    <button
-                        onClick={() => openWindow(PACKAGES_WINDOW_ID)}
-                        className={`relative group flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all text-[11px] uppercase tracking-wider packages-branded ${packagesWindowOpen ? 'active' : ''}`}
-                        title="Packages Dashboard"
+<button
+                        onClick={() => openWindow(SKILLS_WINDOW_ID)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all text-[11px] uppercase tracking-wider my-branded ${skillsWindowOpen ? 'active' : ''}`}
+                        title="Skills"
                     >
-                        <Package size={16} />
-                        <span className="hidden xl:inline">Packages</span>
+                        <SkillsIcon size={16} />
+                        <span className="hidden xl:inline">Skills</span>
+                    </button>
+                    <button
+                        onClick={() => openWindow(AGENTMAIL_WINDOW_ID)}
+                        className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 transition-colors ${
+                            agentmailWindowOpen
+                                ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30'
+                                : 'text-[var(--text-secondary)] hover:text-indigo-400 hover:bg-indigo-500/10'
+                        }`}
+                        title="AgentMail"
+                    >
+                        <Inbox size={16} />
+                        <span className="hidden lg:inline text-sm font-medium">Mail</span>
                     </button>
 
                     <button onClick={() => setShowGlobalTerminal(v => !v)} className={`p-1.5 rounded-md transition-colors ${showGlobalTerminal ? 'bg-[var(--accent)] text-white' : 'text-[var(--accent)] hover:text-[var(--accent-hover)] hover:bg-[var(--bg-hover)]'}`} title="Toggle Terminal">

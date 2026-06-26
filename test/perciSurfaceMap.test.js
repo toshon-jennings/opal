@@ -62,7 +62,7 @@ describe('perciSurfaceMap', () => {
             'local-systems-depot',
             'business-office',
         ]);
-        expect(districtCounts.get('core-concourse')).toBe(3);
+        expect(districtCounts.get('core-concourse')).toBe(4);
         expect(districtCounts.get('business-office')).toBe(2);
         expect(Math.min(...districtCounts.values())).toBeGreaterThanOrEqual(2);
     });

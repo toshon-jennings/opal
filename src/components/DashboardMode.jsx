@@ -1,75 +1,164 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+/* global __APP_VERSION__ */
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
     MessageSquare, Bot,
     Plus, ArrowUpRight, Server, Sparkles, CheckCircle2, AlertTriangle, Layers, Settings,
-    Radar, BookOpen, GraduationCap, Globe, Paperclip, GitMerge,
+    GraduationCap, Globe, X, TerminalSquare, ChevronRight, Terminal, BookOpen,
 } from 'lucide-react';
-import {
-    ChatIcon, CoworkIcon, CodeIcon, NotesIcon, AgentsIcon, ResearchIcon,
-    OfficeIcon, MissionIcon, BuildIcon, ProjectsIcon, SkillsIcon,
-} from './ModeIcons';
-import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID } from '../context/ModeContext';
+import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, GDASH_WINDOW_ID, KLIPIT_WINDOW_ID } from '../context/ModeContext';
 import { useChat } from '../context/ChatContext';
-import PerciMascot from './PerciMascot';
+import DashboardPerciNowGlance from './DashboardPerciNowGlance';
 import { AGENT_DEFINITIONS, ACTIVE_JOB_STATUSES, ATTENTION_JOB_STATUSES } from './AgentsPanel';
 import OnboardingCard, { hasOnboardingBeenSeen } from './OnboardingCard';
 import { BeginnerGuideModal } from './BeginnerGuideModal';
-import lhLogo from '../assets/lh-logo.png';
-import hermesLogo from '../assets/nousresearch.png';
-import gdashLogo from '../assets/gdash2-cropped.png';
-import gdashBg from '../assets/gdash-bg.jpg';
-import lighthouseBg from '../assets/lighthouse-bg.jpg';
-import openclawBg from '../assets/openclaw-bg.jpg';
-import barsBg from '../assets/bars-bg.jpg';
-import billboardBg from '../assets/billboard-bg.jpg';
-import studioosBg from '../assets/studioos-bg.jpg';
-import eidosLogo from '../assets/eidos-logo.png';
-import eidosBg from '../assets/logo-opal-shadow.png';
-import localhostBg from '../assets/localhost.jpeg';
-import barsLogo from '../assets/bars-logo.svg';
-import markitdownLogo from '../assets/markitdown-logo.jpeg';
-import markitdownBg from '../assets/markitdown-bg.jpeg';
-import billboardLogo from '../assets/billboard-logo.svg';
-import openclawLogo from '../assets/openclaw-logo.svg';
-import studioosLogo from '../assets/studioos-logo-dark.png';
-import klipitLogo from '../assets/klipit-logo.png';
-import klipitBg from '../assets/klipit-bg.jpeg';
+import { NATIVE_TILES, SYSTEM_TILES, LOGO_WHITE_BOX_IDS, LOGO_FILL_COVER_IDS } from '../lib/appCatalog';
 import './DashboardMode.css';
 
 const JOBS_POLL_MS = 10000;
 
-// Native Perci surfaces — first-class workspace modes.
-const NATIVE_TILES = [
-    { id: MODES.POWER_WORKSPACE, icon: Sparkles, title: 'Workspace', desc: 'Ideas, runs & next action', hue: '#fb923c' },
-    { id: MODES.CHAT, icon: ChatIcon, title: 'Chat', desc: 'Converse with any model', hue: '#f97316' },
-    { id: MODES.ENSEMBLE, icon: GitMerge, title: 'Ensemble', desc: 'Panel + judge synthesis', hue: '#818cf8' },
-    { id: MODES.COWORK, icon: CoworkIcon, title: 'Cowork', desc: 'Session-based deep work', hue: '#22d3ee' },
-    { id: MODES.CODE, icon: CodeIcon, title: 'Code', desc: 'Edit and run your repos', hue: '#a78bfa' },
-    { id: MODES.PROJECTS, icon: ProjectsIcon, title: 'Git Shells', desc: 'Manage terminals by project', hue: '#fb923c' },
-    { id: MODES.NOTES, icon: NotesIcon, title: 'Notes', desc: 'Markdown wiki with backlinks', hue: '#10b981' },
-    { id: MODES.AGENTS, icon: AgentsIcon, title: 'Agents', desc: 'Queue jobs for the CLI crew', hue: '#4ade80' },
-    { id: MODES.AUTORESEARCH, icon: ResearchIcon, title: 'Research', desc: 'Prompt-optimization loops', hue: '#f472b6' },
-    { id: MODES.OFFICE, icon: OfficeIcon, title: 'Office', desc: 'Visit the crew at Perci HQ', hue: '#fbbf24' },
-    { id: MODES.MISSION, icon: MissionIcon, title: 'Mission', desc: 'Supervise runs and checks', hue: '#60a5fa' },
-    { id: MODES.BUILD, icon: BuildIcon, title: 'Build', desc: 'Generate and ship projects', hue: '#fb7185' },
-    { id: SKILLS_WINDOW_ID, icon: SkillsIcon, title: 'Skills', desc: 'Manage skills & agent CLIs', hue: '#8b5cf6' },
-    { id: LOCALHOST_WINDOW_ID, icon: Globe, title: 'Localhost', desc: 'Preview any local dev server', hue: '#34d399', artwork: true, bgImage: localhostBg },
-];
-
-// OS-level tools and external runtimes. Bars belongs here when its Perci
-// surface is wired, not in the native Perci app group.
-const SYSTEM_TILES = [
-    { id: MODES.LIGHTHOUSE, icon: Radar, logo: lhLogo, title: 'Lighthouse', desc: 'Scan ports and find conflicts', hue: '#ffbf45', artwork: true, bgImage: lighthouseBg },
-    { id: OPENCLAW_WINDOW_ID, icon: Server, logo: openclawLogo, title: 'OpenClaw', desc: 'Gateway dashboard', hue: '#ef4444', artwork: true, bgImage: openclawBg },
-    { id: HERMES_WINDOW_ID, icon: null, logo: hermesLogo, title: 'Hermes', desc: 'CLI agent — chat, console, sessions', hue: '#eab308', artwork: true },
-    { id: GDASH_WINDOW_ID, icon: null, logo: gdashLogo, title: 'G-Dash', desc: 'Google Workspace dashboard', hue: '#4285f4', artwork: true, bgImage: gdashBg },
-    { id: EIDOS_WINDOW_ID, icon: null, logo: eidosLogo, title: 'Eidos', desc: 'Persistent memory for AI agents', hue: '#6b7280', artwork: true, bgImage: eidosBg },
-    { id: KLIPIT_WINDOW_ID, icon: null, logo: klipitLogo, title: 'Klipit', desc: 'Securely klip the web', hue: '#ec4899', artwork: true, bgImage: klipitBg },
-    { id: MODES.BARS, icon: null, logo: barsLogo, title: 'BARS', desc: 'Idea notebook', hue: '#f59e0b', artwork: true, bgImage: barsBg },
-    { id: MODES.MARKITDOWN, icon: null, logo: markitdownLogo, title: 'MarkItDownUI', desc: 'Convert files and URLs to Markdown', hue: '#0ea5e9', artwork: true, bgImage: markitdownBg },
-    { id: MODES.CONCERNS, icon: null, logo: billboardLogo, title: 'Bill Board', desc: 'Services, keys & subscriptions', hue: '#06b6d4', artwork: true, bgImage: billboardBg },
-    { id: MODES.STUDIOOS, icon: Layers, logo: studioosLogo, title: 'StudioOS', desc: 'View/manage your StudioOS workspace', hue: '#3b82f6', artwork: true, bgImage: studioosBg },
-];
+const NATIVE_TOOL_MODALS = {
+    chronicle: {
+        eyebrow: 'GitHub story layer',
+        title: 'Perci Story',
+        accent: '#fb923c',
+        tabs: [
+            {
+                id: 'overview',
+                label: 'Overview',
+                summary: 'Turns noisy commit ranges into an evidence-backed product history. Reads Git, clusters changed files by surface, adds GitHub compare links, and pulls Graphify context when available. Install globally with npm install -g perci-story.',
+                commands: [
+                    { label: 'install', code: 'npm install -g perci-story' },
+                    { label: 'by range', code: 'story --range v1.0.0..HEAD' },
+                    { label: 'by date', code: 'story --since 2026-06-20' },
+                ],
+                stats: [
+                    { label: 'Output', value: 'Markdown + JSON' },
+                    { label: 'Evidence', value: 'Git + Graphify' },
+                    { label: 'Best for', value: 'Large grouped commits' },
+                ],
+                signals: [
+                    'Detects IPC handlers, storage keys, React components, test coverage, and visual assets across all commits in the range.',
+                    'Reports Graphify coverage so stale architecture indexes do not become false certainty.',
+                    'Add a perci-story.config.mjs to your project root to define custom surfaces for your codebase.',
+                    'Keeps a commit ledger and GitHub compare link beside the higher-level narrative.',
+                ],
+            },
+            {
+                id: 'examples',
+                label: 'Examples',
+                description: 'In this repo: npm run story -- (the -- passes flags through). Globally installed: perci-story. Mix and match --range or --since/--until with any output flags.',
+                commands: [
+                    { label: 'by range', code: 'story --range v1.0.0..HEAD' },
+                    { label: 'by date', code: 'story --since 2026-06-20' },
+                    { label: 'date+limit', code: 'story --since 2026-06-20 --max-commits 40' },
+                    { label: 'to file', code: 'story --range HEAD~10..HEAD --out CHANGES.md' },
+                    { label: '--json', code: 'story --range HEAD~20..HEAD --json story.json' },
+                    { label: 'both out', code: 'story --range v1.0.0..HEAD --out STORY.md --json STORY.json' },
+                    { label: '--github', code: 'story --range v1.0.0..HEAD --github https://github.com/owner/repo' },
+                    { label: '--config', code: 'story --range HEAD~10..HEAD --config ./my-surfaces.mjs' },
+                ],
+            },
+            {
+                id: 'options',
+                label: 'Options',
+                description: 'When using npm run story, pass flags after the -- separator. When using the global install, pass flags directly.',
+                flags: [
+                    { flag: '--range <rev-range>', description: 'Git revision range, e.g. v1.0.0..HEAD or HEAD~10..HEAD.' },
+                    { flag: '--since <date>', description: 'Include commits since this date (ISO 8601 or natural, e.g. 2026-06-20).' },
+                    { flag: '--until <date>', description: 'Include commits up to this date.' },
+                    { flag: '--max-commits <n>', description: 'Limit the number of commits when --range is omitted (default: 50).' },
+                    { flag: '--out <path>', description: 'Write Markdown output to a file. Defaults to stdout.' },
+                    { flag: '--json <path>', description: 'Write the structured story JSON to a file.' },
+                    { flag: '--github <url>', description: 'GitHub repo URL used to generate commit and compare links.' },
+                    { flag: '--graph <path>', description: 'Path to Graphify graph.json. Auto-detected from graphify-out/ if omitted.' },
+                    { flag: '--config <path>', description: 'Path to a perci-story.config.mjs file defining custom surfaces for your project.' },
+                ],
+            },
+        ],
+    },
+    'graphify-diff': {
+        eyebrow: 'Architecture diff lens',
+        title: 'gdiff  (graphify-diff)',
+        accent: '#60a5fa',
+        tabs: [
+            {
+                id: 'overview',
+                label: 'Overview',
+                summary: 'Incrementally patches a Graphify knowledge graph from git diffs — no full re-extraction needed. Run any subcommand from inside the repo with no arguments; the diff baseline is auto-detected from the last graph build timestamp.',
+                commands: [
+                    { label: 'patch', code: 'gdiff patch' },
+                    { label: 'analyze', code: 'gdiff analyze' },
+                    { label: 'impact', code: 'gdiff impact' },
+                ],
+                stats: [
+                    { label: 'Mode', value: 'Incremental' },
+                    { label: 'Baseline', value: 'Auto-detected' },
+                    { label: 'Subcommands', value: 'analyze · patch · impact' },
+                ],
+                signals: [
+                    'Run any subcommand from inside the repo with no arguments — baseline is auto-detected from the last graph build.',
+                    'gdiff analyze is safe to run at any time: read-only, no graph required, shows what would change.',
+                    'gdiff impact traces cascading transitive effects on the existing graph without modifying it.',
+                    'Pass a repo path as the first argument to run from outside the repo directory.',
+                ],
+            },
+            {
+                id: 'patch',
+                label: 'patch',
+                description: 'Apply a git diff to an existing Graphify graph.json. Changed symbols cascade through dependent nodes up to --cascade-depth levels (default: 3). The baseline is the last graph build; override with --since.',
+                commands: [
+                    { label: 'in repo', code: 'gdiff patch' },
+                    { label: '--since', code: 'gdiff patch --since HEAD~1' },
+                    { label: 'branch', code: 'gdiff patch . --since main' },
+                    { label: 'dry run', code: 'gdiff patch --dry-run' },
+                    { label: 'staged', code: 'gdiff patch --staged' },
+                    { label: 'remote', code: 'gdiff patch /path/to/repo --since main' },
+                    { label: '--json', code: 'gdiff patch --json' },
+                ],
+                flags: [
+                    { flag: '--since / -s <ref>', description: 'Git ref to diff against (HEAD~1, a branch, a SHA). Auto-detected from the last graph build if omitted.' },
+                    { flag: '--staged', description: 'Diff staged changes instead of unstaged — useful right before a commit.' },
+                    { flag: '--dry-run / -n', description: 'Show what would change without writing to graph.json.' },
+                    { flag: '--cascade-depth / -d <n>', description: 'How far to cascade dependency changes (default: 3).' },
+                    { flag: '--graph / -g <path>', description: 'Path to graph.json (default: REPO/graphify-out/graph.json).' },
+                    { flag: '--output / -o <path>', description: 'Output path (default: overwrite the input graph.json).' },
+                    { flag: '--json', description: 'Emit machine-readable JSON output.' },
+                ],
+            },
+            {
+                id: 'analyze',
+                label: 'analyze',
+                description: 'Read-only — no graph required. Parses the git diff and shows which files, symbols, and potential dependencies would be affected. Safe to run at any time without touching the graph.',
+                commands: [
+                    { label: 'in repo', code: 'gdiff analyze' },
+                    { label: '--since', code: 'gdiff analyze --since HEAD~1' },
+                    { label: 'staged', code: 'gdiff analyze --staged' },
+                ],
+                flags: [
+                    { flag: '--since / -s <ref>', description: 'Git ref to diff against. Auto-detected from the last graph build if omitted.' },
+                    { flag: '--staged', description: 'Diff staged changes.' },
+                ],
+            },
+            {
+                id: 'impact',
+                label: 'impact',
+                description: 'Loads the existing graph and traces which nodes would be affected by the diff, including transitive dependencies up to the specified depth. Does not modify the graph.',
+                commands: [
+                    { label: 'in repo', code: 'gdiff impact' },
+                    { label: '--since', code: 'gdiff impact --since HEAD~1' },
+                    { label: 'depth', code: 'gdiff impact --depth 5' },
+                    { label: 'custom graph', code: 'gdiff impact --graph ./graphify-out/graph.json' },
+                ],
+                flags: [
+                    { flag: '--since / -s <ref>', description: 'Git ref to diff against. Auto-detected from the last graph build if omitted.' },
+                    { flag: '--depth / -d <n>', description: 'Cascade depth for impact analysis.' },
+                    { flag: '--graph / -g <path>', description: 'Path to graph.json.' },
+                ],
+            },
+        ],
+    },
+};
 
 const AGENT_LABELS = Object.fromEntries(AGENT_DEFINITIONS.map((a) => [a.id, a.shortLabel]));
 
@@ -106,6 +195,7 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
     const [jobs, setJobs] = useState([]);
     const [showOnboarding, setShowOnboarding] = useState(() => !hasOnboardingBeenSeen());
     const [showBeginnerGuide, setShowBeginnerGuide] = useState(false);
+    const [nativeToolModal, setNativeToolModal] = useState(null);
 
     // Drop the user straight into Settings focused on OpenRouter, with its
     // API-key field revealed. Used by the beginner guide's OpenRouter CTA.
@@ -174,7 +264,6 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
         return parts.join(' · ');
     }, [openClawStatus]);
 
-    const perciState = jobStats.attention > 0 ? 'error' : jobStats.active > 0 ? 'working' : 'idle';
     const openIds = useMemo(() => new Set(windows.map((w) => w.modeId)), [windows]);
 
     const openChat = (chatId) => {
@@ -223,7 +312,7 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                             </button>
                             <button type="button" className="dash-cta dash-cta-ghost" onClick={() => setShowBeginnerGuide(true)}>
                                 <GraduationCap size={15} />
-                                Beginner's guide
+                                Beginner&apos;s guide
                             </button>
                             {onOpenSettings && (
                                 <button type="button" className="dash-cta dash-cta-ghost" onClick={onOpenSettings}>
@@ -243,20 +332,45 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                             )}
                         </div>
                         <p className="dash-version">v{__APP_VERSION__}</p>
+                        <div className="dash-hero-system">
+                            <span className={`dash-chip ${openClawStatus?.state === 'online' ? 'is-online' : openClawStatus?.state === 'checking' ? 'is-checking' : 'is-off'}`}>
+                                <Server size={12} />
+                                {openClawStatus?.state === 'online' ? 'Gateway online'
+                                    : openClawStatus?.state === 'checking' ? 'Gateway…'
+                                    : 'Gateway offline'}
+                            </span>
+                            <span className="dash-chip">
+                                <Layers size={12} />
+                                {windows.length} window{windows.length === 1 ? '' : 's'} open
+                            </span>
+                            <span className="dash-chip">{window.electron ? 'Desktop' : 'Web'}</span>
+                            <button
+                                type="button"
+                                className="dash-tool-btn"
+                                onClick={() => setNativeToolModal('chronicle')}
+                            >
+                                <Terminal size={13} strokeWidth={2.5} />
+                                <span>story</span>
+                                <ChevronRight size={13} strokeWidth={2.5} />
+                            </button>
+                            <button
+                                type="button"
+                                className="dash-tool-btn"
+                                onClick={() => setNativeToolModal('graphify-diff')}
+                            >
+                                <Terminal size={13} strokeWidth={2.5} />
+                                <span>gdiff</span>
+                                <ChevronRight size={13} strokeWidth={2.5} />
+                            </button>
+                        </div>
                     </div>
-                    <button
-                        type="button"
-                        className="dash-perci"
-                        onClick={() => openWindow(MODES.OFFICE)}
-                        title="Visit Perci HQ"
-                    >
-                        <PerciMascot state={perciState} size={148} title={`Perci is ${perciState}`} variant="classic" />
-                        <span className="dash-perci-caption">
-                            {perciState === 'error' ? 'A job needs attention'
-                                : perciState === 'working' ? `${jobStats.active} job${jobStats.active === 1 ? '' : 's'} running`
-                                : 'All quiet'}
-                        </span>
-                    </button>
+                    <DashboardPerciNowGlance
+                        windows={windows}
+                        agentJobs={jobs}
+                        openClawStatus={openClawStatus}
+                        now={now}
+                        onOpen={() => openWindow(MODES.PERCI_NOW)}
+                    />
                 </section>
 
                 {/* ── Body: launchpad + live rail ── */}
@@ -293,8 +407,8 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                         <div className="dash-launch-group">
                             <div className="dash-tiles dash-tiles-system">
                                 {SYSTEM_TILES.map(({ id, icon: Icon, logo, title, desc, hue, artwork, bgImage }, i) => {
-                                    const isWhiteBox = id === GDASH_WINDOW_ID || id === MODES.STUDIOOS || id === MODES.LIGHTHOUSE;
-                                    const isFillCover = id === EIDOS_WINDOW_ID || id === KLIPIT_WINDOW_ID || id === MODES.BARS || id === MODES.MARKITDOWN || id === MODES.CONCERNS;
+                                    const isWhiteBox = LOGO_WHITE_BOX_IDS.has(id);
+                                    const isFillCover = LOGO_FILL_COVER_IDS.has(id);
                                     let logoStyle;
                                     if (id === GDASH_WINDOW_ID || id === MODES.LIGHTHOUSE) logoStyle = { width: '100%', height: '100%', borderRadius: 'inherit', objectFit: 'contain', padding: '5px' };
                                     else if (id === MODES.STUDIOOS) logoStyle = { width: '100%', height: '100%', borderRadius: 'inherit', objectFit: 'contain', padding: '2px' };
@@ -423,24 +537,10 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                                     ))}
                                 </ul>
                             ) : (
-                                <p className="dash-empty">No conversations yet — start one and it'll appear here.</p>
+                                <p className="dash-empty">No conversations yet — start one and it&apos;ll appear here.</p>
                             )}
                         </div>
 
-                        {/* System strip */}
-                        <div className="dash-card dash-system" style={{ '--i': 4 }}>
-                            <span className={`dash-chip ${openClawStatus?.state === 'online' ? 'is-online' : openClawStatus?.state === 'checking' ? 'is-checking' : 'is-off'}`}>
-                                <Server size={12} />
-                                {openClawStatus?.state === 'online' ? 'Gateway online'
-                                    : openClawStatus?.state === 'checking' ? 'Gateway…'
-                                    : 'Gateway offline'}
-                            </span>
-                            <span className="dash-chip">
-                                <Layers size={12} />
-                                {windows.length} window{windows.length === 1 ? '' : 's'} open
-                            </span>
-                            <span className="dash-chip">{window.electron ? 'Desktop' : 'Web'}</span>
-                        </div>
                     </aside>
                 </div>
                 </div>
@@ -454,6 +554,167 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                     openOpenRouterSettings();
                 }}
             />
+            <NativeToolModal
+                tool={nativeToolModal ? NATIVE_TOOL_MODALS[nativeToolModal] : null}
+                onClose={() => setNativeToolModal(null)}
+            />
         </div>
+    );
+}
+
+function ToolCommands({ commands }) {
+    return (
+        <div className="dash-tool-modal-commands">
+            {commands.map(({ label, code }) => (
+                <div key={code} className="dash-tool-modal-command">
+                    <span>{label}</span>
+                    <code>{code}</code>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function ToolStats({ stats }) {
+    return (
+        <div className="dash-tool-modal-stats">
+            {stats.map(stat => (
+                <div key={stat.label}>
+                    <span>{stat.label}</span>
+                    <strong>{stat.value}</strong>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function ToolSignals({ signals }) {
+    return (
+        <div className="dash-tool-modal-signals">
+            {signals.map(signal => (
+                <div key={signal}>
+                    <CheckCircle2 size={15} />
+                    <span>{signal}</span>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function ToolFlags({ flags }) {
+    return (
+        <div className="dash-tool-modal-flags">
+            {flags.map(({ flag, description }) => (
+                <div key={flag} className="dash-tool-modal-flag">
+                    <code>{flag}</code>
+                    <span>{description}</span>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function NativeToolModal({ tool, onClose }) {
+    const [activeTab, setActiveTab] = useState(0);
+
+    useEffect(() => { setActiveTab(0); }, [tool]);
+
+    useEffect(() => {
+        if (!tool) return undefined;
+        const handleKeyDown = (event) => {
+            if (event.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [tool, onClose]);
+
+    if (!tool) return null;
+
+    const hasTabs = Boolean(tool.tabs?.length);
+    const tab = hasTabs ? tool.tabs[activeTab] : null;
+
+    return createPortal(
+        <div
+            className="dash-tool-modal-backdrop"
+            role="presentation"
+            onMouseDown={(event) => {
+                if (event.target === event.currentTarget) onClose();
+            }}
+        >
+            <section
+                className="dash-tool-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="dash-tool-modal-title"
+                style={{ '--tool': tool.accent }}
+            >
+                <div className="dash-tool-modal-rail" aria-hidden="true">
+                    <span />
+                    <span />
+                    <span />
+                </div>
+
+                <button
+                    type="button"
+                    className="dash-tool-modal-close"
+                    onClick={onClose}
+                    aria-label="Close tool details"
+                >
+                    <X size={16} />
+                </button>
+
+                <div className="dash-tool-modal-head">
+                    <div className="dash-tool-modal-mark">
+                        <TerminalSquare size={22} />
+                    </div>
+                    <div>
+                        <p>{tool.eyebrow}</p>
+                        <h2 id="dash-tool-modal-title">{tool.title}</h2>
+                    </div>
+                </div>
+
+                {hasTabs ? (
+                    <>
+                        <div className="dash-tool-modal-tabs" role="tablist">
+                            {tool.tabs.map((t, i) => (
+                                <button
+                                    key={t.id}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={i === activeTab}
+                                    className={`dash-tool-modal-tab${i === activeTab ? ' active' : ''}`}
+                                    onClick={() => setActiveTab(i)}
+                                >
+                                    {t.label}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="dash-tool-modal-tab-body" role="tabpanel">
+                            {tab.summary && <p className="dash-tool-modal-summary">{tab.summary}</p>}
+                            {tab.description && <p className="dash-tool-modal-description">{tab.description}</p>}
+                            {tab.commands && <ToolCommands commands={tab.commands} />}
+                            {tab.flags && <ToolFlags flags={tab.flags} />}
+                            {tab.stats && <ToolStats stats={tab.stats} />}
+                            {tab.signals && <ToolSignals signals={tab.signals} />}
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <p className="dash-tool-modal-summary">{tool.summary}</p>
+                        {tool.commands
+                            ? <ToolCommands commands={tool.commands} />
+                            : (
+                                <div className="dash-tool-modal-command">
+                                    <span>CLI</span>
+                                    <code>{tool.command}</code>
+                                </div>
+                            )}
+                        <ToolStats stats={tool.stats} />
+                        <ToolSignals signals={tool.signals} />
+                    </>
+                )}
+            </section>
+        </div>,
+        document.body
     );
 }

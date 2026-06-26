@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
     BookOpen, FileText, Search, Plus, Trash2, Edit3, Eye, Columns,
-    FolderOpen, Link2, ExternalLink, X, Check, RefreshCw, Compass, ArrowRightLeft, Sparkles, Pencil, Lock, Unlock, KeyRound, Share2, Tags
+    FolderOpen, Link2, ExternalLink, X, Check, RefreshCw, Compass, ArrowRightLeft, Sparkles, Pencil, Lock, Unlock, KeyRound, Share2, Tags, Download
 } from 'lucide-react';
 import { useMode } from '../context/ModeContext';
 import { EditableTitle } from './EditableTitle';
@@ -20,6 +20,8 @@ import {
     setWorkspaceLink,
 } from '../lib/powerWorkspace';
 import NotesGraph3D from './NotesGraph3D';
+
+const NOTES_FOLDER_KEY = 'perci_notes_folder';
 
 function noteIdFromFileName(fileName) {
     return String(fileName || '').replace(/\.enc\.md$/, '').replace(/\.md$/, '');
@@ -151,7 +153,13 @@ export default function NotesMode() {
     const [newNoteName, setNewNoteName] = useState('');
     const [showNewNoteInput, setShowNewNoteInput] = useState(false);
     const [encryptedPasswords, setEncryptedPasswords] = useState({}); // filename -> password (only in memory)
-    const [passwordModal, setPasswordModal] = useState(null); // { mode: 'encrypt'|'decrypt', fileName, noteId } | null
+    const [masterPassword, setMasterPassword] = useState(null); // single sudo password (in memory only)
+    const [masterPasswordModal, setMasterPasswordModal] = useState(null); // { mode: 'set'|'change' } | null
+    const [masterPasswordInput, setMasterPasswordInput] = useState('');
+    const [masterPasswordConfirm, setMasterPasswordConfirm] = useState('');
+    const [masterPasswordError, setMasterPasswordError] = useState('');
+    const [masterPasswordUsedFor, setMasterPasswordUsedFor] = useState({}); // set of filenames unlocked via master
+    const [passwordModal, setPasswordModal] = useState(null); // { mode: 'encrypt'|'decrypt', fileName, noteId, useMaster?: boolean } | null
     const [passwordInput, setPasswordInput] = useState('');
     const [passwordError, setPasswordError] = useState('');
     const [tagInput, setTagInput] = useState('');
@@ -173,13 +181,15 @@ export default function NotesMode() {
     useEffect(() => {
         let isMounted = true;
         async function initNotesFolder() {
-            // 1. Try local storage
-            let savedFolder = readStringStorage('perci_notes_folder');
+            // 1. Try persisted storage
+            let savedFolder = readStringStorage(NOTES_FOLDER_KEY);
+            let shouldPersistResolvedFolder = Boolean(savedFolder);
             
             // 2. Backward compatibility: if workingDirectory is set but no custom folder,
             // default to ${workingDirectory}/notes to preserve existing notes.
             if (!savedFolder && workingDirectory) {
                 savedFolder = `${workingDirectory}/notes`;
+                shouldPersistResolvedFolder = true;
             }
 
             // 3. Fallback to app documents folder
@@ -193,7 +203,9 @@ export default function NotesMode() {
 
             if (isMounted && savedFolder) {
                 setNotesFolder(savedFolder);
-                writeStringStorage('perci_notes_folder', savedFolder);
+                if (shouldPersistResolvedFolder) {
+                    writeStringStorage(NOTES_FOLDER_KEY, savedFolder);
+                }
                 if (window.electron?.registerWorkspace) {
                     await window.electron.registerWorkspace(savedFolder);
                 }
@@ -209,7 +221,7 @@ export default function NotesMode() {
         try {
             const folderPath = await window.electron.selectDirectory();
             if (folderPath) {
-                writeStringStorage('perci_notes_folder', folderPath);
+                writeStringStorage(NOTES_FOLDER_KEY, folderPath);
                 setNotesFolder(folderPath);
                 if (window.electron?.registerWorkspace) {
                     await window.electron.registerWorkspace(folderPath);
@@ -217,6 +229,95 @@ export default function NotesMode() {
             }
         } catch (err) {
             console.error('Failed to select directory:', err);
+        }
+    };
+
+    // Export notes to OKF Standard Bundle
+    const handleExportOKF = async () => {
+        if (!window.electron?.selectDirectory || !window.electron?.writeFile) {
+            alert('Filesystem operations are not supported in this environment.');
+            return;
+        }
+
+        try {
+            const outputFolder = await window.electron.selectDirectory();
+            if (!outputFolder) return;
+
+            let count = 0;
+            const wikiLinkRegex = /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
+            const fmRegex = /^---[\r\n]+([\s\S]*?)[\r\n]+---/;
+
+            for (const fileName of notesList) {
+                // Skip locked encrypted notes
+                const locked = isEncrypted(filesMap[fileName]) && !encryptedPasswords[fileName] && !masterPasswordUsedFor[fileName];
+                if (locked) continue;
+
+                const rawContent = (fileName === activeNote) ? unsavedContent : (filesMap[fileName] || '');
+                
+                // Parse frontmatter & body
+                let metadata = {};
+                let body = rawContent;
+
+                const match = fmRegex.exec(rawContent);
+                if (match) {
+                    const fmText = match[1];
+                    body = rawContent.substring(match[0].length).trim();
+                    fmText.split('\n').forEach(line => {
+                        if (line.includes(':')) {
+                            const [k, ...vParts] = line.split(':');
+                            const v = vParts.join(':');
+                            metadata[k.trim()] = v.trim();
+                        }
+                    });
+                }
+
+                // Add/Ensure OKF fields
+                if (!metadata.type) {
+                    metadata.type = 'Note';
+                }
+
+                let title = fileName.replace(/\.enc\.md$/, '').replace(/\.md$/, '');
+                const h1Match = /^#\s+(.+)$/m.exec(body);
+                if (h1Match) {
+                    title = h1Match[1].trim();
+                }
+                if (!metadata.title) {
+                    metadata.title = `"${title}"`;
+                }
+
+                if (!metadata.description) {
+                    const cleanLines = body.split('\n')
+                        .map(l => l.trim())
+                        .filter(l => l.length > 0 && !l.startsWith('#'));
+                    const desc = cleanLines.length > 0 ? cleanLines[0].substring(0, 100) : `Note about ${title}`;
+                    metadata.description = `"${desc.replace(/"/g, '\\"')}"`;
+                }
+
+                // Convert [[WikiLinks]] to standard markdown links
+                const convertedBody = body.replace(wikiLinkRegex, (match, target, label) => {
+                    const cleanTarget = target.trim();
+                    const cleanLabel = label ? label.trim() : cleanTarget;
+                    const encodedTarget = cleanTarget.replace(/ /g, '%20') + '.md';
+                    return `[${cleanLabel}](${encodedTarget})`;
+                });
+
+                // Format OKF markdown
+                const fmLines = ['---'];
+                Object.entries(metadata).forEach(([k, v]) => {
+                    fmLines.push(`${k}: ${v}`);
+                });
+                fmLines.push('---');
+                const okfContent = fmLines.join('\n') + '\n\n' + convertedBody;
+
+                const outName = fileName.toLowerCase() === 'index.md' ? 'index.md' : fileName;
+                await window.electron.writeFile(`${outputFolder}/${outName}`, okfContent);
+                count++;
+            }
+
+            alert(`Successfully exported ${count} notes to OKF standard at:\n${outputFolder}`);
+        } catch (err) {
+            console.error('Failed to export OKF bundle:', err);
+            alert(`Failed to export OKF bundle: ${err.message}`);
         }
     };
 
@@ -299,6 +400,7 @@ export default function NotesMode() {
         if (!notesFolder) return;
         try {
             setLoading(true);
+            writeStringStorage(NOTES_FOLDER_KEY, notesFolder);
             const initialContent = `# Welcome to Perci Notes\n\nThis is your local Markdown knowledge base. It is saved directly in your workspace folder at \`notes/\`, making it fully compatible with **Obsidian** or **Logseq**.\n\n### Quick Guide\n- **Double Brackets**: Create links between pages using \`[[WikiLinks]]\`. For example, link to [[Index]] or [[Meeting Notes]].\n- **Backlinks**: The side-panel displays which notes link back to the current note.\n- **Unlinked Mentions**: Discover other notes that mention the title of this note but are not explicitly linked, and click "Link" to link them instantly.\n\nHappy thinking! 🚀`;
             await window.electron.writeFile(`${notesFolder}/Index.md`, initialContent);
             await loadNotes();
@@ -363,20 +465,35 @@ export default function NotesMode() {
 
         // If the file is encrypted
         if (isEncrypted(content)) {
-            // If we already have the password, decrypt immediately
+            // If we already have the per-note password, decrypt immediately
             if (encryptedPasswords[fileName]) {
                 try {
                     const decrypted = await decryptNote(content, encryptedPasswords[fileName]);
                     setActiveNote(fileName);
                     setUnsavedContent(decrypted);
                     setIsDirty(false);
+                    setMasterPasswordUsedFor(prev => ({ ...prev, [fileName]: false }));
                 } catch {
                     setPasswordModal({ mode: 'decrypt', fileName, noteId: fileName.replace(/\.md$/, '').replace(/\.enc\.md$/, '') });
                     setPasswordInput('');
                     setPasswordError('');
                 }
+            } else if (masterPassword) {
+                // Try master password silently
+                try {
+                    const decrypted = await decryptNote(content, masterPassword);
+                    setActiveNote(fileName);
+                    setUnsavedContent(decrypted);
+                    setIsDirty(false);
+                    setMasterPasswordUsedFor(prev => ({ ...prev, [fileName]: true }));
+                } catch {
+                    // Master didn't work — prompt for per-note password
+                    setPasswordModal({ mode: 'decrypt', fileName, noteId: fileName.replace(/\.md$/, '').replace(/\.enc\.md$/, '') });
+                    setPasswordInput('');
+                    setPasswordError('');
+                }
             } else {
-                // Need password
+                // No password available — prompt
                 setPasswordModal({ mode: 'decrypt', fileName, noteId: fileName.replace(/\.md$/, '').replace(/\.enc\.md$/, '') });
                 setPasswordInput('');
                 setPasswordError('');
@@ -572,7 +689,12 @@ export default function NotesMode() {
         } else {
             // Encrypt mode — need new password
             const noteId = fileName.replace(/\.md$/, '');
-            setPasswordModal({ mode: 'encrypt', fileName, noteId });
+            if (masterPassword) {
+                // Default to using master password — user can switch to per-note
+                setPasswordModal({ mode: 'encrypt', fileName, noteId, useMaster: true });
+            } else {
+                setPasswordModal({ mode: 'encrypt', fileName, noteId, useMaster: false });
+            }
             setPasswordInput('');
             setPasswordError('');
         }
@@ -581,21 +703,33 @@ export default function NotesMode() {
     // Confirm password modal action
     const handlePasswordConfirm = async () => {
         if (!passwordModal || !passwordInput.trim()) return;
-        const { mode, fileName, noteId } = passwordModal;
+        const { mode, fileName, noteId, useMaster } = passwordModal;
         const pwd = passwordInput.trim();
+
+        // If using master password for encryption and no per-note input, use master
+        if (mode === 'encrypt' && useMaster && masterPassword && !pwd) {
+            // This shouldn't happen given UI guard, but safety fallback
+            setPasswordError('Enter a password or use the master password toggle.');
+            return;
+        }
 
         try {
             if (mode === 'encrypt') {
                 // Encrypt the current unsaved content
                 const content = unsavedContent || filesMap[fileName] || '';
-                const encrypted = await encryptNote(content, pwd);
+                const encryptionPwd = (useMaster && masterPassword) ? masterPassword : pwd;
+                const encrypted = await encryptNote(content, encryptionPwd);
                 const encFileName = `${noteId}.enc.md`;
                 await window.electron.writeFile(`${notesFolder}/${encFileName}`, encrypted);
                 // Delete old .md file
                 try { await window.electron.deleteFile(`${notesFolder}/${fileName}`); } catch {}
 
                 // Update state
-                setEncryptedPasswords(prev => ({ ...prev, [encFileName]: pwd }));
+                if (useMaster && masterPassword) {
+                    setMasterPasswordUsedFor(prev => ({ ...prev, [encFileName]: true }));
+                } else {
+                    setEncryptedPasswords(prev => ({ ...prev, [encFileName]: encryptionPwd }));
+                }
                 const newMap = { ...filesMap };
                 newMap[encFileName] = encrypted;
                 delete newMap[fileName];
@@ -613,12 +747,20 @@ export default function NotesMode() {
                 // Verify password by decrypting
                 const content = filesMap[fileName] || '';
                 const decrypted = await decryptNote(content, pwd);
-                // Store password in memory for future re-encryption on save
-                setEncryptedPasswords(prev => ({ ...prev, [fileName]: pwd }));
 
-                // If we want to permanently decrypt (remove encryption), we'd write plaintext.
-                // For now, keep encrypted on disk but allow editing decrypted in memory.
-                // User can choose to decrypt permanently via a separate action.
+                // Determine if this was the master password
+                const isMaster = masterPassword && pwd === masterPassword;
+                if (isMaster) {
+                    setMasterPasswordUsedFor(prev => ({ ...prev, [fileName]: true }));
+                } else {
+                    setEncryptedPasswords(prev => ({ ...prev, [fileName]: pwd }));
+                    setMasterPasswordUsedFor(prev => {
+                        const next = { ...prev };
+                        next[fileName] = false;
+                        return next;
+                    });
+                }
+
                 setFilesMap(prev => ({ ...prev, [fileName]: content })); // Keep ciphertext in filesMap
                 if (activeNote === fileName) {
                     setUnsavedContent(decrypted);
@@ -637,7 +779,7 @@ export default function NotesMode() {
 
     // Permanently decrypt a note (remove encryption, keep as plain .md)
     const handleDecryptPermanently = async (fileName) => {
-        const pwd = encryptedPasswords[fileName];
+        const pwd = encryptedPasswords[fileName] || (masterPassword && masterPasswordUsedFor[fileName] ? masterPassword : null);
         if (!pwd) return;
         const content = filesMap[fileName] || '';
         try {
@@ -647,6 +789,11 @@ export default function NotesMode() {
             try { await window.electron.deleteFile(`${notesFolder}/${fileName}`); } catch {}
 
             setEncryptedPasswords(prev => {
+                const next = { ...prev };
+                delete next[fileName];
+                return next;
+            });
+            setMasterPasswordUsedFor(prev => {
                 const next = { ...prev };
                 delete next[fileName];
                 return next;
@@ -669,9 +816,42 @@ export default function NotesMode() {
         }
     };
 
+    // Master password modal confirm
+    const handleMasterPasswordConfirm = async () => {
+        if (!masterPasswordModal || !masterPasswordInput.trim()) return;
+        const pwd = masterPasswordInput.trim();
+        if (masterPasswordModal.mode === 'set') {
+            if (pwd !== masterPasswordConfirm) {
+                setMasterPasswordError('Passwords do not match.');
+                return;
+            }
+            setMasterPassword(pwd);
+        } else if (masterPasswordModal.mode === 'change') {
+            // Verify current master first
+            if (pwd !== masterPassword) {
+                setMasterPasswordError('Current master password is incorrect.');
+                return;
+            }
+            if (!masterPasswordConfirm) {
+                setMasterPasswordError('Enter a new master password.');
+                return;
+            }
+            setMasterPassword(masterPasswordConfirm);
+        }
+        setMasterPasswordModal(null);
+        setMasterPasswordInput('');
+        setMasterPasswordConfirm('');
+        setMasterPasswordError('');
+    };
+
     // Lock a note now: remove password from memory, clear decrypted content
     const handleLockNow = (fileName) => {
         setEncryptedPasswords(prev => {
+            const next = { ...prev };
+            delete next[fileName];
+            return next;
+        });
+        setMasterPasswordUsedFor(prev => {
             const next = { ...prev };
             delete next[fileName];
             return next;
@@ -681,6 +861,15 @@ export default function NotesMode() {
             setUnsavedContent(filesMap[fileName] || '');
             setIsDirty(false);
         }
+    };
+
+    // Master password: clear all unlocks (lock all master-unlocked notes)
+    const handleClearMaster = () => {
+        setMasterPassword(null);
+        setMasterPasswordUsedFor({});
+        setMasterPasswordModal(null);
+        setMasterPasswordInput('');
+        setMasterPasswordConfirm('');
     };
 
     // Editor content changes
@@ -706,7 +895,7 @@ export default function NotesMode() {
         setPendingWorkspaceNoteRef('');
     }, [activeNote, findNoteFileById, notesList, pendingWorkspaceNoteRef]);
 
-    const activeNoteLocked = !!activeNote && isEncrypted(filesMap[activeNote]) && !encryptedPasswords[activeNote];
+    const activeNoteLocked = !!activeNote && isEncrypted(filesMap[activeNote]) && !encryptedPasswords[activeNote] && !masterPasswordUsedFor[activeNote];
     const activeTags = useMemo(() => {
         if (!activeNote || activeNoteLocked) return [];
         return parseNoteTags(unsavedContent);
@@ -1153,7 +1342,7 @@ export default function NotesMode() {
 
                 <div className="flex-1 overflow-y-auto p-1.5 space-y-0.5">
                     {filteredNotes.map((fileName) => {
-                        const noteId = fileName.replace(/\.md$/, '').replace(/\.enc\.md$/, '');
+            const noteId = fileName.replace(/\.md$/, '').replace(/\.enc\.md$/, '');
                         const isActive = activeNote === fileName;
                         const locked = isEncrypted(filesMap[fileName]);
                         return (
@@ -1179,13 +1368,22 @@ export default function NotesMode() {
                 
                 <div className="p-2 border-t border-[var(--border)] text-[10px] text-[var(--text-tertiary)] bg-[var(--bg-tertiary)] flex items-center justify-between gap-1.5" title={notesFolder}>
                     <span className="truncate">Folder: <span className="font-mono text-[9px]">{notesFolder}</span></span>
-                    <button 
-                        onClick={handleChooseFolder}
-                        className="hover:text-[var(--text-primary)] shrink-0 transition-colors"
-                        title="Change folder"
-                    >
-                        <FolderOpen size={11} />
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <button 
+                            onClick={handleExportOKF}
+                            className="hover:text-[var(--text-primary)] transition-colors"
+                            title="Export OKF Standard Bundle..."
+                        >
+                            <Download size={11} />
+                        </button>
+                        <button 
+                            onClick={handleChooseFolder}
+                            className="hover:text-[var(--text-primary)] transition-colors"
+                            title="Change folder"
+                        >
+                            <FolderOpen size={11} />
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -1215,9 +1413,15 @@ export default function NotesMode() {
                                     />
                                 </div>
                                 {activeNote && isEncrypted(filesMap[activeNote]) && (
-                                    <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20" title="Encrypted on disk">
+                                    <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                                        (encryptedPasswords[activeNote] || masterPasswordUsedFor[activeNote])
+                                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                            : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                    }`} title={masterPasswordUsedFor[activeNote] && !encryptedPasswords[activeNote] ? 'Unlocked via master password' : (encryptedPasswords[activeNote] || masterPasswordUsedFor[activeNote]) ? 'Unlocked (memory)' : 'Locked'}>
                                         <Lock size={10} />
-                                        {encryptedPasswords[activeNote] ? 'Unlocked' : 'Locked'}
+                                        {(encryptedPasswords[activeNote] || masterPasswordUsedFor[activeNote])
+                                            ? (masterPasswordUsedFor[activeNote] && !encryptedPasswords[activeNote] ? 'Master' : 'Unlocked')
+                                            : 'Locked'}
                                     </span>
                                 )}
                                 {isDirty && (
@@ -1288,6 +1492,19 @@ export default function NotesMode() {
                                         <Lock size={13} />
                                     </button>
                                 )}
+
+                                {/* Master Password button */}
+                                <button
+                                    onClick={() => { setMasterPasswordModal({ mode: masterPassword ? 'change' : 'set' }); setMasterPasswordInput(''); setMasterPasswordConfirm(''); setMasterPasswordError(''); }}
+                                    className={`p-1.5 rounded-lg border transition-all ${
+                                        masterPassword
+                                            ? 'border-purple-500/30 bg-purple-500/10 text-purple-400 hover:bg-purple-500/20'
+                                            : 'border-[var(--border)] bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--text-tertiary)] hover:text-purple-400'
+                                    }`}
+                                    title={masterPassword ? 'Change Master Password...' : 'Set Master Password...'}
+                                >
+                                    <KeyRound size={13} />
+                                </button>
 
                                 <button
                                     onClick={() => handleDeleteNote(activeNote)}
@@ -1566,6 +1783,9 @@ export default function NotesMode() {
                                     {passwordModal.mode === 'encrypt' ? 'Encrypt Note' : 'Unlock Note'}
                                 </h3>
                                 <p className="text-[11px] text-[var(--text-tertiary)]">{passwordModal.noteId}</p>
+                                {passwordModal.mode === 'encrypt' && masterPassword && (
+                                    <span className="text-[10px] text-purple-400 font-medium">Master password available</span>
+                                )}
                             </div>
                         </div>
 
@@ -1575,14 +1795,28 @@ export default function NotesMode() {
                                 : 'Enter the password to decrypt this note.'}
                         </p>
 
+                        {/* Master password toggle for encryption */}
+                        {passwordModal.mode === 'encrypt' && masterPassword && (
+                            <label className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg border border-purple-500/20 bg-purple-500/5 cursor-pointer hover:bg-purple-500/10 transition-all">
+                                <input
+                                    type="checkbox"
+                                    checked={passwordModal.useMaster || false}
+                                    onChange={(e) => setPasswordModal(prev => ({ ...prev, useMaster: e.target.checked }))}
+                                    className="accent-purple-500"
+                                />
+                                <span className="text-xs font-medium text-purple-300">Use master password</span>
+                            </label>
+                        )}
+
                         <input
-                            autoFocus
+                            autoFocus={!(passwordModal.mode === 'encrypt' && passwordModal.useMaster && masterPassword)}
                             type="password"
-                            placeholder="Password..."
+                            placeholder={passwordModal.mode === 'encrypt' && passwordModal.useMaster && masterPassword ? 'Using master password...' : 'Password...'}
                             value={passwordInput}
+                            disabled={passwordModal.mode === 'encrypt' && passwordModal.useMaster && masterPassword}
                             onChange={e => { setPasswordInput(e.target.value); setPasswordError(''); }}
                             onKeyDown={e => { if (e.key === 'Enter') handlePasswordConfirm(); }}
-                            className="w-full px-3 py-2 text-sm rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:outline-none focus:border-[var(--accent)] transition-all"
+                            className="w-full px-3 py-2 text-sm rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:outline-none focus:border-[var(--accent)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         />
 
                         {passwordError && (
@@ -1607,10 +1841,85 @@ export default function NotesMode() {
                             </button>
                             <button
                                 onClick={handlePasswordConfirm}
-                                disabled={!passwordInput.trim()}
+                                disabled={!passwordInput.trim() && !(passwordModal.mode === 'encrypt' && passwordModal.useMaster && masterPassword)}
                                 className="flex-1 py-2 text-xs rounded-lg bg-[var(--accent)] hover:opacity-90 text-white font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                             >
-                                {passwordModal.mode === 'encrypt' ? 'Encrypt' : 'Unlock'}
+                                {passwordModal.mode === 'encrypt'
+                                    ? (passwordModal.useMaster && masterPassword ? 'Encrypt (Master)' : 'Encrypt')
+                                    : 'Unlock'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Master Password Modal */}
+            {masterPasswordModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setMasterPasswordModal(null)}>
+                    <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded-2xl p-6 w-80 shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center gap-2 mb-4">
+                            <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20">
+                                <KeyRound size={18} className="text-purple-400" />
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-bold text-[var(--text-primary)]">
+                                    {masterPasswordModal.mode === 'set' ? 'Set Master Password' : 'Change Master Password'}
+                                </h3>
+                                <p className="text-[11px] text-[var(--text-tertiary)]">Used to encrypt/decrypt all your notes</p>
+                            </div>
+                        </div>
+
+                        <p className="text-xs text-[var(--text-secondary)] mb-3">
+                            {masterPasswordModal.mode === 'set'
+                                ? 'Choose a master password. You can still set per-note passwords for extra security on sensitive notes.'
+                                : 'Enter your current master password, then enter the new one.'}
+                        </p>
+
+                        <input
+                            autoFocus
+                            type="password"
+                            placeholder={masterPasswordModal.mode === 'set' ? 'Master password...' : 'Current master password...'}
+                            value={masterPasswordInput}
+                            onChange={e => { setMasterPasswordInput(e.target.value); setMasterPasswordError(''); }}
+                            onKeyDown={e => { if (e.key === 'Enter' && masterPasswordModal.mode === 'set') handleMasterPasswordConfirm(); }}
+                            className="w-full px-3 py-2 text-sm rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:outline-none focus:border-purple-400 transition-all mb-2"
+                        />
+
+                        <input
+                            type="password"
+                            placeholder={masterPasswordModal.mode === 'set' ? 'Confirm password...' : 'New master password...'}
+                            value={masterPasswordConfirm}
+                            onChange={e => { setMasterPasswordConfirm(e.target.value); setMasterPasswordError(''); }}
+                            onKeyDown={e => { if (e.key === 'Enter') handleMasterPasswordConfirm(); }}
+                            className="w-full px-3 py-2 text-sm rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:outline-none focus:border-purple-400 transition-all"
+                        />
+
+                        {masterPasswordError && (
+                            <p className="text-xs text-rose-400 mt-2">{masterPasswordError}</p>
+                        )}
+
+                        {masterPassword && masterPasswordModal.mode === 'change' && (
+                            <button
+                                onClick={handleClearMaster}
+                                className="mt-3 text-[11px] text-rose-400 hover:text-rose-300 transition-colors"
+                            >
+                                Remove master password entirely
+                            </button>
+                        )}
+
+                        <div className="flex gap-2 mt-4">
+                            <button
+                                onClick={() => setMasterPasswordModal(null)}
+                                className="flex-1 py-2 text-xs rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-all"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleMasterPasswordConfirm}
+                                disabled={!masterPasswordInput.trim() || !masterPasswordConfirm.trim()}
+                                className="flex-1 py-2 text-xs rounded-lg bg-purple-500 hover:bg-purple-400 text-white font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                                {masterPasswordModal.mode === 'set' ? 'Set Master' : 'Change'}
                             </button>
                         </div>
                     </div>

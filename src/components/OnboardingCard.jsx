@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import {
     Rocket, Server, Bot, Radar, BookOpen, Sparkles, ChevronRight,
     ChevronLeft, X, CheckCircle2, ExternalLink, MessageSquare,
-    Users, Code, FlaskConical, Building2, ActivitySquare, Hammer, Plug
+    Users, Code, FlaskConical, Building2, ActivitySquare, Hammer, Plug, RadioTower
 } from 'lucide-react';
 import { MODES } from '../context/ModeContext';
 import { readStringStorage, writeStringStorage, removeStorageKey } from '../lib/persistentStore';
@@ -47,6 +47,7 @@ const STEPS = [
         body: 'Every surface in Perci is a "mode" — a floating window on the desktop. Here\'s what each one does:',
         modes: [
             { id: MODES.CHAT, icon: MessageSquare, label: 'Chat', desc: 'Converse with any model' },
+            { id: MODES.PERCI_NOW, icon: RadioTower, label: 'Now', desc: 'See live workspace state' },
             { id: MODES.COWORK, icon: Users, label: 'Cowork', desc: 'Session-based deep work' },
             { id: MODES.CODE, icon: Code, label: 'Code', desc: 'Edit and run your repos' },
             { id: MODES.AGENTS, icon: Bot, label: 'Agents', desc: 'Queue jobs for the CLI crew' },

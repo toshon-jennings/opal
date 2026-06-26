@@ -48,6 +48,7 @@ export const KLIPIT_WINDOW_ID = 'klipit';
 export const SKILLS_WINDOW_ID = 'skills';
 export const CLEANMAC_WINDOW_ID = 'cleanmac';
 export const PACKAGES_WINDOW_ID = 'packages-window';
+export const AGENTMAIL_WINDOW_ID = 'agentmail';
 
 // Titles shown in window headers and dock chips for each windowed surface.
 export const WINDOW_TITLES = {
@@ -83,6 +84,7 @@ export const WINDOW_TITLES = {
     [SKILLS_WINDOW_ID]: 'Skills',
     [CLEANMAC_WINDOW_ID]: 'Cleanmac',
     [PACKAGES_WINDOW_ID]: 'Packages',
+    [AGENTMAIL_WINDOW_ID]: 'AgentMail',
 };
 
 // Windows whose content is an embedded <webview>/<iframe>; CSS transforms can make

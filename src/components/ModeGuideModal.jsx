@@ -20,6 +20,7 @@ const modeCards = [
         id: 'chat',
         label: 'Chat',
         icon: MessageSquare,
+        accent: '#f97316',
         summary: 'Best for normal conversation, quick questions, brainstorming, drafting, and lightweight tool-assisted help.',
         details: [
             'General-purpose assistant surface.',
@@ -31,6 +32,7 @@ const modeCards = [
         id: 'cowork',
         label: 'Cowork',
         icon: Users,
+        accent: '#22d3ee',
         summary: 'Best for agent-style task execution where the assistant may inspect files, use tools, and work through a task more autonomously.',
         details: [
             'Designed for session-based, tool-using work.',
@@ -42,6 +44,7 @@ const modeCards = [
         id: 'code',
         label: 'Code',
         icon: Code,
+        accent: '#a78bfa',
         summary: 'Best for working directly in a code editor with file context, saves, and code-focused assistant turns.',
         details: [
             'Editor-oriented surface for reading and editing files.',
@@ -53,17 +56,19 @@ const modeCards = [
         id: 'agents',
         label: 'Agents (Agent CLI)',
         icon: Bot,
+        accent: '#4ade80',
         summary: 'Best for dispatching jobs to specific CLI agents like Codex, Claude Code, Aider, Copilot, OpenHands, and others.',
         details: [
             'Multi-agent control center rather than a single assistant conversation.',
             'Useful when you want to choose the agent, prompt it, watch job status, and inspect output.',
-            'This is the right mode when the main question is “which coding agent should do this?” rather than “how should I chat about it?”'
+            'This is the right mode when the main question is "which coding agent should do this?" rather than "how should I chat about it?"'
         ]
     },
     {
         id: 'mission',
         label: 'Mission',
         icon: ActivitySquare,
+        accent: '#60a5fa',
         summary: 'Best for supervising, validating, and reviewing work that happened in other modes.',
         details: [
             'Operational dashboard, not the main execution surface.',
@@ -75,6 +80,7 @@ const modeCards = [
         id: 'build',
         label: 'Build',
         icon: Hammer,
+        accent: '#fb7185',
         summary: 'Best for generating app/UI files, previewing them, and iterating on a built artifact rather than only discussing code.',
         details: [
             'Generation-and-preview oriented workflow.',
@@ -153,10 +159,12 @@ function OverviewTab() {
                 {modeCards.map(mode => {
                     const Icon = mode.icon;
                     return (
-                        <div key={mode.id} className="focus-card rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-4">
+                        <div key={mode.id} className="focus-card rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-4 pl-5 relative overflow-hidden">
+                            {/* Accent stripe */}
+                            <span className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl" style={{ backgroundColor: mode.accent }} />
                             <div className="flex items-center gap-2">
-                                <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--bg-primary)]">
-                                    <Icon size={16} className="text-[var(--accent)]" />
+                                <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border)]" style={{ backgroundColor: `${mode.accent}14` }}>
+                                    <Icon size={16} style={{ color: mode.accent }} />
                                 </div>
                                 <div className="text-sm font-semibold text-[var(--text-primary)]">{mode.label}</div>
                             </div>

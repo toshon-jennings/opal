@@ -254,7 +254,7 @@ export default function CleanmacMode() {
                     type="button"
                     onClick={runCleanmac}
                     disabled={runDisabled}
-                    className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg bg-[var(--accent)] px-3 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:bg-[var(--bg-tertiary)] disabled:text-[var(--text-tertiary)]"
+                    className="group relative inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border-b-4 border-r-2 border-teal-800 bg-gradient-to-b from-teal-400 to-teal-600 px-5 text-sm font-bold tracking-wide text-white shadow-[0_6px_0_#134e4a] transition-all duration-75 hover:from-teal-300 hover:to-teal-500 hover:shadow-[0_4px_0_#134e4a] active:translate-y-1 active:border-b-2 active:shadow-[0_2px_0_#134e4a] disabled:cursor-not-allowed disabled:border-b-2 disabled:from-slate-500 disabled:to-slate-600 disabled:shadow-[0_4px_0_#334155] disabled:text-slate-300 disabled:hover:from-slate-500 disabled:hover:to-slate-600 disabled:hover:shadow-[0_4px_0_#334155]"
                 >
                     {running ? (
                         <>
@@ -268,8 +268,8 @@ export default function CleanmacMode() {
                         </>
                     ) : (
                         <>
-                            <Play size={15} />
-                            Run
+                            <Play size={15} className="transition-transform group-hover:scale-110" />
+                            Run Cleanmac
                         </>
                     )}
                 </button>
@@ -297,7 +297,7 @@ export default function CleanmacMode() {
                         </div>
                     </section>
 
-                    <section className="rounded-lg border border-amber-500/25 bg-amber-500/10 p-4">
+                    <section className="rounded-lg border border-teal-500/25 bg-teal-500/10 p-4">
                         <div className="flex gap-3">
                             <ShieldAlert size={20} className="mt-0.5 shrink-0 text-amber-500" />
                             <div className="min-w-0">

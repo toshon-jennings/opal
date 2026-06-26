@@ -1,14 +1,14 @@
 // Single source of truth for every launchable Perci app/mode. Consumed by
 // the Dashboard tile grid (DashboardMode.jsx) and the Sir Perci dock
 // launcher (SirPerciLauncher.jsx) so both stay in sync automatically.
-import {
-    Sparkles, Server, Radar, Layers, Globe, GitMerge, TerminalSquare,
+import    {
+    Sparkles, Server, Radar, Layers, Globe, GitMerge, TerminalSquare, Inbox,
 } from 'lucide-react';
 import {
     ChatIcon, CoworkIcon, CodeIcon, NotesIcon, AgentsIcon, ResearchIcon,
     OfficeIcon, MissionIcon, BuildIcon, ProjectsIcon, SkillsIcon, SurfaceMapIcon, PerciNowIcon, PackagesIcon,
 } from '../components/ModeIcons';
-import { MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID, CLEANMAC_WINDOW_ID, PACKAGES_WINDOW_ID } from '../context/ModeContext';
+import { MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID, CLEANMAC_WINDOW_ID, PACKAGES_WINDOW_ID, AGENTMAIL_WINDOW_ID } from '../context/ModeContext';
 import lhLogo from '../assets/lh-logo.png';
 import hermesLogo from '../assets/nousresearch.png';
 import gdashLogo from '../assets/gdash2-cropped.png';
@@ -41,7 +41,7 @@ export const NATIVE_TILES = [
     { id: MODES.CODE, icon: CodeIcon, title: 'Code', desc: 'Edit and run your repos', hue: '#a78bfa' },
     { id: MODES.COWORK, icon: CoworkIcon, title: 'Cowork', desc: 'Session-based deep work', hue: '#22d3ee' },
     { id: MODES.ENSEMBLE, icon: GitMerge, title: 'Ensemble', desc: 'Panel + judge synthesis', hue: '#818cf8' },
-    { id: MODES.PROJECTS, icon: ProjectsIcon, title: 'Git Shells', desc: 'Manage terminals by project', hue: '#fb923c' },
+    { id: MODES.PROJECTS, icon: ProjectsIcon, title: 'Git Shells', desc: 'Manage terminals by project', hue: '#f97316' },
     { id: LOCALHOST_WINDOW_ID, icon: Globe, title: 'Localhost', desc: 'Preview any local dev server', hue: '#f97316', artwork: true, bgImage: localhostBg },
     { id: MODES.MISSION, icon: MissionIcon, title: 'Mission', desc: 'Supervise runs and checks', hue: '#60a5fa' },
     { id: MODES.NOTES, icon: NotesIcon, title: 'Notes', desc: 'Markdown wiki with backlinks', hue: '#10b981' },
@@ -50,7 +50,8 @@ export const NATIVE_TILES = [
     { id: MODES.PERCI_NOW, icon: PerciNowIcon, title: 'Perci Now', desc: 'Live workspace state', hue: '#0891b2' },
     { id: MODES.SURFACE_MAP, icon: SurfaceMapIcon, title: 'Perci Map', desc: 'Surface relationship map', hue: '#14b8a6' },
     { id: SKILLS_WINDOW_ID, icon: SkillsIcon, title: 'Skills', desc: 'Manage skills & agent CLIs', hue: '#f97316' },
-    { id: MODES.POWER_WORKSPACE, icon: Sparkles, title: 'Workspace', desc: 'Ideas, runs & next action', hue: '#fb923c' },
+    { id: MODES.POWER_WORKSPACE, icon: Sparkles, title: 'Workspace', desc: 'Ideas, runs & next action', hue: '#f97316' },
+    { id: AGENTMAIL_WINDOW_ID, icon: Inbox, title: 'AgentMail', desc: 'Send & receive email via AgentMail API', hue: '#6366f1' },
 ];
 
 // Logo presentation hints shared by the Dashboard tile grid and the Sir

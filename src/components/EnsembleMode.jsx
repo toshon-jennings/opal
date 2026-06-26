@@ -568,10 +568,10 @@ export default function EnsembleMode() {
                     <button
                         onClick={running ? cancel : run}
                         disabled={!running && !canRun}
-                        className="flex h-[52px] items-center gap-2 rounded-xl bg-[var(--accent)] px-4 text-sm font-medium text-white shadow-md transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+                        className="group relative flex h-[52px] items-center gap-2 rounded-xl border-b-4 border-r-2 border-indigo-900 bg-gradient-to-b from-indigo-400 to-indigo-600 px-5 text-sm font-bold tracking-wide text-white shadow-[0_6px_0_#312e81] transition-all duration-75 hover:from-indigo-300 hover:to-indigo-500 hover:shadow-[0_4px_0_#312e81] active:translate-y-1 active:border-b-2 active:shadow-[0_2px_0_#312e81] disabled:cursor-not-allowed disabled:border-b-2 disabled:from-slate-500 disabled:to-slate-600 disabled:shadow-[0_4px_0_#334155] disabled:text-slate-300 disabled:hover:from-slate-500 disabled:hover:to-slate-600 disabled:hover:shadow-[0_4px_0_#334155]"
                     >
-                        {running ? <Square size={16} /> : <Play size={16} />}
-                        {running ? 'Cancel' : 'Run'}
+                        {running ? <Square size={16} className="transition-transform group-hover:scale-110" /> : <Play size={16} className="transition-transform group-hover:scale-110" />}
+                        {running ? 'Cancel' : 'Run Ensemble'}
                     </button>
                 </div>
                 {error && (

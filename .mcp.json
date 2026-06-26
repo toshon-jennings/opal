@@ -2,10 +2,18 @@
   "mcpServers": {
     "eidos": {
       "command": "python3.14",
-      "args": ["/Users/toshonjennings/eidos/eidos_mcp_server.py"],
+      "args": [
+        "/Users/toshonjennings/eidos/eidos_mcp_server.py"
+      ],
       "env": {
         "MEMU_URL": "http://localhost:8001"
       }
+    },
+    "timesfm": {
+      "command": "/Users/toshonjennings/opal/timesfm-venv/bin/python",
+      "args": [
+        "/Users/toshonjennings/opal/timesfm_mcp_server.py"
+      ]
     }
   }
 }

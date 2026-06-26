@@ -62,25 +62,6 @@ export default function MarkItDownMode() {
             setLoadError(null);
             setStatus({ state: 'online' });
             webview.focus();
-            webview.executeJavaScript(`
-                (() => {
-                    const dropzone = document.getElementById('dropzone');
-                    const fileInput = document.getElementById('fileInput');
-                    if (!dropzone || !fileInput || dropzone.dataset.perciUploadPatch === '1') return;
-
-                    dropzone.dataset.perciUploadPatch = '1';
-                    dropzone.addEventListener('click', (event) => {
-                        // The upstream UI uses a <label> wrapper plus JS click handler.
-                        // Prevent the native label activation so uploads only trigger once.
-                        event.preventDefault();
-                    }, true);
-                    fileInput.addEventListener('click', (event) => {
-                        event.stopPropagation();
-                    }, true);
-                })();
-            `, true).catch((error) => {
-                console.warn('[MarkItDownMode] Failed to apply upload patch:', error);
-            });
         };
         const handleStop = () => {
             setContentReady(true);

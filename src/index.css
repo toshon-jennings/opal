@@ -72,13 +72,13 @@
   --text-secondary: #A1A1AA;
   --text-tertiary:  #71717A;
 
-  /* Brand accents — brighter for dark backgrounds */
-  --accent:         #fb923c;
-  --accent-hover:   #fdba74;
-  --accent-rgb:     251, 146, 60;
-  --accent-secondary: #ffedd5;
-  --accent-cyan:    #f97316;
-  --accent-glow:    rgba(251, 146, 60, 0.22);
+  /* Brand accents — primary brand orange unified across modes */
+  --accent:         #f97316;
+  --accent-hover:   #fb923c;
+  --accent-rgb:     249, 115, 22;
+  --accent-secondary: #fb923c;
+  --accent-cyan:    #ea580c;
+  --accent-glow:    rgba(249, 115, 22, 0.22);
 
   /* Structure */
   --border:         rgba(255, 255, 255, 0.08);
@@ -87,8 +87,8 @@
   --shadow-md:      0 4px 16px rgba(0,0,0,0.7), 0 2px 4px rgba(0,0,0,0.6);
   --shadow-glow:    0 0 24px rgba(249, 115, 22, 0.2);
 
-  --opal-gradient:  linear-gradient(135deg, #f97316 0%, #fb923c 50%, #fdba74 100%);
-  --opal-gradient-subtle: linear-gradient(135deg, rgba(251, 146, 60, 0.12), rgba(253, 186, 116, 0.08), rgba(254, 215, 170, 0.07));
+  --opal-gradient:  linear-gradient(135deg, #ea580c 0%, #f97316 50%, #fb923c 100%);
+  --opal-gradient-subtle: linear-gradient(135deg, rgba(249, 115, 22, 0.12), rgba(251, 146, 60, 0.08), rgba(253, 186, 116, 0.07));
 }
 
 /* ─── Base styles ─────────────────────────────────────────────────────────── */
@@ -887,7 +887,35 @@ html.dark .hermes-branded:hover {
 }
 
 html.dark .hermes-branded.active {
-  background-color: #2a2a2a;
+  background-color: rgba(234, 179, 8, 0.3);
+}
+
+/* AgentMail — indigo */
+.agentmail-branded {
+  background-color: rgba(99, 102, 241, 0.1);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  font-weight: 600;
+  border-radius: 9999px;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+html.dark .agentmail-branded {
+  background-color: rgba(99, 102, 241, 0.15);
+}
+.agentmail-branded:hover {
+  background-color: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.4);
+}
+html.dark .agentmail-branded:hover {
+  background-color: rgba(99, 102, 241, 0.25);
+}
+.agentmail-branded.active {
+  background-color: rgba(99, 102, 241, 0.25);
+  color: #a5b4fc;
+  border: none;
+}
+html.dark .agentmail-branded.active {
+  background-color: rgba(99, 102, 241, 0.3);
 }
 
 .hermes-branded img {
@@ -896,7 +924,7 @@ html.dark .hermes-branded.active {
 
 .skills-branded {
   background-color: rgba(249, 115, 22, 0.1);
-  color: #fb923c;
+  color: #f97316;
   border: 1px solid rgba(249, 115, 22, 0.25);
   font-weight: 600;
   border-radius: 9999px;
@@ -918,7 +946,7 @@ html.dark .skills-branded:hover {
 
 .skills-branded.active {
   background-color: rgba(249, 115, 22, 0.25);
-  color: #fdba74;
+  color: #f97316;
   border: none;
 }
 

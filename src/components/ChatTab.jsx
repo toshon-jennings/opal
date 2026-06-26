@@ -269,9 +269,9 @@ export default function ChatTab({ isDesktop }) {
 
   // Cancel a running turn
   const cancelRun = useCallback(async () => {
-    // We can't truly cancel a running hermes -q subprocess from here,
-    // but we can mark the UI state. The subprocess will finish and its
-    // output will be discarded since activeRunId won't match.
+    if (isDesktop) {
+      await window.electron.cancelHermesChat();
+    }
     setIsRunning(false);
     activeRunId.current = null;
     setMessages(prev =>
@@ -279,7 +279,7 @@ export default function ChatTab({ isDesktop }) {
         m.status === 'streaming' ? { ...m, text: 'Cancelled.', status: 'cancelled' } : m
       )
     );
-  }, []);
+  }, [isDesktop]);
 
   // If desktop but session not started, show a start prompt
   if (isDesktop && !started) {

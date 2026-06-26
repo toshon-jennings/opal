@@ -5,7 +5,7 @@ import { Search, BookOpen } from 'lucide-react';
 import PerciMascot from '../PerciMascot';
 import { useMode } from '../../context/ModeContext';
 import { useChat } from '../../context/ChatContext';
-import { NATIVE_TILES, SYSTEM_TILES } from '../../lib/appCatalog';
+import { NATIVE_TILES, SYSTEM_TILES, LOGO_WHITE_BOX_IDS, LOGO_FILL_COVER_IDS } from '../../lib/appCatalog';
 import { useFlipPosition } from '../../lib/useFlipPosition';
 import { BeginnerGuideModal } from '../BeginnerGuideModal';
 import { MissionControlGuideModal } from '../MissionControlGuideModal';
@@ -22,11 +22,13 @@ function matches(item, query) {
     return `${item.title} ${item.desc}`.toLowerCase().includes(query);
 }
 
-function CatalogItem({ icon: Icon, logo, title, desc, onClick }) {
+function CatalogItem({ id, icon: Icon, logo, title, desc, onClick }) {
+    const isWhiteBox = LOGO_WHITE_BOX_IDS.has(id);
+    const isFillCover = LOGO_FILL_COVER_IDS.has(id);
     return (
         <button type="button" className="perci-sirperci-item" onClick={onClick}>
-            <span className="perci-sirperci-item-icon">
-                {logo ? <img src={logo} alt="" /> : Icon ? <Icon size={16} /> : null}
+            <span className={`perci-sirperci-item-icon${isWhiteBox ? ' is-white' : ''}`}>
+                {logo ? <img src={logo} alt="" style={isFillCover ? { objectFit: 'cover' } : undefined} /> : Icon ? <Icon size={16} /> : null}
             </span>
             <span className="perci-sirperci-item-text">
                 <span className="perci-sirperci-item-title">{title}</span>
@@ -139,7 +141,7 @@ export default function SirPerciLauncher({ onOpenSettings, autoHide, onToggleAut
                                     <div className="perci-sirperci-section">
                                         <div className="perci-sirperci-section-label">Perci Native</div>
                                         {nativeResults.map((item) => (
-                                            <CatalogItem key={item.id} icon={item.icon} logo={item.logo} title={item.title} desc={item.desc} onClick={() => openApp(item.id)} />
+                                            <CatalogItem key={item.id} id={item.id} icon={item.icon} logo={item.logo} title={item.title} desc={item.desc} onClick={() => openApp(item.id)} />
                                         ))}
                                     </div>
                                 )}
@@ -147,7 +149,7 @@ export default function SirPerciLauncher({ onOpenSettings, autoHide, onToggleAut
                                     <div className="perci-sirperci-section">
                                         <div className="perci-sirperci-section-label">System & External</div>
                                         {systemResults.map((item) => (
-                                            <CatalogItem key={item.id} icon={item.icon} logo={item.logo} title={item.title} desc={item.desc} onClick={() => openApp(item.id)} />
+                                            <CatalogItem key={item.id} id={item.id} icon={item.icon} logo={item.logo} title={item.title} desc={item.desc} onClick={() => openApp(item.id)} />
                                         ))}
                                     </div>
                                 )}
