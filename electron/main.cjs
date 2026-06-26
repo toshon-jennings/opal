@@ -3215,6 +3215,58 @@ ipcMain.handle('agent-jobs:list', async (event, options = {}) => {
   return allJobs.slice(0, limit);
 });
 
+// ─── Agent Activity Summary ─────────────────────────────────────────────────
+// Lightweight endpoint for Mission Control's pulse visualization. Returns
+// counts and recent run summaries mapped to Mission Control lane types.
+ipcMain.handle('agent-jobs:activity', async () => {
+  const AGENT_TO_LANE = {
+    aider: 'terminal',
+    antigravity_cli: 'terminal',
+    claude_code: 'code',
+    codex: 'code',
+    command_code: 'code',
+    copilot: 'code',
+    cursor_cli: 'code',
+    hermes: 'general',
+    jan: 'general',
+    openclaw: 'gateway',
+    openhands: 'code',
+    opencode: 'code',
+    perci_code: 'code',
+    qwen_code: 'code',
+    jules: 'general',
+  };
+
+  const counts = { terminal: 0, cowork: 0, code: 0, build: 0, gateway: 0, general: 0 };
+  const recent = [];
+
+  for (const [, jobRecord] of agentJobs) {
+    const job = jobRecord.job;
+    const isActive = ['pending', 'claimed', 'running', 'retry_queued'].includes(job.status);
+    if (!isActive) continue;
+
+    const lane = AGENT_TO_LANE[job.agent] || 'general';
+    counts[lane] += 1;
+
+    recent.push({
+      id: job.id,
+      agent: job.agent,
+      lane,
+      status: job.status,
+      title: (job.prompt || '').slice(0, 60),
+      created_at: job.created_at,
+    });
+  }
+
+  recent.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  return {
+    counts,
+    recent: recent.slice(0, 20),
+    total: Object.values(counts).reduce((sum, n) => sum + n, 0),
+  };
+});
+
 ipcMain.handle('agent-jobs:queue', async (event, { agent, prompt, working_directory, model } = {}) => {
   if (!agent || !prompt) {
     return { ok: false, error: 'Missing agent or prompt.' };
@@ -3751,7 +3803,7 @@ async function getFiles(dir, baseDir = dir) {
     return dirent.isDirectory() ? getFiles(res, baseDir) : res.replace(baseDir + path.sep, '');
   }));
   return Array.prototype.concat(...files);
-});
+}
 
 // ─── Run Terminal Command ────────────────────────────────────────────────────
 // Opens an interactive command in the system terminal (macOS Terminal.app).
@@ -5069,6 +5121,152 @@ ipcMain.handle('eidos:restart', async () => {
   } catch (err) {
     return { error: err.message };
   }
+});
+
+// — Cleanmac — developer cache cleanup runner —————————————————————————————
+function parseDockerVolumeNames(stdout) {
+  return stdout
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean);
+}
+
+function parseDockerInfo(stdout) {
+  try {
+    return JSON.parse(stdout);
+  } catch {
+    return {};
+  }
+}
+
+function normalizeDockerVolume(record) {
+  const labels = record?.Labels && typeof record.Labels === 'object' ? record.Labels : {};
+  const composeProject = labels['com.docker.compose.project'] || '';
+  const composeVolume = labels['com.docker.compose.volume'] || '';
+  const labelEntries = Object.entries(labels)
+    .filter(([key, value]) => key && value)
+    .slice(0, 8)
+    .map(([key, value]) => `${key}=${value}`);
+
+  return {
+    name: record?.Name || '',
+    driver: record?.Driver || '',
+    createdAt: record?.CreatedAt || '',
+    mountpoint: record?.Mountpoint || '',
+    scope: record?.Scope || '',
+    composeProject,
+    composeVolume,
+    labels: labelEntries,
+  };
+}
+
+async function inspectCleanmacDockerCandidates() {
+  const checkedAt = new Date().toISOString();
+  const dockerPath = eidosDockerPath();
+  if (!dockerPath) {
+    return {
+      ok: true,
+      available: false,
+      checkedAt,
+      candidateCount: 0,
+      volumes: [],
+      error: 'Docker CLI not found. The Docker cleanup block will be skipped unless Docker is installed before running.',
+    };
+  }
+
+  const infoResult = await runCli(dockerPath, ['info', '--format', '{{json .}}'], 8000);
+  if (!infoResult.ok) {
+    return {
+      ok: true,
+      available: false,
+      checkedAt,
+      dockerPath,
+      candidateCount: 0,
+      volumes: [],
+      error: (infoResult.stderr || infoResult.error || 'Docker daemon is not reachable.').trim(),
+    };
+  }
+
+  const contextResult = await runCli(dockerPath, ['context', 'show'], 5000);
+  const info = parseDockerInfo(infoResult.stdout);
+  const listResult = await runCli(dockerPath, ['volume', 'ls', '--filter', 'dangling=true', '--quiet'], 10000);
+  if (!listResult.ok) {
+    return {
+      ok: false,
+      available: true,
+      checkedAt,
+      dockerPath,
+      context: contextResult.ok ? contextResult.stdout.trim() : '',
+      candidateCount: 0,
+      volumes: [],
+      error: (listResult.stderr || listResult.error || 'Could not list unused Docker volumes.').trim(),
+    };
+  }
+
+  const volumeNames = parseDockerVolumeNames(listResult.stdout);
+  const selectedNames = volumeNames.slice(0, 80);
+  let volumes = selectedNames.map(name => ({ name }));
+
+  if (selectedNames.length > 0) {
+    const inspectResult = await runCli(dockerPath, ['volume', 'inspect', ...selectedNames], 15000);
+    if (inspectResult.ok) {
+      try {
+        const inspected = JSON.parse(inspectResult.stdout);
+        if (Array.isArray(inspected)) {
+          volumes = inspected.map(normalizeDockerVolume).filter(volume => volume.name);
+        }
+      } catch {
+        // Keep the name-only list from `docker volume ls` if inspect JSON parsing fails.
+      }
+    }
+  }
+
+  return {
+    ok: true,
+    available: true,
+    checkedAt,
+    dockerPath,
+    context: contextResult.ok ? contextResult.stdout.trim() : '',
+    serverVersion: info.ServerVersion || '',
+    operatingSystem: info.OperatingSystem || '',
+    storageDriver: info.Driver || '',
+    candidateCount: volumeNames.length,
+    truncated: volumeNames.length > selectedNames.length,
+    volumes,
+  };
+}
+
+ipcMain.handle('cleanmac:inspect-docker', async () => inspectCleanmacDockerCandidates());
+
+ipcMain.handle('cleanmac:run', async (event) => {
+  const { BrowserWindow } = require('electron');
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const scriptPath = path.join(app.getPath('home'), 'cleanmac', 'cleanmac');
+
+  return new Promise((resolve) => {
+    const child = spawn('/bin/bash', [scriptPath], {
+      env: { ...process.env, HOME: app.getPath('home') },
+      stdio: ['ignore', 'pipe', 'pipe'],
+      shell: false,
+    });
+
+    const send = (type, data) => {
+      if (win && !win.isDestroyed()) {
+        win.webContents.send('cleanmac:output', { type, data });
+      }
+    };
+
+    child.stdout.on('data', chunk => send('stdout', chunk.toString()));
+    child.stderr.on('data', chunk => send('stderr', chunk.toString()));
+    child.on('error', err => {
+      send('error', err.message);
+      resolve({ ok: false, error: err.message });
+    });
+    child.on('close', exitCode => {
+      send('done', exitCode);
+      resolve({ ok: exitCode === 0, exitCode });
+    });
+  });
 });
 
 // ── Skills management: detect installed agent CLIs ─────────────────────────

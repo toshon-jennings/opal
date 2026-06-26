@@ -150,6 +150,22 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
     const [liveEvents, setLiveEvents] = useState([]);
     const [runContextMenu, setRunContextMenu] = useState(null); // { run, x, y }
     const [workspaceSnapshot, setWorkspaceSnapshot] = useState(() => readPowerWorkspaceSnapshot());
+    const [agentActivity, setAgentActivity] = useState({ counts: {}, recent: [], total: 0 });
+
+    // Poll agent activity for the pulse visualization
+    useEffect(() => {
+        if (!window.electron?.listAgentActivity) return;
+        let cancelled = false;
+        async function poll() {
+            try {
+                const activity = await window.electron.listAgentActivity();
+                if (!cancelled && activity) setAgentActivity(activity);
+            } catch { /* ignore transient errors */ }
+        }
+        poll();
+        const id = setInterval(poll, 3000);
+        return () => { cancelled = true; clearInterval(id); };
+    }, []);
 
     const activeProfile = openClawConfig.profiles.find(profile => profile.id === openClawConfig.activeProfileId) || openClawConfig.profiles[0];
     const workspace = workspaceSnapshot.workspace;
@@ -1739,6 +1755,43 @@ function MissionPulsePanel({ runs = [], selectedNode, selectedRun }) {
                             );
                         })}
                     </div>
+
+                    {/* Live Agent Activity — shows active agent jobs across lanes */}
+                    {agentActivity.total > 0 && (
+                        <div className="mt-4 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)]/50 p-3">
+                            <div className="mb-2 flex items-center justify-between">
+                                <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
+                                    Agent Activity
+                                </span>
+                                <span className="flex items-center gap-1 text-[10px] font-medium text-[var(--accent)]">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)] animate-pulse-subtle" />
+                                    {agentActivity.total} active
+                                </span>
+                            </div>
+                            <div className="grid grid-cols-3 gap-1.5">
+                                {['code', 'gateway', 'general', 'terminal'].map(lane => (
+                                    <div key={lane} className="rounded px-2 py-1 text-center bg-[var(--bg-primary)]/60">
+                                        <div className="text-sm font-bold text-[var(--text-primary)]">
+                                            {agentActivity.counts[lane] || 0}
+                                        </div>
+                                        <div className="text-[9px] uppercase tracking-wider text-[var(--text-tertiary)]">
+                                            {lane}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            {agentActivity.recent.length > 0 && (
+                                <div className="mt-2 space-y-1 border-t border-[var(--border)] pt-2">
+                                    {agentActivity.recent.slice(0, 3).map(item => (
+                                        <p key={item.id} className="truncate text-[10px] text-[var(--text-secondary)]">
+                                            <span className="font-medium text-[var(--text-primary)]">{item.agent}</span>
+                                            {' '}<span className="font-mono text-[var(--text-tertiary)]">{item.title || item.status}</span>
+                                        </p>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 <div className="grid min-w-0 grid-cols-2 gap-2">

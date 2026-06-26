@@ -36,6 +36,7 @@ contextBridge.exposeInMainWorld('electron', {
   listGitHubRepos: () => ipcRenderer.invoke('github:list-repos'),
   detectLocalRepo: () => ipcRenderer.invoke('git:detect-local-repo'),
   runTerminalCommand: (command) => ipcRenderer.invoke('run-terminal-command', command),
+  listAgentActivity: () => ipcRenderer.invoke('agent-jobs:activity'),
   getOpenClawLocalProfile: () => ipcRenderer.invoke('openclaw:get-local-profile'),
   testOpenClawConnection: (profile) => ipcRenderer.invoke('openclaw:test-connection', profile),
   getOpenClawGatewayStatus: (profile) => ipcRenderer.invoke('openclaw:gateway-status', profile),
@@ -49,7 +50,7 @@ contextBridge.exposeInMainWorld('electron', {
   runOpenClawAgent: (opts) => ipcRenderer.invoke('openclaw:agent-run', opts),
   restartOpenClawGateway: () => ipcRenderer.invoke('openclaw:restart-gateway'),
   readOpenClawConfig: () => ipcRenderer.invoke('openclaw:read-config'),
-  writeOpenClawConfig: (config) => ipcRenderer.invoke('openclaw:write-config'),
+  writeOpenClawConfig: (config) => ipcRenderer.invoke('openclaw:write-config', config),
   readOpenClawDiary: () => ipcRenderer.invoke('openclaw:read-diary'),
   writeOpenClawDiary: (content) => ipcRenderer.invoke('openclaw:write-diary', content),
   discoverModelProviders: () => ipcRenderer.invoke('models:discover-providers'),
@@ -107,6 +108,14 @@ contextBridge.exposeInMainWorld('electron', {
   eidosRestart: () => ipcRenderer.invoke('eidos:restart'),
   eidosProgress: () => ipcRenderer.invoke('eidos:progress'),
   eidosInsights: () => ipcRenderer.invoke('eidos:insights'),
+  // Cleanmac — developer cache cleanup runner.
+  cleanmacInspectDocker: () => ipcRenderer.invoke('cleanmac:inspect-docker'),
+  cleanmacRun: () => ipcRenderer.invoke('cleanmac:run'),
+  onCleanmacOutput: (callback) => {
+    const listener = (event, { type, data }) => callback(type, data);
+    ipcRenderer.on('cleanmac:output', listener);
+    return () => ipcRenderer.removeListener('cleanmac:output', listener);
+  },
   onUpdaterState: (callback) => {
     const listener = (event, state) => callback(state);
     ipcRenderer.on('updater:state', listener);
