@@ -1,0 +1,25 @@
+[
+  {
+    "name": "cleanmac",
+    "registry": "homebrew",
+    "githubRepo": "toshon-jennings/cleanmac",
+    "registryName": "cleanmac",
+    "installCommand": "brew tap toshon-jennings/tap && brew install cleanmac",
+    "description": "macOS developer cache cleanup utility"
+  },
+  {
+    "name": "perci-story",
+    "registry": "npm",
+    "registryName": "perci-story",
+    "installCommand": "npm install -g perci-story",
+    "description": "Build an evidence-backed product story from Git history"
+  },
+  {
+    "name": "graphify-diff",
+    "registry": "pypi",
+    "githubRepo": "toshon-jennings/graphify-diff",
+    "registryName": "graphify-diff",
+    "installCommand": "pip install graphify-diff",
+    "description": "Incremental graph updates from git diffs"
+  }
+]

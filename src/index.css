@@ -895,6 +895,38 @@ html.dark .hermes-branded.active {
 }
 
 .skills-branded {
+  background-color: rgba(249, 115, 22, 0.1);
+  color: #fb923c;
+  border: 1px solid rgba(249, 115, 22, 0.25);
+  font-weight: 600;
+  border-radius: 9999px;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+html.dark .skills-branded {
+  background-color: rgba(249, 115, 22, 0.15);
+}
+
+.skills-branded:hover {
+  background-color: rgba(249, 115, 22, 0.2);
+  border-color: rgba(249, 115, 22, 0.4);
+}
+
+html.dark .skills-branded:hover {
+  background-color: rgba(249, 115, 22, 0.25);
+}
+
+.skills-branded.active {
+  background-color: rgba(249, 115, 22, 0.25);
+  color: #fdba74;
+  border: none;
+}
+
+html.dark .skills-branded.active {
+  background-color: rgba(249, 115, 22, 0.3);
+}
+
+.packages-branded {
   background-color: rgba(139, 92, 246, 0.1);
   color: #a78bfa;
   border: 1px solid rgba(139, 92, 246, 0.25);
@@ -903,26 +935,26 @@ html.dark .hermes-branded.active {
   transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
-html.dark .skills-branded {
+html.dark .packages-branded {
   background-color: rgba(139, 92, 246, 0.15);
 }
 
-.skills-branded:hover {
+.packages-branded:hover {
   background-color: rgba(139, 92, 246, 0.2);
   border-color: rgba(139, 92, 246, 0.4);
 }
 
-html.dark .skills-branded:hover {
+html.dark .packages-branded:hover {
   background-color: rgba(139, 92, 246, 0.25);
 }
 
-.skills-branded.active {
+.packages-branded.active {
   background-color: rgba(139, 92, 246, 0.25);
-  color: #c4b5fd;
+  color: #c084fc;
   border: none;
 }
 
-html.dark .skills-branded.active {
+html.dark .packages-branded.active {
   background-color: rgba(139, 92, 246, 0.3);
 }
 
@@ -1177,12 +1209,67 @@ html.dark .skills-branded.active {
   .perci-dock-item { min-width: 46px; padding: 0 10px; }
 }
 
+.perci-dock-chips {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.perci-dock-sirperci {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 11px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.perci-dock-sirperci:hover { background: var(--bg-hover); }
+.perci-dock-sirperci.active {
+  background: var(--bg-tertiary);
+  border-color: var(--accent);
+}
+
+/* Auto-hide dock: a thin always-present strip at the bottom edge reveals the
+   dock on hover, since the dock itself translates off-screen (minus a small
+   peeking sliver) when the preference is on. */
+.perci-dock-hover-zone {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 14px;
+  z-index: 46;
+}
+.perci-dock[data-autohide="true"] {
+  transform: translateY(calc(100% - 6px));
+  transition: transform 0.22s ease;
+}
+.perci-dock-hover-zone:hover + .perci-dock[data-autohide="true"],
+.perci-dock[data-autohide="true"]:hover,
+.perci-dock[data-autohide="true"]:focus-within,
+.perci-dock[data-autohide="true"][data-force-visible] {
+  transform: translateY(0);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .perci-window.anim-open,
   .perci-window.anim-in,
   .perci-window.anim-out,
   .perci-window.anim-close {
     animation-duration: 0.01ms !important;
+  }
+  .perci-sirperci-item:hover,
+  .perci-sirperci-item:active,
+  .perci-sirperci-item:hover .perci-sirperci-item-icon {
+    transform: none;
   }
 }
 
@@ -1232,6 +1319,166 @@ html.dark .skills-branded.active {
   height: 1px;
   margin: 4px 6px;
   background: var(--border);
+}
+
+/* Sir Perci launcher flyout */
+.perci-sirperci-panel {
+  position: fixed;
+  z-index: 10000;
+  width: min(360px, calc(100vw - 32px));
+  max-height: min(70vh, 560px);
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg-secondary) 94%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+.perci-sirperci-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px 8px;
+  flex-shrink: 0;
+}
+.perci-sirperci-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 10px 8px;
+  padding: 0 10px;
+  height: 36px;
+  border-radius: 9px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.perci-sirperci-search-icon { color: var(--text-secondary); flex-shrink: 0; }
+.perci-sirperci-search input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+.perci-sirperci-search input::placeholder { color: var(--text-secondary); }
+.perci-sirperci-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 6px 6px;
+}
+.perci-sirperci-section { margin-bottom: 4px; }
+.perci-sirperci-section-label {
+  padding: 6px 10px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  opacity: 0.75;
+}
+.perci-sirperci-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.perci-sirperci-item:hover { background: var(--bg-hover); transform: translateX(2px); }
+.perci-sirperci-item:active { transform: translateX(2px) scale(0.97); }
+.perci-sirperci-item-icon {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  background: var(--bg-tertiary);
+  color: var(--accent);
+  overflow: hidden;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+.perci-sirperci-item:hover .perci-sirperci-item-icon {
+  transform: scale(1.1);
+  background: color-mix(in srgb, var(--accent) 22%, var(--bg-tertiary));
+}
+.perci-sirperci-item-icon img { width: 100%; height: 100%; object-fit: contain; }
+.perci-sirperci-item-icon.is-white { background: #fff; padding: 3px; }
+.perci-sirperci-item-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.perci-sirperci-item-title {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.perci-sirperci-item-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.perci-sirperci-empty {
+  padding: 18px 10px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.perci-sirperci-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.perci-sirperci-switch {
+  width: 32px;
+  height: 18px;
+  padding: 2px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.perci-sirperci-switch.on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.perci-sirperci-switch-knob {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s ease;
+  transform: translateX(0);
+}
+.perci-sirperci-switch.on .perci-sirperci-switch-knob {
+  transform: translateX(14px);
 }
 
 /* Plain fade minimize/restore for webview windows (OpenClaw) */

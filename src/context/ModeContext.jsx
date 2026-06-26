@@ -15,6 +15,7 @@ export const MODES = {
     DASHBOARD: 'dashboard', // Always-mounted home dashboard (the "desktop")
     POWER_WORKSPACE: 'power-workspace', // Coherent project loop for power users
     SURFACE_MAP: 'surface-map', // Beck-style conceptual map of Perci surfaces
+    PERCI_NOW: 'perci-now', // Live derived state of what is happening in Perci right now
     CHAT: 'chat',      // Normal conversation interface
     COWORK: 'cowork',  // Session-based task interface (Claude style)
     MISSION: 'mission', // Agent run supervision and inspection
@@ -45,12 +46,15 @@ export const EIDOS_WINDOW_ID = 'eidos';
 export const LOCALHOST_WINDOW_ID = 'localhost';
 export const KLIPIT_WINDOW_ID = 'klipit';
 export const SKILLS_WINDOW_ID = 'skills';
+export const CLEANMAC_WINDOW_ID = 'cleanmac';
+export const PACKAGES_WINDOW_ID = 'packages-window';
 
 // Titles shown in window headers and dock chips for each windowed surface.
 export const WINDOW_TITLES = {
     [MODES.CHAT]: 'Chat',
     [MODES.POWER_WORKSPACE]: 'Power Workspace',
     [MODES.SURFACE_MAP]: 'Perci Map',
+    [MODES.PERCI_NOW]: 'Perci Now',
     [MODES.COWORK]: 'Cowork',
     [MODES.CODE]: 'Code',
     [MODES.AGENTS]: 'Agents',
@@ -77,6 +81,8 @@ export const WINDOW_TITLES = {
     [LOCALHOST_WINDOW_ID]: 'Localhost',
     [KLIPIT_WINDOW_ID]: 'Klipit',
     [SKILLS_WINDOW_ID]: 'Skills',
+    [CLEANMAC_WINDOW_ID]: 'Cleanmac',
+    [PACKAGES_WINDOW_ID]: 'Packages',
 };
 
 // Windows whose content is an embedded <webview>/<iframe>; CSS transforms can make

@@ -116,6 +116,10 @@ contextBridge.exposeInMainWorld('electron', {
     ipcRenderer.on('cleanmac:output', listener);
     return () => ipcRenderer.removeListener('cleanmac:output', listener);
   },
+  // Packages Dashboard APIs
+  packagesScan: () => ipcRenderer.invoke('packages:scan'),
+  packagesGetConfig: () => ipcRenderer.invoke('packages:get-config'),
+  packagesSetConfig: (config) => ipcRenderer.invoke('packages:set-config', config),
   onUpdaterState: (callback) => {
     const listener = (event, state) => callback(state);
     ipcRenderer.on('updater:state', listener);

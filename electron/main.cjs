@@ -5269,6 +5269,267 @@ ipcMain.handle('cleanmac:run', async (event) => {
   });
 });
 
+// ── Packages Dashboard IPC Handlers ────────────────────────────────────────
+const packagesPath = path.join(app.getPath('home'), 'opal', 'electron', 'data', 'packages.json');
+
+// Memory cache for packages scan results
+let packagesScanCache = null;
+let packagesScanCacheTime = 0;
+const packageHistory = {}; // maps packageId -> { githubVersion, githubPublishDate, registryVersion, registryPublishDate }
+
+function compareVersions(v1, v2) {
+  const parts1 = (v1 || '').split('.').map(x => parseInt(x, 10) || 0);
+  const parts2 = (v2 || '').split('.').map(x => parseInt(x, 10) || 0);
+  const maxLength = Math.max(parts1.length, parts2.length);
+  for (let i = 0; i < maxLength; i++) {
+    const p1 = parts1[i] || 0;
+    const p2 = parts2[i] || 0;
+    if (p1 > p2) return 1;
+    if (p1 < p2) return -1;
+  }
+  return 0;
+}
+
+function fetchUrl(url, headers = {}, timeoutMs = 3000) {
+  return new Promise((resolve, reject) => {
+    const https = require('https');
+    const parsedUrl = new URL(url);
+    const options = {
+      hostname: parsedUrl.hostname,
+      path: parsedUrl.pathname + parsedUrl.search,
+      method: 'GET',
+      headers: {
+        'User-Agent': 'PerciPackageDashboard/1.0',
+        ...headers,
+      },
+      timeout: timeoutMs,
+    };
+
+    const req = https.request(options, (res) => {
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        const error = new Error(`HTTP ${res.statusCode}`);
+        error.statusCode = res.statusCode;
+        return reject(error);
+      }
+
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => { resolve({ data, headers: res.headers }); });
+    });
+
+    req.on('error', (err) => reject(err));
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('Timeout'));
+    });
+    req.end();
+  });
+}
+
+async function scanPackage(pkg) {
+  const result = {
+    ...pkg,
+    githubVersion: null,
+    githubPublishDate: null,
+    registryVersion: null,
+    registryPublishDate: null,
+    syncStatus: 'unknown',
+    stale: false,
+    error: null,
+  };
+
+  const cacheKey = `${pkg.name}-${pkg.registry}`;
+  const history = packageHistory[cacheKey] || {};
+
+  // 1. Fetch GitHub latest release
+  if (pkg.githubRepo) {
+    try {
+      const ghUrl = `https://api.github.com/repos/${pkg.githubRepo}/releases/latest`;
+      const res = await fetchUrl(ghUrl, { 'Accept': 'application/vnd.github.v3+json' });
+      const data = JSON.parse(res.data);
+      result.githubVersion = data.tag_name || null;
+      result.githubPublishDate = data.published_at || null;
+      
+      // Update history
+      history.githubVersion = result.githubVersion;
+      history.githubPublishDate = result.githubPublishDate;
+    } catch (err) {
+      // Fallback: try fetching tags if releases/latest is not found (404) or failed
+      try {
+        const tagsUrl = `https://api.github.com/repos/${pkg.githubRepo}/tags`;
+        const res = await fetchUrl(tagsUrl, { 'Accept': 'application/vnd.github.v3+json' });
+        const tags = JSON.parse(res.data);
+        if (Array.isArray(tags) && tags.length > 0) {
+          result.githubVersion = tags[0].name || null;
+          result.githubPublishDate = null;
+          
+          history.githubVersion = result.githubVersion;
+          history.githubPublishDate = result.githubPublishDate;
+        } else {
+          throw err;
+        }
+      } catch (tagErr) {
+        result.stale = true;
+        result.githubVersion = history.githubVersion || null;
+        result.githubPublishDate = history.githubPublishDate || null;
+        result.error = `GitHub error: ${err.message}`;
+      }
+    }
+  }
+
+  // 2. Fetch registry data
+  const regName = pkg.registryName || pkg.name;
+  if (pkg.registry === 'npm') {
+    try {
+      const npmUrl = `https://registry.npmjs.org/${regName}`;
+      const res = await fetchUrl(npmUrl);
+      const data = JSON.parse(res.data);
+      const version = data['dist-tags']?.latest;
+      result.registryVersion = version || null;
+      result.registryPublishDate = data.time?.[version] || data.time?.modified || null;
+
+      // Update history
+      history.registryVersion = result.registryVersion;
+      history.registryPublishDate = result.registryPublishDate;
+    } catch (err) {
+      result.stale = true;
+      result.registryVersion = history.registryVersion || null;
+      result.registryPublishDate = history.registryPublishDate || null;
+      result.error = (result.error ? `${result.error}; ` : '') + `npm error: ${err.message}`;
+    }
+  } else if (pkg.registry === 'pypi') {
+    try {
+      const pypiUrl = `https://pypi.org/pypi/${regName}/json`;
+      const res = await fetchUrl(pypiUrl);
+      const data = JSON.parse(res.data);
+      const version = data.info?.version;
+      result.registryVersion = version || null;
+      result.registryPublishDate = data.releases?.[version]?.[0]?.upload_time_iso_8601 || data.releases?.[version]?.[0]?.upload_time || null;
+
+      // Update history
+      history.registryVersion = result.registryVersion;
+      history.registryPublishDate = result.registryPublishDate;
+    } catch (err) {
+      result.stale = true;
+      result.registryVersion = history.registryVersion || null;
+      result.registryPublishDate = history.registryPublishDate || null;
+      result.error = (result.error ? `${result.error}; ` : '') + `PyPI error: ${err.message}`;
+    }
+  } else if (pkg.registry === 'homebrew') {
+    try {
+      const hbUrl = `https://api.github.com/repos/toshon-jennings/homebrew-tap/contents/Formula/${regName}.rb`;
+      const res = await fetchUrl(hbUrl, { 'Accept': 'application/vnd.github.v3+json' });
+      const data = JSON.parse(res.data);
+      const rubyContent = Buffer.from(data.content, 'base64').toString('utf8');
+      
+      let version = null;
+      const versionMatch = rubyContent.match(/version\s+["']([^"']+)["']/);
+      if (versionMatch) {
+        version = versionMatch[1];
+      } else {
+        const urlMatch = rubyContent.match(/url\s+["'].*?\/v?(\d+\.\d+(?:\.\d+)?.*?)\.tar\.gz["']/);
+        if (urlMatch) {
+          version = urlMatch[1];
+        }
+      }
+      result.registryVersion = version || null;
+      result.registryPublishDate = null;
+
+      // Update history
+      history.registryVersion = result.registryVersion;
+      history.registryPublishDate = result.registryPublishDate;
+    } catch (err) {
+      result.stale = true;
+      result.registryVersion = history.registryVersion || null;
+      result.registryPublishDate = history.registryPublishDate || null;
+      result.error = (result.error ? `${result.error}; ` : '') + `Homebrew error: ${err.message}`;
+    }
+  } else if (pkg.registry === 'github') {
+    result.registryVersion = result.githubVersion;
+    result.registryPublishDate = result.githubPublishDate;
+  }
+
+  packageHistory[cacheKey] = history;
+
+  // Determine sync status
+  const normGithub = (result.githubVersion || '').replace(/^v/, '').trim();
+  const normRegistry = (result.registryVersion || '').replace(/^v/, '').trim();
+
+  if (normGithub && normRegistry) {
+    if (normGithub === normRegistry) {
+      result.syncStatus = 'match';
+    } else {
+      const cmp = compareVersions(normGithub, normRegistry);
+      if (cmp > 0) {
+        result.syncStatus = 'github-ahead';
+      } else if (cmp < 0) {
+        result.syncStatus = 'registry-ahead';
+      } else {
+        result.syncStatus = 'match';
+      }
+    }
+  } else {
+    result.syncStatus = 'unknown';
+  }
+
+  return result;
+}
+
+ipcMain.handle('packages:scan', async (event, { force } = {}) => {
+  const fs = require('fs');
+  const now = Date.now();
+  
+  if (!force && packagesScanCache && (now - packagesScanCacheTime < 60000)) {
+    return packagesScanCache;
+  }
+
+  try {
+    if (!fs.existsSync(packagesPath)) {
+      return [];
+    }
+    const raw = fs.readFileSync(packagesPath, 'utf8');
+    const packages = JSON.parse(raw);
+    
+    const scanned = await Promise.all(packages.map(pkg => scanPackage(pkg)));
+    
+    packagesScanCache = scanned;
+    packagesScanCacheTime = now;
+    return scanned;
+  } catch (err) {
+    console.error('Error scanning packages:', err);
+    return [];
+  }
+});
+
+ipcMain.handle('packages:get-config', async () => {
+  const fs = require('fs');
+  try {
+    if (!fs.existsSync(packagesPath)) {
+      return [];
+    }
+    const raw = fs.readFileSync(packagesPath, 'utf8');
+    return JSON.parse(raw);
+  } catch (err) {
+    console.error('Error reading packages config:', err);
+    return [];
+  }
+});
+
+ipcMain.handle('packages:set-config', async (event, config) => {
+  const fs = require('fs');
+  try {
+    fs.mkdirSync(path.dirname(packagesPath), { recursive: true });
+    fs.writeFileSync(packagesPath, JSON.stringify(config, null, 2), 'utf8');
+    
+    packagesScanCache = null;
+    packagesScanCacheTime = 0;
+    return { ok: true };
+  } catch (err) {
+    console.error('Error writing packages config:', err);
+    return { ok: false, error: err.message };
+  }
+});
+
 // ── Skills management: detect installed agent CLIs ─────────────────────────
 const AGENT_CLI_DEFS = [
   { id: 'claude', label: 'Claude Code', binary: 'claude', versionFlag: '--version' },

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, Component } from 'react';
 import perciLogo from './assets/perci-logo.png';
-import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, ARTIFACT_WINDOW_ID, RESEARCH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID } from './context/ModeContext';
+import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, ARTIFACT_WINDOW_ID, RESEARCH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID, CLEANMAC_WINDOW_ID, PACKAGES_WINDOW_ID } from './context/ModeContext';
 import ModeSwitcher from './components/ModeSwitcher';
 import ChatMode from './components/ChatMode';
 import CodeMode from './components/CodeMode';
@@ -16,6 +16,7 @@ import LighthouseMode from './components/LighthouseMode';
 import DashboardMode from './components/DashboardMode';
 import PowerWorkspaceMode from './components/PowerWorkspaceMode';
 import PerciMapMode from './components/PerciMapMode';
+import PerciNowMode from './components/PerciNowMode';
 import NotesMode from './components/NotesMode';
 import BarsMode from './components/BarsMode';
 import MarkItDownMode from './components/MarkItDownMode';
@@ -26,6 +27,8 @@ import EidosMode from './components/EidosMode';
 import LocalhostMode from './components/LocalhostMode';
 import SkillsMode from './components/SkillsMode';
 import EnsembleMode from './components/EnsembleMode';
+import CleanmacMode from './components/CleanmacMode';
+import PackagesMode from './components/PackagesMode';
 import { SettingsModal } from './components/SettingsModal';
 import DesktopHost from './components/windows/DesktopHost';
 import Dock from './components/windows/Dock';
@@ -40,7 +43,7 @@ import { ChatProvider } from './context/ChatContext';
 
 import nousLogo from './assets/nousresearch.png';
 import openClawLogo from './assets/openclaw-color.png';
-import { Moon, Sun, Monitor, Lock, Unlock, Plus, Terminal as TerminalIcon, Server, RefreshCw, ExternalLink, AlertCircle, BookOpen, Cpu, Download, Puzzle } from 'lucide-react';
+import { Moon, Sun, Monitor, Lock, Unlock, Plus, Terminal as TerminalIcon, Server, RefreshCw, ExternalLink, AlertCircle, BookOpen, Cpu, Download, Puzzle, Sparkles, Package } from 'lucide-react';
 import { useTheme, ThemeProvider } from './context/ThemeContext';
 import { useChat } from './context/ChatContext';
 import TerminalPanel from './components/Terminal';
@@ -107,6 +110,7 @@ function AppContent() {
     const openClawWindowOpen = windows.some(w => w.id === OPENCLAW_WINDOW_ID && w.state !== 'minimized');
     const hermesWindowOpen = windows.some(w => w.id === HERMES_WINDOW_ID && w.state !== 'minimized');
     const skillsWindowOpen = windows.some(w => w.id === SKILLS_WINDOW_ID && w.state !== 'minimized');
+    const packagesWindowOpen = windows.some(w => w.id === PACKAGES_WINDOW_ID && w.state !== 'minimized');
     const { isDarkMode, themeMode, cycleThemeMode } = useTheme();
     const { isIncognitoMode, toggleIncognitoMode, createNewChat } = useChat();
     const [openClawStatus, setOpenClawStatus] = useState({ state: 'idle' });
@@ -147,6 +151,22 @@ function AppContent() {
         if (window.electron?.onUpdaterState) {
             return window.electron.onUpdaterState((state) => setUpdaterState(state));
         }
+    }, []);
+
+    // TEMPORARY diagnostic for the stray same-origin top-frame navigation
+    // that main.cjs's `blocked-self-navigation` guard intercepts but never
+    // identified a source for. document.activeElement at the moment a
+    // navigation begins is almost always the element that triggered it
+    // (click gives focus, or it's the submitting form control). Remove once
+    // the trigger is found and fixed.
+    useEffect(() => {
+        const logStrayNavigation = () => {
+            const el = document.activeElement;
+            // eslint-disable-next-line no-console
+            console.error('[stray-navigation] activeElement at unload:', el?.outerHTML?.slice(0, 400) || el?.tagName || 'none');
+        };
+        window.addEventListener('beforeunload', logStrayNavigation);
+        return () => window.removeEventListener('beforeunload', logStrayNavigation);
     }, []);
 
     // Listen for Electron Menu Actions
@@ -524,6 +544,7 @@ function AppContent() {
             case MODES.CHAT: return <ChatMode />;
             case MODES.POWER_WORKSPACE: return <PowerWorkspaceMode />;
             case MODES.SURFACE_MAP: return <PerciMapMode />;
+            case MODES.PERCI_NOW: return <PerciNowMode openClawStatus={openClawStatus} />;
             case MODES.COWORK: return <CoworkMode />;
             case MODES.CODE: return <CodeMode />;
             case MODES.AGENTS: return <AgentsPanel />;
@@ -553,6 +574,8 @@ function AppContent() {
             case LOCALHOST_WINDOW_ID: return <LocalhostMode />;
             case KLIPIT_WINDOW_ID: return <LocalhostMode isKlipit={true} />;
             case SKILLS_WINDOW_ID: return <SkillsMode />;
+            case CLEANMAC_WINDOW_ID: return <CleanmacMode />;
+            case PACKAGES_WINDOW_ID: return <PackagesMode />;
             case ARTIFACT_WINDOW_ID: return <ArtifactWindow />;
             case RESEARCH_WINDOW_ID: return <ResearchResultsWindow />;
             case YOUTUBE_WINDOW_ID:
@@ -917,7 +940,7 @@ function AppContent() {
 
                 <div className="flex items-center gap-4" style={{ WebkitAppRegion: 'no-drag' }}>
                     {currentMode === MODES.CHAT && (
-                        <button onClick={createNewChat} className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-md transition-colors" title="New Chat">
+                        <button onClick={createNewChat} className="p-1.5 text-[var(--accent)] hover:text-[var(--accent-hover)] hover:bg-[var(--bg-hover)] rounded-md transition-colors" title="New Chat">
                             <Plus size={18} />
                         </button>
                     )}
@@ -953,11 +976,24 @@ function AppContent() {
 
                     <button
                         onClick={() => setShowModeGuide(true)}
-                        className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+                        className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[var(--accent)] hover:text-[var(--accent-hover)] hover:bg-[var(--bg-hover)] transition-colors"
                         title="Open mode guide"
                     >
                         <BookOpen size={16} />
                         <span className="hidden lg:inline text-sm font-medium">Guide</span>
+                    </button>
+
+                    <button
+                        onClick={() => openWindow(MODES.POWER_WORKSPACE)}
+                        className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 transition-colors ${
+                            windows.some(w => w.modeId === MODES.POWER_WORKSPACE && w.state !== 'minimized')
+                                ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                                : 'text-[var(--accent)] hover:text-[var(--accent-hover)] hover:bg-[var(--bg-hover)]'
+                        }`}
+                        title="Power Workspace — ideas, runs & next action"
+                    >
+                        <Sparkles size={16} />
+                        <span className="hidden lg:inline text-sm font-medium">Power Workspace</span>
                     </button>
 
                     <div className="h-6 w-px bg-[var(--border)] mx-2" />
@@ -991,32 +1027,42 @@ function AppContent() {
 
                     <button
                         onClick={() => openWindow(SKILLS_WINDOW_ID)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all text-[11px] uppercase tracking-wider skills-branded ${skillsWindowOpen ? 'active' : ''}`}
+                        className={`relative group flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all text-[11px] uppercase tracking-wider skills-branded ${skillsWindowOpen ? 'active' : ''}`}
                         title="Skills Management"
                     >
                         <Puzzle size={16} />
                         <span className="hidden xl:inline">Skills</span>
+                        <span className="absolute -top-1 -right-1 w-3 h-3 bg-[var(--accent-secondary)] rounded-full transition-all duration-300 group-hover:translate-x-3 group-hover:-translate-y-1 group-hover:opacity-0 pointer-events-none" />
                     </button>
 
-                    <button onClick={() => setShowGlobalTerminal(v => !v)} className={`p-1.5 rounded-md transition-colors ${showGlobalTerminal ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'}`} title="Toggle Terminal">
+                    <button
+                        onClick={() => openWindow(PACKAGES_WINDOW_ID)}
+                        className={`relative group flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all text-[11px] uppercase tracking-wider packages-branded ${packagesWindowOpen ? 'active' : ''}`}
+                        title="Packages Dashboard"
+                    >
+                        <Package size={16} />
+                        <span className="hidden xl:inline">Packages</span>
+                    </button>
+
+                    <button onClick={() => setShowGlobalTerminal(v => !v)} className={`p-1.5 rounded-md transition-colors ${showGlobalTerminal ? 'bg-[var(--accent)] text-white' : 'text-[var(--accent)] hover:text-[var(--accent-hover)] hover:bg-[var(--bg-hover)]'}`} title="Toggle Terminal">
                         <TerminalIcon size={18} />
                     </button>
 
                     {window.electron && import.meta.env.DEV && (
-                        <button onClick={() => window.electron.toggleDevTools()} className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-md transition-colors" title="Toggle DevTools">
+                        <button onClick={() => window.electron.toggleDevTools()} className="p-1.5 text-[var(--accent)] hover:text-[var(--accent-hover)] hover:bg-[var(--bg-hover)] rounded-md transition-colors" title="Toggle DevTools">
                             <div className="w-4 h-4 border border-current rounded-sm flex items-center justify-center text-[10px] font-bold">D</div>
                         </button>
                     )}
 
                     <button
                         onClick={cycleThemeMode}
-                        className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-md transition-colors"
+                        className="p-1.5 text-[var(--accent)] hover:text-[var(--accent-hover)] hover:bg-[var(--bg-hover)] rounded-md transition-colors"
                         title={`Theme: ${themeMode}. Click to cycle modes.`}
                     >
                         {themeMode === 'system' ? <Monitor size={18} /> : (isDarkMode ? <Moon size={18} /> : <Sun size={18} />)}
                     </button>
 
-                    <button onClick={toggleIncognitoMode} className={`p-1.5 rounded-md transition-colors ${isIncognitoMode ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'}`} title={isIncognitoMode ? "Disable Incognito Mode" : "Enable Incognito Mode"}>
+                    <button onClick={toggleIncognitoMode} className={`p-1.5 rounded-md transition-colors ${isIncognitoMode ? 'bg-[var(--accent)] text-white' : 'text-[var(--accent)] hover:text-[var(--accent-hover)] hover:bg-[var(--bg-hover)]'}`} title={isIncognitoMode ? "Disable Incognito Mode" : "Enable Incognito Mode"}>
                         {isIncognitoMode ? <Lock size={18} /> : <Unlock size={18} />}
                     </button>
                 </div>
