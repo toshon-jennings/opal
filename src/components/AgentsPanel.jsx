@@ -97,6 +97,16 @@ export const AGENT_DEFINITIONS = [
     defaultPrompt: 'Ask Jan CLI to load a local model and run an agentic coding session on your machine.',
   },
   {
+    id: 'jules',
+    requestType: 'jules',
+    label: 'Jules',
+    shortLabel: 'Jules',
+    detail: 'Google\'s cloud coding agent powered by Gemini 3 Pro. Runs autonomously in a GitHub cloud VM and creates PRs.',
+    status: 'specialized',
+    capabilities: ['prompt', 'github_repo'],
+    defaultPrompt: 'Describe the task for Jules to perform in your GitHub repo.',
+  },
+  {
     id: 'openclaw',
     requestType: 'openclaw',
     label: 'OpenClaw',
@@ -145,16 +155,6 @@ export const AGENT_DEFINITIONS = [
     status: 'ready',
     capabilities: ['prompt', 'working_directory'],
     defaultPrompt: 'Ask Qwen Code to inspect, edit, or debug code in the selected folder.',
-  },
-  {
-    id: 'jules',
-    requestType: 'jules',
-    label: 'Jules',
-    shortLabel: 'Jules',
-    detail: 'Google\'s cloud coding agent powered by Gemini 3 Pro. Runs autonomously in a GitHub cloud VM and creates PRs.',
-    status: 'specialized',
-    capabilities: ['prompt', 'github_repo'],
-    defaultPrompt: 'Describe the task for Jules to perform in your GitHub repo.',
   },
 ];
 
