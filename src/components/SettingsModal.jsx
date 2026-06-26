@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Key, Globe, RefreshCw, ChevronDown, Check, Wifi, WifiOff, User, ScrollText, Search, Server, Plus, Trash2, Monitor, Moon, Sun } from 'lucide-react';
+import { X, Key, Globe, RefreshCw, ChevronDown, Check, Wifi, WifiOff, User, ScrollText, Search, Server, Plus, Trash2, Monitor, Moon, Sun, Bot } from 'lucide-react';
 import { useChat } from '../context/ChatContext';
 import { useMode } from '../context/ModeContext';
 import { useTheme } from '../context/ThemeContext';
@@ -93,6 +93,9 @@ export function SettingsModal({ isOpen, onClose }) {
     const [gdashClientId, setGdashClientId] = useState('');
     const [gdashClientSecret, setGdashClientSecret] = useState('');
 
+    // Jules — Google cloud coding agent
+    const [julesApiKey, setJulesApiKey] = useState('');
+
     useEffect(() => {
         if (isOpen) {
             setEditingName(userName || '');
@@ -125,6 +128,7 @@ export function SettingsModal({ isOpen, onClose }) {
                     .then((data) => {
                         setGdashClientId(data?.gdash_google_client_id || '');
                         setGdashClientSecret(data?.gdash_google_client_secret || '');
+                        setJulesApiKey(data?.jules_api_key || '');
                     })
                     .catch(() => { /* leave fields blank */ });
             }
@@ -146,6 +150,15 @@ export function SettingsModal({ isOpen, onClose }) {
             await window.electron.setAppData({ gdash_google_client_secret: gdashClientSecret.trim() });
         } catch (err) {
             console.error('Failed to save G-Dash client secret:', err);
+        }
+    };
+
+    const saveJulesApiKey = async () => {
+        if (!window.electron?.setAppData) return;
+        try {
+            await window.electron.setAppData({ jules_api_key: julesApiKey.trim() });
+        } catch (err) {
+            console.error('Failed to save Jules API key:', err);
         }
     };
 
@@ -616,6 +629,38 @@ export function SettingsModal({ isOpen, onClose }) {
                                     project and adds themselves as a test user.
                                 </p>
                             </div>
+                        </Section>
+                    )}
+
+                    {/* Jules — Google cloud coding agent */}
+                    {window.electron && (
+                        <Section title="Jules · Cloud Agent" icon={Bot} defaultOpen={false}>
+                            <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">
+                                Jules API Key
+                            </label>
+                            <input
+                                type="password"
+                                value={julesApiKey}
+                                onChange={e => setJulesApiKey(e.target.value)}
+                                onBlur={saveJulesApiKey}
+                                onKeyDown={e => { if (e.key === 'Enter') { saveJulesApiKey(); e.target.blur(); } }}
+                                className="w-full px-4 py-2.5 rounded-xl border border-[var(--border)] bg-[var(--bg-tertiary)] focus:ring-2 ring-[var(--accent)] outline-none transition-all text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] text-sm"
+                                placeholder="Get your key at jules.google.com"
+                                spellCheck={false}
+                                autoComplete="off"
+                            />
+                            <p className="text-xs text-[var(--text-tertiary)] leading-relaxed">
+                                Jules is a cloud-based AI coding agent from Google Labs. It runs
+                                autonomously in a Google VM, analyzes your repo, and opens a PR.
+                                Requires a GitHub repo and an API key from{' '}
+                                <button
+                                    type="button"
+                                    onClick={() => window.electron?.openExternal?.('https://jules.google.com')}
+                                    className="text-[var(--accent)] hover:underline"
+                                >
+                                    jules.google.com
+                                </button>.
+                            </p>
                         </Section>
                     )}
 

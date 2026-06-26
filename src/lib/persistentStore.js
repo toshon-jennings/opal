@@ -16,7 +16,8 @@ export const API_KEY_STORAGE_KEYS = [
     'openrouter_key',
     'anthropic_key',
     'mistral_key',
-    'github_key'
+    'github_key',
+    'jules_api_key'
 ];
 
 const PERSISTED_KEYS = [
@@ -29,7 +30,9 @@ const PERSISTED_KEYS = [
     'gitshells_projects',
     'gitshells_sidebar_width',
     'perci_code_state',
+    'perci_notes_folder',
     'perci_mission_runs',
+    'perci_now_snapshots',
     'perci_mission_memory',
     'perci_mission_memory_candidates',
     'perci_harness_memory',
@@ -69,6 +72,7 @@ const PERSISTED_KEYS = [
     'perci_klipit_home',
     'perci_klipit_allow_http',
     'perci_klipit_history',
+    'perci_dock_autohide',
     ...API_KEY_STORAGE_KEYS
 ];
 

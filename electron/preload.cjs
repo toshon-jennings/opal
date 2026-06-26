@@ -32,6 +32,10 @@ contextBridge.exposeInMainWorld('electron', {
   listAgentJobs: (options) => ipcRenderer.invoke('agent-jobs:list', options),
   queueAgentJob: (job) => ipcRenderer.invoke('agent-jobs:queue', job),
   cancelAgentJob: (id) => ipcRenderer.invoke('agent-jobs:cancel', id),
+  queueJulesJob: (job) => ipcRenderer.invoke('jules:queue', job),
+  listGitHubRepos: () => ipcRenderer.invoke('github:list-repos'),
+  detectLocalRepo: () => ipcRenderer.invoke('git:detect-local-repo'),
+  runTerminalCommand: (command) => ipcRenderer.invoke('run-terminal-command', command),
   getOpenClawLocalProfile: () => ipcRenderer.invoke('openclaw:get-local-profile'),
   testOpenClawConnection: (profile) => ipcRenderer.invoke('openclaw:test-connection', profile),
   getOpenClawGatewayStatus: (profile) => ipcRenderer.invoke('openclaw:gateway-status', profile),
@@ -82,6 +86,7 @@ contextBridge.exposeInMainWorld('electron', {
   startHermesChat: (opts) => ipcRenderer.invoke('hermes:chat-start', opts),
   sendHermesChat: (opts) => ipcRenderer.invoke('hermes:chat-send', opts),
   stopHermesChat: () => ipcRenderer.invoke('hermes:chat-stop'),
+  cancelHermesChat: () => ipcRenderer.invoke('hermes:chat-cancel'),
   // Lighthouse port scanning
   lighthouseScan: () => ipcRenderer.invoke('lighthouse:scan'),
   lighthouseCheckPort: (port) => ipcRenderer.invoke('lighthouse:check-port', { port }),

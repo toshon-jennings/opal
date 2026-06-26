@@ -848,6 +848,11 @@ function createWindow() {
       }
       responseHeaders['Access-Control-Allow-Origin'] = ['*'];
       responseHeaders['Cross-Origin-Resource-Policy'] = ['cross-origin'];
+      // MarkItDownUI's webview has no explicit `partition`, so it shares this
+      // window's persistent default session — its disk HTTP cache otherwise
+      // survives reloads and app restarts, silently masking fixes to the
+      // local server's own static assets. Force every request fresh.
+      responseHeaders['Cache-Control'] = ['no-store'];
       callback({ responseHeaders });
     }
   );
@@ -1009,6 +1014,17 @@ app.whenReady().then(() => {
         const cleanUA = cleanedDesktopUserAgent(contents.session.getUserAgent());
         void child.webContents.loadURL(details.url, { userAgent: cleanUA });
       });
+      // Webview guest crashes weren't logged anywhere — attachRendererDiagnostics
+      // only covers the main window. A silent guest crash/recovery while a
+      // native dialog (e.g. MarkItDownUI's file picker) is open would look
+      // exactly like a visual "flash" without the dialog itself closing.
+      contents.on('render-process-gone', (_e, details) => {
+        appendRendererLog(`webview-render-process-gone reason=${details.reason} exitCode=${details.exitCode} url=${contents.getURL()}`);
+      });
+      contents.on('did-fail-load', (_e, errorCode, errorDescription, validatedURL) => {
+        if (errorCode === -3) return; // aborted, usually benign (e.g. navigated away)
+        appendRendererLog(`webview-did-fail-load ${errorCode} ${errorDescription} url=${validatedURL}`);
+      });
     }
 
     contents.setWindowOpenHandler(({ url }) => {
@@ -1138,6 +1154,7 @@ const apiKeyStorageKeys = new Set([
   'openrouter_key',
   'anthropic_key',
   'mistral_key',
+  'jules_api_key',
   'openclaw_config',
   'hermes_config',
   'gdash_google_client_id',
@@ -2857,10 +2874,18 @@ ipcMain.handle('hermes:chat-start', async (event, { model, workingDirectory } = 
   return { ok: true, sessionId: sid };
 });
 
+let hermesActiveChatChild = null;
+
 // Send a message in the active chat session. Runs `hermes chat -q` with
 // --resume after the first turn so context carries forward.
 ipcMain.handle('hermes:chat-send', async (event, { text } = {}) => {
   if (!hermesChatSession) return { ok: false, error: 'No chat session is running. Start one first.' };
+  if (hermesActiveChatChild) {
+    try {
+      hermesActiveChatChild.kill('SIGTERM');
+    } catch (e) {}
+    hermesActiveChatChild = null;
+  }
   const msg = typeof text === 'string' ? text.trim() : '';
   if (!msg) return { ok: false, error: 'Message is empty.' };
   const { model, cwd, realSessionId } = hermesChatSession;
@@ -2869,8 +2894,36 @@ ipcMain.handle('hermes:chat-send', async (event, { text } = {}) => {
   if (realSessionId) args.push('--resume', realSessionId);
   if (cwd) args.push('--workdir', cwd);
   hermesChatSession.hasHistory = true;
+
   try {
-    const result = await runHermes(args, 300000); // 5-min timeout for long turns
+    const result = await new Promise((resolve) => {
+      const child = spawn('hermes', args, { cwd: cwd || undefined, stdio: ['ignore', 'pipe', 'pipe'], env: process.env, shell: false });
+      hermesActiveChatChild = child;
+      let stdout = '';
+      let stderr = '';
+      const timeoutMs = 300000; // 5 minutes
+      const timer = setTimeout(() => {
+        try { child.kill('SIGKILL'); } catch (e) {}
+      }, timeoutMs);
+
+      child.stdout.on('data', chunk => { stdout += chunk.toString(); });
+      child.stderr.on('data', chunk => { stderr += chunk.toString(); });
+      child.on('error', err => {
+        clearTimeout(timer);
+        if (hermesActiveChatChild === child) hermesActiveChatChild = null;
+        resolve({ ok: false, error: err.message, stdout, stderr });
+      });
+      child.on('close', (code, signal) => {
+        clearTimeout(timer);
+        if (hermesActiveChatChild === child) hermesActiveChatChild = null;
+        const wasCancelled = signal === 'SIGTERM' || signal === 'SIGKILL';
+        resolve({ ok: code === 0 && !wasCancelled, code, signal, stdout, stderr });
+      });
+    });
+
+    if (result.signal === 'SIGTERM' || result.signal === 'SIGKILL') {
+      return { ok: false, error: 'Cancelled by user.', cancelled: true };
+    }
     if (!result.ok) return { ok: false, error: result.error || result.stderr.trim() || 'Hermes chat turn failed.' };
     let output = result.stdout.trim();
     // First turn: capture the real session ID from the output footer
@@ -2885,13 +2938,33 @@ ipcMain.handle('hermes:chat-send', async (event, { text } = {}) => {
     }
     return { ok: true, output, sessionId: hermesChatSession.sessionId };
   } catch (err) {
+    if (hermesActiveChatChild) {
+      hermesActiveChatChild = null;
+    }
     return { ok: false, error: err.message };
   }
 });
 
 ipcMain.handle('hermes:chat-stop', async () => {
+  if (hermesActiveChatChild) {
+    try {
+      hermesActiveChatChild.kill('SIGTERM');
+    } catch (e) {}
+    hermesActiveChatChild = null;
+  }
   hermesChatSession = null;
   return { ok: true };
+});
+
+ipcMain.handle('hermes:chat-cancel', async () => {
+  if (hermesActiveChatChild) {
+    try {
+      hermesActiveChatChild.kill('SIGTERM');
+    } catch (e) {}
+    hermesActiveChatChild = null;
+    return { ok: true };
+  }
+  return { ok: false, error: 'No active chat turn running.' };
 });
 // Same shape as the OpenClaw log tailer: one long-lived child, parsed lines
 // forwarded as compact events, auto-restart unless explicitly stopped.
@@ -3388,6 +3461,16 @@ ipcMain.handle('agent-jobs:cancel', async (event, jobId) => {
     return { ok: true, status: jobRecord.status, message: 'Job already finished.' };
   }
 
+  // Cloud agents (Jules) have no childProcess — just mark the job as cancelled
+  if (!child) {
+    jobRecord.status = 'cancelled';
+    jobRecord.completed_at = new Date().toISOString();
+    jobRecord.output_kind = 'status';
+    if (!jobRecord.output.endsWith('\n')) jobRecord.output += '\n';
+    jobRecord.output += '[Cancelled by user]';
+    return { ok: true, status: 'cancelled' };
+  }
+
   // Kill the process
   try {
     if (process.platform === 'win32') {
@@ -3409,6 +3492,247 @@ ipcMain.handle('agent-jobs:cancel', async (event, jobId) => {
   return { ok: true, status: 'cancelled' };
 });
 
+// ─── Jules Cloud Agent ──────────────────────────────────────────────────────
+// Jules is a remote coding agent from Google Labs. Instead of spawning a
+// local CLI, we POST to the Jules API and track the session asynchronously.
+// The job record uses a polling mechanism (via the renderer) to check status.
+
+const JULES_API_URL = 'https://jules.googleapis.com/v1alpha/sessions';
+
+ipcMain.handle('jules:queue', async (event, { prompt, source = 'agents_page', repo: explicitRepo, branch: explicitBranch } = {}) => {
+  if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
+    return { ok: false, error: 'Missing prompt for Jules task.' };
+  }
+
+  // Read the API key from app-data (encrypted via safeStorage)
+  let apiKey = '';
+  try {
+    const appData = await readAppData();
+    apiKey = appData?.jules_api_key || '';
+  } catch (_) {}
+
+  if (!apiKey) {
+    return { ok: false, error: 'Jules API key not configured. Add it in Settings → Jules.' };
+  }
+
+  // Determine the GitHub repo context.
+  // Use explicit repo/branch if provided (user picked from dropdown),
+  // otherwise auto-detect from the local git working directory.
+  let repoFullName = explicitRepo || null;
+  let startingBranch = explicitBranch || null;
+
+  if (!repoFullName || !startingBranch) {
+    try {
+      const { execSync } = require('child_process');
+      const gitDir = execSync('git rev-parse --git-dir 2>/dev/null', {
+        encoding: 'utf8',
+        timeout: 5000,
+      }).trim();
+
+      if (gitDir) {
+        const remoteUrl = execSync('git remote get-url origin 2>/dev/null', {
+          encoding: 'utf8',
+          timeout: 5000,
+        }).trim();
+
+        // Extract "owner/repo" from HTTPS or SSH remote URL
+        const httpsMatch = remoteUrl.match(/github\.com\/([^/]+\/[^/]+?)(?:\.git)?$/);
+        const sshMatch = remoteUrl.match(/github\.com:([^/]+\/[^/]+?)(?:\.git)?$/);
+        const match = httpsMatch || sshMatch;
+        if (match && !repoFullName) {
+          repoFullName = match[1];
+        }
+
+        // Get current branch
+        const branch = execSync('git branch --show-current 2>/dev/null', {
+          encoding: 'utf8',
+          timeout: 5000,
+        }).trim();
+        if (branch && !startingBranch) startingBranch = branch;
+      }
+    } catch (_) {
+      // Git info is optional — Jules can work without it but with reduced context
+    }
+  }
+
+  if (!repoFullName) {
+    return { ok: false, error: 'Jules requires a GitHub repo. Select one from the dropdown or run `git remote add origin git@github.com:owner/repo.git` first.' };
+  }
+  if (!startingBranch) startingBranch = 'main';
+
+  const jobId = generateJobId();
+  const now = new Date().toISOString();
+
+  const jobRecord = {
+    id: jobId,
+    agent: 'jules',
+    type: 'jules',
+    status: 'pending',
+    prompt,
+    working_directory: null,
+    model: null,
+    source,
+    created_at: now,
+    started_at: null,
+    completed_at: null,
+    exit_code: null,
+    output: '',
+    output_kind: null,
+    childProcess: null,
+    session_id: null,
+    pr_url: null,
+    repo: repoFullName,
+    branch: startingBranch,
+  };
+
+  // Build the Jules payload matching the action.yaml format
+  const julesPayload = {
+    prompt,
+    sourceContext: {
+      source: `sources/github/${repoFullName}`,
+      githubRepoContext: {
+        startingBranch,
+      },
+    },
+    requirePlanApproval: false,
+    automationMode: 'AUTO_CREATE_PR',
+  };
+
+  // Fire the API call (don't block the IPC handler response)
+  try {
+    const https = require('https');
+    const http = require('http');
+
+    const body = JSON.stringify(julesPayload);
+    const url = new URL(JULES_API_URL);
+
+    const reqOptions = {
+      hostname: url.hostname,
+      port: url.port || 443,
+      path: url.pathname,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+        'X-Goog-Api-Key': apiKey,
+      },
+      timeout: 30000,
+    };
+
+    const req = https.request(reqOptions, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk.toString(); });
+      res.on('end', () => {
+        const statusCode = res.statusCode;
+        if (statusCode >= 200 && statusCode < 300) {
+          try {
+            const parsed = JSON.parse(data);
+            jobRecord.session_id = parsed.id || parsed.sessionId || null;
+            jobRecord.status = 'running';
+            jobRecord.started_at = new Date().toISOString();
+            jobRecord.output = `Jules session started${jobRecord.session_id ? ` (id: ${jobRecord.session_id})` : ''}. Waiting for completion...`;
+            jobRecord.output_kind = 'status';
+          } catch (_) {
+            jobRecord.status = 'running';
+            jobRecord.started_at = new Date().toISOString();
+            jobRecord.output = 'Jules session accepted. Waiting for completion...';
+            jobRecord.output_kind = 'status';
+          }
+        } else {
+          jobRecord.status = 'failed';
+          jobRecord.completed_at = new Date().toISOString();
+          jobRecord.exit_code = statusCode;
+          jobRecord.output_kind = 'error';
+          try {
+            const errParsed = JSON.parse(data);
+            jobRecord.output = `Jules API error (${statusCode}): ${errParsed.error?.message || errParsed.message || data.slice(0, 200)}`;
+          } catch (_) {
+            jobRecord.output = `Jules API error (${statusCode}): ${data.slice(0, 200)}`;
+          }
+        }
+      });
+    });
+
+    req.on('error', (err) => {
+      jobRecord.status = 'failed';
+      jobRecord.completed_at = new Date().toISOString();
+      jobRecord.exit_code = null;
+      jobRecord.output_kind = 'error';
+      jobRecord.output = `Network error: ${err.message}`;
+    });
+
+    req.on('timeout', () => {
+      req.destroy();
+      // Don't mark as failed — the session may still be running
+      jobRecord.output += '\nRequest timed out (session may still be running).';
+      jobRecord.output_kind = 'status';
+    });
+
+    req.write(body);
+    req.end();
+  } catch (err) {
+    jobRecord.status = 'failed';
+    jobRecord.completed_at = new Date().toISOString();
+    jobRecord.output_kind = 'error';
+    jobRecord.output = `Failed to invoke Jules API: ${err.message}`;
+  }
+
+  agentJobs.set(jobId, { childProcess: null, job: jobRecord });
+  return { ok: true, job: serializeJob(jobRecord) };
+});
+
+// ─── GitHub Repo Listing ───────────────────────────────────────────────────
+// Used by the Jules integration to let the user pick which repo to target.
+// Requires `gh` CLI to be installed and authenticated.
+ipcMain.handle('github:list-repos', async () => {
+  try {
+    const { execSync } = require('child_process');
+    // Get repos from the authenticated gh user (both owner and collaborator repos)
+    const raw = execSync(
+      'gh repo list --limit 100 --json nameWithOwner,url,description,defaultBranchRef --jq \'.[] | {name: .nameWithOwner, url: .url, description: .description, branch: .defaultBranchRef.name}\'',
+      { encoding: 'utf8', timeout: 15000, stdio: ['ignore', 'pipe', 'pipe'] }
+    ).trim();
+
+    if (!raw) return [];
+
+    // Parse JSON lines output
+    const repos = raw.split('\n').map(line => {
+      try { return JSON.parse(line); } catch { return null; }
+    }).filter(Boolean);
+
+    return repos;
+  } catch (err) {
+    // gh not installed or not authenticated
+    return { error: err.message.includes('gh') ? 'gh CLI not found or not authenticated. Run `gh auth login`.' : err.message };
+  }
+});
+
+// ─── Git Local Repo Detection ───────────────────────────────────────────────
+// Returns the detected GitHub repo name and branch from the current working directory.
+ipcMain.handle('git:detect-local-repo', async () => {
+  try {
+    const { execSync } = require('child_process');
+    const remoteUrl = execSync('git remote get-url origin 2>/dev/null', {
+      encoding: 'utf8',
+      timeout: 5000,
+    }).trim();
+
+    const httpsMatch = remoteUrl.match(/github\.com\/([^/]+\/[^/]+?)(?:\.git)?$/);
+    const sshMatch = remoteUrl.match(/github\.com:([^/]+\/[^/]+?)(?:\.git)?$/);
+    const match = httpsMatch || sshMatch;
+    if (!match) return null;
+
+    const branch = execSync('git branch --show-current 2>/dev/null', {
+      encoding: 'utf8',
+      timeout: 5000,
+    }).trim();
+
+    return { repo: match[1], branch: branch || 'main' };
+  } catch (_) {
+    return null;
+  }
+});
+
 // Recursive file listing
 async function getFiles(dir, baseDir = dir) {
   const dirents = await fs.readdir(dir, { withFileTypes: true });
@@ -3427,7 +3751,43 @@ async function getFiles(dir, baseDir = dir) {
     return dirent.isDirectory() ? getFiles(res, baseDir) : res.replace(baseDir + path.sep, '');
   }));
   return Array.prototype.concat(...files);
-}
+});
+
+// ─── Run Terminal Command ────────────────────────────────────────────────────
+// Opens an interactive command in the system terminal (macOS Terminal.app).
+// Used for auth flows like `gh auth login` that need a TTY + user interaction.
+ipcMain.handle('run-terminal-command', async (event, command) => {
+  if (!command || typeof command !== 'string') {
+    return { ok: false, error: 'No command provided.' };
+  }
+
+  // Safety: only allow specific whitelisted commands
+  const allowedPrefixes = ['gh auth', 'gh api', 'git ', 'npm ', 'node ', 'python ', 'python3 '];
+  const trimmed = command.trim();
+  if (!allowedPrefixes.some(prefix => trimmed.startsWith(prefix))) {
+    return { ok: false, error: `Command not allowed: ${trimmed.split(' ')[0]}` };
+  }
+
+  try {
+    if (process.platform === 'darwin') {
+      // macOS: open in Terminal.app via osascript
+      const { execSync } = require('child_process');
+      execSync(`osascript -e 'tell application "Terminal" to do script "${trimmed}"'`, {
+        encoding: 'utf8',
+        timeout: 5000,
+      });
+      return { ok: true, message: `Opened in Terminal: ${trimmed}` };
+    } else {
+      // Linux: try common terminal emulators
+      const { execSync } = require('child_process');
+      const termCmd = process.env.TERMINAL || 'x-terminal-emulator';
+      execSync(`${termCmd} -e "${trimmed}" &`, { encoding: 'utf8', timeout: 5000 });
+      return { ok: true, message: `Opened in terminal: ${trimmed}` };
+    }
+  } catch (err) {
+    return { ok: false, error: `Failed to open terminal: ${err.message}` };
+  }
+});
 
 ipcMain.handle('register-workspace', (event, workspacePath) => {
   if (workspacePath && typeof workspacePath === 'string') {

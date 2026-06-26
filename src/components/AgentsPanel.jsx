@@ -146,6 +146,16 @@ export const AGENT_DEFINITIONS = [
     capabilities: ['prompt', 'working_directory'],
     defaultPrompt: 'Ask Qwen Code to inspect, edit, or debug code in the selected folder.',
   },
+  {
+    id: 'jules',
+    requestType: 'jules',
+    label: 'Jules',
+    shortLabel: 'Jules',
+    detail: 'Google\'s cloud coding agent powered by Gemini 3 Pro. Runs autonomously in a GitHub cloud VM and creates PRs.',
+    status: 'specialized',
+    capabilities: ['prompt', 'github_repo'],
+    defaultPrompt: 'Describe the task for Jules to perform in your GitHub repo.',
+  },
 ];
 
 // Agents whose CLI accepts a `--model` flag (verified against each CLI's
@@ -420,6 +430,58 @@ export default function AgentsPanel() {
       return '';
     }
   });
+
+  // Jules repo selection
+  const [julesSelectedRepo, setJulesSelectedRepo] = useState(null); // { name, url, branch }
+  const [julesRepoList, setJulesRepoList] = useState([]);      // [{ name, url, description, branch }]
+  const [julesReposLoading, setJulesReposLoading] = useState(false);
+  const [julesReposError, setJulesReposError] = useState(null);
+
+  // Load repo list from gh CLI when Jules is selected
+  useEffect(() => {
+    if (selectedId !== 'jules') return;
+    if (julesRepoList.length > 0 || julesReposLoading || julesReposError) return;
+
+    let cancelled = false;
+    async function loadRepos() {
+      setJulesReposLoading(true);
+      setJulesReposError(null);
+      try {
+        const repos = await window.electron?.listGitHubRepos?.();
+        if (cancelled) return;
+        if (repos?.error) {
+          setJulesReposError(repos.error);
+          setJulesRepoList([]);
+          return;
+        }
+        if (Array.isArray(repos) && repos.length > 0) {
+          setJulesRepoList(repos);
+          // Auto-detect from local git if no explicit selection
+          if (!julesSelectedRepo && repos.length > 0) {
+            // Try to detect local git remote and match it
+            try {
+              const detected = await window.electron?.detectLocalRepo?.();
+              if (detected?.repo) {
+                const match = repos.find(r => r.name === detected.repo);
+                if (match) {
+                  setJulesSelectedRepo({ name: match.name, branch: match.branch || detected.branch });
+                  return;
+                }
+              }
+            } catch {}
+            // Fallback: just pick the first repo
+            setJulesSelectedRepo({ name: repos[0].name, branch: repos[0].branch || 'main' });
+          }
+        }
+      } catch (err) {
+        if (!cancelled) setJulesReposError(err.message || 'Failed to load repos.');
+      } finally {
+        if (!cancelled) setJulesReposLoading(false);
+      }
+    }
+    void loadRepos();
+    return () => { cancelled = true; };
+  }, [selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [modelByAgent, setModelByAgent] = useState(() => {
     try {
       const parsed = JSON.parse(readStringStorage(AGENT_MODEL_PERSIST_KEY, '{}'));
@@ -464,7 +526,7 @@ export default function AgentsPanel() {
   const activeSelectedJob = selectedJobs.find((job) => isActiveStatus(job.status) && !isStaleJob(job)) ?? null;
   // OpenClaw and Hermes run through the job queue like CLI agents, but also
   // keep a shortcut to their dedicated window (isSpecializedAgent).
-  const isSpecializedAgent = selectedAgent.id === 'openclaw' || selectedAgent.id === 'hermes';
+  const isSpecializedAgent = selectedAgent.id === 'openclaw' || selectedAgent.id === 'hermes' || selectedAgent.id === 'jules';
   const isCliAgent = Boolean(selectedAgent.requestType);
 
   const hasAnyActiveJob = useMemo(
@@ -568,6 +630,44 @@ export default function AgentsPanel() {
 
   async function sendRequest() {
     if (!isCliAgent || !prompt.trim()) return;
+
+    // Jules is a cloud agent — route through its own IPC bridge
+    if (selectedAgent.id === 'jules') {
+      if (!window.electron?.queueJulesJob) {
+        setNotice('Jules integration requires the Perci desktop app.');
+        return;
+      }
+      setQueueing(true);
+      setNotice(null);
+      try {
+        const result = await window.electron.queueJulesJob({
+          prompt,
+          source: 'agents_page',
+          repo: julesSelectedRepo?.name,
+          branch: julesSelectedRepo?.branch,
+        });
+        if (!result?.ok) {
+          setNotice(result?.error || 'Failed to queue Jules task.');
+          return;
+        }
+        const queuedJob = result.job;
+        setPrompt('');
+        setNotice('Jules task queued. It will run in the cloud and create a PR when done.');
+        setStatusFilter('active');
+        setSelectedJobId(queuedJob.id);
+        setJobsByAgent((current) => {
+          const existing = current[selectedAgent.id] ?? [];
+          return { ...current, [selectedAgent.id]: mergeJobsById(existing, [queuedJob]) };
+        });
+        await loadJobs();
+      } catch (error) {
+        setNotice(formatAgentBridgeError(error, 'Failed to queue Jules task.'));
+      } finally {
+        setQueueing(false);
+      }
+      return;
+    }
+
     if (!window.electron?.queueAgentJob) {
       setNotice('Agent jobs require the Perci desktop app.');
       return;
@@ -638,7 +738,10 @@ export default function AgentsPanel() {
   function launchSpecializedAgent() {
     setNotice(null);
     if (selectedAgent.id === 'hermes') openWindow(HERMES_WINDOW_ID);
-    else setShowOpenClawDashboard(true);
+    else if (selectedAgent.id === 'jules') {
+      // Jules is a cloud agent — show the queued jobs view (already selected)
+      setNotice('Jules jobs are queued from this panel. Add your API key in Settings first.');
+    } else setShowOpenClawDashboard(true);
   }
 
   // ── Render helpers ───────────────────────────────────────────────────────
@@ -794,7 +897,27 @@ export default function AgentsPanel() {
             </div>
           </div>
 
-          {/* Workspace */}
+          {/* Workspace / Repo context */}
+          {selectedJob.repo && (
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-3">
+              <div className="flex items-center justify-between mb-1">
+                <div className="text-[10px] uppercase tracking-wider text-[var(--text-tertiary)]">Repository</div>
+                <button
+                  onClick={() => copyText('Repository', selectedJob.repo)}
+                  className="p-1 rounded text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
+                >
+                  <Copy size={11} />
+                </button>
+              </div>
+              <div className="text-xs font-mono text-[var(--text-primary)] break-all">{selectedJob.repo}</div>
+              {selectedJob.branch && (
+                <div className="mt-1 text-[10px] text-[var(--text-tertiary)]">
+                  Branch: <span className="font-mono text-[var(--text-secondary)]">{selectedJob.branch}</span>
+                </div>
+              )}
+            </div>
+          )}
+
           {selectedJob.working_directory && (
             <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-3">
               <div className="flex items-center justify-between mb-1">
@@ -839,17 +962,40 @@ export default function AgentsPanel() {
           )}
 
           {/* Job status description */}
-          {selectedJob.status === 'pending' && (
-            <div className={`rounded-lg p-3 ${stale ? 'border border-amber-500/30 bg-amber-500/5' : 'border border-[var(--border)] bg-[var(--bg-secondary)]'}`}>
+          {selectedJob.agent === 'jules' ? (
+            <div className={`rounded-lg p-3 ${stale ? 'border border-amber-500/30 bg-amber-500/5' : 'border border-[var(--accent)]/20 bg-[var(--accent)]/5'}`}>
               <p className="text-xs leading-5 text-[var(--text-secondary)]">
-                {stale ? 'Waiting for an available agent to pick this up.' : 'Queued, waiting for an agent to pick it up.'}
+                {stale
+                  ? 'Jules session may have stalled. Check the PR on GitHub.'
+                  : selectedJob.status === 'pending'
+                    ? 'Jules session starting in the Google cloud...'
+                    : selectedJob.status === 'running'
+                      ? 'Jules is working in the cloud. It will create a PR when done — check the session ID or the GitHub PR.'
+                      : selectedJob.status === 'completed'
+                        ? 'Jules completed. Check the GitHub PR for results.'
+                        : 'Jules session finished.'}
               </p>
+              {selectedJob.session_id && (
+                <p className="mt-1 text-[10px] font-mono text-[var(--text-tertiary)]">
+                  Session: {selectedJob.session_id}
+                </p>
+              )}
             </div>
-          )}
-          {(selectedJob.status === 'running' || selectedJob.status === 'claimed') && selectedJob.started_at && (
-            <div className="rounded-lg border border-[var(--accent)]/20 bg-[var(--accent)]/5 p-3">
-              <p className="text-xs leading-5 text-[var(--text-secondary)]">Picked up by the local agent.</p>
-            </div>
+          ) : (
+            <>
+              {selectedJob.status === 'pending' && (
+                <div className={`rounded-lg p-3 ${stale ? 'border border-amber-500/30 bg-amber-500/5' : 'border border-[var(--border)] bg-[var(--bg-secondary)]'}`}>
+                  <p className="text-xs leading-5 text-[var(--text-secondary)]">
+                    {stale ? 'Waiting for an available agent to pick this up.' : 'Queued, waiting for an agent to pick it up.'}
+                  </p>
+                </div>
+              )}
+              {(selectedJob.status === 'running' || selectedJob.status === 'claimed') && selectedJob.started_at && (
+                <div className="rounded-lg border border-[var(--accent)]/20 bg-[var(--accent)]/5 p-3">
+                  <p className="text-xs leading-5 text-[var(--text-secondary)]">Picked up by the local agent.</p>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -915,22 +1061,93 @@ export default function AgentsPanel() {
               {isCliAgent ? (
                 <div className="space-y-4">
                   {/* OpenClaw: gateway agent turn runs through the job queue;
-                      offer a dashboard shortcut for long-running workflows. */}
+                      offer a dashboard shortcut for long-running workflows.
+                      Jules: cloud coding agent triggered from this panel. */}
                   {isSpecializedAgent && (
                     <div className="flex items-center justify-between gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2">
                       <span className="text-xs text-[var(--text-tertiary)]">
                         {selectedAgent.id === 'hermes'
                           ? 'Runs a headless one-shot through the local Hermes CLI.'
-                          : 'Sends a turn to the OpenClaw gateway agent.'}
+                          : selectedAgent.id === 'jules'
+                            ? 'Cloud agent from Google Labs. Trigger tasks from this panel.'
+                            : 'Sends a turn to the OpenClaw gateway agent.'}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => void launchSpecializedAgent()}
-                        className="micro-interaction flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-[var(--border)] text-[var(--text-secondary)] text-xs font-medium hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-colors shrink-0"
-                      >
-                        <TerminalSquare size={13} />
-                        {selectedAgent.id === 'hermes' ? 'Open window' : 'Dashboard'}
-                      </button>
+                      {selectedAgent.id !== 'jules' && (
+                        <button
+                          type="button"
+                          onClick={() => void launchSpecializedAgent()}
+                          className="micro-interaction flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-[var(--border)] text-[var(--text-secondary)] text-xs font-medium hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-colors shrink-0"
+                        >
+                          <TerminalSquare size={13} />
+                          {selectedAgent.id === 'hermes' ? 'Open window' : 'Dashboard'}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {/* Jules: Repo selector */}
+                  {selectedAgent.id === 'jules' && (
+                    <div>
+                      <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">
+                        Target Repository
+                      </label>
+                      {julesReposLoading ? (
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)]">
+                          <RefreshCw size={13} className="animate-spin text-[var(--text-tertiary)]" />
+                          <span className="text-xs text-[var(--text-tertiary)]">Loading your GitHub repos...</span>
+                        </div>
+                      ) : julesReposError ? (
+                        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
+                          <p className="text-xs text-amber-400">{julesReposError}</p>
+                          <div className="mt-1.5 flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => { setJulesRepoList([]); setJulesReposError(null); }}
+                              className="text-[10px] text-[var(--accent)] hover:underline"
+                            >
+                              Retry
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => window.electron?.runTerminalCommand?.('gh auth login')}
+                              className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+                            >
+                              <TerminalSquare size={10} />
+                              gh auth login
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={julesSelectedRepo?.name || ''}
+                            onChange={(e) => {
+                              const selected = julesRepoList.find(r => r.name === e.target.value);
+                              if (selected) setJulesSelectedRepo({ name: selected.name, branch: selected.branch || 'main' });
+                            }}
+                            className="flex-1 bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                          >
+                            {julesRepoList.length === 0 ? (
+                              <option value="">No repos found (run `gh auth login`)</option>
+                            ) : (
+                              julesRepoList.map((repo) => (
+                                <option key={repo.name} value={repo.name}>
+                                  {repo.name}
+                                </option>
+                              ))
+                            )}
+                          </select>
+                          {julesSelectedRepo && (
+                            <span className="shrink-0 text-[10px] font-mono text-[var(--text-tertiary)] px-2 py-1 rounded border border-[var(--border)] bg-[var(--bg-secondary)]">
+                              {julesSelectedRepo.branch || 'main'}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {julesSelectedRepo && (
+                        <p className="mt-1 text-[10px] text-[var(--text-tertiary)]">
+                          Jules will work on <span className="font-mono text-[var(--text-secondary)]">{julesSelectedRepo.name}</span> from branch <span className="font-mono text-[var(--text-secondary)]">{julesSelectedRepo.branch || 'main'}</span>
+                        </p>
+                      )}
                     </div>
                   )}
                   {/* Workspace / folder */}
