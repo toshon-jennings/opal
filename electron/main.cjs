@@ -4383,6 +4383,7 @@ const EIDOS_GIT_STALE_MS = 14 * 24 * 60 * 60 * 1000;
 const EIDOS_GIT_MAX_REPOS = 24;
 
 let eidosDashboardProcess = null;
+let eidosProductionBuildFailed = false; // don't re-run a failing `next build` every launch
 
 function eidosGitPath() {
   return commandExists('git', [
@@ -4784,6 +4785,46 @@ async function eidosStartCompose(dockerPath) {
   }
 }
 
+// A production build (`next start`) serves precompiled output, so the dashboard
+// paints almost immediately. `next dev` compiles each route on first request,
+// which is the main reason the embedded Eidos window is slow to first load.
+// `.next/BUILD_ID` is written only by `next build`, never by `next dev`.
+function eidosHasProductionBuild() {
+  try {
+    return fsSync.existsSync(path.join(EIDOS_DIR, '.next', 'BUILD_ID'));
+  } catch {
+    return false;
+  }
+}
+
+// One-time production build. Uses async spawn (not spawnSync) so the Electron
+// main process event loop stays free while the build runs concurrently with the
+// container stack. Returns false on failure so the caller can fall back to dev.
+function eidosBuildDashboard() {
+  return new Promise((resolve) => {
+    const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+    console.log('[eidos] Building dashboard for production (one-time)…');
+    const proc = spawn(npmCmd, ['run', 'build'], {
+      cwd: EIDOS_DIR,
+      env: { ...process.env },
+      stdio: 'pipe',
+    });
+    proc.on('error', (err) => {
+      console.warn('[eidos] Production build error; falling back to dev server:', err.message);
+      resolve(false);
+    });
+    proc.on('exit', (code) => {
+      if (code === 0) {
+        console.log('[eidos] Dashboard production build complete.');
+        resolve(true);
+      } else {
+        console.warn(`[eidos] Production build exited ${code}; falling back to dev server.`);
+        resolve(false);
+      }
+    });
+  });
+}
+
 async function eidosStartDashboard() {
   if (eidosDashboardProcess) {
     // Already running — verify it's healthy
@@ -4798,9 +4839,18 @@ async function eidosStartDashboard() {
   const portCheck = await requestText(EIDOS_DASHBOARD_URL, 2000);
   if (portCheck.ok) return; // Something healthy is already serving
 
-  // Start Next.js dev server
+  // Prefer serving a production build for fast first paint. Build once if needed;
+  // if the build fails (Eidos repo may lag), fall back to `next dev` so the
+  // window still works.
+  let built = eidosHasProductionBuild();
+  if (!built && !eidosProductionBuildFailed) {
+    built = await eidosBuildDashboard();
+    if (!built) eidosProductionBuildFailed = true;
+  }
+  const script = built ? 'start' : 'dev';
+
   const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-  eidosDashboardProcess = spawn(npmCmd, ['run', 'dev', '--', '-p', String(EIDOS_DASHBOARD_PORT)], {
+  eidosDashboardProcess = spawn(npmCmd, ['run', script, '--', '-p', String(EIDOS_DASHBOARD_PORT)], {
     cwd: EIDOS_DIR,
     env: {
       ...process.env,
@@ -4885,10 +4935,17 @@ ipcMain.handle('eidos:start', async () => {
     // Ensure Eidos directory exists (clone and install dependencies if missing)
     await eidosEnsureDirectoryExists();
 
-    // Step 2: Start the Docker Compose stack (idempotent — safe if already running)
+    // Step 2: Start the dashboard server concurrently with the container stack.
+    // It only depends on its own port — never on the API or containers — so its
+    // (build +) startup overlaps the slow `docker compose up` instead of running
+    // after it. The .catch keeps an early failure from becoming an unhandled
+    // rejection while we await compose/API below; it's surfaced afterward.
+    const dashboardPromise = eidosStartDashboard().catch((err) => ({ __dashboardError: err }));
+
+    // Step 3: Start the Docker Compose stack (idempotent — safe if already running)
     await eidosStartCompose(dockerPath);
 
-    // Step 3: Wait for the memU API to be healthy
+    // Step 4: Wait for the memU API to be healthy
     const apiDeadline = Date.now() + 120000;
     let apiReady = false;
     while (Date.now() < apiDeadline) {
@@ -4900,8 +4957,11 @@ ipcMain.handle('eidos:start', async () => {
       return { error: 'Docker containers started but memU API did not become healthy within 2 minutes' };
     }
 
-    // Step 4: Start the Next.js dashboard
-    await eidosStartDashboard();
+    // Step 5: Ensure the dashboard (started in step 2) finished coming up
+    const dashboardResult = await dashboardPromise;
+    if (dashboardResult && dashboardResult.__dashboardError) {
+      throw dashboardResult.__dashboardError;
+    }
 
     return { ok: true, state: 'running', api: EIDOS_API_URL, dashboard: EIDOS_DASHBOARD_URL };
   } catch (err) {
