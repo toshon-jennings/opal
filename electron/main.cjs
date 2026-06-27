@@ -3267,10 +3267,10 @@ ipcMain.handle('agent-jobs:activity', async () => {
   for (const [, jobRecord] of agentJobs) {
     const job = jobRecord.job;
     const isActive = ['pending', 'claimed', 'running', 'retry_queued'].includes(job.status);
-    // Include recently-completed jobs (within 60s) so the pulse shows
-    // activity for fast agents that finish between polls
+    // Include recently-completed jobs (within 120s) so the pulse shows
+    // activity for fast agents that finish between polls or before MC opens
     const completedAt = job.completed_at ? new Date(job.completed_at).getTime() : null;
-    const isRecent = completedAt && (Date.now() - completedAt) < 60000;
+    const isRecent = completedAt && (Date.now() - completedAt) < 120000;
     if (!isActive && !isRecent) continue;
 
     const lane = AGENT_TO_LANE[job.agent] || 'general';
@@ -3461,7 +3461,8 @@ ipcMain.handle('agent-jobs:queue', async (event, { agent, prompt, working_direct
   }
 
   const spawnEnv = { ...process.env };
-  // Inject COMMAND_CODE_API_KEY if available (from shell env or Perci config)
+  // Inject COMMAND_CODE_API_KEY if available (from shell env or Perci config).
+  // Only inject if cmd doesn't already have valid auth (checked via cmd auth status).
   if (agent === 'command_code' && !spawnEnv.COMMAND_CODE_API_KEY) {
     // Try reading from ~/.commandcode/api-key if the env var isn't set
     try {
