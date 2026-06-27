@@ -1,19 +1,37 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
     ActivitySquare,
+    ArrowRight,
     BookOpen,
     Bot,
-    CheckCircle2,
     Code,
+    Compass,
+    GripHorizontal,
     Hammer,
-    Layers3,
     MessageSquare,
+    ShieldCheck,
     Sparkles,
     TerminalSquare,
     Users,
-    X
+    X,
 } from 'lucide-react';
+
+/*
+ * Mode Guide — Field Manual.
+ *
+ * This modal uses the same visual system and structure as the Power Workspace Field Manual.
+ * It is scoped under the `.mgfm` namespace and driven by `--mg-*` tokens.
+ */
+
+const STATIONS = [
+    { id: 'chat', label: 'Chat', icon: MessageSquare, accent: '#f97316' },
+    { id: 'cowork', label: 'Cowork', icon: Users, accent: '#22d3ee' },
+    { id: 'code', label: 'Code', icon: Code, accent: '#a78bfa' },
+    { id: 'agents', label: 'Agents', icon: Bot, accent: '#4ade80' },
+    { id: 'build', label: 'Build', icon: Hammer, accent: '#fb7185' },
+    { id: 'mission', label: 'Mission', icon: ActivitySquare, accent: '#60a5fa' },
+];
 
 const modeCards = [
     {
@@ -90,336 +108,925 @@ const modeCards = [
     }
 ];
 
-const advancedCards = [
-    {
-        title: 'How to choose quickly',
-        text: 'If you want to talk, use Chat. If you want an agentic work session, use Cowork. If you want direct editor context, use Code. If you want to dispatch a specific CLI coding agent, use Agents. If you want supervision and validation, use Mission. If you want generated app output plus preview, use Build.'
-    },
-    {
-        title: 'Execution vs oversight',
-        text: 'Chat, Cowork, Code, Agents, and Build are primarily work-producing surfaces. Mission is the oversight surface that helps you inspect, validate, and remember what those other modes did.'
-    },
-    {
-        title: 'Single-agent vs multi-agent',
-        text: 'Chat, Cowork, Code, and Build are generally single-surface experiences. Agents is explicitly about selecting among multiple external CLI agents and comparing their job activity.'
-    },
-    {
-        title: 'State and artifacts',
-        text: 'Code is file-centric, Build is generated-output-centric, Cowork is task-session-centric, Agents is job-centric, Chat is conversation-centric, and Mission is run-and-validation-centric.'
-    }
+const SECTIONS = [
+    { id: 'overview', no: '01', label: 'Overview' },
+    { id: 'surfaces', no: '02', label: 'Six surfaces' },
+    { id: 'triage', no: '03', label: 'How to choose' },
+    { id: 'execution', no: '04', label: 'Work vs oversight' },
+    { id: 'comparisons', no: '05', label: 'Key comparisons' },
+    { id: 'workflow', no: '06', label: 'Expert workflow' },
+    { id: 'field', no: '07', label: 'Field notes' },
 ];
 
-function GuideSection({ title, icon: Icon, children }) {
+function OrbitHero() {
+    const cx = 360;
+    const cy = 150;
+    const rx = 250;
+    const ry = 104;
+    const points = STATIONS.map((station, i) => {
+        const angle = (-90 + i * (360 / STATIONS.length)) * (Math.PI / 180);
+        return {
+            ...station,
+            x: cx + rx * Math.cos(angle),
+            y: cy + ry * Math.sin(angle),
+        };
+    });
+
     return (
-        <section className="focus-card rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-5">
-            <div className="flex items-center gap-2">
-                <Icon size={16} className="text-[var(--accent)]" />
-                <h3 className="text-base font-semibold text-[var(--text-primary)]">{title}</h3>
+        <svg
+            className="mgfm-orbit"
+            viewBox="0 0 720 300"
+            role="img"
+            aria-label="Perci Modes loop: a central Perci core orbited by six modes — Chat, Cowork, Code, Agents, Build, and Mission."
+        >
+            <defs>
+                <radialGradient id="mgfm-core" cx="50%" cy="42%" r="65%">
+                    <stop offset="0%" stopColor="#c7d2fe" />
+                    <stop offset="55%" stopColor="#6366f1" />
+                    <stop offset="100%" stopColor="#4338ca" />
+                </radialGradient>
+                <filter id="mgfm-glow" x="-60%" y="-60%" width="220%" height="220%">
+                    <feGaussianBlur stdDeviation="6" result="b" />
+                    <feMerge>
+                        <feMergeNode in="b" />
+                        <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                </filter>
+            </defs>
+
+            {/* Orbit path */}
+            <ellipse
+                cx={cx}
+                cy={cy}
+                rx={rx}
+                ry={ry}
+                fill="none"
+                stroke="var(--mg-accent-line)"
+                strokeWidth="1.25"
+                strokeDasharray="2 7"
+            />
+
+            {/* Comet tracing the loop */}
+            <circle r="4" fill="var(--mg-accent)" filter="url(#mgfm-glow)" className="mgfm-comet">
+                <animateMotion
+                    dur="14s"
+                    repeatCount="indefinite"
+                    path={`M ${cx + rx} ${cy} A ${rx} ${ry} 0 1 1 ${cx - rx} ${cy} A ${rx} ${ry} 0 1 1 ${cx + rx} ${cy}`}
+                />
+            </circle>
+
+            {/* Stations */}
+            {points.map((p) => {
+                const Icon = p.icon;
+                return (
+                    <g key={p.id} className="mgfm-station">
+                        <circle cx={p.x} cy={p.y} r="16" fill="var(--bg-primary)" stroke={p.accent} strokeWidth="1.25" />
+                        <g transform={`translate(${p.x - 8}, ${p.y - 8})`} style={{ color: p.accent }}>
+                            <Icon size={16} />
+                        </g>
+                        <text
+                            x={p.x}
+                            y={p.y > cy ? p.y + 30 : p.y - 22}
+                            textAnchor="middle"
+                            className="mgfm-station-label"
+                        >
+                            {p.label}
+                        </text>
+                    </g>
+                );
+            })}
+
+            {/* Core */}
+            <circle cx={cx} cy={cy} r="46" fill="url(#mgfm-core)" filter="url(#mgfm-glow)" />
+            <circle cx={cx} cy={cy} r="46" fill="none" stroke="#e0e7ff" strokeOpacity="0.35" strokeWidth="1" />
+            <text x={cx} y={cy - 4} textAnchor="middle" className="mgfm-core-label">PERCI</text>
+            <text x={cx} y={cy + 13} textAnchor="middle" className="mgfm-core-sub">modes · workflow · control</text>
+        </svg>
+    );
+}
+
+function Eyebrow({ children }) {
+    return <div className="mgfm-eyebrow">{children}</div>;
+}
+
+function Section({ id, no, title, lede, refMap, children }) {
+    return (
+        <section
+            id={`mgfm-${id}`}
+            ref={(node) => { refMap.current[id] = node; }}
+            className="mgfm-section"
+        >
+            <div className="mgfm-section-head">
+                <span className="mgfm-section-no">{no}</span>
+                <div>
+                    <h3 className="mgfm-section-title">{title}</h3>
+                    {lede && <p className="mgfm-section-lede">{lede}</p>}
+                </div>
             </div>
-            <div className="mt-3 space-y-3 text-sm leading-6 text-[var(--text-secondary)]">
-                {children}
-            </div>
+            <div className="mgfm-section-body">{children}</div>
         </section>
     );
 }
 
-function BulletList({ items }) {
+function FieldRow({ icon: Icon, term, children }) {
     return (
-        <ul className="space-y-2">
-            {items.map(item => (
-                <li key={item} className="flex gap-2">
-                    <span className="mt-[9px] h-1.5 w-1.5 flex-shrink-0 rounded-full bg-[var(--accent)]" />
-                    <span>{item}</span>
-                </li>
-            ))}
-        </ul>
-    );
-}
-
-function TabButton({ active, label, onClick }) {
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            className={`rounded-lg border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition-colors ${
-                active
-                    ? 'border-[var(--accent)] bg-[var(--accent)] text-white'
-                    : 'border-[var(--border)] bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'
-            }`}
-        >
-            {label}
-        </button>
-    );
-}
-
-function OverviewTab() {
-    return (
-        <div className="focus-field space-y-5">
-            <div className="focus-field grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {modeCards.map(mode => {
-                    const Icon = mode.icon;
-                    return (
-                        <div key={mode.id} className="focus-card rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-4 pl-5 relative overflow-hidden">
-                            {/* Accent stripe */}
-                            <span className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl" style={{ backgroundColor: mode.accent }} />
-                            <div className="flex items-center gap-2">
-                                <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border)]" style={{ backgroundColor: `${mode.accent}14` }}>
-                                    <Icon size={16} style={{ color: mode.accent }} />
-                                </div>
-                                <div className="text-sm font-semibold text-[var(--text-primary)]">{mode.label}</div>
-                            </div>
-                            <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">{mode.summary}</p>
-                            <div className="mt-3">
-                                <BulletList items={mode.details} />
-                            </div>
-                        </div>
-                    );
-                })}
+        <div className="mgfm-field">
+            <span className="mgfm-field-icon"><Icon size={15} /></span>
+            <div>
+                <div className="mgfm-field-term">{term}</div>
+                <p className="mgfm-field-desc">{children}</p>
             </div>
-
-            <GuideSection title="The simple mental model" icon={BookOpen}>
-                <BulletList
-                    items={[
-                        'Chat = talk with the assistant.',
-                        'Cowork = collaborate with a more agentic assistant session.',
-                        'Code = work inside the editor and file context.',
-                        'Agents = dispatch work to specific CLI agents.',
-                        'Mission = supervise and validate what happened.',
-                        'Build = generate and preview an app or interface artifact.'
-                    ]}
-                />
-            </GuideSection>
-
-            <GuideSection title="When Chat is the right choice" icon={MessageSquare}>
-                <BulletList
-                    items={[
-                        'You want fast answers, planning help, writing help, or brainstorming.',
-                        'You are still figuring out the problem before turning it into a more structured work session.',
-                        'You do not need a heavy operational or editor-first workflow yet.'
-                    ]}
-                />
-            </GuideSection>
-
-            <GuideSection title="When Cowork is the right choice" icon={Users}>
-                <BulletList
-                    items={[
-                        'You want the assistant to operate more like a working partner than a simple responder.',
-                        'The task likely needs several steps, tool usage, or workspace interaction.',
-                        'You want an agentic session but not necessarily a separate external CLI agent job.'
-                    ]}
-                />
-            </GuideSection>
-
-            <GuideSection title="When Code is the right choice" icon={Code}>
-                <BulletList
-                    items={[
-                        'You want to stay close to files, file saves, and editor context.',
-                        'You are making targeted coding changes and want a code-first workspace.',
-                        'You care about the file tree and active file as much as the assistant response.'
-                    ]}
-                />
-            </GuideSection>
-
-            <GuideSection title="When Agents is the right choice" icon={Bot}>
-                <BulletList
-                    items={[
-                        'You want to choose a specific CLI coding agent such as Codex, Claude Code, Aider, Copilot, OpenHands, OpenCode, or others.',
-                        'You want job-oriented control: prompt, working directory, status, output, and agent-specific dispatch.',
-                        'You are comparing or operationalizing coding agents rather than just chatting with one built-in assistant surface.'
-                    ]}
-                />
-            </GuideSection>
-
-            <GuideSection title="When Mission is the right choice" icon={ActivitySquare}>
-                <BulletList
-                    items={[
-                        'You want to inspect runs, statuses, validation, risk, memory, and terminal/OpenClaw-related signals.',
-                        'You want to answer “Did this actually work?” not just “What did the assistant say?”',
-                        'You want a cross-surface operational view after work has been produced elsewhere.'
-                    ]}
-                />
-            </GuideSection>
-
-            <GuideSection title="When Build is the right choice" icon={Hammer}>
-                <BulletList
-                    items={[
-                        'You want generated files plus an immediate preview loop.',
-                        'You are shaping an app, UI, or artifact rather than only editing source files manually.',
-                        'You want a generation-and-preview workflow that is more artifact-oriented than the editor-first Code mode.'
-                    ]}
-                />
-            </GuideSection>
-
-            <GuideSection title="If you are unsure, start here" icon={Sparkles}>
-                <BulletList
-                    items={[
-                        'Start in Chat if the task is still vague.',
-                        'Move to Cowork when it becomes a multi-step execution task.',
-                        'Move to Code when file-level editing becomes the center of gravity.',
-                        'Use Agents when you want a specific external CLI agent to own the work.',
-                        'Use Build when the primary output is a generated app/interface plus preview.',
-                        'Use Mission whenever you need confidence, validation, or operational clarity.'
-                    ]}
-                />
-            </GuideSection>
-        </div>
-    );
-}
-
-function AdvancedTab() {
-    return (
-        <div className="focus-field space-y-5">
-            <div className="focus-field grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                {advancedCards.map(card => (
-                    <div key={card.title} className="focus-card rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-4">
-                        <div className="text-sm font-semibold text-[var(--text-primary)]">{card.title}</div>
-                        <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">{card.text}</p>
-                    </div>
-                ))}
-            </div>
-
-            <GuideSection title="Mode architecture differences" icon={Layers3}>
-                <BulletList
-                    items={[
-                        'Chat is conversation-first.',
-                        'Cowork is task-session-first.',
-                        'Code is editor-and-workspace-first.',
-                        'Agents is external-agent-job-first.',
-                        'Mission is operations-and-validation-first.',
-                        'Build is generated-artifact-and-preview-first.'
-                    ]}
-                />
-            </GuideSection>
-
-            <GuideSection title="How Mission relates to the others" icon={ActivitySquare}>
-                <BulletList
-                    items={[
-                        'Mission is not mainly for producing work. It is mainly for supervising recorded work.',
-                        'Terminal, Cowork, Code, Build, and OpenClaw-related activity can all show up there as runs or related signals.',
-                        'If the other modes are where action happens, Mission is where accountability happens.'
-                    ]}
-                />
-            </GuideSection>
-
-            <GuideSection title="Agents vs Cowork vs Code" icon={Bot}>
-                <BulletList
-                    items={[
-                        'Use Cowork when you want the built-in agentic workflow inside the app.',
-                        'Use Code when you want the editor and files to be the main surface.',
-                        'Use Agents when you want to route work to named CLI agents and inspect jobs as jobs, not just as chat turns or editor interactions.'
-                    ]}
-                />
-            </GuideSection>
-
-            <GuideSection title="Build vs Code" icon={Hammer}>
-                <BulletList
-                    items={[
-                        'Code is best when you are navigating and editing an existing codebase directly.',
-                        'Build is best when you want the system to generate or revise a runnable artifact and then preview it quickly.',
-                        'If your question is “which file should I edit?”, Code is usually right. If your question is “show me the generated result,” Build is usually right.'
-                    ]}
-                />
-            </GuideSection>
-
-            <GuideSection title="Recommended expert workflow" icon={CheckCircle2}>
-                <BulletList
-                    items={[
-                        'Use Chat to clarify intent.',
-                        'Use Cowork, Code, Agents, or Build to produce work in the most appropriate execution surface.',
-                        'Use Mission to review the operational truth, validation state, and memory value of the result.',
-                        'Switch modes intentionally based on the center of gravity: conversation, execution, editing, dispatch, preview, or supervision.'
-                    ]}
-                />
-            </GuideSection>
-
-            <GuideSection title="Practical caution" icon={TerminalSquare}>
-                <p>
-                    The modes overlap on purpose. The difference is not that one mode can do work and another cannot. The difference is what each mode optimizes for: conversation quality, agentic flow, editor context, CLI agent dispatch, operational oversight, or generated-preview workflow.
-                </p>
-            </GuideSection>
         </div>
     );
 }
 
 export function ModeGuideModal({ isOpen, onClose }) {
-    const [activeTab, setActiveTab] = useState('overview');
     const onCloseRef = useRef(onClose);
+    const scrollRef = useRef(null);
+    const sectionRefs = useRef({});
+    const panelRef = useRef(null);
+    const dragOrigin = useRef(null);
+    const [activeId, setActiveId] = useState(SECTIONS[0].id);
+    const [drag, setDrag] = useState({ dx: 0, dy: 0 });
+    const [dragging, setDragging] = useState(false);
 
-    useEffect(() => {
-        onCloseRef.current = onClose;
-    }, [onClose]);
+    useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
 
     useEffect(() => {
         if (!isOpen) return undefined;
-
-        setActiveTab('overview');
+        setActiveId(SECTIONS[0].id);
+        setDrag({ dx: 0, dy: 0 });
         const previousOverflow = document.body.style.overflow;
         const handleKeyDown = (event) => {
-            if (event.key === 'Escape') {
-                onCloseRef.current();
-            }
+            if (event.key === 'Escape') onCloseRef.current();
         };
-
         document.body.style.overflow = 'hidden';
         window.addEventListener('keydown', handleKeyDown);
-
         return () => {
             document.body.style.overflow = previousOverflow;
             window.removeEventListener('keydown', handleKeyDown);
         };
     }, [isOpen]);
 
+    // Drag the panel by its header, clamped to stay inside the window bounds.
+    const startDrag = (event) => {
+        if (event.button !== 0 || event.target.closest('button')) return;
+        const panel = panelRef.current;
+        const parent = panel?.parentElement;
+        if (!panel || !parent) return;
+        const parentRect = parent.getBoundingClientRect();
+        const panelRect = panel.getBoundingClientRect();
+        const maxDx = Math.max(0, (parentRect.width - panelRect.width) / 2 - 8);
+        const maxDy = Math.max(0, (parentRect.height - panelRect.height) / 2 - 8);
+        dragOrigin.current = { startX: event.clientX, startY: event.clientY, dx: drag.dx, dy: drag.dy, maxDx, maxDy };
+        setDragging(true);
+        event.preventDefault();
+
+        const clamp = (value, max) => Math.max(-max, Math.min(max, value));
+        const onMove = (moveEvent) => {
+            const origin = dragOrigin.current;
+            if (!origin) return;
+            setDrag({
+                dx: clamp(origin.dx + moveEvent.clientX - origin.startX, origin.maxDx),
+                dy: clamp(origin.dy + moveEvent.clientY - origin.startY, origin.maxDy),
+            });
+        };
+        const onUp = () => {
+            setDragging(false);
+            dragOrigin.current = null;
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onUp);
+        };
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+    };
+
+    // Scroll spy — highlight the table-of-contents entry for the section in view.
+    useEffect(() => {
+        if (!isOpen) return undefined;
+        const root = scrollRef.current;
+        if (!root || typeof IntersectionObserver === 'undefined') return undefined;
+        const observer = new IntersectionObserver(
+            (entries) => {
+                const visible = entries
+                    .filter((e) => e.isIntersecting)
+                    .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+                if (visible) {
+                    setActiveId(visible.target.id.replace('mgfm-', ''));
+                }
+            },
+            { root, rootMargin: '-45% 0px -50% 0px', threshold: [0, 0.25, 0.5, 1] }
+        );
+        Object.values(sectionRefs.current).forEach((node) => node && observer.observe(node));
+        return () => observer.disconnect();
+    }, [isOpen]);
+
+    const goTo = (id) => {
+        const node = sectionRefs.current[id];
+        if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    const styleBlock = useMemo(() => GUIDE_STYLES, []);
+
     if (!isOpen) return null;
 
     return createPortal(
         <div
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
-            onMouseDown={(event) => {
-                if (event.target === event.currentTarget) {
-                    onClose();
-                }
-            }}
+            className="mgfm-backdrop"
+            onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}
         >
+            <style>{styleBlock}</style>
             <div
+                ref={panelRef}
                 role="dialog"
                 aria-modal="true"
-                aria-labelledby="mode-guide-title"
-                className="flex h-[min(92vh,920px)] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-primary)] shadow-2xl"
+                aria-labelledby="mgfm-title"
+                className="mgfm"
+                style={{ transform: `translate(-50%, -50%) translate(${drag.dx}px, ${drag.dy}px)` }}
             >
-                <div className="flex items-start gap-4 border-b border-[var(--border)] bg-[var(--bg-secondary)] px-6 py-5">
-                    <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--bg-primary)]">
-                        <BookOpen size={18} className="text-[var(--accent)]" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                        <h2 id="mode-guide-title" className="text-xl font-semibold text-[var(--text-primary)]">
-                            Mode guide
-                        </h2>
-                        <p className="mt-1 max-w-3xl text-sm leading-6 text-[var(--text-secondary)]">
-                            This guide explains the practical differences between Chat, Cowork, Code, Agents, Mission, and Build so you can choose the right surface for the job.
+                {/* Header doubles as drag handle */}
+                <header
+                    className={`mgfm-header${dragging ? ' is-dragging' : ''}`}
+                    onMouseDown={startDrag}
+                    title="Drag to move"
+                >
+                    <div className="mgfm-header-mark"><BookOpen size={18} /></div>
+                    <div className="mgfm-header-text">
+                        <Eyebrow>Operator&rsquo;s manual</Eyebrow>
+                        <h2 id="mgfm-title" className="mgfm-title">Perci Modes</h2>
+                        <p className="mgfm-subtitle">
+                            Six specialized surfaces optimized for conversation, execution, code editing, CLI agent routing, generated preview loops, and validation.
                         </p>
                     </div>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] p-2 text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
-                        aria-label="Close mode guide"
-                    >
+                    <GripHorizontal size={15} className="mgfm-grip" aria-hidden="true" />
+                    <button type="button" onClick={onClose} className="mgfm-close" aria-label="Close manual">
                         <X size={16} />
                     </button>
-                </div>
+                </header>
 
-                <div className="border-b border-[var(--border)] px-6 py-3">
-                    <div className="flex flex-wrap gap-2">
-                        <TabButton active={activeTab === 'overview'} label="Guide" onClick={() => setActiveTab('overview')} />
-                        <TabButton active={activeTab === 'advanced'} label="Advanced" onClick={() => setActiveTab('advanced')} />
+                {/* Body: TOC rail + scrolling manual */}
+                <div className="mgfm-body">
+                    <nav className="mgfm-toc" aria-label="Manual contents">
+                        <div className="mgfm-toc-label">Contents</div>
+                        <ul>
+                            {SECTIONS.map((s) => (
+                                <li key={s.id}>
+                                    <button
+                                        type="button"
+                                        onClick={() => goTo(s.id)}
+                                        className={`mgfm-toc-link${activeId === s.id ? ' is-active' : ''}`}
+                                        aria-current={activeId === s.id ? 'true' : undefined}
+                                    >
+                                        <span className="mgfm-toc-no">{s.no}</span>
+                                        <span className="mgfm-toc-text">{s.label}</span>
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    </nav>
+
+                    <div className="mgfm-scroll" ref={scrollRef}>
+                        <div className="mgfm-content">
+                            {/* 01 — Overview */}
+                            <Section
+                                id="overview"
+                                no="01"
+                                title="What the modes are"
+                                lede="Six interaction decks, each built to optimize a specific part of your project lifecycle."
+                                refMap={sectionRefs}
+                            >
+                                <div className="mgfm-hero">
+                                    <OrbitHero />
+                                </div>
+                                <p>
+                                    Rather than forcing every interaction into a generic chat box, Perci provides dedicated workspaces.
+                                    Each mode is tailored to a specific way of working — whether you need to brainstorm, edit files in context,
+                                    orchestrate external CLI agents, preview generated UI, or inspect validation logs.
+                                </p>
+                                <div className="mgfm-callout">
+                                    <Compass size={16} />
+                                    <span>
+                                        You can switch modes at any time. Your context and files travel with you, allowing you to move smoothly
+                                        from planning to execution to oversight.
+                                    </span>
+                                </div>
+                            </Section>
+
+                            {/* 02 — Six surfaces */}
+                            <Section
+                                id="surfaces"
+                                no="02"
+                                title="The six surfaces"
+                                lede="Detailed breakdown of Chat, Cowork, Code, Agents, Mission, and Build."
+                                refMap={sectionRefs}
+                            >
+                                <div className="mgfm-surfaces">
+                                    {modeCards.map((mode) => {
+                                        const Icon = mode.icon;
+                                        return (
+                                            <article key={mode.id} className="mgfm-surface" style={{ borderColor: `${mode.accent}4d` }}>
+                                                <div className="mgfm-surface-head">
+                                                    <span className="mgfm-surface-icon" style={{ backgroundColor: `${mode.accent}14`, color: mode.accent, borderColor: `${mode.accent}33` }}>
+                                                        <Icon size={15} />
+                                                    </span>
+                                                    <h4 style={{ color: 'var(--text-primary)' }}>{mode.label}</h4>
+                                                </div>
+                                                <p className="mgfm-surface-what">{mode.summary}</p>
+                                                <ul className="mgfm-surface-list">
+                                                    {mode.details.map((d) => (
+                                                        <li key={d} style={{ '--mg-accent-bullet': mode.accent }}>{d}</li>
+                                                    ))}
+                                                </ul>
+                                            </article>
+                                        );
+                                    })}
+                                </div>
+                            </Section>
+
+                            {/* 03 — How to choose */}
+                            <Section
+                                id="triage"
+                                no="03"
+                                title="How to choose"
+                                lede="Start with your intent, and let the interface structure the conversation."
+                                refMap={sectionRefs}
+                            >
+                                <ol className="mgfm-steps">
+                                    <li className="mgfm-step">
+                                        <span className="mgfm-step-no">1</span>
+                                        <div>
+                                            <div className="mgfm-step-name">Brainstorm & Chat</div>
+                                            <p className="mgfm-step-body">Start in <strong>Chat</strong> if you have a quick question, need to flesh out a plan, or want lightweight conversational help.</p>
+                                        </div>
+                                        <ArrowRight size={14} className="mgfm-step-arrow" />
+                                    </li>
+                                    <li className="mgfm-step">
+                                        <span className="mgfm-step-no">2</span>
+                                        <div>
+                                            <div className="mgfm-step-name">Execute Tasks</div>
+                                            <p className="mgfm-step-body">Move to <strong>Cowork</strong> when the task requires autonomous step-by-step file inspection, editing, and tool usage.</p>
+                                        </div>
+                                        <ArrowRight size={14} className="mgfm-step-arrow" />
+                                    </li>
+                                    <li className="mgfm-step">
+                                        <span className="mgfm-step-no">3</span>
+                                        <div>
+                                            <div className="mgfm-step-name">Code Directly</div>
+                                            <p className="mgfm-step-body">Use <strong>Code</strong> when you want to work side-by-side with an editor, staying close to active files and editor state.</p>
+                                        </div>
+                                        <ArrowRight size={14} className="mgfm-step-arrow" />
+                                    </li>
+                                    <li className="mgfm-step">
+                                        <span className="mgfm-step-no">4</span>
+                                        <div>
+                                            <div className="mgfm-step-name">Dispatch CLI Agents</div>
+                                            <p className="mgfm-step-body">Use <strong>Agents</strong> if you want to run a dedicated external coding CLI like Claude Code, Aider, or Copilot on a job.</p>
+                                        </div>
+                                        <ArrowRight size={14} className="mgfm-step-arrow" />
+                                    </li>
+                                    <li className="mgfm-step">
+                                        <span className="mgfm-step-no">5</span>
+                                        <div>
+                                            <div className="mgfm-step-name">Generate & Preview UI</div>
+                                            <p className="mgfm-step-body">Choose <strong>Build</strong> when you are generating web apps or components and need an instant visual preview feedback loop.</p>
+                                        </div>
+                                        <ArrowRight size={14} className="mgfm-step-arrow" />
+                                    </li>
+                                    <li className="mgfm-step">
+                                        <span className="mgfm-step-no">6</span>
+                                        <div>
+                                            <div className="mgfm-step-name">Supervise & Validate</div>
+                                            <p className="mgfm-step-body">Check in on <strong>Mission</strong> to verify runs, review terminal histories, check validation status, or capture memories.</p>
+                                        </div>
+                                    </li>
+                                </ol>
+                                <div className="mgfm-callout mgfm-callout--quiet">
+                                    <Sparkles size={16} />
+                                    <span><strong>Quick Triage:</strong> Chat is for talking. Cowork, Code, Agents, and Build are for producing work. Mission is for reviewing and auditing that work.</span>
+                                </div>
+                            </Section>
+
+                            {/* 04 — Work vs oversight */}
+                            <Section
+                                id="execution"
+                                no="04"
+                                title="Work vs oversight"
+                                lede="The division between active execution and operational accountability."
+                                refMap={sectionRefs}
+                            >
+                                <div className="mgfm-fields">
+                                    <FieldRow icon={TerminalSquare} term="Execution modes">
+                                        Chat, Cowork, Code, Agents, and Build are primarily work-producing surfaces. They are where you type prompts, write code, run compilers, and generate artifacts.
+                                    </FieldRow>
+                                    <FieldRow icon={ActivitySquare} term="Oversight (Mission)">
+                                        Mission is the operational deck. It does not produce files itself; instead, it observes what happens in the other modes. Run statuses, command logs, memory suggestions, and system checks all gather in Mission so you can evaluate the results.
+                                    </FieldRow>
+                                </div>
+                                <div className="mgfm-callout">
+                                    <ShieldCheck size={16} />
+                                    <span>If execution modes are where action happens, Mission is where accountability and project history are recorded.</span>
+                                </div>
+                            </Section>
+
+                            {/* 05 — Key comparisons */}
+                            <Section
+                                id="comparisons"
+                                no="05"
+                                title="Key comparisons"
+                                lede="Distinguishing between surfaces that seem similar but solve different problems."
+                                refMap={sectionRefs}
+                            >
+                                <div className="mgfm-fields">
+                                    <FieldRow icon={Users} term="Cowork vs Agents vs Code">
+                                        Use <strong>Cowork</strong> for Perci&rsquo;s native, browser-driven agentic flow. Use <strong>Code</strong> when you want to edit files with active editor context. Use <strong>Agents</strong> when you want to dispatch a specific named external CLI agent (e.g., Claude Code) to run a background job.
+                                    </FieldRow>
+                                    <FieldRow icon={Hammer} term="Build vs Code">
+                                        Use <strong>Code</strong> when you are navigating or manually modifying a complex codebase. Use <strong>Build</strong> when you want the AI to write a self-contained component or app, spin it up, and display a live visual preview frame.
+                                    </FieldRow>
+                                </div>
+                            </Section>
+
+                            {/* 06 — Expert workflow */}
+                            <Section
+                                id="workflow"
+                                no="06"
+                                title="Expert workflow"
+                                lede="How to combine these modes into a high-leverage development loop."
+                                refMap={sectionRefs}
+                            >
+                                <ol className="mgfm-ladder">
+                                    <li className="mgfm-rung">
+                                        <span className="mgfm-rung-no">01</span>
+                                        <span className="mgfm-rung-dot" style={{ background: '#f97316' }} />
+                                        <span className="mgfm-rung-when">Brainstorming & Planning</span>
+                                        <ArrowRight size={13} className="mgfm-rung-arrow" />
+                                        <span className="mgfm-rung-then">Use Chat to map the architecture</span>
+                                    </li>
+                                    <li className="mgfm-rung">
+                                        <span className="mgfm-rung-no">02</span>
+                                        <span className="mgfm-rung-dot" style={{ background: '#22d3ee' }} />
+                                        <span className="mgfm-rung-when">Autonomous Implementation</span>
+                                        <ArrowRight size={13} className="mgfm-rung-arrow" />
+                                        <span className="mgfm-rung-then">Use Cowork to run multi-file edits</span>
+                                    </li>
+                                    <li className="mgfm-rung">
+                                        <span className="mgfm-rung-no">03</span>
+                                        <span className="mgfm-rung-dot" style={{ background: '#fb7185' }} />
+                                        <span className="mgfm-rung-when">Interface & UI Iteration</span>
+                                        <ArrowRight size={13} className="mgfm-rung-arrow" />
+                                        <span className="mgfm-rung-then">Use Build to polish the visual outcome</span>
+                                    </li>
+                                    <li className="mgfm-rung">
+                                        <span className="mgfm-rung-no">04</span>
+                                        <span className="mgfm-rung-dot" style={{ background: '#60a5fa' }} />
+                                        <span className="mgfm-rung-when">Supervision & Validation</span>
+                                        <ArrowRight size={13} className="mgfm-rung-arrow" />
+                                        <span className="mgfm-rung-then">Use Mission to review logs and commit memory</span>
+                                    </li>
+                                </ol>
+                                <p className="mgfm-note">
+                                    Experienced operators shift modes intentionally. If your context shifts from brainstorming to code editing, do not force the chat to compile code — click Code or Build to switch to a deck optimized for that task.
+                                </p>
+                            </Section>
+
+                            {/* 07 — Field notes */}
+                            <Section
+                                id="field"
+                                no="07"
+                                title="Field notes"
+                                lede="Best practices for fluid operator transitions."
+                                refMap={sectionRefs}
+                            >
+                                <ul className="mgfm-bullets">
+                                    <li><strong>Single vs Multi-agent:</strong> Chat, Cowork, Code, and Build are single-surface experiences. Agents is a multi-agent dashboard designed to compare and dispatch different third-party CLIs.</li>
+                                    <li><strong>Shared context:</strong> Switching modes preserves your workspace parameters, meaning the goal and folder flow seamlessly across decks without re-briefing.</li>
+                                    <li><strong>Verification is distinct from execution:</strong> Never assume a run is correct just because an agent says it is finished. Always validate outputs before committing.</li>
+                                    <li><strong>Don&rsquo;t get stuck:</strong> If a task stalls in Cowork, drop back to Chat to brainstorm the blocker, or use Code to edit the block yourself.</li>
+                                </ul>
+                                <div className="mgfm-callout mgfm-callout--quiet">
+                                    <span className="mgfm-kbd">Esc</span>
+                                    <span>closes this guide. Mode states and histories are stored locally in your encrypted app configuration.</span>
+                                </div>
+                            </Section>
+                        </div>
                     </div>
-                </div>
-
-                <div className="focus-field flex-1 overflow-y-auto px-6 py-6">
-                    {activeTab === 'overview' ? <OverviewTab /> : <AdvancedTab />}
                 </div>
             </div>
         </div>,
         document.body
     );
 }
+
+const GUIDE_STYLES = `
+.mgfm,
+.mgfm-backdrop {
+    --mg-accent: #6366f1;
+    --mg-accent-bright: #818cf8;
+    --mg-accent-soft: rgba(99, 102, 241, 0.12);
+    --mg-accent-line: rgba(99, 102, 241, 0.30);
+    --mg-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code", Menlo, monospace;
+}
+
+.mgfm-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+}
+
+.mgfm {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    display: flex;
+    flex-direction: column;
+    width: min(86%, 960px);
+    height: min(84%, 820px);
+    overflow: hidden;
+    border-radius: 1rem;
+    border: 1px solid var(--border);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    box-shadow: 0 30px 90px -25px rgba(0, 0, 0, 0.75);
+    container-type: inline-size;
+    will-change: transform;
+    animation: mgfm-rise 200ms ease-out;
+}
+
+@keyframes mgfm-rise {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Header */
+.mgfm-header {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1.4rem 1.6rem;
+    border-bottom: 1px solid var(--border);
+    background:
+        radial-gradient(120% 140% at 0% 0%, var(--mg-accent-soft), transparent 55%),
+        var(--bg-secondary);
+    cursor: grab;
+    user-select: none;
+}
+.mgfm-header.is-dragging { cursor: grabbing; }
+.mgfm-grip {
+    align-self: center;
+    flex-shrink: 0;
+    color: var(--text-tertiary);
+    opacity: 0.55;
+    transition: opacity 140ms;
+}
+.mgfm-header:hover .mgfm-grip { opacity: 0.9; }
+.mgfm-header-mark {
+    display: grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    flex-shrink: 0;
+    border-radius: 0.85rem;
+    border: 1px solid var(--mg-accent-line);
+    background: var(--mg-accent-soft);
+    color: var(--mg-accent-bright);
+}
+.mgfm-header-text { min-width: 0; flex: 1; }
+.mgfm-subtitle {
+    margin-top: 0.4rem;
+    max-width: 52ch;
+    font-size: 0.82rem;
+    line-height: 1.55;
+    color: var(--text-secondary);
+}
+.mgfm-title {
+    margin-top: 0.15rem;
+    font-size: 1.5rem;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+}
+.mgfm-eyebrow {
+    font-family: var(--mg-mono);
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--mg-accent-bright);
+}
+.mgfm-close {
+    flex-shrink: 0;
+    padding: 0.5rem;
+    border-radius: 0.6rem;
+    border: 1px solid var(--border);
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    transition: color 140ms, background 140ms;
+}
+.mgfm-close:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+/* Body layout */
+.mgfm-body { display: flex; min-height: 0; flex: 1; }
+
+/* Table of contents rail */
+.mgfm-toc {
+    flex-shrink: 0;
+    width: 184px;
+    padding: 1.4rem 0.9rem;
+    border-right: 1px solid var(--border);
+    background: var(--bg-secondary);
+    overflow-y: auto;
+}
+.mgfm-toc-label {
+    padding: 0 0.6rem;
+    margin-bottom: 0.7rem;
+    font-family: var(--mg-mono);
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+}
+.mgfm-toc ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+.mgfm-toc-link {
+    position: relative;
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    width: 100%;
+    padding: 0.5rem 0.6rem;
+    border-radius: 0.55rem;
+    text-align: left;
+    color: var(--text-secondary);
+    transition: color 140ms, background 140ms;
+}
+.mgfm-toc-link:hover { background: var(--bg-hover); color: var(--text-primary); }
+.mgfm-toc-link.is-active { background: var(--mg-accent-soft); color: var(--text-primary); }
+.mgfm-toc-link.is-active::before {
+    content: "";
+    position: absolute;
+    left: -0.9rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 1.1rem;
+    border-radius: 0 3px 3px 0;
+    background: var(--mg-accent);
+}
+.mgfm-toc-no {
+    font-family: var(--mg-mono);
+    font-size: 0.62rem;
+    color: var(--mg-accent-bright);
+    opacity: 0.85;
+}
+.mgfm-toc-text { font-size: 0.82rem; font-weight: 500; }
+
+/* Scroll region */
+.mgfm-scroll { flex: 1; min-width: 0; overflow-y: auto; scroll-behavior: smooth; }
+.mgfm-content { padding: 1.8rem 2rem 3rem; max-width: 760px; }
+
+/* Sections */
+.mgfm-section { padding: 1.6rem 0; border-top: 1px solid var(--border); }
+.mgfm-section:first-child { padding-top: 0.4rem; border-top: none; }
+.mgfm-section-head { display: flex; gap: 0.9rem; margin-bottom: 1.1rem; }
+.mgfm-section-no {
+    font-family: var(--mg-mono);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--mg-accent);
+    padding-top: 0.2rem;
+}
+.mgfm-section-title { font-size: 1.12rem; font-weight: 620; letter-spacing: -0.01em; }
+.mgfm-section-lede { margin-top: 0.3rem; font-size: 0.86rem; line-height: 1.55; color: var(--text-secondary); }
+.mgfm-section-body { font-size: 0.86rem; line-height: 1.65; color: var(--text-secondary); }
+.mgfm-section-body p + p { margin-top: 0.8rem; }
+
+/* Hero */
+.mgfm-hero {
+    margin-bottom: 1.3rem;
+    padding: 0.5rem 0.5rem 0.2rem;
+    border-radius: 1rem;
+    border: 1px solid var(--border);
+    background:
+        radial-gradient(80% 120% at 50% 0%, var(--mg-accent-soft), transparent 60%),
+        var(--bg-secondary);
+}
+.mgfm-orbit { display: block; width: 100%; height: auto; }
+.mgfm-station-label {
+    font-family: var(--mg-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    fill: var(--text-secondary);
+    text-transform: uppercase;
+}
+.mgfm-core-label {
+    font-family: var(--mg-mono);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    fill: #f5f3ff;
+}
+.mgfm-core-sub {
+    font-family: var(--mg-mono);
+    font-size: 8.5px;
+    letter-spacing: 0.18em;
+    fill: #ede9fe;
+    opacity: 0.85;
+    text-transform: uppercase;
+}
+
+/* Callouts */
+.mgfm-callout {
+    display: flex;
+    gap: 0.7rem;
+    align-items: flex-start;
+    margin-top: 1.1rem;
+    padding: 0.85rem 1rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--mg-accent-line);
+    background: var(--mg-accent-soft);
+    font-size: 0.82rem;
+    line-height: 1.55;
+    color: var(--text-secondary);
+}
+.mgfm-callout svg { color: var(--mg-accent-bright); flex-shrink: 0; margin-top: 0.1rem; }
+.mgfm-callout--quiet { border-color: var(--border); background: var(--bg-secondary); }
+.mgfm-callout--quiet svg { color: var(--text-tertiary); }
+
+/* Loop steps */
+.mgfm-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+.mgfm-step {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    padding: 0.85rem 1rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+}
+.mgfm-step-no {
+    display: grid;
+    place-items: center;
+    width: 1.55rem;
+    height: 1.55rem;
+    flex-shrink: 0;
+    border-radius: 50%;
+    border: 1px solid var(--mg-accent-line);
+    background: var(--mg-accent-soft);
+    font-family: var(--mg-mono);
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--mg-accent-bright);
+}
+.mgfm-step-name { font-size: 0.9rem; font-weight: 600; color: var(--text-primary); }
+.mgfm-step-body { margin-top: 0.2rem; font-size: 0.82rem; line-height: 1.5; color: var(--text-secondary); }
+.mgfm-step-arrow { position: absolute; right: 1rem; top: 1.05rem; color: var(--text-tertiary); }
+
+/* Next-action ladder */
+.mgfm-ladder { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.mgfm-rung {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.62rem 0.4rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.83rem;
+}
+.mgfm-rung:last-child { border-bottom: none; }
+.mgfm-rung-no { font-family: var(--mg-mono); font-size: 0.68rem; color: var(--text-tertiary); width: 1.4rem; }
+.mgfm-rung-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.mgfm-rung-when { color: var(--text-secondary); flex: 1; min-width: 0; }
+.mgfm-rung-arrow { color: var(--text-tertiary); flex-shrink: 0; }
+.mgfm-rung-then { color: var(--text-primary); font-weight: 550; flex: 1; min-width: 0; }
+.mgfm-note { margin-top: 1rem; font-size: 0.82rem; line-height: 1.55; color: var(--text-secondary); }
+
+/* Surfaces grid */
+.mgfm-surfaces { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; }
+.mgfm-surface {
+    padding: 0.95rem 1rem;
+    border-radius: 0.8rem;
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+}
+.mgfm-surface-head { display: flex; align-items: center; gap: 0.55rem; margin-bottom: 0.5rem; }
+.mgfm-surface-head h4 { font-size: 0.86rem; font-weight: 620; color: var(--text-primary); }
+.mgfm-surface-icon {
+    display: grid;
+    place-items: center;
+    width: 1.7rem;
+    height: 1.7rem;
+    flex-shrink: 0;
+    border-radius: 0.55rem;
+    border: 1px solid var(--mg-accent-line);
+    background: var(--mg-accent-soft);
+    color: var(--mg-accent-bright);
+}
+.mgfm-surface-what { font-size: 0.8rem; line-height: 1.5; color: var(--text-secondary); }
+.mgfm-surface-list { margin: 0.6rem 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.4rem; }
+.mgfm-surface-list li {
+    position: relative;
+    padding-left: 0.95rem;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    color: var(--text-tertiary);
+}
+.mgfm-surface-list li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.5rem;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--mg-accent-bullet, var(--mg-accent));
+    opacity: 0.7;
+}
+
+/* Field rows */
+.mgfm-fields { display: flex; flex-direction: column; gap: 0.65rem; }
+.mgfm-field {
+    display: flex;
+    gap: 0.8rem;
+    padding: 0.85rem 1rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+}
+.mgfm-field-icon {
+    display: grid;
+    place-items: center;
+    width: 1.85rem;
+    height: 1.85rem;
+    flex-shrink: 0;
+    border-radius: 0.6rem;
+    border: 1px solid var(--mg-accent-line);
+    background: var(--mg-accent-soft);
+    color: var(--mg-accent-bright);
+}
+.mgfm-field-term {
+    font-family: var(--mg-mono);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-primary);
+}
+.mgfm-field-desc { margin-top: 0.25rem; font-size: 0.82rem; line-height: 1.55; color: var(--text-secondary); }
+
+/* Bullets */
+.mgfm-bullets { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.55rem; }
+.mgfm-bullets li {
+    position: relative;
+    padding-left: 1.15rem;
+    font-size: 0.84rem;
+    line-height: 1.55;
+    color: var(--text-secondary);
+}
+.mgfm-bullets li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.6rem;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--mg-accent);
+}
+
+.mgfm-kbd {
+    display: inline-grid;
+    place-items: center;
+    min-width: 1.9rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 0.35rem;
+    border: 1px solid var(--border);
+    background: var(--bg-primary);
+    font-family: var(--mg-mono);
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+}
+
+@container (max-width: 560px) {
+    .mgfm-surfaces { grid-template-columns: 1fr; }
+}
+@container (max-width: 500px) {
+    .mgfm-toc { display: none; }
+    .mgfm-content { padding: 1.4rem 1.2rem 2.4rem; }
+}
+@media (max-width: 720px) {
+    .mgfm-toc { display: none; }
+    .mgfm-content { padding: 1.4rem 1.2rem 2.4rem; }
+    .mgfm-surfaces { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mgfm { animation: none; }
+    .mgfm-comet, .mgfm-scroll { animation: none !important; scroll-behavior: auto; }
+    .mgfm-comet animateMotion { display: none; }
+}
+`;
