@@ -204,16 +204,24 @@ export function MissionIcon(props) {
     );
 }
 
-/* Perci Map — route lines and station dots. */
+/* Perci Map — two transit lines crossing at a central interchange, station
+ * dots at each terminus. Composed as an outline-forward duotone glyph so it
+ * reads as a transit-network diagram (not a single jagged route) at 18px. */
 export function SurfaceMapIcon(props) {
     return (
         <Svg {...props}>
-            <path d="M5 17 9 9l5 5 5-8" {...shell} />
-            <path d="M5 17h7l7-7" />
-            <circle cx="5" cy="17" r="1.5" {...ink} />
-            <circle cx="9" cy="9" r="1.5" {...ink} />
-            <circle cx="14" cy="14" r="1.5" {...ink} />
-            <circle cx="19" cy="6" r="1.5" {...ink} />
+            {/* Line A: NW → SE diagonal with translucent tint fill */}
+            <path d="M4 20 20 4" {...shell} />
+            {/* Line B: NE → SW diagonal with translucent tint fill */}
+            <path d="M20 20 4 4" {...shell} />
+            {/* Station dots at the four outer termini (ink = solid primary) */}
+            <circle cx="4" cy="20" r="1.6" {...ink} />
+            <circle cx="20" cy="4" r="1.6" {...ink} />
+            <circle cx="20" cy="20" r="1.6" {...ink} />
+            <circle cx="4" cy="4" r="1.6" {...ink} />
+            {/* Central interchange hub — white core with teal shell */}
+            <circle cx="12" cy="12" r="2.4" {...shell} />
+            <circle cx="12" cy="12" r="1.0" fill="#fff" stroke="none" />
         </Svg>
     );
 }

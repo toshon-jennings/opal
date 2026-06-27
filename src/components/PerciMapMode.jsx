@@ -86,6 +86,7 @@ export default function PerciMapMode() {
     };
 
     const showAllRoutes = () => setActiveTypes(Object.keys(SURFACE_ROUTE_TYPES));
+    const hideAllRoutes = () => setActiveTypes([]);
 
     const openStation = (station) => {
         setSelectedStationId(station.id);
@@ -136,6 +137,9 @@ export default function PerciMapMode() {
                         </button>
                     );
                 })}
+                <button type="button" className="perci-route-reset" onClick={hideAllRoutes}>
+                    Clear all
+                </button>
                 <button type="button" className="perci-route-reset" onClick={showAllRoutes}>
                     Show all
                 </button>
