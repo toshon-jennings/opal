@@ -627,7 +627,6 @@ export class GeminiClient extends BaseClient {
 
         const streamOptions = normalizeStreamOptions(options);
         const url = new URL(`https://generativelanguage.googleapis.com/v1beta/models/${modelId}:streamGenerateContent`);
-        url.searchParams.set('key', this.apiKey);
         url.searchParams.set('alt', 'sse');
         const config = THINKING_CONFIG.fields.google;
         const tagParser = new StreamingTagParser();
@@ -663,6 +662,7 @@ export class GeminiClient extends BaseClient {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'x-goog-api-key': this.apiKey,
             },
             body: JSON.stringify({
                 contents: contents
@@ -796,14 +796,16 @@ export class GeminiClient extends BaseClient {
         }
 
         const url = new URL(`https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent`);
-        url.searchParams.set('key', this.apiKey);
 
         const body = { contents, tools: [{ functionDeclarations }] };
         if (systemInstruction) body.systemInstruction = { parts: [{ text: systemInstruction }] };
 
         const response = await fetch(url.toString(), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'x-goog-api-key': this.apiKey,
+            },
             body: JSON.stringify(body),
             signal: streamOptions.signal
         });

@@ -3,7 +3,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal as TerminalIcon, X, RefreshCw } from 'lucide-react';
 import { useTheme } from "../context/ThemeContext";
-import { buildTerminalWsUrl, getTerminalPortCandidates, rememberTerminalPort } from "../lib/terminalBridge";
+import { buildTerminalWsUrl, getTerminalConnectionInfo, getTerminalPortCandidates, rememberTerminalPort } from "../lib/terminalBridge";
 import "@xterm/xterm/css/xterm.css";
 
 const DEVICE_ATTRIBUTE_RESPONSE_PATTERN = /\x1b\[\??[\d;]*c/g;
@@ -51,7 +51,7 @@ const TerminalPanel = forwardRef(function TerminalPanel({ sessionId = 'default',
     }
   }, []);
 
-  const connect = useCallback(() => {
+  const connect = useCallback(async () => {
     const container = terminalRef.current;
     if (!container || !termInstanceRef.current) return;
 
@@ -60,7 +60,9 @@ const TerminalPanel = forwardRef(function TerminalPanel({ sessionId = 'default',
 
     const ports = getTerminalPortCandidates();
     const port = ports[activePortIndexRef.current] || ports[0];
-    const wsUrl = buildTerminalWsUrl(port, sessionId);
+    const { token } = await getTerminalConnectionInfo();
+    if (!terminalRef.current || !termInstanceRef.current) return;
+    const wsUrl = buildTerminalWsUrl(port, sessionId, false, token);
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 

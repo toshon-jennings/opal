@@ -45,7 +45,7 @@ export default function LivePreviewPanel({ previewUrl = '', onRefresh, title = '
                         src={previewUrl}
                         title="Live preview"
                         className="h-full w-full border-0"
-                        sandbox="allow-scripts allow-same-origin allow-forms"
+                        sandbox=""
                         referrerPolicy="no-referrer"
                     />
                 ) : (

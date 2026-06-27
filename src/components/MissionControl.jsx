@@ -53,6 +53,7 @@ import {
     setMissionValidationTarget
 } from '../lib/missionControl';
 import { assignTransitLayout, buildMissionTransitGraph } from '../lib/transitMap';
+import { buildTerminalWsUrl, getTerminalConnectionInfo } from '../lib/terminalBridge';
 
 const STATUS_META = {
     running: { label: 'Running', color: 'text-sky-400', bg: 'bg-sky-500/10', border: 'border-sky-500/20', icon: PlayCircle },
@@ -93,10 +94,11 @@ function getCheckpointClass(state) {
     return 'text-[var(--text-tertiary)]';
 }
 
-function cancelTerminalRun(runId) {
+async function cancelTerminalRun(runId) {
+    const { token } = await getTerminalConnectionInfo();
     return new Promise((resolve) => {
         const port = readStringStorage('perci_terminal_port', '3001');
-        const socket = new WebSocket(`ws://localhost:${port}/?sessionId=default&telemetry=1`);
+        const socket = new WebSocket(buildTerminalWsUrl(port, 'default', true, token));
         const timeout = setTimeout(() => {
             socket.close();
             resolve({ ok: false, detail: 'Timed out while connecting to the local terminal server.' });

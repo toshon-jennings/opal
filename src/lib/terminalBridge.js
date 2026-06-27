@@ -17,8 +17,21 @@ export function rememberTerminalPort(port) {
     }
 }
 
-export function buildTerminalWsUrl(port, sessionId = 'default', telemetry = false) {
+export async function getTerminalConnectionInfo() {
+    if (typeof window === 'undefined' || !window.electron?.getTerminalConnectionInfo) {
+        return { token: '' };
+    }
+
+    try {
+        return await window.electron.getTerminalConnectionInfo();
+    } catch {
+        return { token: '' };
+    }
+}
+
+export function buildTerminalWsUrl(port, sessionId = 'default', telemetry = false, token = '') {
     const params = new URLSearchParams({ sessionId });
     if (telemetry) params.set('telemetry', '1');
+    if (token) params.set('token', token);
     return `ws://localhost:${port}?${params.toString()}`;
 }

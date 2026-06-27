@@ -17,7 +17,6 @@ import { ponytailDirective } from '../lib/ponytail';
 import MonacoEditor from '@monaco-editor/react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import rehypeRaw from 'rehype-raw';
 import { vscDarkPlus, prism } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { normalizeAssistantSpacing } from '../lib/textFormatting';
 import { SyntaxHighlighter } from '../lib/syntaxHighlighter';
@@ -507,7 +506,6 @@ export default function CodeMode() {
                                     <div className={`flex-1 overflow-hidden p-3 rounded-xl text-sm leading-relaxed ${msg.role === 'user' ? 'bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border-light)]' : 'text-[var(--text-primary)]'}`}>
                                         <ReactMarkdown
                                             remarkPlugins={[remarkGfm]}
-                                            rehypePlugins={[rehypeRaw]}
                                             components={{
                                                 code({ node, inline, className, children, ...props }) {
                                                     const match = /language-(\w+)/.exec(className || '');

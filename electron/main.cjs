@@ -1,6 +1,6 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu, shell, safeStorage, session } = require('electron');
 const { autoUpdater } = require('electron-updater');
-const { installRedactedConsole } = require('./redact-console.cjs');
+const { installRedactedConsole, redactSecrets } = require('./redact-console.cjs');
 const path = require('path');
 const fsSync = require('fs');
 const { spawn, spawnSync } = require('child_process');
@@ -75,6 +75,7 @@ if (process.platform === 'darwin' || process.platform === 'linux') {
 // Renderer crash log — written to userData so it survives packaged builds.
 // Path is logged on startup so users can find it after a blank-screen failure.
 let rendererLogPath = null;
+const terminalServerToken = randomBytes(32).toString('base64url');
 function getRendererLogPath() {
   if (rendererLogPath) return rendererLogPath;
   try {
@@ -85,9 +86,10 @@ function getRendererLogPath() {
   return rendererLogPath;
 }
 function appendRendererLog(line) {
-  const stamped = `[${new Date().toISOString()}] ${line}\n`;
+  const redactedLine = redactSecrets(String(line || ''));
+  const stamped = `[${new Date().toISOString()}] ${redactedLine}\n`;
   try { fsSync.appendFileSync(getRendererLogPath(), stamped); } catch (_) {}
-  try { console.log(`[renderer] ${line}`); } catch (_) {}
+  try { console.log(`[renderer] ${redactedLine}`); } catch (_) {}
 }
 function attachRendererDiagnostics(win) {
   const wc = win.webContents;
@@ -681,7 +683,9 @@ function startTerminalServer() {
       ...process.env, 
       ELECTRON_RUN_AS_NODE: '1',
       OPAL_STRIP_ANSI: 'false',
-      OPAL_TERMINAL_PORT: terminalPort
+      OPAL_TERMINAL_HOST: '127.0.0.1',
+      OPAL_TERMINAL_PORT: terminalPort,
+      OPAL_TERMINAL_TOKEN: terminalServerToken
     },
     stdio: 'inherit'
   });
@@ -1154,10 +1158,12 @@ const apiKeyStorageKeys = new Set([
   'openrouter_key',
   'anthropic_key',
   'mistral_key',
+  'github_key',
   'jules_api_key',
   'openclaw_config',
   'hermes_config',
   'gdash_google_client_id',
+  'gdash_google_client_secret',
   'gdash_google_tokens'
 ]);
 
@@ -1207,13 +1213,27 @@ function decryptAppData(data) {
   );
 }
 
+function hasPlaintextSensitiveAppDataValue(data) {
+  if (!safeStorage.isEncryptionAvailable()) return false;
+  return Object.entries(data || {}).some(([key, value]) => (
+    apiKeyStorageKeys.has(key)
+    && typeof value === 'string'
+    && value.length > 0
+  ));
+}
+
 async function readAppData() {
   const filePath = getAppDataPath();
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const raw = await fs.readFile(filePath, 'utf-8');
       const parsed = JSON.parse(raw);
-      return parsed && typeof parsed === 'object' ? decryptAppData(parsed) : {};
+      if (!parsed || typeof parsed !== 'object') return {};
+      const decrypted = decryptAppData(parsed);
+      if (hasPlaintextSensitiveAppDataValue(parsed)) {
+        writeAppData(decrypted).catch(err => console.error('Error migrating encrypted app data:', err));
+      }
+      return decrypted;
     } catch (err) {
       if (err.code === 'ENOENT') return {};
       // Partial write or corrupted data — retry after a short delay
@@ -1290,6 +1310,10 @@ ipcMain.on('show-context-menu', (event, params) => {
 });
 
 ipcMain.handle('app-data:path', async () => getAppDataPath());
+
+ipcMain.handle('terminal:get-connection-info', async () => ({
+  token: terminalServerToken
+}));
 
 ipcMain.handle('app-data:get', async () => readAppData());
 
@@ -3443,7 +3467,7 @@ ipcMain.handle('agent-jobs:queue', async (event, { agent, prompt, working_direct
     cwd,
     env: spawnEnv,
     stdio: ['pipe', 'pipe', 'pipe'],
-    shell: true,
+    shell: false,
     detached: false,
   });
 
@@ -3823,17 +3847,24 @@ ipcMain.handle('run-terminal-command', async (event, command) => {
   try {
     if (process.platform === 'darwin') {
       // macOS: open in Terminal.app via osascript
-      const { execSync } = require('child_process');
-      execSync(`osascript -e 'tell application "Terminal" to do script "${trimmed}"'`, {
+      const script = `tell application "Terminal" to do script ${JSON.stringify(trimmed)}`;
+      const result = spawnSync('osascript', ['-e', script], {
         encoding: 'utf8',
         timeout: 5000,
+        stdio: ['ignore', 'pipe', 'pipe'],
       });
+      if (result.error) throw result.error;
+      if (result.status !== 0) throw new Error(result.stderr || 'osascript failed');
       return { ok: true, message: `Opened in Terminal: ${trimmed}` };
     } else {
       // Linux: try common terminal emulators
-      const { execSync } = require('child_process');
       const termCmd = process.env.TERMINAL || 'x-terminal-emulator';
-      execSync(`${termCmd} -e "${trimmed}" &`, { encoding: 'utf8', timeout: 5000 });
+      const child = spawn(termCmd, ['-e', trimmed], {
+        detached: true,
+        stdio: 'ignore',
+        shell: false,
+      });
+      child.unref();
       return { ok: true, message: `Opened in terminal: ${trimmed}` };
     }
   } catch (err) {
@@ -6001,3 +6032,359 @@ ipcMain.handle('skills:set-metadata', async (event, data) => {
   require('fs').writeFileSync(SKILLS_DATA_PATH, JSON.stringify(data, null, 2), 'utf8');
   return { ok: true };
 });
+
+// ── AgentMail (webview, no bridge subprocess) ────────────────────────────
+// The AgentMail surface embeds the official web console via <webview>.
+// Session cookies persist via partition="persist:perci-agentmail".
+// No IPC handlers needed — the webview loads the public dashboard directly.
+// Credentials stored at userData/agentmail.json (safeStorage encrypted)
+
+  function encryptAgentMailApiKey(apiKey) {
+    if (typeof apiKey !== 'string' || apiKey.length === 0) return '';
+    if (!safeStorage.isEncryptionAvailable()) {
+      console.warn('OS encryption unavailable; storing AgentMail key unencrypted.');
+      return apiKey;
+    }
+    return {
+      [AGENTMAIL_ENCRYPTED_MARKER]: true,
+      value: safeStorage.encryptString(apiKey).toString('base64')
+    };
+  }
+
+  function decryptAgentMailApiKey(value) {
+    if (typeof value === 'string') return value;
+    if (typeof value !== 'object' || value[AGENTMAIL_ENCRYPTED_MARKER] !== true || typeof value.value !== 'string') {
+      return '';
+    }
+    try {
+      return safeStorage.decryptString(Buffer.from(value.value, 'base64'));
+    } catch (err) {
+      console.error('Error decrypting stored AgentMail API key:', err);
+      return '';
+    }
+  }
+
+  function writeAgentMailCredentials(creds) {
+    const payload = {
+      api_key: encryptAgentMailApiKey(creds.api_key || ''),
+      inbox_id: creds.inbox_id || ''
+    };
+    fsSync.writeFileSync(AGENTMAIL_CRED_PATH, JSON.stringify(payload, null, 2), 'utf8');
+  }
+
+  function readAgentMailCredentials() {
+    try {
+      if (fsSync.existsSync(AGENTMAIL_CRED_PATH)) {
+        const raw = fsSync.readFileSync(AGENTMAIL_CRED_PATH, 'utf8');
+        const data = JSON.parse(raw);
+        const creds = {
+          api_key: decryptAgentMailApiKey(data.api_key),
+          inbox_id: data.inbox_id || ''
+        };
+        // Re-write plaintext keys as encrypted if OS encryption is available
+        if (typeof data.api_key === 'string' && data.api_key && safeStorage.isEncryptionAvailable()) {
+          writeAgentMailCredentials(creds);
+        }
+        return creds;
+      }
+      // Auto-migrate from ~/.hermes/scripts/agentmail_env.sh (dev convenience)
+      const hermesEnv = path.join(os.homedir(), '.hermes', 'scripts', 'agentmail_env.sh');
+      if (fsSync.existsSync(hermesEnv)) {
+        const envContent = fsSync.readFileSync(hermesEnv, 'utf8');
+        let apiKey = '';
+        let inboxId = '';
+        for (const line of envContent.split('\n')) {
+          const m = line.match(/^\s*export\s+(AGENTMAIL_API_KEY|AGENTMAIL_INBOX_ID)=(.+)/);
+          if (m) {
+            const val = m[2].replace(/^["']|["']$/g, '').trim();
+            if (m[1] === 'AGENTMAIL_API_KEY') apiKey = val;
+            else inboxId = val;
+          }
+        }
+        if (apiKey) {
+          writeAgentMailCredentials({ api_key: apiKey, inbox_id: inboxId });
+          console.log('[agentmail] Migrated credentials from agentmail_env.sh');
+          return { api_key: apiKey, inbox_id: inboxId };
+        }
+      }
+      return { api_key: '', inbox_id: '' };
+    } catch {
+      return { api_key: '', inbox_id: '' };
+    }
+  }
+
+  function ensureBridge() {
+    if (bridgeProc && !bridgeProc.killed) return bridgeProc;
+
+    const creds = readAgentMailCredentials();
+    if (!creds.api_key) {
+      console.error('[agentmail bridge] No API key configured. User must set credentials first.');
+      return null;
+    }
+
+    const scriptPath = path.join(__dirname, '..', 'scripts', 'agentmail_bridge.py');
+    const pythonPath = process.env.AGENTMAIL_PYTHON || 'python3';
+    configuredApiKey = creds.api_key;
+    awaitingInitialConfigureResponse = true;
+    bridgeReadyPromise = new Promise((resolve) => {
+      resolveBridgeReady = resolve;
+    });
+
+    bridgeProc = spawn(pythonPath, [scriptPath], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env },
+      shell: false,
+    });
+
+    // Send configure command as the very first stdin write
+    bridgeProc.stdin.write(JSON.stringify({ cmd: 'configure', params: creds }) + '\n');
+
+    bridgeProc.stdout.setEncoding('utf8');
+    let buffer = '';
+    bridgeProc.stdout.on('data', (chunk) => {
+      buffer += chunk;
+      // Responses are newline-delimited JSON
+      const lines = buffer.split('\n');
+      buffer = lines.pop();  // last line is incomplete (or empty)
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        let parsed;
+        try {
+          parsed = JSON.parse(trimmed);
+        } catch (e) {
+          if (awaitingInitialConfigureResponse) {
+            awaitingInitialConfigureResponse = false;
+            resolveBridgeReady?.({ ok: false, error: `Invalid JSON from bridge: ${e.message}` });
+            resolveBridgeReady = null;
+            continue;
+          }
+          const pending = bridgeQueue.shift();
+          if (pending) {
+            pending.resolve({ ok: false, error: `Invalid JSON from bridge: ${e.message}` });
+          }
+          continue;
+        }
+
+        if (awaitingInitialConfigureResponse) {
+          awaitingInitialConfigureResponse = false;
+          resolveBridgeReady?.(parsed);
+          resolveBridgeReady = null;
+          continue;
+        }
+
+        const pending = bridgeQueue.shift();
+        if (pending) {
+          pending.resolve(parsed);
+        }
+      }
+    });
+
+    bridgeProc.stderr.setEncoding('utf8');
+    bridgeProc.stderr.on('data', (data) => {
+      if (data.trim()) console.error('[agentmail bridge]', data.trim());
+    });
+
+    bridgeProc.on('error', (err) => {
+      console.error('[agentmail bridge] spawn error:', err.message);
+      awaitingInitialConfigureResponse = false;
+      resolveBridgeReady?.({ ok: false, error: `Bridge spawn error: ${err.message}` });
+      resolveBridgeReady = null;
+      bridgeProc = null;
+      while (bridgeQueue.length) {
+        bridgeQueue.shift().resolve({ ok: false, error: `Bridge spawn error: ${err.message}` });
+      }
+    });
+
+    bridgeProc.on('close', (code) => {
+      console.log('[agentmail bridge] exited with code', code);
+      awaitingInitialConfigureResponse = false;
+      resolveBridgeReady?.({ ok: false, error: 'Bridge process closed during configure' });
+      resolveBridgeReady = null;
+      bridgeProc = null;
+      while (bridgeQueue.length) {
+        bridgeQueue.shift().resolve({ ok: false, error: 'Bridge process closed' });
+      }
+    });
+
+    return bridgeProc;
+  }
+
+  ipcMain.handle('agentmail:cmd', async (event, { cmd, params }) => {
+    // Check if credentials changed (user updated them) — restart bridge
+    const currentCreds = readAgentMailCredentials();
+    if (bridgeProc && configuredApiKey !== currentCreds.api_key) {
+      console.log('[agentmail bridge] API key changed, restarting bridge...');
+      bridgeProc.kill();
+      bridgeProc = null;
+    }
+
+    const proc = ensureBridge();
+    if (!proc) {
+      const creds = readAgentMailCredentials();
+      if (!creds.api_key) {
+        return { ok: false, error: 'NO_API_KEY' };
+      }
+      return { ok: false, error: 'Failed to start AgentMail bridge' };
+    }
+    const ready = bridgeReadyPromise ? await bridgeReadyPromise : { ok: true };
+    if (!ready.ok) return ready;
+
+    return new Promise((resolve) => {
+      const command = { cmd, ...(params || {}) };
+      bridgeQueue.push({ command, resolve });
+      try {
+        const payload = JSON.stringify(command);
+        proc.stdin.write(payload + '\n');
+      } catch (e) {
+        bridgeQueue.pop();
+        resolve({ ok: false, error: `Failed to send command: ${e.message}` });
+      }
+    });
+  });
+
+  // Read current credentials (for renderer settings UI)
+  ipcMain.handle('agentmail:get-credentials', async () => {
+    const creds = readAgentMailCredentials();
+    return {
+      inbox_id: creds.inbox_id || '',
+      has_api_key: Boolean(creds.api_key)
+    };
+  });
+
+  // Write credentials to userData and restart bridge if key changed
+  ipcMain.handle('agentmail:set-credentials', async (event, { api_key, inbox_id }) => {
+    try {
+      const creds = { api_key: api_key || '', inbox_id: inbox_id || '' };
+      writeAgentMailCredentials(creds);
+
+      // If key changed, kill the old bridge — next agentmail:cmd will spawn a new one
+      if (bridgeProc && configuredApiKey !== creds.api_key) {
+        bridgeProc.kill();
+        bridgeProc = null;
+      }
+
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+
+  // Delete credentials (user wants to disconnect)
+  ipcMain.handle('agentmail:clear-credentials', async () => {
+    try {
+      if (fsSync.existsSync(AGENTMAIL_CRED_PATH)) {
+        fsSync.unlinkSync(AGENTMAIL_CRED_PATH);
+      }
+      if (bridgeProc) {
+        bridgeProc.kill();
+        bridgeProc = null;
+      }
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+
+// ── AutoForge ───────────────────────────────────────────────────────────────
+// Manages the autoforge CLI process (start/stop/status). AutoForge is an
+// autonomous coding agent that runs a FastAPI server locally.
+{
+  const { spawn: spawnAutoforge } = require('child_process');
+  const http = require('http');
+  let autoforgeProc = null;
+
+  function checkAutoforgePort() {
+    return new Promise((resolve) => {
+      const tryPort = (port, maxPort) => {
+        if (port > maxPort) { resolve(null); return; }
+        const req = http.get(`http://127.0.0.1:${port}/`, { timeout: 2000 }, (res) => {
+          res.resume();
+          resolve(port);
+        });
+        req.on('error', () => tryPort(port + 1, maxPort));
+        req.on('timeout', () => { req.destroy(); tryPort(port + 1, maxPort); });
+      };
+      tryPort(8888, 8898);
+    });
+  }
+
+  ipcMain.handle('autoforge:status', async () => {
+    const port = await checkAutoforgePort();
+    if (port) {
+      return { running: true, url: `http://127.0.0.1:${port}` };
+    }
+    // Also check if our spawned process is still alive
+    if (autoforgeProc && !autoforgeProc.killed && autoforgeProc.exitCode === null) {
+      return { running: true, url: 'http://127.0.0.1:8888', starting: true };
+    }
+    return { running: false, url: null };
+  });
+
+  ipcMain.handle('autoforge:start', async () => {
+    // Don't double-start
+    if (autoforgeProc && !autoforgeProc.killed && autoforgeProc.exitCode === null) {
+      const port = await checkAutoforgePort();
+      return { ok: true, url: port ? `http://127.0.0.1:${port}` : 'http://127.0.0.1:8888' };
+    }
+    // Check if already running independently
+    const existingPort = await checkAutoforgePort();
+    if (existingPort) {
+      return { ok: true, url: `http://127.0.0.1:${existingPort}` };
+    }
+
+    // Find autoforge binary
+    const whichResult = spawnSync('which', ['autoforge'], { encoding: 'utf8', timeout: 5000 });
+    const autoforgeBin = whichResult.stdout?.trim();
+    if (!autoforgeBin) {
+      return { ok: false, error: 'autoforge not found. Install with: npm install -g autoforge-ai' };
+    }
+
+    // Spawn autoforge --no-browser (we handle UI ourselves)
+    autoforgeProc = spawnAutoforge(autoforgeBin, ['--no-browser'], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      detached: false,
+      env: { ...process.env },
+    });
+
+    autoforgeProc.stdout?.on('data', (data) => {
+      const msg = data.toString().trim();
+      if (msg) console.log('[autoforge]', msg);
+    });
+
+    autoforgeProc.stderr?.on('data', (data) => {
+      const msg = data.toString().trim();
+      if (msg) console.error('[autoforge]', msg);
+    });
+
+    autoforgeProc.on('error', (err) => {
+      console.error('[autoforge] spawn error:', err.message);
+      autoforgeProc = null;
+    });
+
+    autoforgeProc.on('exit', (code) => {
+      console.log('[autoforge] exited with code', code);
+      autoforgeProc = null;
+    });
+
+    return { ok: true, url: 'http://127.0.0.1:8888' };
+  });
+
+  ipcMain.handle('autoforge:stop', async () => {
+    if (autoforgeProc && !autoforgeProc.killed) {
+      try {
+        autoforgeProc.kill('SIGTERM');
+        // Give it a moment, then force
+        setTimeout(() => {
+          if (autoforgeProc && !autoforgeProc.killed) {
+            autoforgeProc.kill('SIGKILL');
+          }
+        }, 5000);
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, error: err.message };
+      }
+    }
+    return { ok: true, note: 'No managed process running' };
+  });
+}

@@ -15,7 +15,6 @@ import { useTheme } from '../context/ThemeContext';
 import { normalizeAssistantSpacing } from '../lib/textFormatting';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import rehypeRaw from 'rehype-raw';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { SyntaxHighlighter } from '../lib/syntaxHighlighter';
 import { Copy, Check } from 'lucide-react';
@@ -26,6 +25,7 @@ import { cavemanDirective } from '../lib/caveman';
 import { PonytailDropdown } from './PonytailDropdown';
 import { ponytailDirective } from '../lib/ponytail';
 import LivePreviewPanel from './LivePreviewPanel';
+import { buildPreviewErrorDocument, buildStaticPreviewDocument } from '../lib/previewSecurity';
 import { ProviderModelPicker } from './ProviderModelPicker';
 import chatHeroBackground from '../assets/chat-hero-background.jpeg';
 import {
@@ -1360,8 +1360,16 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
             return undefined;
         }
 
-        const mimeType = currentPreviewArtifact.type === 'svg' ? 'image/svg+xml' : 'text/html';
-        const blob = new Blob([currentPreviewArtifact.content || ''], { type: mimeType });
+        let previewDocument;
+        try {
+            previewDocument = buildStaticPreviewDocument(currentPreviewArtifact.content || '', {
+                title: currentPreviewArtifact.title || 'Preview',
+                type: currentPreviewArtifact.type
+            });
+        } catch (error) {
+            previewDocument = buildPreviewErrorDocument(error.message);
+        }
+        const blob = new Blob([previewDocument], { type: 'text/html' });
         const url = URL.createObjectURL(blob);
         setArtifactPreviewUrl(url);
         return () => URL.revokeObjectURL(url);
@@ -1783,7 +1791,6 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                                             <div className="prose prose-sm max-w-none text-[var(--text-primary)] leading-relaxed">
                                                 <ReactMarkdown
                                                     remarkPlugins={[remarkGfm]}
-                                                    rehypePlugins={[rehypeRaw]}
                                                     components={{
                                                         code({ node, inline, className, children, ...props }) {
                                                             const match = /language-(\w+)/.exec(className || '');

@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import { ModelService, getModelCapabilities } from '../lib/llm/ModelService';
 import {
     API_KEY_STORAGE_KEYS,
-    clearApiKeys,
     getApiKeySnapshot,
     getPersistenceSnapshot,
     hasElectronStore,
@@ -348,7 +347,6 @@ export function ChatProvider({ children }) {
                         ...nonEmptyApiKeysToStorageSnapshot(readApiKeysFromSnapshot(localApiKeys))
                     });
                 }
-                clearApiKeys();
             } catch (err) {
                 console.error('Failed to hydrate Electron persistence:', err);
             } finally {

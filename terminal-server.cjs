@@ -4,6 +4,8 @@ const pty = require('node-pty');
 const fs = require('fs');
 
 const PORT = Number(process.env.OPAL_TERMINAL_PORT) || 3001;
+const HOST = process.env.OPAL_TERMINAL_HOST || '127.0.0.1';
+const TERMINAL_TOKEN = process.env.OPAL_TERMINAL_TOKEN || '';
 const sessions = new Map();
 const MAX_BUFFER_LENGTH = 200000;
 const SESSION_IDLE_TIMEOUT_MS = 15 * 60 * 1000;
@@ -87,8 +89,8 @@ process.on('unhandledRejection', (reason, promise) => {
 
 let wss;
 try {
-  wss = new WebSocketServer({ port: PORT });
-  console.log(`Perci Terminal Server (node-pty) running on ws://localhost:${PORT}`);
+  wss = new WebSocketServer({ host: HOST, port: PORT });
+  console.log(`Perci Terminal Server (node-pty) running on ws://${HOST}:${PORT}`);
 } catch (err) {
   console.error(`[ERROR] Failed to start WebSocket server on port ${PORT}:`, err);
   process.exit(1);
@@ -206,6 +208,11 @@ function scheduleSessionCleanup(session) {
 
 wss.on('connection', (ws, req) => {
   const url = new URL(req.url || '/', `ws://localhost:${PORT}`);
+  const token = url.searchParams.get('token') || '';
+  if (TERMINAL_TOKEN && token !== TERMINAL_TOKEN) {
+    ws.close(1008, 'Unauthorized');
+    return;
+  }
   const sessionId = url.searchParams.get('sessionId') || 'default';
   const telemetryOnly = url.searchParams.get('telemetry') === '1';
   

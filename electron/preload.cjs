@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('electron', {
   getAppData: () => ipcRenderer.invoke('app-data:get'),
   setAppData: (data) => ipcRenderer.invoke('app-data:set', data),
   getAppDataPath: () => ipcRenderer.invoke('app-data:path'),
+  getTerminalConnectionInfo: () => ipcRenderer.invoke('terminal:get-connection-info'),
   getKlipitExtensionId: () => ipcRenderer.invoke('get-klipit-extension-id'),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   webSearch: (query, options) => ipcRenderer.invoke('web-search', { query, options }),
@@ -132,4 +133,12 @@ contextBridge.exposeInMainWorld('electron', {
   getPlaybookSkills: () => ipcRenderer.invoke('skills:get-playbook-skills'),
   setSkillMetadata: (data) => ipcRenderer.invoke('skills:set-metadata', data),
   getSkillMetadata: () => ipcRenderer.invoke('skills:get-metadata'),
+  // AgentMail — credential management (webview loads AgentMail directly)
+  agentmailGetCredentials: () => ipcRenderer.invoke('agentmail:get-credentials'),
+  agentmailSetCredentials: (api_key, inbox_id) => ipcRenderer.invoke('agentmail:set-credentials', { api_key, inbox_id }),
+  agentmailClearCredentials: () => ipcRenderer.invoke('agentmail:clear-credentials'),
+  // AutoForge — autonomous coding agent (start/stop/status)
+  autoforgeStatus: () => ipcRenderer.invoke('autoforge:status'),
+  autoforgeStart: () => ipcRenderer.invoke('autoforge:start'),
+  autoforgeStop: () => ipcRenderer.invoke('autoforge:stop'),
 });

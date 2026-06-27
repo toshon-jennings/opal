@@ -465,9 +465,10 @@ export class ModelService {
             }
 
             const url = new URL('https://generativelanguage.googleapis.com/v1beta/models');
-            url.searchParams.set('key', apiKey);
 
-            const response = await fetch(url.toString());
+            const response = await fetch(url.toString(), {
+                headers: { 'x-goog-api-key': apiKey }
+            });
 
             if (!response.ok) {
                 throw new Error('Failed to fetch Gemini models');
