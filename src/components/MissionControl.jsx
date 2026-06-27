@@ -165,7 +165,7 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
             } catch { /* ignore transient errors */ }
         }
         poll();
-        const id = setInterval(poll, 3000);
+        const id = setInterval(poll, 2000);
         return () => { cancelled = true; clearInterval(id); };
     }, []);
 

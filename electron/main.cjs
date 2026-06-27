@@ -3267,7 +3267,11 @@ ipcMain.handle('agent-jobs:activity', async () => {
   for (const [, jobRecord] of agentJobs) {
     const job = jobRecord.job;
     const isActive = ['pending', 'claimed', 'running', 'retry_queued'].includes(job.status);
-    if (!isActive) continue;
+    // Include recently-completed jobs (within 60s) so the pulse shows
+    // activity for fast agents that finish between polls
+    const completedAt = job.completed_at ? new Date(job.completed_at).getTime() : null;
+    const isRecent = completedAt && (Date.now() - completedAt) < 60000;
+    if (!isActive && !isRecent) continue;
 
     const lane = AGENT_TO_LANE[job.agent] || 'general';
     counts[lane] += 1;
@@ -5269,6 +5273,50 @@ async function inspectCleanmacDockerCandidates() {
 
 ipcMain.handle('cleanmac:inspect-docker', async () => inspectCleanmacDockerCandidates());
 
+// Generic Docker/OrbStack status check — reusable by any window that needs
+// a Docker-dependent localhost service (Open Notebook, etc). Returns a
+// state string the renderer can branch on:
+//   'running'          — Docker daemon is up
+//   'orbstack'         — OrbStack is running (same as 'running' but identifies runtime)
+//   'orbstack-stopped' — OrbStack installed but not started
+//   'not-installed'    — Neither Docker nor OrbStack found
+//   'error'            — Unexpected failure
+ipcMain.handle('docker:status', async () => {
+  try {
+    const dockerCheck = await eidosCheckDocker();
+    if (dockerCheck.ok) {
+      return { state: 'running', runtime: dockerCheck.runtime };
+    }
+    if (dockerCheck.runtime === 'orbstack-stopped') {
+      return { state: 'orbstack-stopped', orbPath: dockerCheck.orbPath, error: dockerCheck.error };
+    }
+    if (!dockerCheck.orbPath && !dockerCheck.dockerPath) {
+      return { state: 'not-installed', error: dockerCheck.error };
+    }
+    return { state: 'error', error: dockerCheck.error };
+  } catch (err) {
+    return { state: 'error', error: err.message };
+  }
+});
+
+// Start OrbStack when it's installed but stopped. Returns updated status.
+ipcMain.handle('docker:start-orbstack', async () => {
+  try {
+    const dockerCheck = await eidosCheckDocker();
+    if (dockerCheck.ok) {
+      return { state: 'running', runtime: dockerCheck.runtime, alreadyRunning: true };
+    }
+    if (dockerCheck.runtime !== 'orbstack-stopped' || !dockerCheck.orbPath) {
+      return { state: 'error', error: 'OrbStack is not installed or already starting' };
+    }
+    await eidosStartOrbStack(dockerCheck.orbPath);
+    const recheck = await eidosCheckDocker();
+    return { state: recheck.ok ? 'running' : 'error', runtime: recheck.runtime, error: recheck.error };
+  } catch (err) {
+    return { state: 'error', error: err.message };
+  }
+});
+
 ipcMain.handle('cleanmac:run', async (event) => {
   const { BrowserWindow } = require('electron');
   const win = BrowserWindow.fromWebContents(event.sender);
@@ -6285,6 +6333,109 @@ ipcMain.handle('skills:set-metadata', async (event, data) => {
       return { ok: false, error: e.message };
     }
   });
+
+// ── Usage Tracker ─────────────────────────────────────────────────────────
+// Reads/writes subscription usage data (API credits, reset dates, etc.).
+// Stored at userData/usage-tracker/subscriptions.json.
+
+const USAGE_TRACKER_DIR = path.join(app.getPath('userData'), 'usage-tracker');
+const USAGE_TRACKER_FILE = path.join(USAGE_TRACKER_DIR, 'subscriptions.json');
+
+const DEFAULT_USAGE_TRACKER_DATA = {
+    version: 1,
+    services: [
+        {
+            id: 'claude-code',
+            name: 'Claude Code',
+            type: 'weekly_reset',
+            reset_date: '2026-06-29T00:00:00',
+            reset_cycle: 'weekly',
+            notes: 'Weekly usage limit. Resets Monday 00:00 UTC.',
+        },
+        {
+            id: 'openrouter',
+            name: 'OpenRouter',
+            type: 'balance',
+            balance: null,
+            currency: 'credits',
+            daily_burn_estimate: null,
+            top_up_url: 'https://openrouter.ai/credits',
+            check_url: 'https://openrouter.ai/api/v1/auth/key',
+            notes: 'API key billing.',
+        },
+        {
+            id: 'fal-ai',
+            name: 'fal.ai',
+            type: 'balance',
+            balance: null,
+            currency: 'credits',
+            daily_burn_estimate: null,
+            top_up_url: 'https://fal.ai/dashboard/billing',
+            notes: 'Subscription + pay-as-you-go.',
+        },
+        {
+            id: 'codex-personal',
+            name: 'Codex (Personal)',
+            account_label: 'toshon.tech@gmail.com',
+            type: 'weekly_reset',
+            reset_date: null,
+            reset_cycle: 'monthly',
+            notes: 'Codex subscription.',
+        },
+        {
+            id: 'codex-work',
+            name: 'Codex (Work)',
+            account_label: 'tjennings@cityschool.org',
+            type: 'weekly_reset',
+            reset_date: null,
+            reset_cycle: 'monthly',
+            notes: 'Codex subscription.',
+        },
+    ],
+};
+
+function ensureUsageTrackerFile() {
+    try {
+        if (!fsSync.existsSync(USAGE_TRACKER_DIR)) {
+            fsSync.mkdirSync(USAGE_TRACKER_DIR, { recursive: true });
+        }
+        if (!fsSync.existsSync(USAGE_TRACKER_FILE)) {
+            fsSync.writeFileSync(
+                USAGE_TRACKER_FILE,
+                JSON.stringify(DEFAULT_USAGE_TRACKER_DATA, null, 2),
+                'utf8'
+            );
+        }
+    } catch (err) {
+        console.error('[usage-tracker] Failed to ensure file:', err);
+    }
+}
+
+function readUsageTracker() {
+    try {
+        ensureUsageTrackerFile();
+        const raw = fsSync.readFileSync(USAGE_TRACKER_FILE, 'utf8');
+        return JSON.parse(raw);
+    } catch (err) {
+        console.error('[usage-tracker] Failed to read:', err);
+        return DEFAULT_USAGE_TRACKER_DATA;
+    }
+}
+
+function writeUsageTracker(data) {
+    try {
+        ensureUsageTrackerFile();
+        fsSync.writeFileSync(USAGE_TRACKER_FILE, JSON.stringify(data, null, 2), 'utf8');
+        return { ok: true };
+    } catch (err) {
+        console.error('[usage-tracker] Failed to write:', err);
+        return { ok: false, error: err.message };
+    }
+}
+
+ipcMain.handle('usage-tracker:get', async () => readUsageTracker());
+
+ipcMain.handle('usage-tracker:save', async (event, data) => writeUsageTracker(data));
 
 // ── AutoForge ───────────────────────────────────────────────────────────────
 // Manages the autoforge CLI process (start/stop/status). AutoForge is an
