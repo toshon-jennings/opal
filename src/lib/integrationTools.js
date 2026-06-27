@@ -24,6 +24,49 @@ function parseRepo(params = {}) {
     return { owner, repo };
 }
 
+function assertNumericSeries(value, label) {
+    if (!Array.isArray(value) || value.some(item => typeof item !== 'number' || !Number.isFinite(item))) {
+        throw new Error(`Parameter "${label}" must be a JSON array of finite numbers.`);
+    }
+    return value;
+}
+
+async function getTimesFmRuntime() {
+    if (!window.electron?.runLocalCommand || !window.electron?.getAppData) {
+        throw new Error('Local TimesFM execution is not supported in this environment.');
+    }
+    const data = await window.electron.getAppData();
+    const projectDir = typeof data?.working_directory === 'string' ? data.working_directory.trim() : '';
+    if (!projectDir) {
+        throw new Error('Choose a workspace folder before using TimesFM tools.');
+    }
+    const cleanProjectDir = projectDir.replace(/\/+$/, '');
+    return {
+        projectDir,
+        pythonPath: `${cleanProjectDir}/timesfm-venv/bin/python`,
+        scriptPath: `${cleanProjectDir}/timesfm_mcp_server.py`
+    };
+}
+
+async function runTimesFm(projectDir, pythonPath, scriptPath, args) {
+    const run = await window.electron.runLocalCommand(
+        'env',
+        [pythonPath, scriptPath, ...args],
+        projectDir
+    );
+    const missingVenv = run.error
+        || run.exitCode === 126
+        || run.exitCode === 127
+        || /No such file|not found/i.test(run.stderr || '');
+    if (!missingVenv) return run;
+
+    return window.electron.runLocalCommand(
+        'python3',
+        [scriptPath, ...args],
+        projectDir
+    );
+}
+
 function requireToken(apiKeys, key, label) {
     const token = apiKeys?.[key];
     if (!token) throw new Error(`${label} token is not configured in Settings.`);
@@ -267,39 +310,26 @@ export async function executeIntegrationTool(name, params = {}, apiKeys = {}) {
             return { number: data.number, title: data.title, html_url: data.html_url, state: data.state };
         }
         case 'timesfm_forecast': {
-            if (!window.electron?.runLocalCommand) {
-                throw new Error('Local command execution is not supported in this environment.');
-            }
             let history = params.history;
             if (typeof history === 'string') {
                 try { history = JSON.parse(history); } catch (_) {}
             }
-            if (!history || !Array.isArray(history)) {
-                throw new Error('Parameter "history" must be a JSON array of numeric values.');
-            }
-            const horizon = Number(params.horizon) || 24;
-            const projectDir = '/Users/toshonjennings/opal';
-            const cmd = 'bash';
-            const args = [
-                '-c',
-                `"${projectDir}/timesfm-venv/bin/python" "${projectDir}/timesfm_mcp_server.py" forecast '${JSON.stringify(history)}' ${horizon}`
-            ];
+            history = assertNumericSeries(history, 'history');
+            const horizon = Math.min(365, Math.max(1, Number(params.horizon) || 24));
+            const { projectDir, pythonPath, scriptPath } = await getTimesFmRuntime();
             
-            const run = await window.electron.runLocalCommand(cmd, args, projectDir);
-            if (!run.ok) {
+            const run = await runTimesFm(projectDir, pythonPath, scriptPath, ['forecast', JSON.stringify(history), String(horizon)]);
+            if (run.error || run.exitCode !== 0) {
                 throw new Error(run.error || run.stderr || 'TimesFM execution failed.');
             }
             
             try {
-                return JSON.parse(run.stdout);
+                return JSON.parse(run.output || '');
             } catch (e) {
-                return { error: 'Failed to parse TimesFM forecast output.', raw: run.stdout };
+                return { error: 'Failed to parse TimesFM forecast output.', raw: run.output || '' };
             }
         }
         case 'timesfm_plot': {
-            if (!window.electron?.runLocalCommand) {
-                throw new Error('Local command execution is not supported in this environment.');
-            }
             let history = params.history;
             let forecast_values = params.forecast_values;
             if (typeof history === 'string') {
@@ -308,22 +338,16 @@ export async function executeIntegrationTool(name, params = {}, apiKeys = {}) {
             if (typeof forecast_values === 'string') {
                 try { forecast_values = JSON.parse(forecast_values); } catch (_) {}
             }
-            if (!history || !Array.isArray(history) || !forecast_values || !Array.isArray(forecast_values)) {
-                throw new Error('Parameters "history" and "forecast_values" must be JSON arrays.');
-            }
-            const projectDir = '/Users/toshonjennings/opal';
-            const cmd = 'bash';
-            const args = [
-                '-c',
-                `"${projectDir}/timesfm-venv/bin/python" "${projectDir}/timesfm_mcp_server.py" plot '${JSON.stringify(history)}' '${JSON.stringify(forecast_values)}'`
-            ];
+            history = assertNumericSeries(history, 'history');
+            forecast_values = assertNumericSeries(forecast_values, 'forecast_values');
+            const { projectDir, pythonPath, scriptPath } = await getTimesFmRuntime();
             
-            const run = await window.electron.runLocalCommand(cmd, args, projectDir);
-            if (!run.ok) {
+            const run = await runTimesFm(projectDir, pythonPath, scriptPath, ['plot', JSON.stringify(history), JSON.stringify(forecast_values)]);
+            if (run.error || run.exitCode !== 0) {
                 throw new Error(run.error || run.stderr || 'TimesFM plotting failed.');
             }
             
-            return { plot_markdown: run.stdout.trim() };
+            return { plot_markdown: (run.output || '').trim() };
         }
         default:
             return { error: `Unknown integration tool: "${name}"` };
@@ -344,6 +368,11 @@ export async function runChatWithTools({
     let llmMessages = [...messages];
     let finalContent = '';
     let finalThinking = '';
+    const allowedToolNames = new Set(
+        (tools || [])
+            .map(tool => tool?.name || tool?.function?.name)
+            .filter(Boolean)
+    );
 
     for (let iteration = 0; iteration < maxIterations; iteration++) {
         if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
@@ -390,7 +419,9 @@ export async function runChatWithTools({
         for (const toolCall of toolCalls) {
             if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
             onToolCall?.(toolCall);
-            const result = await executeTool(toolCall.name, toolCall.args || {});
+            const result = allowedToolNames.has(toolCall.name)
+                ? await executeTool(toolCall.name, toolCall.args || {})
+                : { error: `Tool is not available in this request: ${toolCall.name}` };
             toolResults.push({
                 role: 'tool',
                 tool_call_id: toolCall.id,
