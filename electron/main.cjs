@@ -3478,7 +3478,49 @@ ipcMain.handle('agent-jobs:queue', async (event, { agent, prompt, working_direct
     } catch (_) {}
   }
 
-  const child = spawn(command, spawnArgs, {
+  // Prompt-flag agents (Cmd Code, Copilot) need a PTY even though they run
+  // headlessly — they may still query the terminal for width, run interactive
+  // auth flows, or prompt for confirmation. Using a PTY avoids hangs.
+  let child;
+  if (usesPromptFlag) {
+    const pty = require('node-pty');
+    const ptyEnv = { ...spawnEnv, TERM: 'xterm-256color' };
+    child = pty.spawn(command, spawnArgs, {
+      cwd,
+      env: ptyEnv,
+      cols: 120,
+      rows: 30,
+      name: 'xterm-256color',
+    });
+
+    jobRecord.childProcess = child;
+    jobRecord.status = 'running';
+    jobRecord.started_at = new Date().toISOString();
+
+    child.on('data', (data) => {
+      const text = data.toString();
+      jobRecord.output += text;
+      jobRecord.output_kind = 'output';
+    });
+
+    child.on('exit', (code) => {
+      jobRecord.completed_at = new Date().toISOString();
+      jobRecord.exit_code = code ?? 0;
+      if (code === 0) {
+        jobRecord.status = 'completed';
+      } else {
+        jobRecord.status = 'failed';
+        if (!jobRecord.output_kind || jobRecord.output_kind === 'output') {
+          jobRecord.output_kind = 'error';
+        }
+      }
+    });
+
+    agentJobs.set(jobId, { childProcess: child, job: jobRecord });
+    return { ok: true, job: serializeJob(jobRecord) };
+  }
+
+  child = spawn(command, spawnArgs, {
     cwd,
     env: spawnEnv,
     stdio: ['pipe', 'pipe', 'pipe'],
