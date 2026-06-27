@@ -2,14 +2,15 @@
 // the Dashboard tile grid (DashboardMode.jsx) and the Sir Perci dock
 // launcher (SirPerciLauncher.jsx) so both stay in sync automatically.
 import    {
-    Sparkles, Server, Radar, Layers, Globe, GitMerge, TerminalSquare, Inbox,
+    Sparkles, Server, Radar, Layers, Globe, GitMerge, TerminalSquare,
 } from 'lucide-react';
 import {
     ChatIcon, CoworkIcon, CodeIcon, NotesIcon, AgentsIcon, ResearchIcon,
     OfficeIcon, MissionIcon, BuildIcon, ProjectsIcon, SkillsIcon, SurfaceMapIcon, PerciNowIcon, PackagesIcon,
 } from '../components/ModeIcons';
-import { MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID, CLEANMAC_WINDOW_ID, PACKAGES_WINDOW_ID, AGENTMAIL_WINDOW_ID } from '../context/ModeContext';
+import { MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID, CLEANMAC_WINDOW_ID, PACKAGES_WINDOW_ID, AGENTMAIL_WINDOW_ID, AUTOFORGE_WINDOW_ID } from '../context/ModeContext';
 import lhLogo from '../assets/lh-logo.png';
+import autoforgeLogo from '../assets/autoforge-logo.png';
 import hermesLogo from '../assets/nousresearch.png';
 import gdashLogo from '../assets/gdash2-cropped.png';
 import gdashBg from '../assets/gdash-bg.jpg';
@@ -29,6 +30,8 @@ import openclawLogo from '../assets/openclaw-logo.svg';
 import studioosLogo from '../assets/studioos-logo-dark.png';
 import klipitLogo from '../assets/klipit-logo.png';
 import klipitBg from '../assets/klipit-bg.jpeg';
+import agentmailLogo from '../assets/agentmail-logo.png';
+import agentmailBg from '../assets/agentmail-bg.jpeg';
 
 // Native Perci surfaces — first-class workspace modes.
 // Sorted alphabetically by title so the dashboard tile grid and Sir Perci
@@ -50,15 +53,14 @@ export const NATIVE_TILES = [
     { id: MODES.PERCI_NOW, icon: PerciNowIcon, title: 'Perci Now', desc: 'Live workspace state', hue: '#0891b2' },
     { id: MODES.SURFACE_MAP, icon: SurfaceMapIcon, title: 'Perci Map', desc: 'Surface relationship map', hue: '#14b8a6' },
     { id: SKILLS_WINDOW_ID, icon: SkillsIcon, title: 'Skills', desc: 'Manage skills & agent CLIs', hue: '#f97316' },
-    { id: MODES.POWER_WORKSPACE, icon: Sparkles, title: 'Workspace', desc: 'Ideas, runs & next action', hue: '#f97316' },
-    { id: AGENTMAIL_WINDOW_ID, icon: Inbox, title: 'AgentMail', desc: 'Send & receive email via AgentMail API', hue: '#6366f1' },
+    { id: MODES.POWER_WORKSPACE, icon: Sparkles, title: 'Power Workspace', desc: 'Ideas, runs & next action', hue: '#f97316' },
 ];
 
 // Logo presentation hints shared by the Dashboard tile grid and the Sir
 // Perci launcher, so both render the same artwork (white backing vs.
 // edge-to-edge cover) instead of drifting apart.
 export const LOGO_WHITE_BOX_IDS = new Set([GDASH_WINDOW_ID, MODES.STUDIOOS, MODES.LIGHTHOUSE, HERMES_WINDOW_ID]);
-export const LOGO_FILL_COVER_IDS = new Set([EIDOS_WINDOW_ID, KLIPIT_WINDOW_ID, MODES.BARS, MODES.MARKITDOWN, MODES.CONCERNS]);
+export const LOGO_FILL_COVER_IDS = new Set([EIDOS_WINDOW_ID, KLIPIT_WINDOW_ID, MODES.BARS, MODES.MARKITDOWN, MODES.CONCERNS, AGENTMAIL_WINDOW_ID]);
 
 // OS-level tools and external runtimes. Bars belongs here when its Perci
 // surface is wired, not in the native Perci app group.
@@ -74,4 +76,6 @@ export const SYSTEM_TILES = [
     { id: MODES.CONCERNS, icon: null, logo: billboardLogo, title: 'Bill Board', desc: 'Services, keys & subscriptions', hue: '#06b6d4', artwork: true, bgImage: billboardBg },
     { id: MODES.STUDIOOS, icon: Layers, logo: studioosLogo, title: 'StudioOS', desc: 'View/manage your StudioOS workspace', hue: '#3b82f6', artwork: true, bgImage: studioosBg },
     { id: CLEANMAC_WINDOW_ID, icon: TerminalSquare, title: 'Cleanmac', desc: 'Clean developer caches on macOS', hue: '#10b981' },
+    { id: AUTOFORGE_WINDOW_ID, icon: null, logo: autoforgeLogo, title: 'AutoForge', desc: 'Autonomous coding agent', hue: '#f97316' },
+    { id: AGENTMAIL_WINDOW_ID, icon: null, logo: agentmailLogo, title: 'AgentMail', desc: 'Email via AgentMail web console', hue: '#6366f1', artwork: true, bgImage: agentmailBg },
 ];

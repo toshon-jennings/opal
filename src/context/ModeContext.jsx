@@ -49,6 +49,7 @@ export const SKILLS_WINDOW_ID = 'skills';
 export const CLEANMAC_WINDOW_ID = 'cleanmac';
 export const PACKAGES_WINDOW_ID = 'packages-window';
 export const AGENTMAIL_WINDOW_ID = 'agentmail';
+export const AUTOFORGE_WINDOW_ID = 'autoforge';
 
 // Titles shown in window headers and dock chips for each windowed surface.
 export const WINDOW_TITLES = {
@@ -85,12 +86,13 @@ export const WINDOW_TITLES = {
     [CLEANMAC_WINDOW_ID]: 'Cleanmac',
     [PACKAGES_WINDOW_ID]: 'Packages',
     [AGENTMAIL_WINDOW_ID]: 'AgentMail',
+    [AUTOFORGE_WINDOW_ID]: 'AutoForge',
 };
 
 // Windows whose content is an embedded <webview>/<iframe>; CSS transforms can make
 // embedded frames flicker (and reload), so these minimize with a plain fade instead
 // of the whirlpool spin.
-const NO_WHIRLPOOL_IDS = new Set([OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID]);
+const NO_WHIRLPOOL_IDS = new Set([OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, AUTOFORGE_WINDOW_ID]);
 
 const WINDOW_DEFAULTS = { width: 960, height: 640, minWidth: 420, minHeight: 300, cascade: 34 };
 const DOCK_RESERVED_HEIGHT = 64;

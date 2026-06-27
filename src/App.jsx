@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, Component } from 'react';
 import perciLogo from './assets/perci-logo.png';
-import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, ARTIFACT_WINDOW_ID, RESEARCH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID, CLEANMAC_WINDOW_ID, PACKAGES_WINDOW_ID, AGENTMAIL_WINDOW_ID } from './context/ModeContext';
+import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, ARTIFACT_WINDOW_ID, RESEARCH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID, CLEANMAC_WINDOW_ID, PACKAGES_WINDOW_ID, AGENTMAIL_WINDOW_ID, AUTOFORGE_WINDOW_ID } from './context/ModeContext';
 import ModeSwitcher from './components/ModeSwitcher';
 import ChatMode from './components/ChatMode';
 import CodeMode from './components/CodeMode';
@@ -28,6 +28,7 @@ import LocalhostMode from './components/LocalhostMode';
 import SkillsMode from './components/SkillsMode';
 import EnsembleMode from './components/EnsembleMode';
 import CleanmacMode from './components/CleanmacMode';
+import AutoforgeMode from './components/AutoforgeMode';
 import AgentMailMode from './components/AgentMailMode';
 import PackagesMode from './components/PackagesMode';
 import { SettingsModal } from './components/SettingsModal';
@@ -44,6 +45,7 @@ import { ChatProvider } from './context/ChatContext';
 
 import nousLogo from './assets/nousresearch.png';
 import openClawLogo from './assets/openclaw-color.png';
+import autoforgeLogo from './assets/autoforge-logo.png';
 import { Moon, Sun, Monitor, Lock, Unlock, Plus, Terminal as TerminalIcon, Server, RefreshCw, ExternalLink, AlertCircle, BookOpen, Cpu, Download, Puzzle, Sparkles, Package, Inbox } from 'lucide-react';
 import { useTheme, ThemeProvider } from './context/ThemeContext';
 import { useChat } from './context/ChatContext';
@@ -56,7 +58,7 @@ import {
     recordTerminalCommandOutput,
     recordTerminalCommandResult
 } from './lib/missionControl';
-import { buildTerminalWsUrl, getTerminalPortCandidates, rememberTerminalPort } from './lib/terminalBridge';
+import { buildTerminalWsUrl, getTerminalConnectionInfo, getTerminalPortCandidates, rememberTerminalPort } from './lib/terminalBridge';
 
 class ModeErrorBoundary extends Component {
     constructor(props) {
@@ -113,6 +115,7 @@ function AppContent() {
     const skillsWindowOpen = windows.some(w => w.id === SKILLS_WINDOW_ID && w.state !== 'minimized');
     const packagesWindowOpen = windows.some(w => w.id === PACKAGES_WINDOW_ID && w.state !== 'minimized');
     const agentmailWindowOpen = windows.some(w => w.id === AGENTMAIL_WINDOW_ID && w.state !== 'minimized');
+    const autoforgeWindowOpen = windows.some(w => w.id === AUTOFORGE_WINDOW_ID && w.state !== 'minimized');
     const { isDarkMode, themeMode, cycleThemeMode } = useTheme();
     const { isIncognitoMode, toggleIncognitoMode, createNewChat } = useChat();
     const [openClawStatus, setOpenClawStatus] = useState({ state: 'idle' });
@@ -578,6 +581,7 @@ function AppContent() {
             case SKILLS_WINDOW_ID: return <SkillsMode />;
             case CLEANMAC_WINDOW_ID: return <CleanmacMode />;
             case AGENTMAIL_WINDOW_ID: return <AgentMailMode />;
+            case AUTOFORGE_WINDOW_ID: return <AutoforgeMode />;
             case PACKAGES_WINDOW_ID: return <PackagesMode />;
             case ARTIFACT_WINDOW_ID: return <ArtifactWindow />;
             case RESEARCH_WINDOW_ID: return <ResearchResultsWindow />;
@@ -810,9 +814,10 @@ function AppContent() {
                 ws.send(JSON.stringify({ type: 'runCommand', runId: missionRunId, command: cmd }));
             };
 
-            const connectToPort = () => {
+            const connectToPort = async () => {
                 const port = ports[activePortIndex];
-                ws = new WebSocket(buildTerminalWsUrl(port, 'default', true));
+                const { token } = await getTerminalConnectionInfo();
+                ws = new WebSocket(buildTerminalWsUrl(port, 'default', true, token));
                 startDispatchTimeout();
 
                 ws.onopen = () => {
@@ -1038,14 +1043,6 @@ function AppContent() {
                         <span className="absolute -top-1 -right-1 w-3 h-3 bg-[var(--accent-secondary)] rounded-full transition-all duration-300 group-hover:translate-x-3 group-hover:-translate-y-1 group-hover:opacity-0 pointer-events-none" />
                     </button>
 
-<button
-                        onClick={() => openWindow(SKILLS_WINDOW_ID)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all text-[11px] uppercase tracking-wider my-branded ${skillsWindowOpen ? 'active' : ''}`}
-                        title="Skills"
-                    >
-                        <SkillsIcon size={16} />
-                        <span className="hidden xl:inline">Skills</span>
-                    </button>
                     <button
                         onClick={() => openWindow(AGENTMAIL_WINDOW_ID)}
                         className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 transition-colors ${
@@ -1057,6 +1054,19 @@ function AppContent() {
                     >
                         <Inbox size={16} />
                         <span className="hidden lg:inline text-sm font-medium">Mail</span>
+                    </button>
+
+                    <button
+                        onClick={() => openWindow(AUTOFORGE_WINDOW_ID)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all text-[11px] uppercase tracking-wider ${
+                            autoforgeWindowOpen
+                                ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                                : 'text-[var(--text-secondary)] hover:text-orange-400 hover:bg-orange-500/10'
+                        }`}
+                        title="AutoForge — Autonomous coding agent"
+                    >
+                        <img src={autoforgeLogo} alt="" className="h-4 w-4 rounded" />
+                        <span className="hidden xl:inline">AutoForge</span>
                     </button>
 
                     <button onClick={() => setShowGlobalTerminal(v => !v)} className={`p-1.5 rounded-md transition-colors ${showGlobalTerminal ? 'bg-[var(--accent)] text-white' : 'text-[var(--accent)] hover:text-[var(--accent-hover)] hover:bg-[var(--bg-hover)]'}`} title="Toggle Terminal">
