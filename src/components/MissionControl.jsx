@@ -914,6 +914,7 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
                                 graph={transitGraph}
                                 runs={runs}
                                 onClose={() => setTransitModalOpen(false)}
+                                agentActivity={agentActivity}
                             />
                         )}
                         <MissionControlGuideModal
@@ -1471,7 +1472,7 @@ function NodeDetail({ node, run }) {
     );
 }
 
-function TransitMapModal({ graph, runs, onClose }) {
+function TransitMapModal({ graph, runs, onClose, agentActivity = { counts: {}, recent: [], total: 0 } }) {
     const [selectedNode, setSelectedNode] = useState(null);
     const [showFiles, setShowFiles] = useState(true);
     const [showMemory, setShowMemory] = useState(true);
@@ -1591,7 +1592,7 @@ function TransitMapModal({ graph, runs, onClose }) {
                             ))}
                         </div>
                         
-                        <MissionPulsePanel runs={runs} selectedNode={selectedNode} selectedRun={selectedRun} />
+                        <MissionPulsePanel runs={runs} selectedNode={selectedNode} selectedRun={selectedRun} agentActivity={agentActivity} />
                     </div>
 
                     {/* Sidebar Inspector Panel */}
@@ -1692,7 +1693,7 @@ function TransitMapModal({ graph, runs, onClose }) {
     );
 }
 
-function MissionPulsePanel({ runs = [], selectedNode, selectedRun }) {
+function MissionPulsePanel({ runs = [], selectedNode, selectedRun, agentActivity = { counts: {}, recent: [], total: 0 } }) {
     const recentRuns = runs.slice(0, 8);
     const activeRuns = runs.filter(run => ['running', 'waiting'].includes(run.status)).length;
     const validationCount = runs.filter(needsValidation).length;
