@@ -1,0 +1,5363 @@
+{
+  "generatedAt": "2026-06-24T02:34:17.452Z",
+  "repo": "/Users/toshonjennings/opal",
+  "range": "v0.28.1..HEAD",
+  "githubBaseUrl": "https://github.com/toshon-jennings/perci",
+  "compareUrl": "https://github.com/toshon-jennings/perci/compare/v0.28.1...HEAD",
+  "graph": {
+    "available": true,
+    "path": "/Users/toshonjennings/opal/docs/architecture/graphify-out/graph.json",
+    "manifestPath": "/Users/toshonjennings/opal/docs/architecture/graphify-out/manifest.json",
+    "nodeCount": 423,
+    "linkCount": 418,
+    "reason": null,
+    "coverage": {
+      "changedRendererFiles": 21,
+      "matchedRendererFiles": 8,
+      "unmatchedRendererFiles": 13,
+      "unmatchedSamples": [
+        "src/components/CavemanDropdown.jsx",
+        "src/components/DashboardMode.jsx",
+        "src/components/EidosMode.jsx",
+        "src/components/EnsembleMode.jsx",
+        "src/components/LevelDropdown.jsx",
+        "src/components/LocalhostMode.jsx",
+        "src/components/MarkItDownMode.jsx",
+        "src/components/ModeIcons.jsx",
+        "src/components/PonytailDropdown.jsx",
+        "src/components/SkillsMode.jsx",
+        "src/lib/caveman.js",
+        "src/lib/ensemble.js"
+      ]
+    }
+  },
+  "totals": {
+    "commits": 2,
+    "files": 135,
+    "additions": 18408,
+    "deletions": 256,
+    "binary": 6
+  },
+  "commits": [
+    {
+      "sha": "50268d89c3916767f48462a9d29ceb059a92852c",
+      "shortSha": "50268d8",
+      "date": "2026-06-23T07:11:44-04:00",
+      "author": "Toshon",
+      "subject": "feat(browser): add bookmarks, omnibox, find in page, and SSL bypass",
+      "files": [
+        {
+          "status": "M",
+          "statusLabel": "changed",
+          "path": "electron/main.cjs",
+          "oldPath": null,
+          "additions": 49,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "desktop-bridge",
+              "title": "Electron IPC and desktop bridge"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "M",
+          "statusLabel": "changed",
+          "path": "electron/preload.cjs",
+          "oldPath": null,
+          "additions": 6,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "desktop-bridge",
+              "title": "Electron IPC and desktop bridge"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "M",
+          "statusLabel": "changed",
+          "path": "package-lock.json",
+          "oldPath": null,
+          "additions": 2,
+          "deletions": 2,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "repo-maintenance",
+              "title": "Repository maintenance"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "M",
+          "statusLabel": "changed",
+          "path": "package.json",
+          "oldPath": null,
+          "additions": 1,
+          "deletions": 1,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "docs-release",
+              "title": "Docs, release notes, and project continuity"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": "src/assets/localhost-bg.jpeg",
+          "oldPath": null,
+          "additions": 0,
+          "deletions": 0,
+          "binary": true,
+          "surfaces": [
+            {
+              "id": "localhost",
+              "title": "Localhost browser mode"
+            },
+            {
+              "id": "assets-style",
+              "title": "Visual assets and styling"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "asset",
+              "label": "Adds localhost-bg.jpeg",
+              "detail": "Visual asset included in the product surface.",
+              "evidence": "src/assets/localhost-bg.jpeg"
+            }
+          ]
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": "src/components/CavemanDropdown.jsx",
+          "oldPath": null,
+          "additions": 15,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "components",
+              "title": "Renderer components"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "component",
+              "label": "Defines CavemanDropdown",
+              "detail": "React component/function detected.",
+              "evidence": "src/components/CavemanDropdown.jsx"
+            }
+          ]
+        },
+        {
+          "status": "M",
+          "statusLabel": "changed",
+          "path": "src/components/ChatMode.jsx",
+          "oldPath": null,
+          "additions": 9,
+          "deletions": 1,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "mode-chat-mode",
+              "title": "Chat Mode surface"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "storage",
+              "label": "Persists caveman_level_chat",
+              "detail": "Persistent storage key appears in added lines.",
+              "evidence": "src/components/ChatMode.jsx"
+            }
+          ]
+        },
+        {
+          "status": "M",
+          "statusLabel": "changed",
+          "path": "src/components/CodeMode.jsx",
+          "oldPath": null,
+          "additions": 20,
+          "deletions": 2,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "llm-tools",
+              "title": "LLM clients, tools, and agent orchestration"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "storage",
+              "label": "Persists caveman_level_code",
+              "detail": "Persistent storage key appears in added lines.",
+              "evidence": "src/components/CodeMode.jsx"
+            },
+            {
+              "kind": "storage",
+              "label": "Persists ponytail_level_code",
+              "detail": "Persistent storage key appears in added lines.",
+              "evidence": "src/components/CodeMode.jsx"
+            }
+          ]
+        },
+        {
+          "status": "M",
+          "statusLabel": "changed",
+          "path": "src/components/DashboardMode.css",
+          "oldPath": null,
+          "additions": 14,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "assets-style",
+              "title": "Visual assets and styling"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "style",
+              "label": "Adds visual styling hooks",
+              "detail": ".dash-tile-lighthouse, .dash-tile-logo, .dash-tile-icon",
+              "evidence": "src/components/DashboardMode.css"
+            }
+          ]
+        },
+        {
+          "status": "M",
+          "statusLabel": "changed",
+          "path": "src/components/DashboardMode.jsx",
+          "oldPath": null,
+          "additions": 7,
+          "deletions": 3,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "mode-routing",
+              "title": "Mode routing and desktop window system"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "mode-routing",
+              "label": "Wires LIGHTHOUSE",
+              "detail": "New mode reference appears in added lines.",
+              "evidence": "src/components/DashboardMode.jsx"
+            }
+          ]
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": "src/components/LevelDropdown.jsx",
+          "oldPath": null,
+          "additions": 50,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "components",
+              "title": "Renderer components"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "component",
+              "label": "Defines LevelDropdown",
+              "detail": "React component/function detected.",
+              "evidence": "src/components/LevelDropdown.jsx"
+            }
+          ]
+        },
+        {
+          "status": "M",
+          "statusLabel": "changed",
+          "path": "src/components/LocalhostMode.jsx",
+          "oldPath": null,
+          "additions": 455,
+          "deletions": 51,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "localhost",
+              "title": "Localhost browser mode"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "component",
+              "label": "Defines LocalhostTab",
+              "detail": "React component/function detected.",
+              "evidence": "src/components/LocalhostMode.jsx"
+            }
+          ]
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": "src/components/PonytailDropdown.jsx",
+          "oldPath": null,
+          "additions": 15,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "components",
+              "title": "Renderer components"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "component",
+              "label": "Defines PonytailDropdown",
+              "detail": "React component/function detected.",
+              "evidence": "src/components/PonytailDropdown.jsx"
+            }
+          ]
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": "src/lib/caveman.js",
+          "oldPath": null,
+          "additions": 44,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "libraries",
+              "title": "Shared renderer libraries"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "api",
+              "label": "Exports cavemanDirective()",
+              "detail": "Shared library API export detected.",
+              "evidence": "src/lib/caveman.js"
+            },
+            {
+              "kind": "api",
+              "label": "Exports CAVEMAN_LEVELS",
+              "detail": "Shared library constant export detected.",
+              "evidence": "src/lib/caveman.js"
+            }
+          ]
+        },
+        {
+          "status": "M",
+          "statusLabel": "changed",
+          "path": "src/lib/persistentStore.js",
+          "oldPath": null,
+          "additions": 9,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "persistence",
+              "title": "Persistence and local state"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": "src/lib/ponytail.js",
+          "oldPath": null,
+          "additions": 44,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "libraries",
+              "title": "Shared renderer libraries"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "api",
+              "label": "Exports ponytailDirective()",
+              "detail": "Shared library API export detected.",
+              "evidence": "src/lib/ponytail.js"
+            },
+            {
+              "kind": "api",
+              "label": "Exports PONYTAIL_LEVELS",
+              "detail": "Shared library constant export detected.",
+              "evidence": "src/lib/ponytail.js"
+            }
+          ]
+        }
+      ],
+      "totals": {
+        "files": 16,
+        "additions": 740,
+        "deletions": 60,
+        "binary": 1,
+        "statuses": {
+          "M": 10,
+          "A": 6
+        }
+      },
+      "surfaces": [
+        {
+          "id": "localhost",
+          "title": "Localhost browser mode",
+          "files": 2,
+          "additions": 455,
+          "deletions": 51
+        },
+        {
+          "id": "libraries",
+          "title": "Shared renderer libraries",
+          "files": 2,
+          "additions": 88,
+          "deletions": 0
+        },
+        {
+          "id": "components",
+          "title": "Renderer components",
+          "files": 3,
+          "additions": 80,
+          "deletions": 0
+        },
+        {
+          "id": "desktop-bridge",
+          "title": "Electron IPC and desktop bridge",
+          "files": 2,
+          "additions": 55,
+          "deletions": 0
+        },
+        {
+          "id": "llm-tools",
+          "title": "LLM clients, tools, and agent orchestration",
+          "files": 1,
+          "additions": 20,
+          "deletions": 2
+        },
+        {
+          "id": "assets-style",
+          "title": "Visual assets and styling",
+          "files": 2,
+          "additions": 14,
+          "deletions": 0
+        },
+        {
+          "id": "mode-chat-mode",
+          "title": "Chat Mode surface",
+          "files": 1,
+          "additions": 9,
+          "deletions": 1
+        },
+        {
+          "id": "mode-routing",
+          "title": "Mode routing and desktop window system",
+          "files": 1,
+          "additions": 7,
+          "deletions": 3
+        },
+        {
+          "id": "persistence",
+          "title": "Persistence and local state",
+          "files": 1,
+          "additions": 9,
+          "deletions": 0
+        },
+        {
+          "id": "repo-maintenance",
+          "title": "Repository maintenance",
+          "files": 1,
+          "additions": 2,
+          "deletions": 2
+        },
+        {
+          "id": "docs-release",
+          "title": "Docs, release notes, and project continuity",
+          "files": 1,
+          "additions": 1,
+          "deletions": 1
+        }
+      ]
+    },
+    {
+      "sha": "0f11a2f51205c9230be186859bfd499aa8c46975",
+      "shortSha": "0f11a2f",
+      "date": "2026-06-23T21:35:35-04:00",
+      "author": "Toshon",
+      "subject": "feat: add Ensemble, MarkItDown, and Skills modes; Mission Control fix; Localhost improvements",
+      "files": [
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/api-and-interface-design/SKILL.md",
+          "oldPath": null,
+          "additions": 294,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/ask-matt/SKILL.md",
+          "oldPath": null,
+          "additions": 61,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/browser-testing-with-devtools/SKILL.md",
+          "oldPath": null,
+          "additions": 317,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/ci-cd-and-automation/SKILL.md",
+          "oldPath": null,
+          "additions": 390,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/code-review-and-quality/SKILL.md",
+          "oldPath": null,
+          "additions": 381,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/code-simplification/SKILL.md",
+          "oldPath": null,
+          "additions": 331,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/codebase-design/DEEPENING.md",
+          "oldPath": null,
+          "additions": 37,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/codebase-design/DESIGN-IT-TWICE.md",
+          "oldPath": null,
+          "additions": 44,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/codebase-design/SKILL.md",
+          "oldPath": null,
+          "additions": 114,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/context-engineering/SKILL.md",
+          "oldPath": null,
+          "additions": 289,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/debugging-and-error-recovery/SKILL.md",
+          "oldPath": null,
+          "additions": 300,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/decision-mapping/SKILL.md",
+          "oldPath": null,
+          "additions": 84,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/deprecation-and-migration/SKILL.md",
+          "oldPath": null,
+          "additions": 206,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/design-an-interface/SKILL.md",
+          "oldPath": null,
+          "additions": 94,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/diagnosing-bugs/SKILL.md",
+          "oldPath": null,
+          "additions": 134,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/diagnosing-bugs/scripts/hitl-loop.template.sh",
+          "oldPath": null,
+          "additions": 41,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/documentation-and-adrs/SKILL.md",
+          "oldPath": null,
+          "additions": 278,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/domain-modeling/ADR-FORMAT.md",
+          "oldPath": null,
+          "additions": 47,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/domain-modeling/CONTEXT-FORMAT.md",
+          "oldPath": null,
+          "additions": 60,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/domain-modeling/SKILL.md",
+          "oldPath": null,
+          "additions": 74,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/doubt-driven-development/SKILL.md",
+          "oldPath": null,
+          "additions": 243,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/edit-article/SKILL.md",
+          "oldPath": null,
+          "additions": 15,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/frontend-ui-engineering/SKILL.md",
+          "oldPath": null,
+          "additions": 328,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/git-guardrails-claude-code/SKILL.md",
+          "oldPath": null,
+          "additions": 95,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/git-guardrails-claude-code/scripts/block-dangerous-git.sh",
+          "oldPath": null,
+          "additions": 25,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/git-workflow-and-versioning/SKILL.md",
+          "oldPath": null,
+          "additions": 300,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/grill-me/SKILL.md",
+          "oldPath": null,
+          "additions": 7,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/grill-with-docs/SKILL.md",
+          "oldPath": null,
+          "additions": 7,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/grilling/SKILL.md",
+          "oldPath": null,
+          "additions": 10,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/handoff/SKILL.md",
+          "oldPath": null,
+          "additions": 16,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/idea-refine/SKILL.md",
+          "oldPath": null,
+          "additions": 178,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/idea-refine/examples.md",
+          "oldPath": null,
+          "additions": 238,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/idea-refine/frameworks.md",
+          "oldPath": null,
+          "additions": 99,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/idea-refine/refinement-criteria.md",
+          "oldPath": null,
+          "additions": 113,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/idea-refine/scripts/idea-refine.sh",
+          "oldPath": null,
+          "additions": 15,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/implement/SKILL.md",
+          "oldPath": null,
+          "additions": 15,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/improve-codebase-architecture/HTML-REPORT.md",
+          "oldPath": null,
+          "additions": 123,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/improve-codebase-architecture/SKILL.md",
+          "oldPath": null,
+          "additions": 66,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/incremental-implementation/SKILL.md",
+          "oldPath": null,
+          "additions": 245,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/interview-me/SKILL.md",
+          "oldPath": null,
+          "additions": 225,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/migrate-to-shoehorn/SKILL.md",
+          "oldPath": null,
+          "additions": 118,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/observability-and-instrumentation/SKILL.md",
+          "oldPath": null,
+          "additions": 203,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/obsidian-vault/SKILL.md",
+          "oldPath": null,
+          "additions": 59,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/performance-optimization/SKILL.md",
+          "oldPath": null,
+          "additions": 350,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/planning-and-task-breakdown/SKILL.md",
+          "oldPath": null,
+          "additions": 223,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/prototype/LOGIC.md",
+          "oldPath": null,
+          "additions": 79,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/prototype/SKILL.md",
+          "oldPath": null,
+          "additions": 31,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/prototype/UI.md",
+          "oldPath": null,
+          "additions": 112,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/qa/SKILL.md",
+          "oldPath": null,
+          "additions": 130,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/request-refactor-plan/SKILL.md",
+          "oldPath": null,
+          "additions": 68,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/resolving-merge-conflicts/SKILL.md",
+          "oldPath": null,
+          "additions": 14,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/review/SKILL.md",
+          "oldPath": null,
+          "additions": 69,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/scaffold-exercises/SKILL.md",
+          "oldPath": null,
+          "additions": 106,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/security-and-hardening/SKILL.md",
+          "oldPath": null,
+          "additions": 461,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/setup-matt-pocock-skills/SKILL.md",
+          "oldPath": null,
+          "additions": 127,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/setup-matt-pocock-skills/domain.md",
+          "oldPath": null,
+          "additions": 51,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/setup-matt-pocock-skills/issue-tracker-github.md",
+          "oldPath": null,
+          "additions": 34,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/setup-matt-pocock-skills/issue-tracker-gitlab.md",
+          "oldPath": null,
+          "additions": 35,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/setup-matt-pocock-skills/issue-tracker-local.md",
+          "oldPath": null,
+          "additions": 19,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/setup-matt-pocock-skills/triage-labels.md",
+          "oldPath": null,
+          "additions": 15,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/setup-pre-commit/SKILL.md",
+          "oldPath": null,
+          "additions": 91,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/shipping-and-launch/SKILL.md",
+          "oldPath": null,
+          "additions": 309,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/source-driven-development/SKILL.md",
+          "oldPath": null,
+          "additions": 194,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/spec-driven-development/SKILL.md",
+          "oldPath": null,
+          "additions": 200,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/tdd/SKILL.md",
+          "oldPath": null,
+          "additions": 108,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/tdd/mocking.md",
+          "oldPath": null,
+          "additions": 59,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/tdd/refactoring.md",
+          "oldPath": null,
+          "additions": 10,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/tdd/tests.md",
+          "oldPath": null,
+          "additions": 61,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/teach/GLOSSARY-FORMAT.md",
+          "oldPath": null,
+          "additions": 35,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/teach/LEARNING-RECORD-FORMAT.md",
+          "oldPath": null,
+          "additions": 46,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/teach/MISSION-FORMAT.md",
+          "oldPath": null,
+          "additions": 31,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/teach/RESOURCES-FORMAT.md",
+          "oldPath": null,
+          "additions": 32,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/teach/SKILL.md",
+          "oldPath": null,
+          "additions": 140,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/test-driven-development/SKILL.md",
+          "oldPath": null,
+          "additions": 383,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/to-issues/SKILL.md",
+          "oldPath": null,
+          "additions": 84,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/to-prd/SKILL.md",
+          "oldPath": null,
+          "additions": 75,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/triage/AGENT-BRIEF.md",
+          "oldPath": null,
+          "additions": 207,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/triage/OUT-OF-SCOPE.md",
+          "oldPath": null,
+          "additions": 105,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/triage/SKILL.md",
+          "oldPath": null,
+          "additions": 112,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/ubiquitous-language/SKILL.md",
+          "oldPath": null,
+          "additions": 93,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/using-agent-skills/SKILL.md",
+          "oldPath": null,
+          "additions": 189,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/writing-beats/SKILL.md",
+          "oldPath": null,
+          "additions": 52,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/writing-fragments/SKILL.md",
+          "oldPath": null,
+          "additions": 75,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/writing-great-skills/GLOSSARY.md",
+          "oldPath": null,
+          "additions": 181,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/writing-great-skills/SKILL.md",
+          "oldPath": null,
+          "additions": 82,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".agents/skills/writing-shape/SKILL.md",
+          "oldPath": null,
+          "additions": 64,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".codebase-memory/.gitattributes",
+          "oldPath": null,
+          "additions": 3,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "repo-maintenance",
+              "title": "Repository maintenance"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".codebase-memory/artifact.json",
+          "oldPath": null,
+          "additions": 11,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "repo-maintenance",
+              "title": "Repository maintenance"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": ".codebase-memory/graph.db.zst",
+          "oldPath": null,
+          "additions": 0,
+          "deletions": 0,
+          "binary": true,
+          "surfaces": [
+            {
+              "id": "repo-maintenance",
+              "title": "Repository maintenance"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "M",
+          "statusLabel": "changed",
+          "path": "CHANGELOG.md",
+          "oldPath": null,
+          "additions": 20,
+          "deletions": 1,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "docs-release",
+              "title": "Docs, release notes, and project continuity"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "M",
+          "statusLabel": "changed",
+          "path": "HANDOFF.md",
+          "oldPath": null,
+          "additions": 224,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "docs-release",
+              "title": "Docs, release notes, and project continuity"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": "config/mcporter.json",
+          "oldPath": null,
+          "additions": 7,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "repo-maintenance",
+              "title": "Repository maintenance"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "M",
+          "statusLabel": "changed",
+          "path": "electron/main.cjs",
+          "oldPath": null,
+          "additions": 1005,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "desktop-bridge",
+              "title": "Electron IPC and desktop bridge"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "ipc",
+              "label": "Handles markitdown:describe-image",
+              "detail": "Electron main-process IPC handler added.",
+              "evidence": "electron/main.cjs"
+            },
+            {
+              "kind": "ipc",
+              "label": "Handles markitdown:server-status",
+              "detail": "Electron main-process IPC handler added.",
+              "evidence": "electron/main.cjs"
+            },
+            {
+              "kind": "ipc",
+              "label": "Handles markitdown:start-server",
+              "detail": "Electron main-process IPC handler added.",
+              "evidence": "electron/main.cjs"
+            },
+            {
+              "kind": "ipc",
+              "label": "Handles markitdown:install-exiftool",
+              "detail": "Electron main-process IPC handler added.",
+              "evidence": "electron/main.cjs"
+            },
+            {
+              "kind": "ipc",
+              "label": "Handles eidos:insights",
+              "detail": "Electron main-process IPC handler added.",
+              "evidence": "electron/main.cjs"
+            },
+            {
+              "kind": "ipc",
+              "label": "Handles skills:detect-agents",
+              "detail": "Electron main-process IPC handler added.",
+              "evidence": "electron/main.cjs"
+            },
+            {
+              "kind": "ipc",
+              "label": "Handles skills:get-coding-expert-status",
+              "detail": "Electron main-process IPC handler added.",
+              "evidence": "electron/main.cjs"
+            },
+            {
+              "kind": "ipc",
+              "label": "Handles skills:get-playbook-skills",
+              "detail": "Electron main-process IPC handler added.",
+              "evidence": "electron/main.cjs"
+            },
+            {
+              "kind": "ipc",
+              "label": "Handles skills:get-installed",
+              "detail": "Electron main-process IPC handler added.",
+              "evidence": "electron/main.cjs"
+            },
+            {
+              "kind": "ipc",
+              "label": "Handles skills:get-metadata",
+              "detail": "Electron main-process IPC handler added.",
+              "evidence": "electron/main.cjs"
+            },
+            {
+              "kind": "ipc",
+              "label": "Handles skills:set-metadata",
+              "detail": "Electron main-process IPC handler added.",
+              "evidence": "electron/main.cjs"
+            }
+          ]
+        },
+        {
+          "status": "M",
+          "statusLabel": "changed",
+          "path": "electron/preload.cjs",
+          "oldPath": null,
+          "additions": 11,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "desktop-bridge",
+              "title": "Electron IPC and desktop bridge"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "ipc",
+              "label": "Invokes markitdown:describe-image",
+              "detail": "Renderer/preload IPC invoke path added.",
+              "evidence": "electron/preload.cjs"
+            },
+            {
+              "kind": "ipc",
+              "label": "Invokes markitdown:start-server",
+              "detail": "Renderer/preload IPC invoke path added.",
+              "evidence": "electron/preload.cjs"
+            },
+            {
+              "kind": "ipc",
+              "label": "Invokes markitdown:server-status",
+              "detail": "Renderer/preload IPC invoke path added.",
+              "evidence": "electron/preload.cjs"
+            },
+            {
+              "kind": "ipc",
+              "label": "Invokes markitdown:install-exiftool",
+              "detail": "Renderer/preload IPC invoke path added.",
+              "evidence": "electron/preload.cjs"
+            },
+            {
+              "kind": "ipc",
+              "label": "Invokes eidos:insights",
+              "detail": "Renderer/preload IPC invoke path added.",
+              "evidence": "electron/preload.cjs"
+            },
+            {
+              "kind": "ipc",
+              "label": "Invokes skills:detect-agents",
+              "detail": "Renderer/preload IPC invoke path added.",
+              "evidence": "electron/preload.cjs"
+            },
+            {
+              "kind": "ipc",
+              "label": "Invokes skills:get-installed",
+              "detail": "Renderer/preload IPC invoke path added.",
+              "evidence": "electron/preload.cjs"
+            },
+            {
+              "kind": "ipc",
+              "label": "Invokes skills:get-coding-expert-status",
+              "detail": "Renderer/preload IPC invoke path added.",
+              "evidence": "electron/preload.cjs"
+            },
+            {
+              "kind": "ipc",
+              "label": "Invokes skills:get-playbook-skills",
+              "detail": "Renderer/preload IPC invoke path added.",
+              "evidence": "electron/preload.cjs"
+            },
+            {
+              "kind": "ipc",
+              "label": "Invokes skills:set-metadata",
+              "detail": "Renderer/preload IPC invoke path added.",
+              "evidence": "electron/preload.cjs"
+            },
+            {
+              "kind": "ipc",
+              "label": "Invokes skills:get-metadata",
+              "detail": "Renderer/preload IPC invoke path added.",
+              "evidence": "electron/preload.cjs"
+            }
+          ]
+        },
+        {
+          "status": "M",
+          "statusLabel": "changed",
+          "path": "package.json",
+          "oldPath": null,
+          "additions": 1,
+          "deletions": 1,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "docs-release",
+              "title": "Docs, release notes, and project continuity"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": "skills-lock.json",
+          "oldPath": null,
+          "additions": 353,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "M",
+          "statusLabel": "changed",
+          "path": "src/App.jsx",
+          "oldPath": null,
+          "additions": 18,
+          "deletions": 2,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "mode-routing",
+              "title": "Mode routing and desktop window system"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "mode-routing",
+              "label": "Wires MARKITDOWN",
+              "detail": "New mode reference appears in added lines.",
+              "evidence": "src/App.jsx"
+            },
+            {
+              "kind": "mode-routing",
+              "label": "Wires ENSEMBLE",
+              "detail": "New mode reference appears in added lines.",
+              "evidence": "src/App.jsx"
+            }
+          ]
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": "src/assets/ensemble-bg-dark.jpeg",
+          "oldPath": null,
+          "additions": 0,
+          "deletions": 0,
+          "binary": true,
+          "surfaces": [
+            {
+              "id": "ensemble",
+              "title": "Ensemble mode"
+            },
+            {
+              "id": "assets-style",
+              "title": "Visual assets and styling"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "asset",
+              "label": "Adds ensemble-bg-dark.jpeg",
+              "detail": "Visual asset included in the product surface.",
+              "evidence": "src/assets/ensemble-bg-dark.jpeg"
+            }
+          ]
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": "src/assets/ensemble-bg-light.jpeg",
+          "oldPath": null,
+          "additions": 0,
+          "deletions": 0,
+          "binary": true,
+          "surfaces": [
+            {
+              "id": "ensemble",
+              "title": "Ensemble mode"
+            },
+            {
+              "id": "assets-style",
+              "title": "Visual assets and styling"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "asset",
+              "label": "Adds ensemble-bg-light.jpeg",
+              "detail": "Visual asset included in the product surface.",
+              "evidence": "src/assets/ensemble-bg-light.jpeg"
+            }
+          ]
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": "src/assets/markitdown-bg.jpeg",
+          "oldPath": null,
+          "additions": 0,
+          "deletions": 0,
+          "binary": true,
+          "surfaces": [
+            {
+              "id": "markitdown",
+              "title": "MarkItDown surface"
+            },
+            {
+              "id": "assets-style",
+              "title": "Visual assets and styling"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "asset",
+              "label": "Adds markitdown-bg.jpeg",
+              "detail": "Visual asset included in the product surface.",
+              "evidence": "src/assets/markitdown-bg.jpeg"
+            }
+          ]
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": "src/assets/markitdown-logo.jpeg",
+          "oldPath": null,
+          "additions": 0,
+          "deletions": 0,
+          "binary": true,
+          "surfaces": [
+            {
+              "id": "markitdown",
+              "title": "MarkItDown surface"
+            },
+            {
+              "id": "assets-style",
+              "title": "Visual assets and styling"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "asset",
+              "label": "Adds markitdown-logo.jpeg",
+              "detail": "Visual asset included in the product surface.",
+              "evidence": "src/assets/markitdown-logo.jpeg"
+            }
+          ]
+        },
+        {
+          "status": "M",
+          "statusLabel": "changed",
+          "path": "src/components/ChatMode.jsx",
+          "oldPath": null,
+          "additions": 9,
+          "deletions": 1,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "mode-chat-mode",
+              "title": "Chat Mode surface"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "storage",
+              "label": "Persists ponytail_level_chat",
+              "detail": "Persistent storage key appears in added lines.",
+              "evidence": "src/components/ChatMode.jsx"
+            }
+          ]
+        },
+        {
+          "status": "M",
+          "statusLabel": "changed",
+          "path": "src/components/DashboardMode.jsx",
+          "oldPath": null,
+          "additions": 10,
+          "deletions": 5,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "mode-routing",
+              "title": "Mode routing and desktop window system"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "mode-routing",
+              "label": "Wires ENSEMBLE",
+              "detail": "New mode reference appears in added lines.",
+              "evidence": "src/components/DashboardMode.jsx"
+            },
+            {
+              "kind": "mode-routing",
+              "label": "Wires MARKITDOWN",
+              "detail": "New mode reference appears in added lines.",
+              "evidence": "src/components/DashboardMode.jsx"
+            },
+            {
+              "kind": "mode-routing",
+              "label": "Wires BARS",
+              "detail": "New mode reference appears in added lines.",
+              "evidence": "src/components/DashboardMode.jsx"
+            },
+            {
+              "kind": "mode-routing",
+              "label": "Wires CONCERNS",
+              "detail": "New mode reference appears in added lines.",
+              "evidence": "src/components/DashboardMode.jsx"
+            }
+          ]
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": "src/components/EidosMode.css",
+          "oldPath": null,
+          "additions": 683,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "eidos",
+              "title": "Eidos embedded memory surface"
+            },
+            {
+              "id": "assets-style",
+              "title": "Visual assets and styling"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "style",
+              "label": "Adds visual styling hooks",
+              "detail": ".eidos-front-root, .eidos-front-bg, .eidos-front-orb, .eidos-front-orb-main, .eidos-front-orb-side, .eidos-front-grid",
+              "evidence": "src/components/EidosMode.css"
+            }
+          ]
+        },
+        {
+          "status": "M",
+          "statusLabel": "changed",
+          "path": "src/components/EidosMode.jsx",
+          "oldPath": null,
+          "additions": 435,
+          "deletions": 36,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "eidos",
+              "title": "Eidos embedded memory surface"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "component",
+              "label": "Defines KpiCard",
+              "detail": "React component/function detected.",
+              "evidence": "src/components/EidosMode.jsx"
+            }
+          ]
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": "src/components/EnsembleMode.jsx",
+          "oldPath": null,
+          "additions": 665,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "ensemble",
+              "title": "Ensemble mode"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "surface",
+              "label": "Added Ensemble Mode",
+              "detail": "New first-class mode component file.",
+              "evidence": "src/components/EnsembleMode.jsx"
+            },
+            {
+              "kind": "component",
+              "label": "Exports EnsembleMode",
+              "detail": "React component export detected.",
+              "evidence": "src/components/EnsembleMode.jsx"
+            },
+            {
+              "kind": "component",
+              "label": "Defines Markdown",
+              "detail": "React component/function detected.",
+              "evidence": "src/components/EnsembleMode.jsx"
+            },
+            {
+              "kind": "component",
+              "label": "Defines ModelMenu",
+              "detail": "React component/function detected.",
+              "evidence": "src/components/EnsembleMode.jsx"
+            },
+            {
+              "kind": "component",
+              "label": "Defines ContextPicker",
+              "detail": "React component/function detected.",
+              "evidence": "src/components/EnsembleMode.jsx"
+            },
+            {
+              "kind": "component",
+              "label": "Defines EnsembleMode",
+              "detail": "React component/function detected.",
+              "evidence": "src/components/EnsembleMode.jsx"
+            }
+          ]
+        },
+        {
+          "status": "M",
+          "statusLabel": "changed",
+          "path": "src/components/LocalhostMode.jsx",
+          "oldPath": null,
+          "additions": 239,
+          "deletions": 50,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "localhost",
+              "title": "Localhost browser mode"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "mode-routing",
+              "label": "Wires LIGHTHOUSE",
+              "detail": "New mode reference appears in added lines.",
+              "evidence": "src/components/LocalhostMode.jsx"
+            }
+          ]
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": "src/components/MarkItDownMode.jsx",
+          "oldPath": null,
+          "additions": 349,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "markitdown",
+              "title": "MarkItDown surface"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "surface",
+              "label": "Added Mark It Down Mode",
+              "detail": "New first-class mode component file.",
+              "evidence": "src/components/MarkItDownMode.jsx"
+            },
+            {
+              "kind": "component",
+              "label": "Exports MarkItDownMode",
+              "detail": "React component export detected.",
+              "evidence": "src/components/MarkItDownMode.jsx"
+            },
+            {
+              "kind": "component",
+              "label": "Defines MarkItDownMode",
+              "detail": "React component/function detected.",
+              "evidence": "src/components/MarkItDownMode.jsx"
+            }
+          ]
+        },
+        {
+          "status": "M",
+          "statusLabel": "changed",
+          "path": "src/components/MissionControl.jsx",
+          "oldPath": null,
+          "additions": 109,
+          "deletions": 99,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "mission-control",
+              "title": "Mission Control and validation history"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "component",
+              "label": "Defines RunContextMenu",
+              "detail": "React component/function detected.",
+              "evidence": "src/components/MissionControl.jsx"
+            }
+          ]
+        },
+        {
+          "status": "M",
+          "statusLabel": "changed",
+          "path": "src/components/ModeIcons.jsx",
+          "oldPath": null,
+          "additions": 28,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "mode-routing",
+              "title": "Mode routing and desktop window system"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "component",
+              "label": "Defines EnsembleIcon",
+              "detail": "React component/function detected.",
+              "evidence": "src/components/ModeIcons.jsx"
+            },
+            {
+              "kind": "component",
+              "label": "Defines SkillsIcon",
+              "detail": "React component/function detected.",
+              "evidence": "src/components/ModeIcons.jsx"
+            }
+          ]
+        },
+        {
+          "status": "M",
+          "statusLabel": "changed",
+          "path": "src/components/ModeSwitcher.jsx",
+          "oldPath": null,
+          "additions": 2,
+          "deletions": 1,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "mode-routing",
+              "title": "Mode routing and desktop window system"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "mode-routing",
+              "label": "Wires ENSEMBLE",
+              "detail": "New mode reference appears in added lines.",
+              "evidence": "src/components/ModeSwitcher.jsx"
+            }
+          ]
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": "src/components/SkillsMode.css",
+          "oldPath": null,
+          "additions": 918,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            },
+            {
+              "id": "assets-style",
+              "title": "Visual assets and styling"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "style",
+              "label": "Adds visual styling hooks",
+              "detail": ".skills-root, .skills-scroll, .skills-inner, .skills-header, .skills-header-left, .skills-refresh-btn",
+              "evidence": "src/components/SkillsMode.css"
+            }
+          ]
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": "src/components/SkillsMode.jsx",
+          "oldPath": null,
+          "additions": 818,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "skills",
+              "title": "Skills and Coding Expert Stack"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "surface",
+              "label": "Added Skills Mode",
+              "detail": "New first-class mode component file.",
+              "evidence": "src/components/SkillsMode.jsx"
+            },
+            {
+              "kind": "component",
+              "label": "Exports SkillsMode",
+              "detail": "React component export detected.",
+              "evidence": "src/components/SkillsMode.jsx"
+            },
+            {
+              "kind": "component",
+              "label": "Defines SkillsMode",
+              "detail": "React component/function detected.",
+              "evidence": "src/components/SkillsMode.jsx"
+            },
+            {
+              "kind": "storage",
+              "label": "Persists __codingExpertStack",
+              "detail": "Persistent storage key appears in added lines.",
+              "evidence": "src/components/SkillsMode.jsx"
+            }
+          ]
+        },
+        {
+          "status": "M",
+          "statusLabel": "changed",
+          "path": "src/components/windows/Dock.jsx",
+          "oldPath": null,
+          "additions": 2,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "mode-routing",
+              "title": "Mode routing and desktop window system"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "mode-routing",
+              "label": "Wires MARKITDOWN",
+              "detail": "New mode reference appears in added lines.",
+              "evidence": "src/components/windows/Dock.jsx"
+            },
+            {
+              "kind": "mode-routing",
+              "label": "Wires ENSEMBLE",
+              "detail": "New mode reference appears in added lines.",
+              "evidence": "src/components/windows/Dock.jsx"
+            }
+          ]
+        },
+        {
+          "status": "M",
+          "statusLabel": "changed",
+          "path": "src/context/ModeContext.jsx",
+          "oldPath": null,
+          "additions": 6,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "mode-routing",
+              "title": "Mode routing and desktop window system"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "api",
+              "label": "Exports SKILLS_WINDOW_ID",
+              "detail": "Shared library constant export detected.",
+              "evidence": "src/context/ModeContext.jsx"
+            },
+            {
+              "kind": "mode-routing",
+              "label": "Wires MARKITDOWN",
+              "detail": "New mode reference appears in added lines.",
+              "evidence": "src/context/ModeContext.jsx"
+            },
+            {
+              "kind": "mode-routing",
+              "label": "Wires ENSEMBLE",
+              "detail": "New mode reference appears in added lines.",
+              "evidence": "src/context/ModeContext.jsx"
+            },
+            {
+              "kind": "mode-routing",
+              "label": "Defines MARKITDOWN",
+              "detail": "Mode enum-style entry appears in added lines.",
+              "evidence": "src/context/ModeContext.jsx"
+            },
+            {
+              "kind": "mode-routing",
+              "label": "Defines ENSEMBLE",
+              "detail": "Mode enum-style entry appears in added lines.",
+              "evidence": "src/context/ModeContext.jsx"
+            }
+          ]
+        },
+        {
+          "status": "M",
+          "statusLabel": "changed",
+          "path": "src/index.css",
+          "oldPath": null,
+          "additions": 32,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "assets-style",
+              "title": "Visual assets and styling"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "style",
+              "label": "Adds visual styling hooks",
+              "detail": ".skills-branded, .dark, .active",
+              "evidence": "src/index.css"
+            }
+          ]
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": "src/lib/ensemble.js",
+          "oldPath": null,
+          "additions": 288,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "ensemble",
+              "title": "Ensemble mode"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "api",
+              "label": "Exports modelKey()",
+              "detail": "Shared library API export detected.",
+              "evidence": "src/lib/ensemble.js"
+            },
+            {
+              "kind": "api",
+              "label": "Exports responseLabel()",
+              "detail": "Shared library API export detected.",
+              "evidence": "src/lib/ensemble.js"
+            },
+            {
+              "kind": "api",
+              "label": "Exports renderTemplate()",
+              "detail": "Shared library API export detected.",
+              "evidence": "src/lib/ensemble.js"
+            },
+            {
+              "kind": "api",
+              "label": "Exports buildResponsesBlock()",
+              "detail": "Shared library API export detected.",
+              "evidence": "src/lib/ensemble.js"
+            },
+            {
+              "kind": "api",
+              "label": "Exports buildContextBlock()",
+              "detail": "Shared library API export detected.",
+              "evidence": "src/lib/ensemble.js"
+            },
+            {
+              "kind": "api",
+              "label": "Exports createStreamModel()",
+              "detail": "Shared library API export detected.",
+              "evidence": "src/lib/ensemble.js"
+            },
+            {
+              "kind": "api",
+              "label": "Exports ENSEMBLE_CONFIG_KEY",
+              "detail": "Shared library constant export detected.",
+              "evidence": "src/lib/ensemble.js"
+            },
+            {
+              "kind": "api",
+              "label": "Exports MAX_PANEL_MODELS",
+              "detail": "Shared library constant export detected.",
+              "evidence": "src/lib/ensemble.js"
+            },
+            {
+              "kind": "api",
+              "label": "Exports DEFAULT_ENSEMBLE_PROMPTS",
+              "detail": "Shared library constant export detected.",
+              "evidence": "src/lib/ensemble.js"
+            },
+            {
+              "kind": "storage",
+              "label": "Persists perci_ensemble_config",
+              "detail": "Persistent storage key appears in added lines.",
+              "evidence": "src/lib/ensemble.js"
+            }
+          ]
+        },
+        {
+          "status": "M",
+          "statusLabel": "changed",
+          "path": "src/lib/persistentStore.js",
+          "oldPath": null,
+          "additions": 3,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "persistence",
+              "title": "Persistence and local state"
+            }
+          ],
+          "observations": []
+        },
+        {
+          "status": "A",
+          "statusLabel": "added",
+          "path": "test/ensemble.test.js",
+          "oldPath": null,
+          "additions": 158,
+          "deletions": 0,
+          "binary": false,
+          "surfaces": [
+            {
+              "id": "ensemble",
+              "title": "Ensemble mode"
+            },
+            {
+              "id": "tests",
+              "title": "Tests and validation harnesses"
+            }
+          ],
+          "observations": [
+            {
+              "kind": "validation",
+              "label": "Added ensemble tests",
+              "detail": "New focused test coverage.",
+              "evidence": "test/ensemble.test.js"
+            },
+            {
+              "kind": "validation",
+              "label": "Adds executable assertions",
+              "detail": "labels responses A, B, … Z, AA; fills template placeholders; builds a context block, fencing files by path and skipping empties; anonymises panel responses by default",
+              "evidence": "test/ensemble.test.js"
+            }
+          ]
+        }
+      ],
+      "totals": {
+        "files": 119,
+        "additions": 17668,
+        "deletions": 196,
+        "binary": 5,
+        "statuses": {
+          "A": 102,
+          "M": 17
+        }
+      },
+      "surfaces": [
+        {
+          "id": "skills",
+          "title": "Skills and Coding Expert Stack",
+          "files": 89,
+          "additions": 13350,
+          "deletions": 0
+        },
+        {
+          "id": "assets-style",
+          "title": "Visual assets and styling",
+          "files": 7,
+          "additions": 1633,
+          "deletions": 0
+        },
+        {
+          "id": "eidos",
+          "title": "Eidos embedded memory surface",
+          "files": 2,
+          "additions": 1118,
+          "deletions": 36
+        },
+        {
+          "id": "ensemble",
+          "title": "Ensemble mode",
+          "files": 5,
+          "additions": 1111,
+          "deletions": 0
+        },
+        {
+          "id": "desktop-bridge",
+          "title": "Electron IPC and desktop bridge",
+          "files": 2,
+          "additions": 1016,
+          "deletions": 0
+        },
+        {
+          "id": "markitdown",
+          "title": "MarkItDown surface",
+          "files": 3,
+          "additions": 349,
+          "deletions": 0
+        },
+        {
+          "id": "localhost",
+          "title": "Localhost browser mode",
+          "files": 1,
+          "additions": 239,
+          "deletions": 50
+        },
+        {
+          "id": "docs-release",
+          "title": "Docs, release notes, and project continuity",
+          "files": 3,
+          "additions": 245,
+          "deletions": 2
+        },
+        {
+          "id": "mission-control",
+          "title": "Mission Control and validation history",
+          "files": 1,
+          "additions": 109,
+          "deletions": 99
+        },
+        {
+          "id": "tests",
+          "title": "Tests and validation harnesses",
+          "files": 1,
+          "additions": 158,
+          "deletions": 0
+        },
+        {
+          "id": "mode-routing",
+          "title": "Mode routing and desktop window system",
+          "files": 6,
+          "additions": 66,
+          "deletions": 8
+        },
+        {
+          "id": "repo-maintenance",
+          "title": "Repository maintenance",
+          "files": 4,
+          "additions": 21,
+          "deletions": 0
+        },
+        {
+          "id": "mode-chat-mode",
+          "title": "Chat Mode surface",
+          "files": 1,
+          "additions": 9,
+          "deletions": 1
+        },
+        {
+          "id": "persistence",
+          "title": "Persistence and local state",
+          "files": 1,
+          "additions": 3,
+          "deletions": 0
+        }
+      ]
+    }
+  ],
+  "episodes": [
+    {
+      "id": "skills",
+      "title": "Skills and Coding Expert Stack",
+      "summary": "Skills and Coding Expert Stack touched 89 added files. Detected signals include Added Skills Mode, Defines SkillsMode, Exports SkillsMode.",
+      "commits": [
+        {
+          "sha": "0f11a2f51205c9230be186859bfd499aa8c46975",
+          "shortSha": "0f11a2f",
+          "date": "2026-06-23T21:35:35-04:00",
+          "subject": "feat: add Ensemble, MarkItDown, and Skills modes; Mission Control fix; Localhost improvements"
+        }
+      ],
+      "files": [
+        {
+          "path": "src/components/SkillsMode.css",
+          "statuses": [
+            "A"
+          ],
+          "additions": 918,
+          "deletions": 0,
+          "observations": [
+            {
+              "kind": "style",
+              "label": "Adds visual styling hooks",
+              "detail": ".skills-root, .skills-scroll, .skills-inner, .skills-header, .skills-header-left, .skills-refresh-btn",
+              "evidence": "src/components/SkillsMode.css"
+            }
+          ],
+          "changeWeight": 918
+        },
+        {
+          "path": "src/components/SkillsMode.jsx",
+          "statuses": [
+            "A"
+          ],
+          "additions": 818,
+          "deletions": 0,
+          "observations": [
+            {
+              "kind": "surface",
+              "label": "Added Skills Mode",
+              "detail": "New first-class mode component file.",
+              "evidence": "src/components/SkillsMode.jsx"
+            },
+            {
+              "kind": "component",
+              "label": "Exports SkillsMode",
+              "detail": "React component export detected.",
+              "evidence": "src/components/SkillsMode.jsx"
+            },
+            {
+              "kind": "component",
+              "label": "Defines SkillsMode",
+              "detail": "React component/function detected.",
+              "evidence": "src/components/SkillsMode.jsx"
+            },
+            {
+              "kind": "storage",
+              "label": "Persists __codingExpertStack",
+              "detail": "Persistent storage key appears in added lines.",
+              "evidence": "src/components/SkillsMode.jsx"
+            }
+          ],
+          "changeWeight": 818
+        },
+        {
+          "path": ".agents/skills/security-and-hardening/SKILL.md",
+          "statuses": [
+            "A"
+          ],
+          "additions": 461,
+          "deletions": 0,
+          "observations": [],
+          "changeWeight": 461
+        },
+        {
+          "path": ".agents/skills/ci-cd-and-automation/SKILL.md",
+          "statuses": [
+            "A"
+          ],
+          "additions": 390,
+          "deletions": 0,
+          "observations": [],
+          "changeWeight": 390
+        },
+        {
+          "path": ".agents/skills/test-driven-development/SKILL.md",
+          "statuses": [
+            "A"
+          ],
+          "additions": 383,
+          "deletions": 0,
+          "observations": [],
+          "changeWeight": 383
+        },
+        {
+          "path": ".agents/skills/code-review-and-quality/SKILL.md",
+          "statuses": [
+            "A"
+          ],
+          "additions": 381,
+          "deletions": 0,
+          "observations": [],
+          "changeWeight": 381
+        },
+        {
+          "path": "skills-lock.json",
+          "statuses": [
+            "A"
+          ],
+          "additions": 353,
+          "deletions": 0,
+          "observations": [],
+          "changeWeight": 353
+        },
+        {
+          "path": ".agents/skills/performance-optimization/SKILL.md",
+          "statuses": [
+            "A"
+          ],
+          "additions": 350,
+          "deletions": 0,
+          "observations": [],
+          "changeWeight": 350
+        },
+        {
+          "path": ".agents/skills/code-simplification/SKILL.md",
+          "statuses": [
+            "A"
+          ],
+          "additions": 331,
+          "deletions": 0,
+          "observations": [],
+          "changeWeight": 331
+        },
+        {
+          "path": ".agents/skills/frontend-ui-engineering/SKILL.md",
+          "statuses": [
+            "A"
+          ],
+          "additions": 328,
+          "deletions": 0,
+          "observations": [],
+          "changeWeight": 328
+        },
+        {
+          "path": ".agents/skills/browser-testing-with-devtools/SKILL.md",
+          "statuses": [
+            "A"
+          ],
+          "additions": 317,
+          "deletions": 0,
+          "observations": [],
+          "changeWeight": 317
+        },
+        {
+          "path": ".agents/skills/shipping-and-launch/SKILL.md",
+          "statuses": [
+            "A"
+          ],
+          "additions": 309,
+          "deletions": 0,
+          "observations": [],
+          "changeWeight": 309
+        },
+        {
+          "path": ".agents/skills/debugging-and-error-recovery/SKILL.md",
+          "statuses": [
+            "A"
+          ],
+          "additions": 300,
+          "deletions": 0,
+          "observations": [],
+          "changeWeight": 300
+        },
+        {
+          "path": ".agents/skills/git-workflow-and-versioning/SKILL.md",
+          "statuses": [
+            "A"
+          ],
+          "additions": 300,
+          "deletions": 0,
+          "observations": [],
+          "changeWeight": 300
+        },
+        {
+          "path": ".agents/skills/api-and-interface-design/SKILL.md",
+          "statuses": [
+            "A"
+          ],
+          "additions": 294,
+          "deletions": 0,
+          "observations": [],
+          "changeWeight": 294
+        },
+        {
+          "path": ".agents/skills/context-engineering/SKILL.md",
+          "statuses": [
+            "A"
+          ],
+          "additions": 289,
+          "deletions": 0,
+          "observations": [],
+          "changeWeight": 289
+        },
+        {
+          "path": ".agents/skills/documentation-and-adrs/SKILL.md",
+          "statuses": [
+            "A"
+          ],
+          "additions": 278,
+          "deletions": 0,
+          "observations": [],
+          "changeWeight": 278
+        },
+        {
+          "path": ".agents/skills/incremental-implementation/SKILL.md",
+          "statuses": [
+            "A"
+          ],
+          "additions": 245,
+          "deletions": 0,
+          "observations": [],
+          "changeWeight": 245
+        },
+        {
+          "path": ".agents/skills/doubt-driven-development/SKILL.md",
+          "statuses": [
+            "A"
+          ],
+          "additions": 243,
+          "deletions": 0,
+          "observations": [],
+          "changeWeight": 243
+        },
+        {
+          "path": ".agents/skills/idea-refine/examples.md",
+          "statuses": [
+            "A"
+          ],
+          "additions": 238,
+          "deletions": 0,
+          "observations": [],
+          "changeWeight": 238
+        }
+      ],
+      "observations": [
+        {
+          "kind": "surface",
+          "label": "Added Skills Mode",
+          "detail": "New first-class mode component file.",
+          "evidence": "src/components/SkillsMode.jsx",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "component",
+          "label": "Defines SkillsMode",
+          "detail": "React component/function detected.",
+          "evidence": "src/components/SkillsMode.jsx",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "component",
+          "label": "Exports SkillsMode",
+          "detail": "React component export detected.",
+          "evidence": "src/components/SkillsMode.jsx",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "storage",
+          "label": "Persists __codingExpertStack",
+          "detail": "Persistent storage key appears in added lines.",
+          "evidence": "src/components/SkillsMode.jsx",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "style",
+          "label": "Adds visual styling hooks",
+          "detail": ".skills-root, .skills-scroll, .skills-inner, .skills-header, .skills-header-left, .skills-refresh-btn",
+          "evidence": "src/components/SkillsMode.css",
+          "fileCount": 1,
+          "commitCount": 1
+        }
+      ],
+      "filesChanged": 89,
+      "additions": 13350,
+      "deletions": 0,
+      "graph": {
+        "filesMatched": 0,
+        "communities": [],
+        "symbols": [],
+        "nodeCount": 0
+      },
+      "confidence": "medium"
+    },
+    {
+      "id": "assets-style",
+      "title": "Visual assets and styling",
+      "summary": "Visual assets and styling touched 7 added, 2 changed files. Detected signals include Adds ensemble-bg-dark.jpeg, Adds ensemble-bg-light.jpeg, Adds localhost-bg.jpeg.",
+      "commits": [
+        {
+          "sha": "50268d89c3916767f48462a9d29ceb059a92852c",
+          "shortSha": "50268d8",
+          "date": "2026-06-23T07:11:44-04:00",
+          "subject": "feat(browser): add bookmarks, omnibox, find in page, and SSL bypass"
+        },
+        {
+          "sha": "0f11a2f51205c9230be186859bfd499aa8c46975",
+          "shortSha": "0f11a2f",
+          "date": "2026-06-23T21:35:35-04:00",
+          "subject": "feat: add Ensemble, MarkItDown, and Skills modes; Mission Control fix; Localhost improvements"
+        }
+      ],
+      "files": [
+        {
+          "path": "src/components/SkillsMode.css",
+          "statuses": [
+            "A"
+          ],
+          "additions": 918,
+          "deletions": 0,
+          "observations": [
+            {
+              "kind": "style",
+              "label": "Adds visual styling hooks",
+              "detail": ".skills-root, .skills-scroll, .skills-inner, .skills-header, .skills-header-left, .skills-refresh-btn",
+              "evidence": "src/components/SkillsMode.css"
+            }
+          ],
+          "changeWeight": 918
+        },
+        {
+          "path": "src/components/EidosMode.css",
+          "statuses": [
+            "A"
+          ],
+          "additions": 683,
+          "deletions": 0,
+          "observations": [
+            {
+              "kind": "style",
+              "label": "Adds visual styling hooks",
+              "detail": ".eidos-front-root, .eidos-front-bg, .eidos-front-orb, .eidos-front-orb-main, .eidos-front-orb-side, .eidos-front-grid",
+              "evidence": "src/components/EidosMode.css"
+            }
+          ],
+          "changeWeight": 683
+        },
+        {
+          "path": "src/index.css",
+          "statuses": [
+            "M"
+          ],
+          "additions": 32,
+          "deletions": 0,
+          "observations": [
+            {
+              "kind": "style",
+              "label": "Adds visual styling hooks",
+              "detail": ".skills-branded, .dark, .active",
+              "evidence": "src/index.css"
+            }
+          ],
+          "changeWeight": 32
+        },
+        {
+          "path": "src/components/DashboardMode.css",
+          "statuses": [
+            "M"
+          ],
+          "additions": 14,
+          "deletions": 0,
+          "observations": [
+            {
+              "kind": "style",
+              "label": "Adds visual styling hooks",
+              "detail": ".dash-tile-lighthouse, .dash-tile-logo, .dash-tile-icon",
+              "evidence": "src/components/DashboardMode.css"
+            }
+          ],
+          "changeWeight": 14
+        },
+        {
+          "path": "src/assets/ensemble-bg-dark.jpeg",
+          "statuses": [
+            "A"
+          ],
+          "additions": 0,
+          "deletions": 0,
+          "observations": [
+            {
+              "kind": "asset",
+              "label": "Adds ensemble-bg-dark.jpeg",
+              "detail": "Visual asset included in the product surface.",
+              "evidence": "src/assets/ensemble-bg-dark.jpeg"
+            }
+          ],
+          "changeWeight": 0
+        },
+        {
+          "path": "src/assets/ensemble-bg-light.jpeg",
+          "statuses": [
+            "A"
+          ],
+          "additions": 0,
+          "deletions": 0,
+          "observations": [
+            {
+              "kind": "asset",
+              "label": "Adds ensemble-bg-light.jpeg",
+              "detail": "Visual asset included in the product surface.",
+              "evidence": "src/assets/ensemble-bg-light.jpeg"
+            }
+          ],
+          "changeWeight": 0
+        },
+        {
+          "path": "src/assets/localhost-bg.jpeg",
+          "statuses": [
+            "A"
+          ],
+          "additions": 0,
+          "deletions": 0,
+          "observations": [
+            {
+              "kind": "asset",
+              "label": "Adds localhost-bg.jpeg",
+              "detail": "Visual asset included in the product surface.",
+              "evidence": "src/assets/localhost-bg.jpeg"
+            }
+          ],
+          "changeWeight": 0
+        },
+        {
+          "path": "src/assets/markitdown-bg.jpeg",
+          "statuses": [
+            "A"
+          ],
+          "additions": 0,
+          "deletions": 0,
+          "observations": [
+            {
+              "kind": "asset",
+              "label": "Adds markitdown-bg.jpeg",
+              "detail": "Visual asset included in the product surface.",
+              "evidence": "src/assets/markitdown-bg.jpeg"
+            }
+          ],
+          "changeWeight": 0
+        },
+        {
+          "path": "src/assets/markitdown-logo.jpeg",
+          "statuses": [
+            "A"
+          ],
+          "additions": 0,
+          "deletions": 0,
+          "observations": [
+            {
+              "kind": "asset",
+              "label": "Adds markitdown-logo.jpeg",
+              "detail": "Visual asset included in the product surface.",
+              "evidence": "src/assets/markitdown-logo.jpeg"
+            }
+          ],
+          "changeWeight": 0
+        }
+      ],
+      "observations": [
+        {
+          "kind": "asset",
+          "label": "Adds ensemble-bg-dark.jpeg",
+          "detail": "Visual asset included in the product surface.",
+          "evidence": "src/assets/ensemble-bg-dark.jpeg",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "asset",
+          "label": "Adds ensemble-bg-light.jpeg",
+          "detail": "Visual asset included in the product surface.",
+          "evidence": "src/assets/ensemble-bg-light.jpeg",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "asset",
+          "label": "Adds localhost-bg.jpeg",
+          "detail": "Visual asset included in the product surface.",
+          "evidence": "src/assets/localhost-bg.jpeg",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "asset",
+          "label": "Adds markitdown-bg.jpeg",
+          "detail": "Visual asset included in the product surface.",
+          "evidence": "src/assets/markitdown-bg.jpeg",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "asset",
+          "label": "Adds markitdown-logo.jpeg",
+          "detail": "Visual asset included in the product surface.",
+          "evidence": "src/assets/markitdown-logo.jpeg",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "style",
+          "label": "Adds visual styling hooks",
+          "detail": ".dash-tile-lighthouse, .dash-tile-logo, .dash-tile-icon",
+          "evidence": "src/components/DashboardMode.css",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "style",
+          "label": "Adds visual styling hooks",
+          "detail": ".eidos-front-root, .eidos-front-bg, .eidos-front-orb, .eidos-front-orb-main, .eidos-front-orb-side, .eidos-front-grid",
+          "evidence": "src/components/EidosMode.css",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "style",
+          "label": "Adds visual styling hooks",
+          "detail": ".skills-root, .skills-scroll, .skills-inner, .skills-header, .skills-header-left, .skills-refresh-btn",
+          "evidence": "src/components/SkillsMode.css",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "style",
+          "label": "Adds visual styling hooks",
+          "detail": ".skills-branded, .dark, .active",
+          "evidence": "src/index.css",
+          "fileCount": 1,
+          "commitCount": 1
+        }
+      ],
+      "filesChanged": 9,
+      "additions": 1647,
+      "deletions": 0,
+      "graph": {
+        "filesMatched": 0,
+        "communities": [],
+        "symbols": [],
+        "nodeCount": 0
+      },
+      "confidence": "medium"
+    },
+    {
+      "id": "eidos",
+      "title": "Eidos embedded memory surface",
+      "summary": "Eidos embedded memory surface touched 1 added, 1 changed files. Detected signals include Defines KpiCard, Adds visual styling hooks.",
+      "commits": [
+        {
+          "sha": "0f11a2f51205c9230be186859bfd499aa8c46975",
+          "shortSha": "0f11a2f",
+          "date": "2026-06-23T21:35:35-04:00",
+          "subject": "feat: add Ensemble, MarkItDown, and Skills modes; Mission Control fix; Localhost improvements"
+        }
+      ],
+      "files": [
+        {
+          "path": "src/components/EidosMode.css",
+          "statuses": [
+            "A"
+          ],
+          "additions": 683,
+          "deletions": 0,
+          "observations": [
+            {
+              "kind": "style",
+              "label": "Adds visual styling hooks",
+              "detail": ".eidos-front-root, .eidos-front-bg, .eidos-front-orb, .eidos-front-orb-main, .eidos-front-orb-side, .eidos-front-grid",
+              "evidence": "src/components/EidosMode.css"
+            }
+          ],
+          "changeWeight": 683
+        },
+        {
+          "path": "src/components/EidosMode.jsx",
+          "statuses": [
+            "M"
+          ],
+          "additions": 435,
+          "deletions": 36,
+          "observations": [
+            {
+              "kind": "component",
+              "label": "Defines KpiCard",
+              "detail": "React component/function detected.",
+              "evidence": "src/components/EidosMode.jsx"
+            }
+          ],
+          "changeWeight": 471
+        }
+      ],
+      "observations": [
+        {
+          "kind": "component",
+          "label": "Defines KpiCard",
+          "detail": "React component/function detected.",
+          "evidence": "src/components/EidosMode.jsx",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "style",
+          "label": "Adds visual styling hooks",
+          "detail": ".eidos-front-root, .eidos-front-bg, .eidos-front-orb, .eidos-front-orb-main, .eidos-front-orb-side, .eidos-front-grid",
+          "evidence": "src/components/EidosMode.css",
+          "fileCount": 1,
+          "commitCount": 1
+        }
+      ],
+      "filesChanged": 2,
+      "additions": 1118,
+      "deletions": 36,
+      "graph": {
+        "filesMatched": 0,
+        "communities": [],
+        "symbols": [],
+        "nodeCount": 0
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "ensemble",
+      "title": "Ensemble mode",
+      "summary": "Ensemble mode touched 5 added files. Detected signals include Added Ensemble Mode, Exports buildContextBlock(), Exports buildResponsesBlock().",
+      "commits": [
+        {
+          "sha": "0f11a2f51205c9230be186859bfd499aa8c46975",
+          "shortSha": "0f11a2f",
+          "date": "2026-06-23T21:35:35-04:00",
+          "subject": "feat: add Ensemble, MarkItDown, and Skills modes; Mission Control fix; Localhost improvements"
+        }
+      ],
+      "files": [
+        {
+          "path": "src/components/EnsembleMode.jsx",
+          "statuses": [
+            "A"
+          ],
+          "additions": 665,
+          "deletions": 0,
+          "observations": [
+            {
+              "kind": "surface",
+              "label": "Added Ensemble Mode",
+              "detail": "New first-class mode component file.",
+              "evidence": "src/components/EnsembleMode.jsx"
+            },
+            {
+              "kind": "component",
+              "label": "Exports EnsembleMode",
+              "detail": "React component export detected.",
+              "evidence": "src/components/EnsembleMode.jsx"
+            },
+            {
+              "kind": "component",
+              "label": "Defines Markdown",
+              "detail": "React component/function detected.",
+              "evidence": "src/components/EnsembleMode.jsx"
+            },
+            {
+              "kind": "component",
+              "label": "Defines ModelMenu",
+              "detail": "React component/function detected.",
+              "evidence": "src/components/EnsembleMode.jsx"
+            },
+            {
+              "kind": "component",
+              "label": "Defines ContextPicker",
+              "detail": "React component/function detected.",
+              "evidence": "src/components/EnsembleMode.jsx"
+            },
+            {
+              "kind": "component",
+              "label": "Defines EnsembleMode",
+              "detail": "React component/function detected.",
+              "evidence": "src/components/EnsembleMode.jsx"
+            }
+          ],
+          "changeWeight": 665
+        },
+        {
+          "path": "src/lib/ensemble.js",
+          "statuses": [
+            "A"
+          ],
+          "additions": 288,
+          "deletions": 0,
+          "observations": [
+            {
+              "kind": "api",
+              "label": "Exports modelKey()",
+              "detail": "Shared library API export detected.",
+              "evidence": "src/lib/ensemble.js"
+            },
+            {
+              "kind": "api",
+              "label": "Exports responseLabel()",
+              "detail": "Shared library API export detected.",
+              "evidence": "src/lib/ensemble.js"
+            },
+            {
+              "kind": "api",
+              "label": "Exports renderTemplate()",
+              "detail": "Shared library API export detected.",
+              "evidence": "src/lib/ensemble.js"
+            },
+            {
+              "kind": "api",
+              "label": "Exports buildResponsesBlock()",
+              "detail": "Shared library API export detected.",
+              "evidence": "src/lib/ensemble.js"
+            },
+            {
+              "kind": "api",
+              "label": "Exports buildContextBlock()",
+              "detail": "Shared library API export detected.",
+              "evidence": "src/lib/ensemble.js"
+            },
+            {
+              "kind": "api",
+              "label": "Exports createStreamModel()",
+              "detail": "Shared library API export detected.",
+              "evidence": "src/lib/ensemble.js"
+            }
+          ],
+          "changeWeight": 288
+        },
+        {
+          "path": "test/ensemble.test.js",
+          "statuses": [
+            "A"
+          ],
+          "additions": 158,
+          "deletions": 0,
+          "observations": [
+            {
+              "kind": "validation",
+              "label": "Added ensemble tests",
+              "detail": "New focused test coverage.",
+              "evidence": "test/ensemble.test.js"
+            },
+            {
+              "kind": "validation",
+              "label": "Adds executable assertions",
+              "detail": "labels responses A, B, … Z, AA; fills template placeholders; builds a context block, fencing files by path and skipping empties; anonymises panel responses by default",
+              "evidence": "test/ensemble.test.js"
+            }
+          ],
+          "changeWeight": 158
+        },
+        {
+          "path": "src/assets/ensemble-bg-dark.jpeg",
+          "statuses": [
+            "A"
+          ],
+          "additions": 0,
+          "deletions": 0,
+          "observations": [
+            {
+              "kind": "asset",
+              "label": "Adds ensemble-bg-dark.jpeg",
+              "detail": "Visual asset included in the product surface.",
+              "evidence": "src/assets/ensemble-bg-dark.jpeg"
+            }
+          ],
+          "changeWeight": 0
+        },
+        {
+          "path": "src/assets/ensemble-bg-light.jpeg",
+          "statuses": [
+            "A"
+          ],
+          "additions": 0,
+          "deletions": 0,
+          "observations": [
+            {
+              "kind": "asset",
+              "label": "Adds ensemble-bg-light.jpeg",
+              "detail": "Visual asset included in the product surface.",
+              "evidence": "src/assets/ensemble-bg-light.jpeg"
+            }
+          ],
+          "changeWeight": 0
+        }
+      ],
+      "observations": [
+        {
+          "kind": "surface",
+          "label": "Added Ensemble Mode",
+          "detail": "New first-class mode component file.",
+          "evidence": "src/components/EnsembleMode.jsx",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "api",
+          "label": "Exports buildContextBlock()",
+          "detail": "Shared library API export detected.",
+          "evidence": "src/lib/ensemble.js",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "api",
+          "label": "Exports buildResponsesBlock()",
+          "detail": "Shared library API export detected.",
+          "evidence": "src/lib/ensemble.js",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "api",
+          "label": "Exports createStreamModel()",
+          "detail": "Shared library API export detected.",
+          "evidence": "src/lib/ensemble.js",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "api",
+          "label": "Exports DEFAULT_ENSEMBLE_PROMPTS",
+          "detail": "Shared library constant export detected.",
+          "evidence": "src/lib/ensemble.js",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "api",
+          "label": "Exports ENSEMBLE_CONFIG_KEY",
+          "detail": "Shared library constant export detected.",
+          "evidence": "src/lib/ensemble.js",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "api",
+          "label": "Exports MAX_PANEL_MODELS",
+          "detail": "Shared library constant export detected.",
+          "evidence": "src/lib/ensemble.js",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "api",
+          "label": "Exports modelKey()",
+          "detail": "Shared library API export detected.",
+          "evidence": "src/lib/ensemble.js",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "api",
+          "label": "Exports renderTemplate()",
+          "detail": "Shared library API export detected.",
+          "evidence": "src/lib/ensemble.js",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "api",
+          "label": "Exports responseLabel()",
+          "detail": "Shared library API export detected.",
+          "evidence": "src/lib/ensemble.js",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "component",
+          "label": "Defines ContextPicker",
+          "detail": "React component/function detected.",
+          "evidence": "src/components/EnsembleMode.jsx",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "component",
+          "label": "Defines EnsembleMode",
+          "detail": "React component/function detected.",
+          "evidence": "src/components/EnsembleMode.jsx",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "component",
+          "label": "Defines Markdown",
+          "detail": "React component/function detected.",
+          "evidence": "src/components/EnsembleMode.jsx",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "component",
+          "label": "Defines ModelMenu",
+          "detail": "React component/function detected.",
+          "evidence": "src/components/EnsembleMode.jsx",
+          "fileCount": 1,
+          "commitCount": 1
+        }
+      ],
+      "filesChanged": 5,
+      "additions": 1111,
+      "deletions": 0,
+      "graph": {
+        "filesMatched": 0,
+        "communities": [],
+        "symbols": [],
+        "nodeCount": 0
+      },
+      "confidence": "medium"
+    },
+    {
+      "id": "desktop-bridge",
+      "title": "Electron IPC and desktop bridge",
+      "summary": "Electron IPC and desktop bridge touched 2 changed files. Detected signals include Handles eidos:insights, Handles markitdown:describe-image, Handles markitdown:install-exiftool.",
+      "commits": [
+        {
+          "sha": "50268d89c3916767f48462a9d29ceb059a92852c",
+          "shortSha": "50268d8",
+          "date": "2026-06-23T07:11:44-04:00",
+          "subject": "feat(browser): add bookmarks, omnibox, find in page, and SSL bypass"
+        },
+        {
+          "sha": "0f11a2f51205c9230be186859bfd499aa8c46975",
+          "shortSha": "0f11a2f",
+          "date": "2026-06-23T21:35:35-04:00",
+          "subject": "feat: add Ensemble, MarkItDown, and Skills modes; Mission Control fix; Localhost improvements"
+        }
+      ],
+      "files": [
+        {
+          "path": "electron/main.cjs",
+          "statuses": [
+            "M"
+          ],
+          "additions": 1054,
+          "deletions": 0,
+          "observations": [
+            {
+              "kind": "ipc",
+              "label": "Handles markitdown:describe-image",
+              "detail": "Electron main-process IPC handler added.",
+              "evidence": "electron/main.cjs"
+            },
+            {
+              "kind": "ipc",
+              "label": "Handles markitdown:server-status",
+              "detail": "Electron main-process IPC handler added.",
+              "evidence": "electron/main.cjs"
+            },
+            {
+              "kind": "ipc",
+              "label": "Handles markitdown:start-server",
+              "detail": "Electron main-process IPC handler added.",
+              "evidence": "electron/main.cjs"
+            },
+            {
+              "kind": "ipc",
+              "label": "Handles markitdown:install-exiftool",
+              "detail": "Electron main-process IPC handler added.",
+              "evidence": "electron/main.cjs"
+            },
+            {
+              "kind": "ipc",
+              "label": "Handles eidos:insights",
+              "detail": "Electron main-process IPC handler added.",
+              "evidence": "electron/main.cjs"
+            },
+            {
+              "kind": "ipc",
+              "label": "Handles skills:detect-agents",
+              "detail": "Electron main-process IPC handler added.",
+              "evidence": "electron/main.cjs"
+            }
+          ],
+          "changeWeight": 1054
+        },
+        {
+          "path": "electron/preload.cjs",
+          "statuses": [
+            "M"
+          ],
+          "additions": 17,
+          "deletions": 0,
+          "observations": [
+            {
+              "kind": "ipc",
+              "label": "Invokes markitdown:describe-image",
+              "detail": "Renderer/preload IPC invoke path added.",
+              "evidence": "electron/preload.cjs"
+            },
+            {
+              "kind": "ipc",
+              "label": "Invokes markitdown:start-server",
+              "detail": "Renderer/preload IPC invoke path added.",
+              "evidence": "electron/preload.cjs"
+            },
+            {
+              "kind": "ipc",
+              "label": "Invokes markitdown:server-status",
+              "detail": "Renderer/preload IPC invoke path added.",
+              "evidence": "electron/preload.cjs"
+            },
+            {
+              "kind": "ipc",
+              "label": "Invokes markitdown:install-exiftool",
+              "detail": "Renderer/preload IPC invoke path added.",
+              "evidence": "electron/preload.cjs"
+            },
+            {
+              "kind": "ipc",
+              "label": "Invokes eidos:insights",
+              "detail": "Renderer/preload IPC invoke path added.",
+              "evidence": "electron/preload.cjs"
+            },
+            {
+              "kind": "ipc",
+              "label": "Invokes skills:detect-agents",
+              "detail": "Renderer/preload IPC invoke path added.",
+              "evidence": "electron/preload.cjs"
+            }
+          ],
+          "changeWeight": 17
+        }
+      ],
+      "observations": [
+        {
+          "kind": "ipc",
+          "label": "Handles eidos:insights",
+          "detail": "Electron main-process IPC handler added.",
+          "evidence": "electron/main.cjs",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "ipc",
+          "label": "Handles markitdown:describe-image",
+          "detail": "Electron main-process IPC handler added.",
+          "evidence": "electron/main.cjs",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "ipc",
+          "label": "Handles markitdown:install-exiftool",
+          "detail": "Electron main-process IPC handler added.",
+          "evidence": "electron/main.cjs",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "ipc",
+          "label": "Handles markitdown:server-status",
+          "detail": "Electron main-process IPC handler added.",
+          "evidence": "electron/main.cjs",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "ipc",
+          "label": "Handles markitdown:start-server",
+          "detail": "Electron main-process IPC handler added.",
+          "evidence": "electron/main.cjs",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "ipc",
+          "label": "Handles skills:detect-agents",
+          "detail": "Electron main-process IPC handler added.",
+          "evidence": "electron/main.cjs",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "ipc",
+          "label": "Handles skills:get-coding-expert-status",
+          "detail": "Electron main-process IPC handler added.",
+          "evidence": "electron/main.cjs",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "ipc",
+          "label": "Handles skills:get-installed",
+          "detail": "Electron main-process IPC handler added.",
+          "evidence": "electron/main.cjs",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "ipc",
+          "label": "Handles skills:get-metadata",
+          "detail": "Electron main-process IPC handler added.",
+          "evidence": "electron/main.cjs",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "ipc",
+          "label": "Handles skills:get-playbook-skills",
+          "detail": "Electron main-process IPC handler added.",
+          "evidence": "electron/main.cjs",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "ipc",
+          "label": "Handles skills:set-metadata",
+          "detail": "Electron main-process IPC handler added.",
+          "evidence": "electron/main.cjs",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "ipc",
+          "label": "Invokes eidos:insights",
+          "detail": "Renderer/preload IPC invoke path added.",
+          "evidence": "electron/preload.cjs",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "ipc",
+          "label": "Invokes markitdown:describe-image",
+          "detail": "Renderer/preload IPC invoke path added.",
+          "evidence": "electron/preload.cjs",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "ipc",
+          "label": "Invokes markitdown:install-exiftool",
+          "detail": "Renderer/preload IPC invoke path added.",
+          "evidence": "electron/preload.cjs",
+          "fileCount": 1,
+          "commitCount": 1
+        }
+      ],
+      "filesChanged": 2,
+      "additions": 1071,
+      "deletions": 0,
+      "graph": {
+        "filesMatched": 0,
+        "communities": [],
+        "symbols": [],
+        "nodeCount": 0
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "localhost",
+      "title": "Localhost browser mode",
+      "summary": "Localhost browser mode touched 1 added, 1 changed files. Detected signals include Wires LIGHTHOUSE, Defines LocalhostTab, Adds localhost-bg.jpeg.",
+      "commits": [
+        {
+          "sha": "50268d89c3916767f48462a9d29ceb059a92852c",
+          "shortSha": "50268d8",
+          "date": "2026-06-23T07:11:44-04:00",
+          "subject": "feat(browser): add bookmarks, omnibox, find in page, and SSL bypass"
+        },
+        {
+          "sha": "0f11a2f51205c9230be186859bfd499aa8c46975",
+          "shortSha": "0f11a2f",
+          "date": "2026-06-23T21:35:35-04:00",
+          "subject": "feat: add Ensemble, MarkItDown, and Skills modes; Mission Control fix; Localhost improvements"
+        }
+      ],
+      "files": [
+        {
+          "path": "src/components/LocalhostMode.jsx",
+          "statuses": [
+            "M"
+          ],
+          "additions": 694,
+          "deletions": 101,
+          "observations": [
+            {
+              "kind": "component",
+              "label": "Defines LocalhostTab",
+              "detail": "React component/function detected.",
+              "evidence": "src/components/LocalhostMode.jsx"
+            },
+            {
+              "kind": "mode-routing",
+              "label": "Wires LIGHTHOUSE",
+              "detail": "New mode reference appears in added lines.",
+              "evidence": "src/components/LocalhostMode.jsx"
+            }
+          ],
+          "changeWeight": 795
+        },
+        {
+          "path": "src/assets/localhost-bg.jpeg",
+          "statuses": [
+            "A"
+          ],
+          "additions": 0,
+          "deletions": 0,
+          "observations": [
+            {
+              "kind": "asset",
+              "label": "Adds localhost-bg.jpeg",
+              "detail": "Visual asset included in the product surface.",
+              "evidence": "src/assets/localhost-bg.jpeg"
+            }
+          ],
+          "changeWeight": 0
+        }
+      ],
+      "observations": [
+        {
+          "kind": "mode-routing",
+          "label": "Wires LIGHTHOUSE",
+          "detail": "New mode reference appears in added lines.",
+          "evidence": "src/components/LocalhostMode.jsx",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "component",
+          "label": "Defines LocalhostTab",
+          "detail": "React component/function detected.",
+          "evidence": "src/components/LocalhostMode.jsx",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "asset",
+          "label": "Adds localhost-bg.jpeg",
+          "detail": "Visual asset included in the product surface.",
+          "evidence": "src/assets/localhost-bg.jpeg",
+          "fileCount": 1,
+          "commitCount": 1
+        }
+      ],
+      "filesChanged": 2,
+      "additions": 694,
+      "deletions": 101,
+      "graph": {
+        "filesMatched": 0,
+        "communities": [],
+        "symbols": [],
+        "nodeCount": 0
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "markitdown",
+      "title": "MarkItDown surface",
+      "summary": "MarkItDown surface touched 3 added files. Detected signals include Added Mark It Down Mode, Defines MarkItDownMode, Exports MarkItDownMode.",
+      "commits": [
+        {
+          "sha": "0f11a2f51205c9230be186859bfd499aa8c46975",
+          "shortSha": "0f11a2f",
+          "date": "2026-06-23T21:35:35-04:00",
+          "subject": "feat: add Ensemble, MarkItDown, and Skills modes; Mission Control fix; Localhost improvements"
+        }
+      ],
+      "files": [
+        {
+          "path": "src/components/MarkItDownMode.jsx",
+          "statuses": [
+            "A"
+          ],
+          "additions": 349,
+          "deletions": 0,
+          "observations": [
+            {
+              "kind": "surface",
+              "label": "Added Mark It Down Mode",
+              "detail": "New first-class mode component file.",
+              "evidence": "src/components/MarkItDownMode.jsx"
+            },
+            {
+              "kind": "component",
+              "label": "Exports MarkItDownMode",
+              "detail": "React component export detected.",
+              "evidence": "src/components/MarkItDownMode.jsx"
+            },
+            {
+              "kind": "component",
+              "label": "Defines MarkItDownMode",
+              "detail": "React component/function detected.",
+              "evidence": "src/components/MarkItDownMode.jsx"
+            }
+          ],
+          "changeWeight": 349
+        },
+        {
+          "path": "src/assets/markitdown-bg.jpeg",
+          "statuses": [
+            "A"
+          ],
+          "additions": 0,
+          "deletions": 0,
+          "observations": [
+            {
+              "kind": "asset",
+              "label": "Adds markitdown-bg.jpeg",
+              "detail": "Visual asset included in the product surface.",
+              "evidence": "src/assets/markitdown-bg.jpeg"
+            }
+          ],
+          "changeWeight": 0
+        },
+        {
+          "path": "src/assets/markitdown-logo.jpeg",
+          "statuses": [
+            "A"
+          ],
+          "additions": 0,
+          "deletions": 0,
+          "observations": [
+            {
+              "kind": "asset",
+              "label": "Adds markitdown-logo.jpeg",
+              "detail": "Visual asset included in the product surface.",
+              "evidence": "src/assets/markitdown-logo.jpeg"
+            }
+          ],
+          "changeWeight": 0
+        }
+      ],
+      "observations": [
+        {
+          "kind": "surface",
+          "label": "Added Mark It Down Mode",
+          "detail": "New first-class mode component file.",
+          "evidence": "src/components/MarkItDownMode.jsx",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "component",
+          "label": "Defines MarkItDownMode",
+          "detail": "React component/function detected.",
+          "evidence": "src/components/MarkItDownMode.jsx",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "component",
+          "label": "Exports MarkItDownMode",
+          "detail": "React component export detected.",
+          "evidence": "src/components/MarkItDownMode.jsx",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "asset",
+          "label": "Adds markitdown-bg.jpeg",
+          "detail": "Visual asset included in the product surface.",
+          "evidence": "src/assets/markitdown-bg.jpeg",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "asset",
+          "label": "Adds markitdown-logo.jpeg",
+          "detail": "Visual asset included in the product surface.",
+          "evidence": "src/assets/markitdown-logo.jpeg",
+          "fileCount": 1,
+          "commitCount": 1
+        }
+      ],
+      "filesChanged": 3,
+      "additions": 349,
+      "deletions": 0,
+      "graph": {
+        "filesMatched": 0,
+        "communities": [],
+        "symbols": [],
+        "nodeCount": 0
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "docs-release",
+      "title": "Docs, release notes, and project continuity",
+      "summary": "Docs, release notes, and project continuity touched 3 changed files.",
+      "commits": [
+        {
+          "sha": "50268d89c3916767f48462a9d29ceb059a92852c",
+          "shortSha": "50268d8",
+          "date": "2026-06-23T07:11:44-04:00",
+          "subject": "feat(browser): add bookmarks, omnibox, find in page, and SSL bypass"
+        },
+        {
+          "sha": "0f11a2f51205c9230be186859bfd499aa8c46975",
+          "shortSha": "0f11a2f",
+          "date": "2026-06-23T21:35:35-04:00",
+          "subject": "feat: add Ensemble, MarkItDown, and Skills modes; Mission Control fix; Localhost improvements"
+        }
+      ],
+      "files": [
+        {
+          "path": "HANDOFF.md",
+          "statuses": [
+            "M"
+          ],
+          "additions": 224,
+          "deletions": 0,
+          "observations": [],
+          "changeWeight": 224
+        },
+        {
+          "path": "CHANGELOG.md",
+          "statuses": [
+            "M"
+          ],
+          "additions": 20,
+          "deletions": 1,
+          "observations": [],
+          "changeWeight": 21
+        },
+        {
+          "path": "package.json",
+          "statuses": [
+            "M"
+          ],
+          "additions": 2,
+          "deletions": 2,
+          "observations": [],
+          "changeWeight": 4
+        }
+      ],
+      "observations": [],
+      "filesChanged": 3,
+      "additions": 246,
+      "deletions": 3,
+      "graph": {
+        "filesMatched": 0,
+        "communities": [],
+        "symbols": [],
+        "nodeCount": 0
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "mission-control",
+      "title": "Mission Control and validation history",
+      "summary": "Mission Control and validation history touched 1 changed file. Graphify matched 1 changed renderer file, so this is tied to indexed architecture rather than only path names. Detected signals include Defines RunContextMenu.",
+      "commits": [
+        {
+          "sha": "0f11a2f51205c9230be186859bfd499aa8c46975",
+          "shortSha": "0f11a2f",
+          "date": "2026-06-23T21:35:35-04:00",
+          "subject": "feat: add Ensemble, MarkItDown, and Skills modes; Mission Control fix; Localhost improvements"
+        }
+      ],
+      "files": [
+        {
+          "path": "src/components/MissionControl.jsx",
+          "statuses": [
+            "M"
+          ],
+          "additions": 109,
+          "deletions": 99,
+          "observations": [
+            {
+              "kind": "component",
+              "label": "Defines RunContextMenu",
+              "detail": "React component/function detected.",
+              "evidence": "src/components/MissionControl.jsx"
+            }
+          ],
+          "changeWeight": 208
+        }
+      ],
+      "observations": [
+        {
+          "kind": "component",
+          "label": "Defines RunContextMenu",
+          "detail": "React component/function detected.",
+          "evidence": "src/components/MissionControl.jsx",
+          "fileCount": 1,
+          "commitCount": 1
+        }
+      ],
+      "filesChanged": 1,
+      "additions": 109,
+      "deletions": 99,
+      "graph": {
+        "filesMatched": 1,
+        "communities": [
+          3
+        ],
+        "symbols": [
+          "components/MissionControl.jsx"
+        ],
+        "nodeCount": 1
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "tests",
+      "title": "Tests and validation harnesses",
+      "summary": "Tests and validation harnesses touched 1 added file. Detected signals include Added ensemble tests, Adds executable assertions.",
+      "commits": [
+        {
+          "sha": "0f11a2f51205c9230be186859bfd499aa8c46975",
+          "shortSha": "0f11a2f",
+          "date": "2026-06-23T21:35:35-04:00",
+          "subject": "feat: add Ensemble, MarkItDown, and Skills modes; Mission Control fix; Localhost improvements"
+        }
+      ],
+      "files": [
+        {
+          "path": "test/ensemble.test.js",
+          "statuses": [
+            "A"
+          ],
+          "additions": 158,
+          "deletions": 0,
+          "observations": [
+            {
+              "kind": "validation",
+              "label": "Added ensemble tests",
+              "detail": "New focused test coverage.",
+              "evidence": "test/ensemble.test.js"
+            },
+            {
+              "kind": "validation",
+              "label": "Adds executable assertions",
+              "detail": "labels responses A, B, … Z, AA; fills template placeholders; builds a context block, fencing files by path and skipping empties; anonymises panel responses by default",
+              "evidence": "test/ensemble.test.js"
+            }
+          ],
+          "changeWeight": 158
+        }
+      ],
+      "observations": [
+        {
+          "kind": "validation",
+          "label": "Added ensemble tests",
+          "detail": "New focused test coverage.",
+          "evidence": "test/ensemble.test.js",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "validation",
+          "label": "Adds executable assertions",
+          "detail": "labels responses A, B, … Z, AA; fills template placeholders; builds a context block, fencing files by path and skipping empties; anonymises panel responses by default",
+          "evidence": "test/ensemble.test.js",
+          "fileCount": 1,
+          "commitCount": 1
+        }
+      ],
+      "filesChanged": 1,
+      "additions": 158,
+      "deletions": 0,
+      "graph": {
+        "filesMatched": 0,
+        "communities": [],
+        "symbols": [],
+        "nodeCount": 0
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "mode-routing",
+      "title": "Mode routing and desktop window system",
+      "summary": "Mode routing and desktop window system touched 6 changed files. Graphify matched 4 changed renderer files, so this is tied to indexed architecture rather than only path names. Detected signals include Wires ENSEMBLE, Wires MARKITDOWN, Defines ENSEMBLE.",
+      "commits": [
+        {
+          "sha": "50268d89c3916767f48462a9d29ceb059a92852c",
+          "shortSha": "50268d8",
+          "date": "2026-06-23T07:11:44-04:00",
+          "subject": "feat(browser): add bookmarks, omnibox, find in page, and SSL bypass"
+        },
+        {
+          "sha": "0f11a2f51205c9230be186859bfd499aa8c46975",
+          "shortSha": "0f11a2f",
+          "date": "2026-06-23T21:35:35-04:00",
+          "subject": "feat: add Ensemble, MarkItDown, and Skills modes; Mission Control fix; Localhost improvements"
+        }
+      ],
+      "files": [
+        {
+          "path": "src/components/ModeIcons.jsx",
+          "statuses": [
+            "M"
+          ],
+          "additions": 28,
+          "deletions": 0,
+          "observations": [
+            {
+              "kind": "component",
+              "label": "Defines EnsembleIcon",
+              "detail": "React component/function detected.",
+              "evidence": "src/components/ModeIcons.jsx"
+            },
+            {
+              "kind": "component",
+              "label": "Defines SkillsIcon",
+              "detail": "React component/function detected.",
+              "evidence": "src/components/ModeIcons.jsx"
+            }
+          ],
+          "changeWeight": 28
+        },
+        {
+          "path": "src/components/DashboardMode.jsx",
+          "statuses": [
+            "M"
+          ],
+          "additions": 17,
+          "deletions": 8,
+          "observations": [
+            {
+              "kind": "mode-routing",
+              "label": "Wires LIGHTHOUSE",
+              "detail": "New mode reference appears in added lines.",
+              "evidence": "src/components/DashboardMode.jsx"
+            },
+            {
+              "kind": "mode-routing",
+              "label": "Wires ENSEMBLE",
+              "detail": "New mode reference appears in added lines.",
+              "evidence": "src/components/DashboardMode.jsx"
+            },
+            {
+              "kind": "mode-routing",
+              "label": "Wires MARKITDOWN",
+              "detail": "New mode reference appears in added lines.",
+              "evidence": "src/components/DashboardMode.jsx"
+            },
+            {
+              "kind": "mode-routing",
+              "label": "Wires BARS",
+              "detail": "New mode reference appears in added lines.",
+              "evidence": "src/components/DashboardMode.jsx"
+            },
+            {
+              "kind": "mode-routing",
+              "label": "Wires CONCERNS",
+              "detail": "New mode reference appears in added lines.",
+              "evidence": "src/components/DashboardMode.jsx"
+            }
+          ],
+          "changeWeight": 25
+        },
+        {
+          "path": "src/App.jsx",
+          "statuses": [
+            "M"
+          ],
+          "additions": 18,
+          "deletions": 2,
+          "observations": [
+            {
+              "kind": "mode-routing",
+              "label": "Wires MARKITDOWN",
+              "detail": "New mode reference appears in added lines.",
+              "evidence": "src/App.jsx"
+            },
+            {
+              "kind": "mode-routing",
+              "label": "Wires ENSEMBLE",
+              "detail": "New mode reference appears in added lines.",
+              "evidence": "src/App.jsx"
+            }
+          ],
+          "changeWeight": 20
+        },
+        {
+          "path": "src/context/ModeContext.jsx",
+          "statuses": [
+            "M"
+          ],
+          "additions": 6,
+          "deletions": 0,
+          "observations": [
+            {
+              "kind": "api",
+              "label": "Exports SKILLS_WINDOW_ID",
+              "detail": "Shared library constant export detected.",
+              "evidence": "src/context/ModeContext.jsx"
+            },
+            {
+              "kind": "mode-routing",
+              "label": "Wires MARKITDOWN",
+              "detail": "New mode reference appears in added lines.",
+              "evidence": "src/context/ModeContext.jsx"
+            },
+            {
+              "kind": "mode-routing",
+              "label": "Wires ENSEMBLE",
+              "detail": "New mode reference appears in added lines.",
+              "evidence": "src/context/ModeContext.jsx"
+            },
+            {
+              "kind": "mode-routing",
+              "label": "Defines MARKITDOWN",
+              "detail": "Mode enum-style entry appears in added lines.",
+              "evidence": "src/context/ModeContext.jsx"
+            },
+            {
+              "kind": "mode-routing",
+              "label": "Defines ENSEMBLE",
+              "detail": "Mode enum-style entry appears in added lines.",
+              "evidence": "src/context/ModeContext.jsx"
+            }
+          ],
+          "changeWeight": 6
+        },
+        {
+          "path": "src/components/ModeSwitcher.jsx",
+          "statuses": [
+            "M"
+          ],
+          "additions": 2,
+          "deletions": 1,
+          "observations": [
+            {
+              "kind": "mode-routing",
+              "label": "Wires ENSEMBLE",
+              "detail": "New mode reference appears in added lines.",
+              "evidence": "src/components/ModeSwitcher.jsx"
+            }
+          ],
+          "changeWeight": 3
+        },
+        {
+          "path": "src/components/windows/Dock.jsx",
+          "statuses": [
+            "M"
+          ],
+          "additions": 2,
+          "deletions": 0,
+          "observations": [
+            {
+              "kind": "mode-routing",
+              "label": "Wires MARKITDOWN",
+              "detail": "New mode reference appears in added lines.",
+              "evidence": "src/components/windows/Dock.jsx"
+            },
+            {
+              "kind": "mode-routing",
+              "label": "Wires ENSEMBLE",
+              "detail": "New mode reference appears in added lines.",
+              "evidence": "src/components/windows/Dock.jsx"
+            }
+          ],
+          "changeWeight": 2
+        }
+      ],
+      "observations": [
+        {
+          "kind": "mode-routing",
+          "label": "Wires ENSEMBLE",
+          "detail": "New mode reference appears in added lines.",
+          "evidence": "src/App.jsx",
+          "fileCount": 5,
+          "commitCount": 1
+        },
+        {
+          "kind": "mode-routing",
+          "label": "Wires MARKITDOWN",
+          "detail": "New mode reference appears in added lines.",
+          "evidence": "src/App.jsx",
+          "fileCount": 4,
+          "commitCount": 1
+        },
+        {
+          "kind": "mode-routing",
+          "label": "Defines ENSEMBLE",
+          "detail": "Mode enum-style entry appears in added lines.",
+          "evidence": "src/context/ModeContext.jsx",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "mode-routing",
+          "label": "Defines MARKITDOWN",
+          "detail": "Mode enum-style entry appears in added lines.",
+          "evidence": "src/context/ModeContext.jsx",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "mode-routing",
+          "label": "Wires BARS",
+          "detail": "New mode reference appears in added lines.",
+          "evidence": "src/components/DashboardMode.jsx",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "mode-routing",
+          "label": "Wires CONCERNS",
+          "detail": "New mode reference appears in added lines.",
+          "evidence": "src/components/DashboardMode.jsx",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "mode-routing",
+          "label": "Wires LIGHTHOUSE",
+          "detail": "New mode reference appears in added lines.",
+          "evidence": "src/components/DashboardMode.jsx",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "api",
+          "label": "Exports SKILLS_WINDOW_ID",
+          "detail": "Shared library constant export detected.",
+          "evidence": "src/context/ModeContext.jsx",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "component",
+          "label": "Defines EnsembleIcon",
+          "detail": "React component/function detected.",
+          "evidence": "src/components/ModeIcons.jsx",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "component",
+          "label": "Defines SkillsIcon",
+          "detail": "React component/function detected.",
+          "evidence": "src/components/ModeIcons.jsx",
+          "fileCount": 1,
+          "commitCount": 1
+        }
+      ],
+      "filesChanged": 6,
+      "additions": 73,
+      "deletions": 11,
+      "graph": {
+        "filesMatched": 4,
+        "communities": [
+          6,
+          26,
+          35,
+          43
+        ],
+        "symbols": [
+          "App.jsx",
+          "components/ModeSwitcher.jsx",
+          "components/windows/Dock.jsx",
+          "context/ModeContext.jsx"
+        ],
+        "nodeCount": 4
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "libraries",
+      "title": "Shared renderer libraries",
+      "summary": "Shared renderer libraries touched 2 added files. Detected signals include Exports CAVEMAN_LEVELS, Exports cavemanDirective(), Exports PONYTAIL_LEVELS.",
+      "commits": [
+        {
+          "sha": "50268d89c3916767f48462a9d29ceb059a92852c",
+          "shortSha": "50268d8",
+          "date": "2026-06-23T07:11:44-04:00",
+          "subject": "feat(browser): add bookmarks, omnibox, find in page, and SSL bypass"
+        }
+      ],
+      "files": [
+        {
+          "path": "src/lib/caveman.js",
+          "statuses": [
+            "A"
+          ],
+          "additions": 44,
+          "deletions": 0,
+          "observations": [
+            {
+              "kind": "api",
+              "label": "Exports cavemanDirective()",
+              "detail": "Shared library API export detected.",
+              "evidence": "src/lib/caveman.js"
+            },
+            {
+              "kind": "api",
+              "label": "Exports CAVEMAN_LEVELS",
+              "detail": "Shared library constant export detected.",
+              "evidence": "src/lib/caveman.js"
+            }
+          ],
+          "changeWeight": 44
+        },
+        {
+          "path": "src/lib/ponytail.js",
+          "statuses": [
+            "A"
+          ],
+          "additions": 44,
+          "deletions": 0,
+          "observations": [
+            {
+              "kind": "api",
+              "label": "Exports ponytailDirective()",
+              "detail": "Shared library API export detected.",
+              "evidence": "src/lib/ponytail.js"
+            },
+            {
+              "kind": "api",
+              "label": "Exports PONYTAIL_LEVELS",
+              "detail": "Shared library constant export detected.",
+              "evidence": "src/lib/ponytail.js"
+            }
+          ],
+          "changeWeight": 44
+        }
+      ],
+      "observations": [
+        {
+          "kind": "api",
+          "label": "Exports CAVEMAN_LEVELS",
+          "detail": "Shared library constant export detected.",
+          "evidence": "src/lib/caveman.js",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "api",
+          "label": "Exports cavemanDirective()",
+          "detail": "Shared library API export detected.",
+          "evidence": "src/lib/caveman.js",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "api",
+          "label": "Exports PONYTAIL_LEVELS",
+          "detail": "Shared library constant export detected.",
+          "evidence": "src/lib/ponytail.js",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "api",
+          "label": "Exports ponytailDirective()",
+          "detail": "Shared library API export detected.",
+          "evidence": "src/lib/ponytail.js",
+          "fileCount": 1,
+          "commitCount": 1
+        }
+      ],
+      "filesChanged": 2,
+      "additions": 88,
+      "deletions": 0,
+      "graph": {
+        "filesMatched": 0,
+        "communities": [],
+        "symbols": [],
+        "nodeCount": 0
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "components",
+      "title": "Renderer components",
+      "summary": "Renderer components touched 3 added files. Detected signals include Defines CavemanDropdown, Defines LevelDropdown, Defines PonytailDropdown.",
+      "commits": [
+        {
+          "sha": "50268d89c3916767f48462a9d29ceb059a92852c",
+          "shortSha": "50268d8",
+          "date": "2026-06-23T07:11:44-04:00",
+          "subject": "feat(browser): add bookmarks, omnibox, find in page, and SSL bypass"
+        }
+      ],
+      "files": [
+        {
+          "path": "src/components/LevelDropdown.jsx",
+          "statuses": [
+            "A"
+          ],
+          "additions": 50,
+          "deletions": 0,
+          "observations": [
+            {
+              "kind": "component",
+              "label": "Defines LevelDropdown",
+              "detail": "React component/function detected.",
+              "evidence": "src/components/LevelDropdown.jsx"
+            }
+          ],
+          "changeWeight": 50
+        },
+        {
+          "path": "src/components/CavemanDropdown.jsx",
+          "statuses": [
+            "A"
+          ],
+          "additions": 15,
+          "deletions": 0,
+          "observations": [
+            {
+              "kind": "component",
+              "label": "Defines CavemanDropdown",
+              "detail": "React component/function detected.",
+              "evidence": "src/components/CavemanDropdown.jsx"
+            }
+          ],
+          "changeWeight": 15
+        },
+        {
+          "path": "src/components/PonytailDropdown.jsx",
+          "statuses": [
+            "A"
+          ],
+          "additions": 15,
+          "deletions": 0,
+          "observations": [
+            {
+              "kind": "component",
+              "label": "Defines PonytailDropdown",
+              "detail": "React component/function detected.",
+              "evidence": "src/components/PonytailDropdown.jsx"
+            }
+          ],
+          "changeWeight": 15
+        }
+      ],
+      "observations": [
+        {
+          "kind": "component",
+          "label": "Defines CavemanDropdown",
+          "detail": "React component/function detected.",
+          "evidence": "src/components/CavemanDropdown.jsx",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "component",
+          "label": "Defines LevelDropdown",
+          "detail": "React component/function detected.",
+          "evidence": "src/components/LevelDropdown.jsx",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "component",
+          "label": "Defines PonytailDropdown",
+          "detail": "React component/function detected.",
+          "evidence": "src/components/PonytailDropdown.jsx",
+          "fileCount": 1,
+          "commitCount": 1
+        }
+      ],
+      "filesChanged": 3,
+      "additions": 80,
+      "deletions": 0,
+      "graph": {
+        "filesMatched": 0,
+        "communities": [],
+        "symbols": [],
+        "nodeCount": 0
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "repo-maintenance",
+      "title": "Repository maintenance",
+      "summary": "Repository maintenance touched 4 added, 1 changed files.",
+      "commits": [
+        {
+          "sha": "50268d89c3916767f48462a9d29ceb059a92852c",
+          "shortSha": "50268d8",
+          "date": "2026-06-23T07:11:44-04:00",
+          "subject": "feat(browser): add bookmarks, omnibox, find in page, and SSL bypass"
+        },
+        {
+          "sha": "0f11a2f51205c9230be186859bfd499aa8c46975",
+          "shortSha": "0f11a2f",
+          "date": "2026-06-23T21:35:35-04:00",
+          "subject": "feat: add Ensemble, MarkItDown, and Skills modes; Mission Control fix; Localhost improvements"
+        }
+      ],
+      "files": [
+        {
+          "path": ".codebase-memory/artifact.json",
+          "statuses": [
+            "A"
+          ],
+          "additions": 11,
+          "deletions": 0,
+          "observations": [],
+          "changeWeight": 11
+        },
+        {
+          "path": "config/mcporter.json",
+          "statuses": [
+            "A"
+          ],
+          "additions": 7,
+          "deletions": 0,
+          "observations": [],
+          "changeWeight": 7
+        },
+        {
+          "path": "package-lock.json",
+          "statuses": [
+            "M"
+          ],
+          "additions": 2,
+          "deletions": 2,
+          "observations": [],
+          "changeWeight": 4
+        },
+        {
+          "path": ".codebase-memory/.gitattributes",
+          "statuses": [
+            "A"
+          ],
+          "additions": 3,
+          "deletions": 0,
+          "observations": [],
+          "changeWeight": 3
+        },
+        {
+          "path": ".codebase-memory/graph.db.zst",
+          "statuses": [
+            "A"
+          ],
+          "additions": 0,
+          "deletions": 0,
+          "observations": [],
+          "changeWeight": 0
+        }
+      ],
+      "observations": [],
+      "filesChanged": 5,
+      "additions": 23,
+      "deletions": 2,
+      "graph": {
+        "filesMatched": 0,
+        "communities": [],
+        "symbols": [],
+        "nodeCount": 0
+      },
+      "confidence": "medium"
+    },
+    {
+      "id": "llm-tools",
+      "title": "LLM clients, tools, and agent orchestration",
+      "summary": "LLM clients, tools, and agent orchestration touched 1 changed file. Graphify matched 1 changed renderer file, so this is tied to indexed architecture rather than only path names. Detected signals include Persists caveman_level_code, Persists ponytail_level_code.",
+      "commits": [
+        {
+          "sha": "50268d89c3916767f48462a9d29ceb059a92852c",
+          "shortSha": "50268d8",
+          "date": "2026-06-23T07:11:44-04:00",
+          "subject": "feat(browser): add bookmarks, omnibox, find in page, and SSL bypass"
+        }
+      ],
+      "files": [
+        {
+          "path": "src/components/CodeMode.jsx",
+          "statuses": [
+            "M"
+          ],
+          "additions": 20,
+          "deletions": 2,
+          "observations": [
+            {
+              "kind": "storage",
+              "label": "Persists caveman_level_code",
+              "detail": "Persistent storage key appears in added lines.",
+              "evidence": "src/components/CodeMode.jsx"
+            },
+            {
+              "kind": "storage",
+              "label": "Persists ponytail_level_code",
+              "detail": "Persistent storage key appears in added lines.",
+              "evidence": "src/components/CodeMode.jsx"
+            }
+          ],
+          "changeWeight": 22
+        }
+      ],
+      "observations": [
+        {
+          "kind": "storage",
+          "label": "Persists caveman_level_code",
+          "detail": "Persistent storage key appears in added lines.",
+          "evidence": "src/components/CodeMode.jsx",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "storage",
+          "label": "Persists ponytail_level_code",
+          "detail": "Persistent storage key appears in added lines.",
+          "evidence": "src/components/CodeMode.jsx",
+          "fileCount": 1,
+          "commitCount": 1
+        }
+      ],
+      "filesChanged": 1,
+      "additions": 20,
+      "deletions": 2,
+      "graph": {
+        "filesMatched": 1,
+        "communities": [
+          18
+        ],
+        "symbols": [
+          "components/CodeMode.jsx"
+        ],
+        "nodeCount": 1
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "mode-chat-mode",
+      "title": "Chat Mode surface",
+      "summary": "Chat Mode surface touched 1 changed file. Graphify matched 1 changed renderer file, so this is tied to indexed architecture rather than only path names. Detected signals include Persists caveman_level_chat, Persists ponytail_level_chat.",
+      "commits": [
+        {
+          "sha": "50268d89c3916767f48462a9d29ceb059a92852c",
+          "shortSha": "50268d8",
+          "date": "2026-06-23T07:11:44-04:00",
+          "subject": "feat(browser): add bookmarks, omnibox, find in page, and SSL bypass"
+        },
+        {
+          "sha": "0f11a2f51205c9230be186859bfd499aa8c46975",
+          "shortSha": "0f11a2f",
+          "date": "2026-06-23T21:35:35-04:00",
+          "subject": "feat: add Ensemble, MarkItDown, and Skills modes; Mission Control fix; Localhost improvements"
+        }
+      ],
+      "files": [
+        {
+          "path": "src/components/ChatMode.jsx",
+          "statuses": [
+            "M"
+          ],
+          "additions": 18,
+          "deletions": 2,
+          "observations": [
+            {
+              "kind": "storage",
+              "label": "Persists caveman_level_chat",
+              "detail": "Persistent storage key appears in added lines.",
+              "evidence": "src/components/ChatMode.jsx"
+            },
+            {
+              "kind": "storage",
+              "label": "Persists ponytail_level_chat",
+              "detail": "Persistent storage key appears in added lines.",
+              "evidence": "src/components/ChatMode.jsx"
+            }
+          ],
+          "changeWeight": 20
+        }
+      ],
+      "observations": [
+        {
+          "kind": "storage",
+          "label": "Persists caveman_level_chat",
+          "detail": "Persistent storage key appears in added lines.",
+          "evidence": "src/components/ChatMode.jsx",
+          "fileCount": 1,
+          "commitCount": 1
+        },
+        {
+          "kind": "storage",
+          "label": "Persists ponytail_level_chat",
+          "detail": "Persistent storage key appears in added lines.",
+          "evidence": "src/components/ChatMode.jsx",
+          "fileCount": 1,
+          "commitCount": 1
+        }
+      ],
+      "filesChanged": 1,
+      "additions": 18,
+      "deletions": 2,
+      "graph": {
+        "filesMatched": 1,
+        "communities": [
+          16
+        ],
+        "symbols": [
+          "components/ChatMode.jsx"
+        ],
+        "nodeCount": 1
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "persistence",
+      "title": "Persistence and local state",
+      "summary": "Persistence and local state touched 1 changed file. Graphify matched 1 changed renderer file, so this is tied to indexed architecture rather than only path names.",
+      "commits": [
+        {
+          "sha": "50268d89c3916767f48462a9d29ceb059a92852c",
+          "shortSha": "50268d8",
+          "date": "2026-06-23T07:11:44-04:00",
+          "subject": "feat(browser): add bookmarks, omnibox, find in page, and SSL bypass"
+        },
+        {
+          "sha": "0f11a2f51205c9230be186859bfd499aa8c46975",
+          "shortSha": "0f11a2f",
+          "date": "2026-06-23T21:35:35-04:00",
+          "subject": "feat: add Ensemble, MarkItDown, and Skills modes; Mission Control fix; Localhost improvements"
+        }
+      ],
+      "files": [
+        {
+          "path": "src/lib/persistentStore.js",
+          "statuses": [
+            "M"
+          ],
+          "additions": 12,
+          "deletions": 0,
+          "observations": [],
+          "changeWeight": 12
+        }
+      ],
+      "observations": [],
+      "filesChanged": 1,
+      "additions": 12,
+      "deletions": 0,
+      "graph": {
+        "filesMatched": 1,
+        "communities": [
+          3
+        ],
+        "symbols": [
+          "lib/persistentStore.js"
+        ],
+        "nodeCount": 1
+      },
+      "confidence": "high"
+    }
+  ]
+}
