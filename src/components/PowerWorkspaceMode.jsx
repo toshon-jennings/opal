@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import {
-    ArrowRight, Bot, Brain, CheckCircle2, FolderOpen, Lightbulb, RefreshCw,
+    ArrowRight, Bot, BookOpen, Brain, CheckCircle2, FolderOpen, Lightbulb, RefreshCw,
     MessageSquare, Plus, Rocket, Save, ScrollText, ShieldCheck, Target, TerminalSquare, X
 } from 'lucide-react';
+import { PowerWorkspaceGuideModal } from './PowerWorkspaceGuideModal';
 import { useMode, MODES } from '../context/ModeContext';
 import { useChat } from '../context/ChatContext';
 import {
@@ -56,6 +57,7 @@ export default function PowerWorkspaceMode() {
     const [draft, setDraft] = useState(() => snapshot.workspace);
     const [savedAt, setSavedAt] = useState('');
     const [noteDraft, setNoteDraft] = useState('');
+    const [manualOpen, setManualOpen] = useState(false);
     const coworkActivity = useMemo(
         () => readWorkspaceCoworkActivity(snapshot.workspace, codeState.sessions),
         [snapshot.workspace, codeState.sessions]
@@ -184,7 +186,8 @@ export default function PowerWorkspaceMode() {
     };
 
     return (
-        <div className="h-full overflow-y-auto bg-[var(--bg-primary)] text-[var(--text-primary)]">
+        <div className="relative h-full">
+            <div className="h-full overflow-y-auto bg-[var(--bg-primary)] text-[var(--text-primary)]">
             <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 p-6">
                 <header className="rounded-3xl border border-orange-500/20 bg-gradient-to-br from-orange-500/15 via-[var(--bg-secondary)] to-[var(--bg-primary)] p-5 shadow-2xl shadow-black/10">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -201,6 +204,15 @@ export default function PowerWorkspaceMode() {
                             </p>
                         </div>
                         <div className="flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setManualOpen(true)}
+                                className="inline-flex items-center gap-2 rounded-xl border border-orange-500/30 bg-orange-500/10 px-3 py-2 text-xs font-medium text-orange-300 transition-colors hover:bg-orange-500/20"
+                                title="Open the Power Workspace manual"
+                            >
+                                <BookOpen size={13} />
+                                Manual
+                            </button>
                             <button
                                 type="button"
                                 onClick={refresh}
@@ -594,6 +606,8 @@ export default function PowerWorkspaceMode() {
                     </SummaryCard>
                 </div>
             </div>
+            </div>
+            <PowerWorkspaceGuideModal isOpen={manualOpen} onClose={() => setManualOpen(false)} />
         </div>
     );
 }
