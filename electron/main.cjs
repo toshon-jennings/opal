@@ -3314,6 +3314,8 @@ ipcMain.handle('agent-jobs:queue', async (event, { agent, prompt, working_direct
     const startedAt = new Date().toISOString();
     const jobRecord = {
       id: jobId, agent, type: agent, status: 'running', prompt,
+      prompt_text: prompt,
+      prompt_preview: prompt?.slice(0, 120) || null,
       working_directory: working_directory || null, model: requestedModel || null, source: 'agents_page',
       created_at: startedAt, started_at: startedAt, completed_at: null,
       exit_code: null, output: '', output_kind: null, childProcess: null,
@@ -3363,6 +3365,8 @@ ipcMain.handle('agent-jobs:queue', async (event, { agent, prompt, working_direct
     const startedAt = new Date().toISOString();
     const jobRecord = {
       id: jobId, agent, type: agent, status: 'running', prompt,
+      prompt_text: prompt,
+      prompt_preview: prompt?.slice(0, 120) || null,
       working_directory: null, model: requestedModel || null, source: 'agents_page',
       created_at: startedAt, started_at: startedAt, completed_at: null,
       exit_code: null, output: '', output_kind: null, session_id: null, childProcess: null,
@@ -3418,6 +3422,8 @@ ipcMain.handle('agent-jobs:queue', async (event, { agent, prompt, working_direct
     type: agent, // alias for compatibility
     status: 'pending',
     prompt,
+    prompt_text: prompt,
+    prompt_preview: prompt?.slice(0, 120) || null,
     working_directory: working_directory || null,
     model: requestedModel || null,
     source: 'agents_page',
@@ -3649,6 +3655,8 @@ ipcMain.handle('jules:queue', async (event, { prompt, source = 'agents_page', re
     type: 'jules',
     status: 'pending',
     prompt,
+    prompt_text: prompt,
+    prompt_preview: prompt?.slice(0, 120) || null,
     working_directory: null,
     model: null,
     source,
