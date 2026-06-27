@@ -38,6 +38,7 @@ const PERSISTED_KEYS = [
     'perci_harness_memory',
     'perci_diff_reviews',
     'perci_budget_state',
+    'perci_dashboard_tile_order',
     'perci_terminal_port',
     'working_directory',
     'cowork_routines',

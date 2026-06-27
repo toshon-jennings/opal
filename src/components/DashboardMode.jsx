@@ -5,6 +5,7 @@ import {
     MessageSquare, Bot,
     Plus, ArrowUpRight, Server, Sparkles, CheckCircle2, AlertTriangle, Layers, Settings,
     GraduationCap, Globe, X, TerminalSquare, ChevronRight, Terminal, BookOpen,
+    ArrowDownAZ, GripVertical,
 } from 'lucide-react';
 import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, GDASH_WINDOW_ID, KLIPIT_WINDOW_ID } from '../context/ModeContext';
 import { useChat } from '../context/ChatContext';
@@ -13,9 +14,36 @@ import { AGENT_DEFINITIONS, ACTIVE_JOB_STATUSES, ATTENTION_JOB_STATUSES } from '
 import OnboardingCard, { hasOnboardingBeenSeen } from './OnboardingCard';
 import { BeginnerGuideModal } from './BeginnerGuideModal';
 import { NATIVE_TILES, SYSTEM_TILES, LOGO_WHITE_BOX_IDS, LOGO_FILL_COVER_IDS } from '../lib/appCatalog';
+import { readJsonStorage, writeStringStorage } from '../lib/persistentStore';
 import './DashboardMode.css';
 
 const JOBS_POLL_MS = 10000;
+const DASHBOARD_TILE_ORDER_KEY = 'perci_dashboard_tile_order';
+
+function normalizeTileOrder(tiles, savedOrder) {
+    const tileIds = new Set(tiles.map((tile) => tile.id));
+    const ordered = Array.isArray(savedOrder) ? savedOrder.filter((id) => tileIds.has(id)) : [];
+    const missing = tiles.map((tile) => tile.id).filter((id) => !ordered.includes(id));
+    return [...ordered, ...missing];
+}
+
+function orderTiles(tiles, order) {
+    const byId = new Map(tiles.map((tile) => [tile.id, tile]));
+    return normalizeTileOrder(tiles, order).map((id) => byId.get(id)).filter(Boolean);
+}
+
+function sortTilesByTitle(tiles) {
+    return [...tiles].sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }));
+}
+
+function moveIdWithinOrder(order, fromId, toId) {
+    if (!fromId || !toId || fromId === toId) return order;
+    const next = order.filter((id) => id !== fromId);
+    const toIndex = next.indexOf(toId);
+    if (toIndex === -1) return order;
+    next.splice(toIndex, 0, fromId);
+    return next;
+}
 
 const NATIVE_TOOL_MODALS = {
     chronicle: {
@@ -196,6 +224,15 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
     const [showOnboarding, setShowOnboarding] = useState(() => !hasOnboardingBeenSeen());
     const [showBeginnerGuide, setShowBeginnerGuide] = useState(false);
     const [nativeToolModal, setNativeToolModal] = useState(null);
+    const [tileOrder, setTileOrder] = useState(() => {
+        const saved = readJsonStorage(DASHBOARD_TILE_ORDER_KEY, {});
+        return {
+            native: normalizeTileOrder(NATIVE_TILES, saved?.native),
+            system: normalizeTileOrder(SYSTEM_TILES, saved?.system),
+        };
+    });
+    const [alphabeticalSections, setAlphabeticalSections] = useState({ native: false, system: false });
+    const [dragState, setDragState] = useState(null);
 
     // Drop the user straight into Settings focused on OpenRouter, with its
     // API-key field revealed. Used by the beginner guide's OpenRouter CTA.
@@ -265,6 +302,66 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
     }, [openClawStatus]);
 
     const openIds = useMemo(() => new Set(windows.map((w) => w.modeId)), [windows]);
+    const orderedNativeTiles = useMemo(() => {
+        const tiles = orderTiles(NATIVE_TILES, tileOrder.native);
+        return alphabeticalSections.native ? sortTilesByTitle(tiles) : tiles;
+    }, [alphabeticalSections.native, tileOrder.native]);
+    const orderedSystemTiles = useMemo(() => {
+        const tiles = orderTiles(SYSTEM_TILES, tileOrder.system);
+        return alphabeticalSections.system ? sortTilesByTitle(tiles) : tiles;
+    }, [alphabeticalSections.system, tileOrder.system]);
+
+    const persistTileOrder = useCallback((nextOrder) => {
+        writeStringStorage(DASHBOARD_TILE_ORDER_KEY, JSON.stringify(nextOrder));
+    }, []);
+
+    const toggleAlphabeticalSection = useCallback((section) => {
+        setAlphabeticalSections((current) => ({
+            ...current,
+            [section]: !current[section],
+        }));
+        setDragState(null);
+    }, []);
+
+    const moveDashboardTile = useCallback((section, fromId, toId) => {
+        if (alphabeticalSections[section]) return;
+        setTileOrder((current) => {
+            const next = {
+                ...current,
+                [section]: moveIdWithinOrder(current[section], fromId, toId),
+            };
+            persistTileOrder(next);
+            return next;
+        });
+    }, [alphabeticalSections, persistTileOrder]);
+
+    const startTileDrag = useCallback((section, id, event) => {
+        if (alphabeticalSections[section]) {
+            event.preventDefault();
+            return;
+        }
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', id);
+        setDragState({ section, id });
+    }, [alphabeticalSections]);
+
+    const endTileDrag = useCallback(() => {
+        setDragState(null);
+    }, []);
+
+    const handleTileDragOver = useCallback((section, id, event) => {
+        if (!dragState || dragState.section !== section || dragState.id === id || alphabeticalSections[section]) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+    }, [alphabeticalSections, dragState]);
+
+    const handleTileDrop = useCallback((section, id, event) => {
+        event.preventDefault();
+        const draggedId = dragState?.id || event.dataTransfer.getData('text/plain');
+        if (dragState?.section !== section) return;
+        moveDashboardTile(section, draggedId, id);
+        setDragState(null);
+    }, [dragState, moveDashboardTile]);
 
     const openChat = (chatId) => {
         if (chatId) switchToChat(chatId);
@@ -377,16 +474,28 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                 <div className="dash-body">
                     <section className="dash-launch">
                         <div className="dash-launch-group">
-                            <h2 className="dash-section-title">Perci native</h2>
+                            <DashboardSectionHeader
+                                title="Perci native"
+                                alphabetical={alphabeticalSections.native}
+                                onToggleAlphabetical={() => toggleAlphabeticalSection('native')}
+                            />
                             <div className="dash-tiles">
-                                {NATIVE_TILES.map(({ id, icon: Icon, logo, title, desc, hue }, i) => (
+                                {orderedNativeTiles.map(({ id, icon: Icon, logo, title, desc, hue }, i) => (
                                 <button
                                     key={id}
                                     type="button"
-                                    className="dash-tile"
+                                    draggable={!alphabeticalSections.native}
+                                    className={`dash-tile${dragState?.id === id ? ' is-dragging' : ''}`}
                                     style={{ '--tile': hue, '--i': i }}
+                                    onDragStart={(event) => startTileDrag('native', id, event)}
+                                    onDragEnd={endTileDrag}
+                                    onDragOver={(event) => handleTileDragOver('native', id, event)}
+                                    onDrop={(event) => handleTileDrop('native', id, event)}
                                     onClick={() => openWindow(id)}
                                 >
+                                    <span className="dash-tile-drag" aria-hidden="true">
+                                        <GripVertical size={14} />
+                                    </span>
                                     <span className="dash-tile-icon">
                                         {logo ? <img src={logo} alt="" className="dash-tile-logo" /> : <Icon size={18} />}
                                     </span>
@@ -405,8 +514,13 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                         </div>
 
                         <div className="dash-launch-group">
+                            <DashboardSectionHeader
+                                title="System & external"
+                                alphabetical={alphabeticalSections.system}
+                                onToggleAlphabetical={() => toggleAlphabeticalSection('system')}
+                            />
                             <div className="dash-tiles dash-tiles-system">
-                                {SYSTEM_TILES.map(({ id, icon: Icon, logo, title, desc, hue, artwork, bgImage }, i) => {
+                                {orderedSystemTiles.map(({ id, icon: Icon, logo, title, desc, hue, artwork, bgImage }, i) => {
                                     const isWhiteBox = LOGO_WHITE_BOX_IDS.has(id);
                                     const isFillCover = LOGO_FILL_COVER_IDS.has(id);
                                     let logoStyle;
@@ -419,10 +533,18 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                                     <button
                                         key={id}
                                         type="button"
-                                        className={`dash-tile dash-tile-system${artwork ? ' dash-tile-hero' : ''}${id === HERMES_WINDOW_ID ? ' dash-tile-hermes' : ''}${id === MODES.LIGHTHOUSE ? ' dash-tile-lighthouse' : ''}`}
+                                        draggable={!alphabeticalSections.system}
+                                        className={`dash-tile dash-tile-system${artwork ? ' dash-tile-hero' : ''}${id === HERMES_WINDOW_ID ? ' dash-tile-hermes' : ''}${id === MODES.LIGHTHOUSE ? ' dash-tile-lighthouse' : ''}${dragState?.id === id ? ' is-dragging' : ''}`}
                                         style={{ '--tile': hue, '--i': i + NATIVE_TILES.length }}
+                                        onDragStart={(event) => startTileDrag('system', id, event)}
+                                        onDragEnd={endTileDrag}
+                                        onDragOver={(event) => handleTileDragOver('system', id, event)}
+                                        onDrop={(event) => handleTileDrop('system', id, event)}
                                         onClick={() => openWindow(id)}
                                     >
+                                        <span className="dash-tile-drag" aria-hidden="true">
+                                            <GripVertical size={14} />
+                                        </span>
                                         {artwork && (
                                             <span
                                                 className="dash-tile-art flex items-center justify-center overflow-hidden"
@@ -558,6 +680,24 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                 tool={nativeToolModal ? NATIVE_TOOL_MODALS[nativeToolModal] : null}
                 onClose={() => setNativeToolModal(null)}
             />
+        </div>
+    );
+}
+
+function DashboardSectionHeader({ title, alphabetical, onToggleAlphabetical }) {
+    return (
+        <div className="dash-section-head">
+            <h2 className="dash-section-title">{title}</h2>
+            <button
+                type="button"
+                className={`dash-sort-toggle${alphabetical ? ' is-active' : ''}`}
+                onClick={onToggleAlphabetical}
+                aria-pressed={alphabetical}
+                title={alphabetical ? 'Return to manual tile order' : 'Arrange this section alphabetically'}
+            >
+                <ArrowDownAZ size={14} />
+                <span>{alphabetical ? 'Manual' : 'A-Z'}</span>
+            </button>
         </div>
     );
 }
