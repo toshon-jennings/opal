@@ -61,3 +61,10 @@ jan-serve.log
 
 # ── Generated Vite chunks ───────────────────────────────────────────────────────
 index-*.js
+
+# ── Python caches ───────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+
+# ── Screen recordings / local capture ───────────────────────────────────────────
+*.mov
