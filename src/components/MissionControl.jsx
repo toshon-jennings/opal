@@ -161,8 +161,9 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
         async function poll() {
             try {
                 const activity = await window.electron.listAgentActivity();
+                console.log('[MC poll]', JSON.stringify(activity));
                 if (!cancelled && activity) setAgentActivity(activity);
-            } catch { /* ignore transient errors */ }
+            } catch (err) { console.log('[MC poll error]', err.message); }
         }
         poll();
         const id = setInterval(poll, 2000);

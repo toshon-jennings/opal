@@ -3263,15 +3263,16 @@ ipcMain.handle('agent-jobs:activity', async () => {
 
   const counts = { terminal: 0, cowork: 0, code: 0, build: 0, gateway: 0, general: 0 };
   const recent = [];
+  const debug = [];
 
   for (const [, jobRecord] of agentJobs) {
     const job = jobRecord.job;
     const isActive = ['pending', 'claimed', 'running', 'retry_queued'].includes(job.status);
-    // Include recently-completed jobs (within 120s) so the pulse shows
-    // activity for fast agents that finish between polls or before MC opens
     const completedAt = job.completed_at ? new Date(job.completed_at).getTime() : null;
     const isRecent = completedAt && (Date.now() - completedAt) < 120000;
     if (!isActive && !isRecent) continue;
+
+    debug.push({ id: job.id.slice(0,8), agent: job.agent, status: job.status, isActive, isRecent });
 
     const lane = AGENT_TO_LANE[job.agent] || 'general';
     counts[lane] += 1;
@@ -3288,11 +3289,14 @@ ipcMain.handle('agent-jobs:activity', async () => {
 
   recent.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-  return {
+  const result = {
     counts,
     recent: recent.slice(0, 20),
     total: Object.values(counts).reduce((sum, n) => sum + n, 0),
   };
+
+  console.log('[agent-activity]', JSON.stringify({ total: result.total, debug, totalJobs: agentJobs.size }));
+  return result;
 });
 
 ipcMain.handle('agent-jobs:queue', async (event, { agent, prompt, working_directory, model } = {}) => {
