@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
     hasElectronStore,
     loadElectronPersistence,
@@ -16,6 +16,7 @@ export const MODES = {
     POWER_WORKSPACE: 'power-workspace', // Coherent project loop for power users
     SURFACE_MAP: 'surface-map', // Beck-style conceptual map of Perci surfaces
     PERCI_NOW: 'perci-now', // Live derived state of what is happening in Perci right now
+    PERCI_DESK: 'perci-desk', // Perci-wide operating desk and action layer
     CHAT: 'chat',      // Normal conversation interface
     COWORK: 'cowork',  // Session-based task interface (Claude style)
     MISSION: 'mission', // Agent run supervision and inspection
@@ -50,6 +51,7 @@ export const CLEANMAC_WINDOW_ID = 'cleanmac';
 export const PACKAGES_WINDOW_ID = 'packages-window';
 export const AGENTMAIL_WINDOW_ID = 'agentmail';
 export const AUTOFORGE_WINDOW_ID = 'autoforge';
+export const OPEN_NOTEBOOK_WINDOW_ID = 'open-notebook';
 
 // Titles shown in window headers and dock chips for each windowed surface.
 export const WINDOW_TITLES = {
@@ -57,6 +59,7 @@ export const WINDOW_TITLES = {
     [MODES.POWER_WORKSPACE]: 'Power Workspace',
     [MODES.SURFACE_MAP]: 'Perci Map',
     [MODES.PERCI_NOW]: 'Perci Now',
+    [MODES.PERCI_DESK]: 'Perci Desk',
     [MODES.COWORK]: 'Cowork',
     [MODES.CODE]: 'Code',
     [MODES.AGENTS]: 'Agents',
@@ -87,12 +90,13 @@ export const WINDOW_TITLES = {
     [PACKAGES_WINDOW_ID]: 'Packages',
     [AGENTMAIL_WINDOW_ID]: 'AgentMail',
     [AUTOFORGE_WINDOW_ID]: 'AutoForge',
+    [OPEN_NOTEBOOK_WINDOW_ID]: 'Open Notebook',
 };
 
 // Windows whose content is an embedded <webview>/<iframe>; CSS transforms can make
 // embedded frames flicker (and reload), so these minimize with a plain fade instead
 // of the whirlpool spin.
-const NO_WHIRLPOOL_IDS = new Set([OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, AUTOFORGE_WINDOW_ID]);
+const NO_WHIRLPOOL_IDS = new Set([OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, AUTOFORGE_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID]);
 
 const WINDOW_DEFAULTS = { width: 960, height: 640, minWidth: 420, minHeight: 300, cascade: 34 };
 const DOCK_RESERVED_HEIGHT = 64;
@@ -499,6 +503,7 @@ export function ModeProvider({ children }) {
 
     const [chatState, setChatState] = useState({});
     const [showGlobalTerminal, setShowGlobalTerminal] = useState(false);
+    const [showChatGuide, setShowChatGuide] = useState(false);
 
     // OpenClaw is now a window. Keep the old open/close API working for existing
     // call sites (AgentsPanel, SettingsModal, MissionControl) by bridging to the
@@ -590,7 +595,9 @@ export function ModeProvider({ children }) {
             showOpenClawDashboard,
             setShowOpenClawDashboard,
             openClawConfig,
-            setOpenClawConfig
+            setOpenClawConfig,
+            showChatGuide,
+            setShowChatGuide
         }}>
             {children}
         </ModeContext.Provider>

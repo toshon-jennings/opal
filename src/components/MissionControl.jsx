@@ -49,6 +49,7 @@ import {
     recordGatewayCheck,
     resolveMemoryCandidate,
     saveMemoryCandidates,
+    upsertMissionRun,
     saveMissionRuns,
     setMissionValidationTarget
 } from '../lib/missionControl';
@@ -209,6 +210,68 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
         };
         window.addEventListener(MISSION_MEMORY_UPDATED_EVENT, handleMemoryUpdate);
         return () => window.removeEventListener(MISSION_MEMORY_UPDATED_EVENT, handleMemoryUpdate);
+    }, []);
+
+    // One-time backfill: sync completed agent jobs from the Agents panel
+    // persistence store into Mission Control so they appear in the left column.
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                // Read the Agents panel's persisted job history from the same cache
+                // that ensureHydrated() populated.
+                const raw = readStringStorage('perci-agents-recent-jobs', '{}');
+                const byAgent = JSON.parse(raw);
+                if (!byAgent || typeof byAgent !== 'object') return;
+
+                const existing = readMissionRuns();
+                const existingIds = new Set(existing.map(r => r.id));
+                const now = new Date().toISOString();
+
+                for (const [agentId, jobs] of Object.entries(byAgent)) {
+                    if (!Array.isArray(jobs)) continue;
+                    for (const job of jobs) {
+                        if (cancelled) return;
+                        const isFinished = ['completed', 'failed', 'cancelled'].includes(job.status);
+                        const runId = `agent-job-${job.id}`;
+                        if (isFinished && !existingIds.has(runId)) {
+                            upsertMissionRun({
+                                id: runId,
+                                title: job.prompt_preview || job.prompt_text || `${agentId} job`,
+                                agent: agentId,
+                                status: job.status === 'completed' ? 'completed' : job.status === 'cancelled' ? 'cancelled' : 'blocked',
+                                startedAt: job.created_at || now,
+                                updatedAt: job.completed_at || job.created_at || now,
+                                workingDirectory: job.working_directory || '/Users/toshonjennings/opal',
+                                objective: job.prompt_text || 'Agent job from Agents panel.',
+                                reason: 'Agent jobs are tracked in Mission Control for operational visibility.',
+                                commands: [],
+                                files: [],
+                                checkpoints: [
+                                    { label: 'Job queued', state: 'done' },
+                                    { label: job.status === 'completed' ? 'Job completed' : job.status === 'cancelled' ? 'Job cancelled' : 'Job failed', state: 'done' },
+                                ],
+                                risks: [],
+                                next: job.status === 'completed' ? 'Review the agent output in the Agents panel.' : 'Inspect the error and retry if needed.',
+                                events: [
+                                    {
+                                        id: `event-backfill-${job.id.slice(-8)}`,
+                                        type: job.status === 'completed' ? 'success' : 'error',
+                                        title: `Agent job ${job.status}`,
+                                        detail: job.prompt_preview || job.prompt_text || '',
+                                        createdAt: job.completed_at || job.created_at || now,
+                                    }
+                                ],
+                            });
+                            existingIds.add(runId);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('[Mission Control] Agent job backfill failed:', err);
+            }
+        })();
+        return () => { cancelled = true; };
     }, []);
 
     useEffect(() => {
@@ -543,6 +606,47 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
                 </aside>
 
                 <section className="min-h-0 overflow-y-auto">
+                    {/* Agent Activity — always visible on main page */}
+                    <div className="px-6 pt-6 max-w-5xl mx-auto w-full">
+                        <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-primary)] p-4">
+                            <div className="mb-2 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <Sparkles size={14} className="text-[var(--accent)]" />
+                                    <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-primary)]">Agent Activity</span>
+                                </div>
+                                {agentActivity.total > 0 ? (
+                                    <span className="flex items-center gap-1 text-[10px] font-medium text-[var(--accent)]">
+                                        <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)] animate-pulse-subtle" />
+                                        {agentActivity.total} active
+                                    </span>
+                                ) : (
+                                    <span className="text-[10px] text-[var(--text-tertiary)]">quiet</span>
+                                )}
+                            </div>
+                            <div className="grid grid-cols-4 gap-1.5">
+                                {['code', 'gateway', 'general', 'terminal'].map(lane => (
+                                    <div key={lane} className="rounded px-2 py-1 text-center bg-[var(--bg-secondary)]/60">
+                                        <div className="text-sm font-bold text-[var(--text-primary)]">
+                                            {agentActivity.counts[lane] || 0}
+                                        </div>
+                                        <div className="text-[9px] uppercase tracking-wider text-[var(--text-tertiary)]">
+                                            {lane}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            {agentActivity.recent.length > 0 && (
+                                <div className="mt-2 space-y-1 border-t border-[var(--border)] pt-2">
+                                    {agentActivity.recent.slice(0, 3).map(item => (
+                                        <p key={item.id} className="truncate text-[10px] text-[var(--text-secondary)]">
+                                            <span className="font-medium text-[var(--text-primary)]">{item.agent}</span>
+                                            {' '}<span className="font-mono text-[var(--text-tertiary)]">{item.title || item.status}</span>
+                                        </p>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
                     {selectedRun && (
                         <div className="p-6 max-w-5xl mx-auto">
                             <div className="flex flex-wrap items-start justify-between gap-4">
@@ -909,6 +1013,7 @@ export default function MissionControl({ openClawStatus, onRestartOpenClaw, isRe
                                 Click a node to inspect it, or expand for a full view.
                             </p>
                         </Panel>
+
                         {transitModalOpen && (
                             <TransitMapModal
                                 graph={transitGraph}

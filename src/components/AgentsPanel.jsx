@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Bot, RefreshCw, Send, FolderOpen, Clock, CheckCircle2, AlertTriangle, XCircle, Hourglass, Copy, Check, ChevronRight, TerminalSquare, Search } from 'lucide-react';
 import { useMode, HERMES_WINDOW_ID } from '../context/ModeContext';
 import { readStringStorage, writeStringStorage } from '../lib/persistentStore';
+import { upsertMissionRun } from '../lib/missionControl';
 
 // ─── Agent definitions ─────────────────────────────────────────────────────
 
@@ -166,7 +167,7 @@ const AGENT_MODEL_HINTS = {
   aider: 'e.g. anthropic/claude-opus-4-8',
   antigravity_cli: 'e.g. gemini-3-pro',
   claude_code: 'e.g. opus, sonnet, or claude-opus-4-8',
-  codex: 'e.g. o4-mini or gpt-5',
+  codex: 'e.g. gpt-5.5 or gpt-5.4-mini',
   command_code: 'e.g. claude-sonnet-4-6 or deepseek/deepseek-v4-pro',
   copilot: 'e.g. claude-sonnet-4.6',
   cursor_cli: 'e.g. claude-4-opus',
@@ -183,7 +184,7 @@ const AGENT_MODEL_SUGGESTIONS = {
   aider: ['sonnet', 'opus', 'anthropic/claude-opus-4-8', 'gpt-5', 'gemini/gemini-2.5-pro'],
   antigravity_cli: ['gemini-3-pro', 'gemini-2.5-pro', 'gemini-2.5-flash'],
   claude_code: ['opus', 'sonnet', 'haiku', 'claude-opus-4-8', 'claude-sonnet-4-6'],
-  codex: ['gpt-5-codex', 'gpt-5', 'o3', 'o4-mini'],
+  codex: ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex-spark', 'gpt-5.4-nano'],
   command_code: ['claude-sonnet-4-6', 'deepseek/deepseek-v4-pro', 'deepseek/deepseek-v4-flash', 'MiniMaxAI/MiniMax-M3-Free', 'Qwen/Qwen3.7-Max', 'nvidia/nemotron-3-ultra-550b-a55b'],
   copilot: ['gpt-5.2', 'gpt-5', 'claude-sonnet-4.6'],
   cursor_cli: ['claude-4-opus', 'claude-4-sonnet', 'gpt-5'],
@@ -431,6 +432,10 @@ export default function AgentsPanel() {
     }
   });
 
+  // Track which agent job IDs have already been synced to Mission Control
+  // so we don't create duplicate mission runs on every poll.
+  const syncedJobIds = useRef(new Set());
+
   // Jules repo selection
   const [julesSelectedRepo, setJulesSelectedRepo] = useState(null); // { name, url, branch }
   const [julesRepoList, setJulesRepoList] = useState([]);      // [{ name, url, description, branch }]
@@ -599,6 +604,43 @@ export default function AgentsPanel() {
         }
         return next;
       });
+
+      // Bridge completed/failed jobs into Mission Control so they appear in the left column
+      const allIncoming = jobs || [];
+      for (const job of allIncoming) {
+        const isFinished = ['completed', 'failed', 'cancelled'].includes(job.status);
+        if (isFinished && !syncedJobIds.current.has(job.id)) {
+          syncedJobIds.current.add(job.id);
+          upsertMissionRun({
+            id: `agent-job-${job.id}`,
+            title: job.prompt_preview || job.prompt_text || `${job.agent} job`,
+            agent: job.agent,
+            status: job.status === 'completed' ? 'completed' : job.status === 'cancelled' ? 'cancelled' : 'blocked',
+            startedAt: job.created_at,
+            updatedAt: job.completed_at || job.created_at,
+            workingDirectory: job.working_directory || '/Users/toshonjennings/opal',
+            objective: job.prompt_text || 'Agent job from Agents panel.',
+            reason: 'Agent jobs are tracked in Mission Control for operational visibility.',
+            commands: [],
+            files: [],
+            checkpoints: [
+              { label: 'Job queued', state: 'done' },
+              { label: job.status === 'completed' ? 'Job completed' : job.status === 'cancelled' ? 'Job cancelled' : 'Job failed', state: 'done' },
+            ],
+            risks: [],
+            next: job.status === 'completed' ? 'Review the agent output in the Agents panel.' : 'Inspect the error and retry if needed.',
+            events: [
+              {
+                id: `event-${Date.now()}-${job.id.slice(-6)}`,
+                type: job.status === 'completed' ? 'success' : 'error',
+                title: `Agent job ${job.status}`,
+                detail: job.prompt_preview || job.prompt_text || '',
+                createdAt: job.completed_at || job.created_at,
+              }
+            ],
+          });
+        }
+      }
     } catch (error) {
       setConnectionWarning(formatAgentBridgeError(error, 'Could not reach Perci — last data may be stale.'));
     }

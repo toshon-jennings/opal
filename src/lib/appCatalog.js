@@ -1,14 +1,14 @@
 // Single source of truth for every launchable Perci app/mode. Consumed by
 // the Dashboard tile grid (DashboardMode.jsx) and the Sir Perci dock
 // launcher (SirPerciLauncher.jsx) so both stay in sync automatically.
-import    {
+import {
     Sparkles, Server, Radar, Layers, Globe, GitMerge, TerminalSquare,
 } from 'lucide-react';
 import {
     ChatIcon, CoworkIcon, CodeIcon, NotesIcon, AgentsIcon, ResearchIcon,
-    OfficeIcon, MissionIcon, BuildIcon, ProjectsIcon, SkillsIcon, SurfaceMapIcon, PerciNowIcon, PackagesIcon,
+    OfficeIcon, MissionIcon, BuildIcon, ProjectsIcon, SkillsIcon, SurfaceMapIcon, PerciNowIcon, PerciDeskIcon, PackagesIcon,
 } from '../components/ModeIcons';
-import { MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID, CLEANMAC_WINDOW_ID, PACKAGES_WINDOW_ID, AGENTMAIL_WINDOW_ID, AUTOFORGE_WINDOW_ID } from '../context/ModeContext';
+import { MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID, CLEANMAC_WINDOW_ID, PACKAGES_WINDOW_ID, AGENTMAIL_WINDOW_ID, AUTOFORGE_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID } from '../context/ModeContext';
 import lhLogo from '../assets/lh-logo.png';
 import autoforgeLogo from '../assets/autoforge-logo.png';
 import hermesLogo from '../assets/nousresearch.png';
@@ -32,6 +32,10 @@ import klipitLogo from '../assets/klipit-logo.png';
 import klipitBg from '../assets/klipit-bg.jpeg';
 import agentmailLogo from '../assets/agentmail-logo.png';
 import agentmailBg from '../assets/agentmail-bg.jpeg';
+import cleanmacBg from '../assets/cleanmac-bg.jpeg';
+import cleanmacLogo from '../assets/cleanmac-logo.jpeg';
+import autoforgeBg from '../assets/autoforge-bg.jpeg';
+import openNotebookBg from '../assets/open-notebook-bg.jpeg';
 
 // Native Perci surfaces — first-class workspace modes.
 // Sorted alphabetically by title so the dashboard tile grid and Sir Perci
@@ -43,10 +47,11 @@ export const NATIVE_TILES = [
     { id: MODES.CHAT, icon: ChatIcon, title: 'Chat', desc: 'Converse with any model', hue: '#f97316' },
     { id: MODES.CODE, icon: CodeIcon, title: 'Code', desc: 'Edit and run your repos', hue: '#a78bfa' },
     { id: MODES.COWORK, icon: CoworkIcon, title: 'Cowork', desc: 'Session-based deep work', hue: '#22d3ee' },
+    { id: MODES.PERCI_DESK, icon: PerciDeskIcon, title: 'Desk', desc: 'Perci-wide action desk', hue: '#0f766e' },
     { id: MODES.ENSEMBLE, icon: GitMerge, title: 'Ensemble', desc: 'Panel + judge synthesis', hue: '#818cf8' },
     { id: MODES.PROJECTS, icon: ProjectsIcon, title: 'Git Shells', desc: 'Manage terminals by project', hue: '#f97316' },
     { id: LOCALHOST_WINDOW_ID, icon: Globe, title: 'Localhost', desc: 'Preview any local dev server', hue: '#f97316', artwork: true, bgImage: localhostBg },
-    { id: MODES.MISSION, icon: MissionIcon, title: 'Mission', desc: 'Supervise runs and checks', hue: '#60a5fa' },
+    { id: MODES.MISSION, icon: MissionIcon, title: 'Mission Control', desc: 'Supervise runs and checks', hue: '#60a5fa' },
     { id: MODES.NOTES, icon: NotesIcon, title: 'Notes', desc: 'Markdown wiki with backlinks', hue: '#10b981' },
     { id: MODES.OFFICE, icon: OfficeIcon, title: 'Office', desc: 'Visit the crew at Perci HQ', hue: '#fbbf24' },
     { id: PACKAGES_WINDOW_ID, icon: PackagesIcon, title: 'Packages', desc: 'Registry dashboard for package updates', hue: '#8b5cf6' },
@@ -59,8 +64,8 @@ export const NATIVE_TILES = [
 // Logo presentation hints shared by the Dashboard tile grid and the Sir
 // Perci launcher, so both render the same artwork (white backing vs.
 // edge-to-edge cover) instead of drifting apart.
-export const LOGO_WHITE_BOX_IDS = new Set([GDASH_WINDOW_ID, MODES.STUDIOOS, MODES.LIGHTHOUSE, HERMES_WINDOW_ID]);
-export const LOGO_FILL_COVER_IDS = new Set([EIDOS_WINDOW_ID, KLIPIT_WINDOW_ID, MODES.BARS, MODES.MARKITDOWN, MODES.CONCERNS, AGENTMAIL_WINDOW_ID]);
+export const LOGO_WHITE_BOX_IDS = new Set([GDASH_WINDOW_ID, MODES.STUDIOOS, MODES.LIGHTHOUSE, HERMES_WINDOW_ID, CLEANMAC_WINDOW_ID]);
+export const LOGO_FILL_COVER_IDS = new Set([EIDOS_WINDOW_ID, KLIPIT_WINDOW_ID, MODES.BARS, MODES.MARKITDOWN, MODES.CONCERNS, AUTOFORGE_WINDOW_ID, AGENTMAIL_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID]);
 
 // OS-level tools and external runtimes. Bars belongs here when its Perci
 // surface is wired, not in the native Perci app group.
@@ -75,7 +80,8 @@ export const SYSTEM_TILES = [
     { id: MODES.MARKITDOWN, icon: null, logo: markitdownLogo, title: 'MarkItDownUI', desc: 'Convert files and URLs to Markdown', hue: '#0ea5e9', artwork: true, bgImage: markitdownBg },
     { id: MODES.CONCERNS, icon: null, logo: billboardLogo, title: 'Bill Board', desc: 'Services, keys & subscriptions', hue: '#06b6d4', artwork: true, bgImage: billboardBg },
     { id: MODES.STUDIOOS, icon: Layers, logo: studioosLogo, title: 'StudioOS', desc: 'View/manage your StudioOS workspace', hue: '#3b82f6', artwork: true, bgImage: studioosBg },
-    { id: CLEANMAC_WINDOW_ID, icon: TerminalSquare, title: 'Cleanmac', desc: 'Clean developer caches on macOS', hue: '#10b981' },
-    { id: AUTOFORGE_WINDOW_ID, icon: null, logo: autoforgeLogo, title: 'AutoForge', desc: 'Autonomous coding agent', hue: '#f97316' },
+    { id: CLEANMAC_WINDOW_ID, icon: TerminalSquare, title: 'Cleanmac', desc: 'Clean developer caches on macOS', hue: '#10b981', artwork: true, bgImage: cleanmacBg, iconSize: 34 },
+    { id: AUTOFORGE_WINDOW_ID, icon: null, logo: autoforgeLogo, title: 'AutoForge', desc: 'Autonomous coding agent', hue: '#f97316', artwork: true, bgImage: autoforgeBg },
     { id: AGENTMAIL_WINDOW_ID, icon: null, logo: agentmailLogo, title: 'AgentMail', desc: 'Email via AgentMail web console', hue: '#6366f1', artwork: true, bgImage: agentmailBg },
+    { id: OPEN_NOTEBOOK_WINDOW_ID, logo: cleanmacLogo, title: 'Open Notebook', desc: 'Embedded localhost notebook window', hue: '#10b981', artwork: true, bgImage: openNotebookBg },
 ];

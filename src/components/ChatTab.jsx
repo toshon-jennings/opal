@@ -237,34 +237,50 @@ export default function ChatTab({ isDesktop }) {
     setIsRunning(true);
     setError(null);
 
-    const result = await window.electron.sendHermesChat({ text });
+    try {
+      const result = await window.electron.sendHermesChat({ text });
 
-    // If cancel was pressed while waiting, discard the result
-    if (activeRunId.current !== runId) return;
+      // If cancel was pressed while waiting, discard the result
+      if (activeRunId.current !== runId) return;
 
-    if (!result?.ok) {
+      if (!result?.ok) {
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === runId
+              ? { ...m, text: result?.error || 'Something went wrong.', status: 'error' }
+              : m
+          )
+        );
+        return;
+      }
+
+      // Replace the streaming bubble with the final output
       setMessages(prev =>
         prev.map(m =>
           m.id === runId
-            ? { ...m, text: result?.error || 'Something went wrong.', status: 'error' }
+            ? { ...m, text: result.output, status: 'done' }
             : m
         )
       );
-      setIsRunning(false);
-      activeRunId.current = null;
-      return;
+      if (result.sessionId) {
+        setSessionId(result.sessionId);
+      }
+    } catch (err) {
+      if (activeRunId.current === runId) {
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === runId
+              ? { ...m, text: err.message || 'Something went wrong.', status: 'error' }
+              : m
+          )
+        );
+      }
+    } finally {
+      if (activeRunId.current === runId) {
+        setIsRunning(false);
+        activeRunId.current = null;
+      }
     }
-
-    // Replace the streaming bubble with the final output
-    setMessages(prev =>
-      prev.map(m =>
-        m.id === runId
-          ? { ...m, text: result.output, status: 'done' }
-          : m
-      )
-    );
-    setIsRunning(false);
-    activeRunId.current = null;
   }, [sessionId, isDesktop, isRunning]);
 
   // Cancel a running turn

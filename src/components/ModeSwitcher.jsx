@@ -1,7 +1,8 @@
+import React from 'react';
 import { useMode, MODES } from '../context/ModeContext';
 import {
     DashboardIcon, ChatIcon, EnsembleIcon, CoworkIcon, CodeIcon, NotesIcon, ResearchIcon,
-    AgentsIcon, OfficeIcon, BuildIcon, MissionIcon, ProjectsIcon, SurfaceMapIcon, PerciNowIcon,
+    AgentsIcon, OfficeIcon, BuildIcon, MissionIcon, ProjectsIcon, SurfaceMapIcon, PerciNowIcon, PerciDeskIcon,
 } from './ModeIcons';
 import { Globe } from 'lucide-react';
 
@@ -18,11 +19,13 @@ export default function ModeSwitcher() {
     const { currentMode, setCurrentMode, windows } = useMode();
 
     const perciNowOpen = windows.some(w => w.id === MODES.PERCI_NOW && w.state !== 'minimized');
+    const perciDeskOpen = windows.some(w => w.id === MODES.PERCI_DESK && w.state !== 'minimized');
 
     const modes = [
         { id: MODES.DASHBOARD, icon: DashboardIcon, label: '' },
         { id: MODES.SURFACE_MAP, icon: SurfaceMapIcon, label: 'Map' },
         { id: MODES.PERCI_NOW, icon: PerciNowIcon, label: 'Now' },
+        { id: MODES.PERCI_DESK, icon: PerciDeskIcon, label: 'Desk' },
         { id: MODES.CHAT,   icon: ChatIcon,         label: 'Chat' },
         { id: MODES.ENSEMBLE, icon: EnsembleIcon,   label: 'Ensemble' },
         { id: MODES.COWORK, icon: CoworkIcon,       label: 'Cowork' },
@@ -40,7 +43,9 @@ export default function ModeSwitcher() {
     return (
         <div className="flex gap-0.5 p-1 rounded-xl glass-panel layout-transition">
             {modes.map(mode => {
-                const active = currentMode === mode.id || (mode.id === MODES.PERCI_NOW && perciNowOpen);
+                const active = currentMode === mode.id
+                    || (mode.id === MODES.PERCI_NOW && perciNowOpen)
+                    || (mode.id === MODES.PERCI_DESK && perciDeskOpen);
                 return (
                     <button
                         key={mode.id}

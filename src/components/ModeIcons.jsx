@@ -1,3 +1,5 @@
+import React from 'react';
+
 /**
  * Custom duotone mode icons for Perci's ModeSwitcher and dashboard tiles.
  *
@@ -204,7 +206,7 @@ export function MissionIcon(props) {
     );
 }
 
-/* Perci Map — two transit lines crossing at a central interchange, station
+/* Perci Map — three transit lines crossing at a central interchange, station
  * dots at each terminus. Composed as an outline-forward duotone glyph so it
  * reads as a transit-network diagram (not a single jagged route) at 18px. */
 export function SurfaceMapIcon(props) {
@@ -214,11 +216,15 @@ export function SurfaceMapIcon(props) {
             <path d="M4 20 20 4" {...shell} />
             {/* Line B: NE → SW diagonal with translucent tint fill */}
             <path d="M20 20 4 4" {...shell} />
-            {/* Station dots at the four outer termini (ink = solid primary) */}
+            {/* Line C: W → E horizontal through the central interchange */}
+            <path d="M4 12 20 12" {...shell} />
+            {/* Station dots at the six outer termini (ink = solid primary) */}
             <circle cx="4" cy="20" r="1.6" {...ink} />
             <circle cx="20" cy="4" r="1.6" {...ink} />
             <circle cx="20" cy="20" r="1.6" {...ink} />
             <circle cx="4" cy="4" r="1.6" {...ink} />
+            <circle cx="4" cy="12" r="1.6" {...ink} />
+            <circle cx="20" cy="12" r="1.6" {...ink} />
             {/* Central interchange hub — white core with teal shell */}
             <circle cx="12" cy="12" r="2.4" {...shell} />
             <circle cx="12" cy="12" r="1.0" fill="#fff" stroke="none" />
@@ -233,6 +239,19 @@ export function PerciNowIcon(props) {
             <rect x="3" y="4" width="18" height="16" rx="4" {...shell} />
             <path d="M6.5 13h3l1.5-4 2.5 7 1.6-4h2.4" />
             <circle cx="17.5" cy="7.2" r="1.5" {...ink} />
+        </Svg>
+    );
+}
+
+/* Perci Desk — action tray fed by Perci-wide context. */
+export function PerciDeskIcon(props) {
+    return (
+        <Svg {...props}>
+            <rect x="4" y="4" width="16" height="16" rx="3.5" {...shell} />
+            <path d="M8 8h8" />
+            <path d="M8 12h5.5" />
+            <path d="M8 16h4" />
+            <circle cx="16.2" cy="15.8" r="2.1" {...ink} />
         </Svg>
     );
 }

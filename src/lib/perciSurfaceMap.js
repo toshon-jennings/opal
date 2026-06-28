@@ -10,6 +10,7 @@ import {
     LOCALHOST_WINDOW_ID,
     KLIPIT_WINDOW_ID,
     SKILLS_WINDOW_ID,
+    OPEN_NOTEBOOK_WINDOW_ID,
 } from '../context/ModeContext';
 
 export const SURFACE_ROUTE_TYPES = {
@@ -147,6 +148,7 @@ export const SURFACE_MAP_DISTRICTS = [
 export const PERCI_SURFACE_STATIONS = [
     { id: 'dashboard', targetId: MODES.DASHBOARD, label: 'Dashboard', kind: 'home', districtId: 'core-concourse', x: 510, y: 310, description: 'The desktop base: launchpad, live rail, guides, and status.' },
     { id: 'workspace', targetId: MODES.POWER_WORKSPACE, label: 'Workspace', kind: 'native', districtId: 'core-concourse', x: 610, y: 310, description: 'The power-user loop that links ideas, notes, missions, folders, and next actions.' },
+    { id: 'perci-desk', targetId: MODES.PERCI_DESK, label: 'Perci Desk', kind: 'native', districtId: 'core-concourse', x: 560, y: 360, description: 'Perci-wide operating desk for actions, obligations, bills, and follow-ups.' },
     { id: 'perci-map', targetId: MODES.SURFACE_MAP, label: 'Perci Map', kind: 'native', districtId: 'core-concourse', x: 510, y: 410, description: 'This conceptual transit map of Perci surfaces and relationships.' },
     { id: 'perci-now', targetId: MODES.PERCI_NOW, label: 'Perci Now', kind: 'native', districtId: 'core-concourse', x: 610, y: 410, description: 'Live derived state of open surfaces, active work, and attention right now.' },
     { id: 'chat', targetId: MODES.CHAT, label: 'Chat', kind: 'native', districtId: 'creation-yard', x: 275, y: 570, description: 'General model conversation and attachment-driven work.' },
@@ -175,17 +177,18 @@ export const PERCI_SURFACE_STATIONS = [
     { id: 'klipit', targetId: KLIPIT_WINDOW_ID, label: 'Klipit', kind: 'system', districtId: 'local-systems-depot', x: 980, y: 690, description: 'Secure web clipping surface.' },
     { id: 'bill-board', targetId: MODES.CONCERNS, label: 'Bill Board', kind: 'system', districtId: 'business-office', x: 510, y: 160, description: 'User expenses, bills, and subscription tracking.' },
     { id: 'gdash', targetId: GDASH_WINDOW_ID, label: 'G-Dash', kind: 'system', districtId: 'business-office', x: 610, y: 160, description: 'Google Workspace dashboard surface.' },
+    { id: 'open-notebook', targetId: OPEN_NOTEBOOK_WINDOW_ID, label: 'Open Notebook', kind: 'system', districtId: 'local-systems-depot', x: 1070, y: 600, description: 'Dedicated localhost notebook window without address bar.' },
 ];
 
 export const PERCI_SURFACE_ROUTES = [
-    { id: 'circle-line', type: 'movement', label: 'Circle Line', stationIds: ['dashboard', 'perci-map', 'perci-now', 'workspace', 'chat', 'cowork', 'code', 'git-shells', 'lighthouse', 'mission', 'agents', 'office', 'dashboard'] },
-    { id: 'workspace-context', type: 'context', label: 'Workspace Context', stationIds: ['bars', 'notes', 'workspace', 'mission', 'cowork', 'code', 'git-shells', 'eidos'] },
+    { id: 'circle-line', type: 'movement', label: 'Circle Line', stationIds: ['dashboard', 'perci-map', 'perci-now', 'perci-desk', 'workspace', 'chat', 'cowork', 'code', 'git-shells', 'lighthouse', 'mission', 'agents', 'office', 'dashboard'] },
+    { id: 'workspace-context', type: 'context', label: 'Workspace Context', stationIds: ['bars', 'notes', 'perci-desk', 'workspace', 'mission', 'cowork', 'code', 'git-shells', 'eidos'] },
     { id: 'agent-rail', type: 'automation', label: 'Agent Rail', stationIds: ['office', 'mission', 'perci-now', 'agents', 'openclaw', 'hermes', 'skills'] },
     { id: 'build-main', type: 'creation', label: 'Build Main', stationIds: ['chat', 'ensemble', 'compare', 'cowork', 'code', 'build', 'artifacts', 'localhost'] },
     { id: 'research-loop', type: 'research', label: 'Research Loop', stationIds: ['chat', 'research', 'research-results', 'notes', 'workspace'] },
     { id: 'local-runtime', type: 'runtime', label: 'Runtime Connector', stationIds: ['markitdown', 'localhost', 'git-shells', 'lighthouse', 'openclaw', 'studioos', 'klipit'] },
     { id: 'governance-line', type: 'governance', label: 'Governance Line', stationIds: ['skills', 'agents', 'mission', 'eidos', 'notes'] },
-    { id: 'expense-line', type: 'expenses', label: 'Expense Line', stationIds: ['bill-board', 'gdash', 'workspace', 'notes'] },
+    { id: 'expense-line', type: 'expenses', label: 'Expense Line', stationIds: ['bill-board', 'gdash', 'perci-desk', 'workspace', 'notes'] },
 ];
 
 export function filterSurfaceMapRoutes(routeTypeIds, routes = PERCI_SURFACE_ROUTES) {

@@ -117,6 +117,10 @@ contextBridge.exposeInMainWorld('electron', {
     ipcRenderer.on('cleanmac:output', listener);
     return () => ipcRenderer.removeListener('cleanmac:output', listener);
   },
+  // Docker/OrbStack lifecycle — generic check + start for windows that embed
+  // Docker-dependent localhost services (Open Notebook, etc).
+  dockerStatus: () => ipcRenderer.invoke('docker:status'),
+  dockerStartOrbStack: () => ipcRenderer.invoke('docker:start-orbstack'),
   // Packages Dashboard APIs
   packagesScan: () => ipcRenderer.invoke('packages:scan'),
   packagesGetConfig: () => ipcRenderer.invoke('packages:get-config'),
@@ -141,4 +145,11 @@ contextBridge.exposeInMainWorld('electron', {
   autoforgeStatus: () => ipcRenderer.invoke('autoforge:status'),
   autoforgeStart: () => ipcRenderer.invoke('autoforge:start'),
   autoforgeStop: () => ipcRenderer.invoke('autoforge:stop'),
+  // Usage Tracker — subscription/usage limit data (get/save)
+  usageTracker: {
+    get: () => ipcRenderer.invoke('usage-tracker:get'),
+    save: (data) => ipcRenderer.invoke('usage-tracker:save', data),
+  },
+  // PWA shortcuts — extract favicon + title from a URL
+  extractPwaMetadata: (url) => ipcRenderer.invoke('pwa:extract-favicon', { url }),
 });

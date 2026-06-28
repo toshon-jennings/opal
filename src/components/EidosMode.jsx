@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     AlertCircle,
     ArrowUpRight,
+    BookOpen,
     CheckCircle2,
     ExternalLink,
     GitBranch,
@@ -13,6 +14,7 @@ import {
     AlertTriangle
 } from 'lucide-react';
 import eidosLogo from '../assets/eidos-logo.png';
+import { EidosGuideModal } from './EidosGuideModal';
 import './EidosMode.css';
 
 const DASHBOARD_URL = 'http://localhost:3000';
@@ -82,7 +84,7 @@ function KpiCard({ label, value, detail, tone = 'default' }) {
     );
 }
 
-export default function EidosMode() {
+function EidosModeInner({ onOpenGuide }) {
     const [status, setStatus] = useState('idle'); // idle | checking | starting | running | error
     const [currentStep, setCurrentStep] = useState(0);
     const [error, setError] = useState(null);
@@ -268,6 +270,14 @@ export default function EidosMode() {
                         Eidos runs as a local Docker stack managed by Perci&apos;s desktop runtime.
                         Open Perci from the desktop app to use Eidos.
                     </p>
+                    <button
+                        type="button"
+                        onClick={onOpenGuide}
+                        className="mt-4 inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-[var(--border)] text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+                    >
+                        <BookOpen size={14} />
+                        Read the Eidos guide
+                    </button>
                 </div>
             </div>
         );
@@ -395,6 +405,15 @@ export default function EidosMode() {
                         <ExternalLink size={14} />
                         Open in browser
                     </button>
+                    <button
+                        type="button"
+                        className="eidos-toolbar-btn"
+                        onClick={onOpenGuide}
+                        style={{ marginLeft: 'auto' }}
+                    >
+                        <BookOpen size={14} />
+                        Guide
+                    </button>
                 </div>
                 <webview
                     key={`eidos-${frameKey}`}
@@ -480,6 +499,14 @@ export default function EidosMode() {
                         >
                             <ExternalLink size={14} />
                             Browser
+                        </button>
+                        <button
+                            type="button"
+                            className="eidos-cta"
+                            onClick={onOpenGuide}
+                        >
+                            <BookOpen size={14} />
+                            Guide
                         </button>
                     </div>
                 </section>
@@ -663,6 +690,16 @@ export default function EidosMode() {
                     </button>
                 </section>
             </div>
+        </div>
+    );
+}
+
+export default function EidosMode() {
+    const [guideOpen, setGuideOpen] = useState(false);
+    return (
+        <div className="relative h-full">
+            <EidosModeInner onOpenGuide={() => setGuideOpen(true)} />
+            <EidosGuideModal isOpen={guideOpen} onClose={() => setGuideOpen(false)} />
         </div>
     );
 }

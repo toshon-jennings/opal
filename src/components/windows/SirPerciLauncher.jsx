@@ -6,6 +6,7 @@ import PerciMascot from '../PerciMascot';
 import { useMode } from '../../context/ModeContext';
 import { useChat } from '../../context/ChatContext';
 import { NATIVE_TILES, SYSTEM_TILES, LOGO_WHITE_BOX_IDS, LOGO_FILL_COVER_IDS } from '../../lib/appCatalog';
+import { getPwaRegistry, pwaToTile } from '../../lib/pwaRegistry';
 import { useFlipPosition } from '../../lib/useFlipPosition';
 import { BeginnerGuideModal } from '../BeginnerGuideModal';
 import { MissionControlGuideModal } from '../MissionControlGuideModal';
@@ -22,8 +23,8 @@ function matches(item, query) {
     return `${item.title} ${item.desc}`.toLowerCase().includes(query);
 }
 
-function CatalogItem({ id, icon: Icon, logo, title, desc, onClick }) {
-    const isWhiteBox = LOGO_WHITE_BOX_IDS.has(id);
+function CatalogItem({ id, icon: Icon, logo, title, desc, onClick, isPwa }) {
+    const isWhiteBox = isPwa || LOGO_WHITE_BOX_IDS.has(id);
     const isFillCover = LOGO_FILL_COVER_IDS.has(id);
     return (
         <button type="button" className="perci-sirperci-item" onClick={onClick}>
@@ -89,7 +90,7 @@ export default function SirPerciLauncher({ onOpenSettings, autoHide, onToggleAut
 
     const q = query.trim().toLowerCase();
     const nativeResults = useMemo(() => NATIVE_TILES.filter((it) => matches(it, q)), [q]);
-    const systemResults = useMemo(() => SYSTEM_TILES.filter((it) => matches(it, q)), [q]);
+    const systemResults = useMemo(() => [...SYSTEM_TILES, ...getPwaRegistry().map(pwaToTile)].filter((it) => matches(it, q)), [q]);
     const guideResults = useMemo(() => GUIDES.filter((it) => matches(it, q)), [q]);
     const noResults = !nativeResults.length && !systemResults.length && !guideResults.length;
 
@@ -149,7 +150,7 @@ export default function SirPerciLauncher({ onOpenSettings, autoHide, onToggleAut
                                     <div className="perci-sirperci-section">
                                         <div className="perci-sirperci-section-label">System & External</div>
                                         {systemResults.map((item) => (
-                                            <CatalogItem key={item.id} id={item.id} icon={item.icon} logo={item.logo} title={item.title} desc={item.desc} onClick={() => openApp(item.id)} />
+                                            <CatalogItem key={item.id} id={item.id} icon={item.icon} logo={item.logo} title={item.title} desc={item.desc} isPwa={item.isPwa} onClick={() => openApp(item.id)} />
                                         ))}
                                     </div>
                                 )}

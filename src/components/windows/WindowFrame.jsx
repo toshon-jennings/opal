@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useMode } from '../../context/ModeContext';
+import { BookOpen } from 'lucide-react';
 
 const MIN_W = 420;
 const MIN_H = 300;
@@ -18,7 +19,7 @@ const DRAG_CURSORS = {
 // into the dock; the frame stays mounted (display:none) while minimized so the
 // mode's state survives. Open/restore/close each have their own choreography.
 export default function WindowFrame({ win, active, modeId, children }) {
-    const { focusWindow, closeWindow, minimizeWindow, toggleMaximizeWindow, moveWindow, resizeWindow } = useMode();
+    const { focusWindow, closeWindow, minimizeWindow, toggleMaximizeWindow, moveWindow, resizeWindow, setShowChatGuide } = useMode();
     const frameRef = useRef(null);
     const dragRef = useRef(null);
     const openedRef = useRef(false);
@@ -130,7 +131,19 @@ export default function WindowFrame({ win, active, modeId, children }) {
                     <button type="button" className="pwc min" aria-label={`Minimize ${win.title}`} onClick={(e) => { e.stopPropagation(); minimizeWindow(win.id); }} />
                     <button type="button" className="pwc max" aria-label={`${maximized ? 'Restore' : 'Maximize'} ${win.title}`} onClick={(e) => { e.stopPropagation(); toggleMaximizeWindow(win.id); }} />
                 </div>
-                <div className="perci-window-title">{win.title}</div>
+                <div className="perci-window-title" style={{ marginRight: 0 }}>{win.title}</div>
+                <div className="perci-window-right-actions flex items-center justify-end" style={{ width: 56 }} onPointerDown={(e) => e.stopPropagation()}>
+                    {win.modeId === 'chat' && (
+                        <button
+                            type="button"
+                            onClick={() => setShowChatGuide(true)}
+                            className="p-1 hover:bg-[var(--bg-hover)] rounded transition-all duration-150 ease-out flex items-center justify-center mr-2 text-[#f97316] hover:scale-110 active:scale-90 group"
+                            title="Chat Guide"
+                        >
+                            <BookOpen size={16} className="transition-transform duration-200 group-hover:rotate-6" />
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div className="perci-window-body">{children}</div>

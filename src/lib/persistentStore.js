@@ -42,6 +42,8 @@ const PERSISTED_KEYS = [
     'perci_terminal_port',
     'working_directory',
     'cowork_routines',
+    'perci-agents-recent-jobs',
+    'perci-agents-model-by-agent',
     'perci_bars_ideas:v1',
     'perci_bars_ai_settings:v1',
     'user_name',
@@ -74,6 +76,11 @@ const PERSISTED_KEYS = [
     'perci_klipit_allow_http',
     'perci_klipit_history',
     'perci_dock_autohide',
+    'perci_concerns:v1',
+    'perci_concerns_settings:v1',
+    'perci_concerns_encrypted:v1',
+    'perci_desk_tasks:v1',
+    'perci_pwa_registry',
     ...API_KEY_STORAGE_KEYS
 ];
 
@@ -141,6 +148,8 @@ export function ensureHydrated() {
             }
         }
         hydrated = true;
+        // Notify listeners (e.g. Mission Control) that persisted data is now available
+        try { window.dispatchEvent(new Event('storage')); } catch (_) {}
     })();
 
     return hydrationPromise;

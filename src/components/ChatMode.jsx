@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Settings, Plus, MessageSquare, Code, Globe, ChevronDown, Trash2, ArrowUp, ArrowDown, Clock, Sparkles, Folder, SlidersHorizontal, FileText, Layers3, Search, ListFilter, MoreVertical, Pin, Lock, Upload, ArrowLeft, ExternalLink, X } from 'lucide-react';
+import { Settings, Plus, MessageSquare, BookOpen, Code, Globe, ChevronDown, Trash2, ArrowUp, ArrowDown, Clock, Sparkles, Folder, SlidersHorizontal, FileText, Layers3, Search, ListFilter, MoreVertical, Pin, Lock, Upload, ArrowLeft, ExternalLink, X } from 'lucide-react';
 import { ChatProvider, useChat } from '../context/ChatContext';
 import { SettingsModal } from './SettingsModal';
 import { ChangelogModal } from './ChangelogModal';
+import { ChatGuideModal } from './ChatGuideModal';
 import { ChatMessage } from './ChatMessage';
 import { ArtifactPanel } from './ArtifactPanel';
 import { ThinkingDisplay } from './ThinkingDisplay';
@@ -517,7 +518,7 @@ function ProjectDetailPage({
 }
 
 function ChatMode() {
-    const { setCurrentMode, openArtifactWindow } = useMode();
+    const { setCurrentMode, openArtifactWindow, setShowChatGuide } = useMode();
     const { isDarkMode } = useTheme();
     const {
         messages,
@@ -1498,7 +1499,7 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
     }, [isResizing]);
 
     return (
-        <div className="flex h-full min-h-0 w-full overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)]">
+        <div className="relative flex h-full min-h-0 w-full overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)]">
             {/* Sidebar */}
             <aside
                 ref={sidebarRef}
@@ -1764,6 +1765,17 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                                                 <PerciMascot state="idle" size={40} aria-hidden="true" />
                                                 {getGreeting()}{userName ? `, ${userName}` : ''}
                                             </h2>
+                                            <p className="mt-3 text-sm text-[var(--text-secondary)] max-w-md mx-auto">
+                                                Ask code questions, search the web, and run workspace tools.
+                                            </p>
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowChatGuide(true)}
+                                                className="mt-6 inline-flex items-center gap-1.5 rounded-lg border border-[rgba(249,115,22,0.2)] bg-[rgba(249,115,22,0.06)] px-3.5 py-2 text-sm font-semibold text-[#f97316] transition-all duration-150 ease-out hover:bg-[rgba(249,115,22,0.12)] hover:border-[rgba(249,115,22,0.3)] shadow-sm cursor-pointer hover:scale-105 active:scale-95 group"
+                                            >
+                                                <BookOpen size={15} className="transition-transform duration-200 group-hover:rotate-6" />
+                                                Read Chat Field Manual
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -2139,6 +2151,7 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
 
             <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
             <ChangelogModal isOpen={isChangelogOpen} onClose={() => setIsChangelogOpen(false)} />
+            <ChatGuideModal isOpen={showChatGuide} onClose={() => setShowChatGuide(false)} />
         </div>
     );
 }

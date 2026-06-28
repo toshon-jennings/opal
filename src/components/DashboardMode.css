@@ -659,7 +659,7 @@
 }
 
 .dash-tile:hover .dash-tile-desc {
-    color: white;
+    color: var(--text-primary);
 }
 
 .dash-tile-arrow {
@@ -766,6 +766,74 @@
 .dash-tile-system .dash-tile-logo {
     width: 24px;
     height: 24px;
+}
+
+/* ── PWA shortcut tiles ──────────────────────────────────────────────── */
+/* Remove button — hidden by default, shown on tile hover */
+.dash-tile-remove {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    font-size: 15px;
+    line-height: 1;
+    color: var(--text-tertiary);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.dash-tile-pwa:hover .dash-tile-remove,
+.dash-tile-remove:focus-visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.dash-tile-remove:hover {
+    background: color-mix(in srgb, var(--tile) 15%, transparent);
+    color: #ef4444;
+}
+
+.dash-tile-remove:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+/* Add PWA tile — dashed border, muted look */
+.dash-tile-add-pwa {
+    border-style: dashed;
+    border-color: var(--border);
+    background: transparent;
+    opacity: 0.6;
+    transition: opacity 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.dash-tile-add-pwa:hover {
+    opacity: 1;
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.dash-tile-add-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-tertiary);
+    background: transparent !important;
+    border: none !important;
+}
+
+.dash-tile-add-pwa:hover .dash-tile-add-icon {
+    color: var(--accent);
 }
 
 .dash-tile-system .dash-tile-name {
@@ -1498,4 +1566,476 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* ── Usage Limits Glance ─────────────────────────────────────────────── */
+
+.dash-usage-glance {
+    --usage-accent: #22c55e;
+    flex: 0 1 386px;
+    width: min(386px, 100%);
+    min-width: 320px;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    border: 1px solid color-mix(in srgb, var(--usage-accent) 28%, var(--border));
+    border-radius: 18px;
+    background:
+        linear-gradient(135deg, color-mix(in srgb, var(--usage-accent) 11%, transparent), transparent 46%),
+        color-mix(in srgb, var(--bg-secondary) 90%, transparent);
+    color: var(--text-primary);
+    overflow: hidden;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.dash-usage-trigger {
+    display: grid;
+    gap: 10px;
+    padding: 14px;
+    border: none;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+}
+
+.dash-usage-trigger:hover .dash-usage-glance {
+    border-color: color-mix(in srgb, var(--usage-accent) 52%, var(--border));
+}
+
+.dash-usage-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.dash-usage-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.dash-usage-title svg {
+    flex-shrink: 0;
+    color: var(--usage-accent);
+}
+
+.dash-usage-count {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+}
+
+.dash-usage-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.dash-usage-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    background: color-mix(in srgb, var(--bg-tertiary) 80%, transparent);
+    border: 1px solid var(--border);
+}
+
+.dash-usage-badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.dash-usage-badge.is-green .dash-usage-badge-dot { background: #22c55e; }
+.dash-usage-badge.is-yellow .dash-usage-badge-dot { background: #eab308; }
+.dash-usage-badge.is-red .dash-usage-badge-dot { background: #ef4444; }
+.dash-usage-badge.is-neutral .dash-usage-badge-dot { background: #6b7280; }
+.dash-usage-badge.is-more .dash-usage-badge-dot { display: none; }
+
+.dash-usage-badge-label {
+    color: var(--text-secondary);
+    max-width: 60px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dash-usage-badge-days {
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.dash-usage-chevron {
+    display: flex;
+    align-items: center;
+    color: var(--text-tertiary);
+    flex-shrink: 0;
+}
+
+.dash-usage-loading {
+    font-size: 11px;
+    color: var(--text-tertiary);
+}
+
+/* Expanded panel */
+.dash-usage-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 0 14px 14px;
+    border-top: 1px solid var(--border);
+}
+
+.dash-usage-tz-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+    margin-bottom: 4px;
+}
+
+.dash-usage-tz-bar svg {
+    color: var(--text-tertiary);
+    flex-shrink: 0;
+}
+
+.dash-usage-tz-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    letter-spacing: 0.04em;
+    margin-right: 4px;
+}
+
+.dash-usage-tz-btn {
+    padding: 3px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--text-tertiary);
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.dash-usage-tz-btn:hover {
+    border-color: var(--text-tertiary);
+    color: var(--text-secondary);
+}
+
+.dash-usage-tz-btn.is-active {
+    border-color: var(--usage-accent);
+    color: var(--text-primary);
+    background: color-mix(in srgb, var(--usage-accent) 10%, transparent);
+}
+
+.dash-usage-service {
+    padding: 12px 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+}
+
+.dash-usage-service-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.dash-usage-edit-name {
+    background: color-mix(in srgb, var(--bg-tertiary) 80%, transparent);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-primary);
+    width: 100%;
+    min-width: 0;
+}
+
+.dash-usage-edit-name:focus {
+    outline: 1px solid var(--usage-accent);
+    border-color: var(--usage-accent);
+}
+
+.dash-usage-edit-select {
+    flex: 1;
+    background: color-mix(in srgb, var(--bg-tertiary) 80%, transparent);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.dash-usage-edit-select:focus {
+    outline: 1px solid var(--usage-accent);
+    border-color: var(--usage-accent);
+}
+
+.dash-usage-edit-select-sm {
+    background: color-mix(in srgb, var(--bg-tertiary) 80%, transparent);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    width: 100%;
+}
+
+.dash-usage-delete {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    background: none;
+    color: var(--text-tertiary);
+    font-size: 16px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.dash-usage-delete:hover {
+    color: #ef4444;
+    border-color: color-mix(in srgb, #ef4444 30%, transparent);
+}
+
+.dash-usage-edit-btn {
+    padding: 2px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--text-tertiary);
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.dash-usage-edit-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--text-tertiary);
+}
+
+.dash-usage-done {
+    padding: 2px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--usage-accent);
+    background: color-mix(in srgb, var(--usage-accent) 10%, transparent);
+    color: var(--usage-accent);
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s ease;
+}
+
+.dash-usage-done:hover {
+    background: color-mix(in srgb, var(--usage-accent) 20%, transparent);
+}
+
+.dash-usage-edit-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.dash-usage-edit-row .dash-usage-label {
+    flex-shrink: 0;
+    width: 80px;
+}
+
+.dash-usage-edit-input {
+    flex: 1;
+    background: color-mix(in srgb, var(--bg-tertiary) 80%, transparent);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    min-width: 0;
+}
+
+.dash-usage-edit-input:focus {
+    outline: 1px solid var(--usage-accent);
+    border-color: var(--usage-accent);
+}
+
+.dash-usage-datetime-row {
+    display: flex;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+}
+
+.dash-usage-edit-date {
+    flex: 1;
+    background: color-mix(in srgb, var(--bg-tertiary) 80%, transparent);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    min-width: 0;
+}
+
+.dash-usage-edit-date:focus {
+    outline: 1px solid var(--usage-accent);
+    border-color: var(--usage-accent);
+}
+
+.dash-usage-edit-time {
+    width: 90px;
+    flex-shrink: 0;
+    background: color-mix(in srgb, var(--bg-tertiary) 80%, transparent);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.dash-usage-edit-time:focus {
+    outline: 1px solid var(--usage-accent);
+    border-color: var(--usage-accent);
+}
+
+.dash-usage-service:last-of-type {
+    border-bottom: none;
+}
+
+.dash-usage-service-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.dash-usage-service-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--service-accent);
+    flex-shrink: 0;
+}
+
+.dash-usage-service-name {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-primary);
+    flex: 1;
+}
+
+.dash-usage-service-tone {
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.dash-usage-service-tone.is-green { color: #22c55e; background: color-mix(in srgb, #22c55e 12%, transparent); }
+.dash-usage-service-tone.is-yellow { color: #eab308; background: color-mix(in srgb, #eab308 12%, transparent); }
+.dash-usage-service-tone.is-red { color: #ef4444; background: color-mix(in srgb, #ef4444 12%, transparent); }
+.dash-usage-service-tone.is-neutral { color: #6b7280; background: color-mix(in srgb, #6b7280 12%, transparent); }
+
+.dash-usage-service-detail {
+    display: grid;
+    gap: 2px;
+    padding-left: 16px;
+}
+
+.dash-usage-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    letter-spacing: 0.04em;
+}
+
+.dash-usage-value {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.dash-usage-value.is-muted {
+    color: var(--text-tertiary);
+    font-style: italic;
+}
+
+.dash-usage-topup {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--usage-accent);
+    text-decoration: none;
+    margin-top: 4px;
+}
+
+.dash-usage-topup:hover {
+    text-decoration: underline;
+}
+
+.dash-usage-notes {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin-top: 6px;
+    padding-left: 16px;
+}
+
+.dash-usage-add {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px;
+    margin-top: 8px;
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    background: none;
+    color: var(--text-tertiary);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.dash-usage-add:hover {
+    border-color: var(--usage-accent);
+    color: var(--text-primary);
+}
+
+@media (max-width: 720px) {
+    .dash-now-glance,
+    .dash-usage-glance {
+        flex: 1 1 100%;
+        min-width: 0;
+    }
 }

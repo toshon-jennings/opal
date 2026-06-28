@@ -32,7 +32,25 @@ here.
 
 ## Conventions
 
-- (Add repo-specific conventions here as they come up.)
+### Accessibility — Mode-Aware Color Contrast
+
+**Always design for both light and dark modes.** Perci uses CSS custom properties
+(`--text-primary`, `--text-secondary`, `--text-tertiary`, `--bg-primary`, etc.) defined
+in `src/index.css` under `:root` (light) and `:root.dark` (dark).
+
+Rules:
+- **Never hardcode a light or dark color value for text or interactive elements.**
+  Always use the theme variables so the color inverts correctly between modes.
+- **Never place light text on a light background (or dark on dark).** If you set a
+  foreground color, verify it has sufficient contrast against the background in BOTH
+  modes. When in doubt, use `var(--text-primary)` for headings/emphasis and
+  `var(--text-secondary)` for body text — they are guaranteed readable on `--bg-primary`
+  and `--bg-secondary` in both themes.
+- **Hover/focus states must also be mode-aware.** A `color: white` hover works in dark
+  mode but becomes illegible in light mode. Use `var(--text-primary)` for hover text
+  unless the hover background is guaranteed dark (e.g., a solid accent fill).
+- **Test in both modes before shipping.** Toggle `:root.dark` in DevTools (or use the
+  app's theme switch) and verify every surface you touched.
 
 ## Architecture
 
@@ -50,3 +68,8 @@ here.
   The Perci version is the leading development target. The standalone Eidos repo
   (`~/eidos`) lags behind — see `~/eidos/CLAUDE.md` for the divergence note.
   Eidos-related changes should be made in this repo, not in `~/eidos`.
+- **Wiki (second brain):** `~/wiki/` is a Karpathy-style interlinked markdown wiki
+  serving as the project's queryable knowledge base. Contains decision rationale,
+  architecture explanations, and cross-linked concepts/entities. Read `SCHEMA.md`
+  + `index.md` at session start when project context is needed. All agents (Hermes,
+  OpenClaw, Eidos) can access this path for shared knowledge retrieval.

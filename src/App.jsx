@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, Component } from 'react';
 import perciLogo from './assets/perci-logo.png';
-import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, ARTIFACT_WINDOW_ID, RESEARCH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID, CLEANMAC_WINDOW_ID, PACKAGES_WINDOW_ID, AGENTMAIL_WINDOW_ID, AUTOFORGE_WINDOW_ID } from './context/ModeContext';
+import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, ARTIFACT_WINDOW_ID, RESEARCH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID, CLEANMAC_WINDOW_ID, PACKAGES_WINDOW_ID, AGENTMAIL_WINDOW_ID, AUTOFORGE_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID } from './context/ModeContext';
 import ModeSwitcher from './components/ModeSwitcher';
 import ChatMode from './components/ChatMode';
 import CodeMode from './components/CodeMode';
@@ -17,6 +17,7 @@ import DashboardMode from './components/DashboardMode';
 import PowerWorkspaceMode from './components/PowerWorkspaceMode';
 import PerciMapMode from './components/PerciMapMode';
 import PerciNowMode from './components/PerciNowMode';
+import PerciDeskMode from './components/PerciDeskMode';
 import NotesMode from './components/NotesMode';
 import BarsMode from './components/BarsMode';
 import MarkItDownMode from './components/MarkItDownMode';
@@ -31,11 +32,13 @@ import CleanmacMode from './components/CleanmacMode';
 import AutoforgeMode from './components/AutoforgeMode';
 import AgentMailMode from './components/AgentMailMode';
 import PackagesMode from './components/PackagesMode';
+import OpenNotebookMode from './components/OpenNotebookMode';
 import { SettingsModal } from './components/SettingsModal';
 import DesktopHost from './components/windows/DesktopHost';
 import Dock from './components/windows/Dock';
 import ArtifactWindow from './components/windows/ArtifactWindow';
 import ResearchResultsWindow from './components/windows/ResearchResultsWindow';
+import PwaShortcutWindow from './components/windows/PwaShortcutWindow';
 import { ModeGuideModal } from './components/ModeGuideModal';
 import { readStringStorage, writeStringStorage } from './lib/persistentStore';
 import { OpenClawModelsPanel } from './components/OpenClawModelsPanel';
@@ -46,7 +49,8 @@ import { ChatProvider } from './context/ChatContext';
 import nousLogo from './assets/nousresearch.png';
 import openClawLogo from './assets/openclaw-color.png';
 import autoforgeLogo from './assets/autoforge-logo.png';
-import { Moon, Sun, Monitor, Lock, Unlock, Plus, Terminal as TerminalIcon, Server, RefreshCw, ExternalLink, AlertCircle, BookOpen, Cpu, Download, Puzzle, Sparkles, Package, Inbox } from 'lucide-react';
+import agentmailLogo from './assets/agentmail-logo.png';
+import { Moon, Sun, Monitor, Lock, Unlock, Plus, Terminal as TerminalIcon, Server, RefreshCw, ExternalLink, AlertCircle, BookOpen, Cpu, Download, Puzzle, Sparkles, Package, ClipboardList } from 'lucide-react';
 import { useTheme, ThemeProvider } from './context/ThemeContext';
 import { useChat } from './context/ChatContext';
 import TerminalPanel from './components/Terminal';
@@ -109,6 +113,8 @@ function AppContent() {
         showGlobalTerminal,
         setShowGlobalTerminal,
         openClawConfig,
+        showChatGuide,
+        setShowChatGuide
     } = useMode();
     const openClawWindowOpen = windows.some(w => w.id === OPENCLAW_WINDOW_ID && w.state !== 'minimized');
     const hermesWindowOpen = windows.some(w => w.id === HERMES_WINDOW_ID && w.state !== 'minimized');
@@ -116,6 +122,8 @@ function AppContent() {
     const packagesWindowOpen = windows.some(w => w.id === PACKAGES_WINDOW_ID && w.state !== 'minimized');
     const agentmailWindowOpen = windows.some(w => w.id === AGENTMAIL_WINDOW_ID && w.state !== 'minimized');
     const autoforgeWindowOpen = windows.some(w => w.id === AUTOFORGE_WINDOW_ID && w.state !== 'minimized');
+
+    const perciDeskOpen = windows.some(w => w.modeId === MODES.PERCI_DESK && w.state !== 'minimized');
     const { isDarkMode, themeMode, cycleThemeMode } = useTheme();
     const { isIncognitoMode, toggleIncognitoMode, createNewChat } = useChat();
     const [openClawStatus, setOpenClawStatus] = useState({ state: 'idle' });
@@ -550,6 +558,7 @@ function AppContent() {
             case MODES.POWER_WORKSPACE: return <PowerWorkspaceMode />;
             case MODES.SURFACE_MAP: return <PerciMapMode />;
             case MODES.PERCI_NOW: return <PerciNowMode openClawStatus={openClawStatus} />;
+            case MODES.PERCI_DESK: return <PerciDeskMode openClawStatus={openClawStatus} />;
             case MODES.COWORK: return <CoworkMode />;
             case MODES.CODE: return <CodeMode />;
             case MODES.AGENTS: return <AgentsPanel />;
@@ -583,6 +592,7 @@ function AppContent() {
             case AGENTMAIL_WINDOW_ID: return <AgentMailMode />;
             case AUTOFORGE_WINDOW_ID: return <AutoforgeMode />;
             case PACKAGES_WINDOW_ID: return <PackagesMode />;
+            case OPEN_NOTEBOOK_WINDOW_ID: return <OpenNotebookMode />;
             case ARTIFACT_WINDOW_ID: return <ArtifactWindow />;
             case RESEARCH_WINDOW_ID: return <ResearchResultsWindow />;
             case YOUTUBE_WINDOW_ID:
@@ -612,7 +622,13 @@ function AppContent() {
                         title="YouTube"
                     />
                 );
-            default: return null;
+            case OPEN_NOTEBOOK_WINDOW_ID: return <OpenNotebookMode />;
+            default:
+                // PWA shortcut windows: id starts with 'pwa_'
+                if (typeof modeId === 'string' && modeId.startsWith('pwa_')) {
+                    return <PwaShortcutWindow win={{ id: modeId }} />;
+                }
+                return null;
         }
     };
 
@@ -991,6 +1007,30 @@ function AppContent() {
                         <span className="hidden lg:inline text-sm font-medium">Guide</span>
                     </button>
 
+                    {currentMode === MODES.CHAT && (
+                        <button
+                            onClick={() => setShowChatGuide(true)}
+                            className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[#f97316] hover:bg-[rgba(249,115,22,0.1)] hover:text-[#ea580c] transition-all duration-150 ease-out border border-transparent hover:border-[rgba(249,115,22,0.2)] hover:scale-105 active:scale-95 group"
+                            title="Open Chat Guide"
+                        >
+                            <BookOpen size={16} className="transition-transform duration-200 group-hover:rotate-6" />
+                            <span className="hidden lg:inline text-sm font-medium">Chat Guide</span>
+                        </button>
+                    )}
+
+                    <button
+                        onClick={() => openWindow(MODES.PERCI_DESK)}
+                        className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 transition-colors ${
+                            perciDeskOpen
+                                ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30'
+                                : 'text-emerald-600 dark:text-emerald-300 hover:bg-emerald-500/10 border border-transparent'
+                        }`}
+                        title="Desk — Perci-wide actions and obligations"
+                    >
+                        <ClipboardList size={16} />
+                        <span className="hidden lg:inline text-sm font-medium">Desk</span>
+                    </button>
+
                     <button
                         onClick={() => openWindow(MODES.POWER_WORKSPACE)}
                         className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 transition-colors ${
@@ -1052,20 +1092,21 @@ function AppContent() {
                         }`}
                         title="AgentMail"
                     >
-                        <Inbox size={16} />
+                        <img src={agentmailLogo} alt="" className="h-5 w-5 rounded" />
                         <span className="hidden lg:inline text-sm font-medium">Mail</span>
                     </button>
 
                     <button
                         onClick={() => openWindow(AUTOFORGE_WINDOW_ID)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all text-[11px] uppercase tracking-wider ${
+                        className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full transition-all text-xs uppercase tracking-wider ${
                             autoforgeWindowOpen
-                                ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
-                                : 'text-[var(--text-secondary)] hover:text-orange-400 hover:bg-orange-500/10'
+                                ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30 shadow-[0_0_8px_rgba(249,115,22,0.3)]'
+                                : 'text-[var(--text-secondary)] hover:text-orange-400 hover:bg-orange-500/10 hover:shadow-[0_0_6px_rgba(249,115,22,0.2)]'
                         }`}
+                        style={{ textShadow: '0 0 6px rgba(249,115,22,0.4)' }}
                         title="AutoForge — Autonomous coding agent"
                     >
-                        <img src={autoforgeLogo} alt="" className="h-4 w-4 rounded" />
+                        <img src={autoforgeLogo} alt="" className="h-5 w-5 rounded" />
                         <span className="hidden xl:inline">AutoForge</span>
                     </button>
 

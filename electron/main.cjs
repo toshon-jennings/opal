@@ -2948,17 +2948,23 @@ ipcMain.handle('hermes:chat-send', async (event, { text } = {}) => {
     if (result.signal === 'SIGTERM' || result.signal === 'SIGKILL') {
       return { ok: false, error: 'Cancelled by user.', cancelled: true };
     }
-    if (!result.ok) return { ok: false, error: result.error || result.stderr.trim() || 'Hermes chat turn failed.' };
+    if (!result.ok) {
+      return {
+        ok: false,
+        error: result.error || result.stderr.trim() || result.stdout.trim() || 'Hermes chat turn failed.'
+      };
+    }
     let output = result.stdout.trim();
-    // First turn: capture the real session ID from the output footer
-    if (!realSessionId) {
-      const m = output.match(/hermes --resume (\S+)/);
-      if (m) {
-        hermesChatSession.realSessionId = m[1];
-        hermesChatSession.sessionId = m[1];
-      }
-      // Strip the footer line(s) so it doesn't clutter the chat
-      output = output.replace(/\n?Resume this session with:\s*\n?\s*hermes --resume \S+\s*/, '').trim();
+    // Clean up output: strip session_id lines or legacy resume footers
+    output = output.replace(/^session_id:\s*\S+\s*/im, '').trim();
+    output = output.replace(/\n?Resume this session with:\s*\n?\s*hermes --resume \S+\s*/, '').trim();
+
+    // Capture the real session ID from stdout or stderr (check both legacy and modern formats)
+    const matchText = `${result.stdout}\n${result.stderr}`;
+    const m = matchText.match(/hermes --resume (\S+)/) || matchText.match(/session_id:\s*(\S+)/);
+    if (m) {
+      hermesChatSession.realSessionId = m[1];
+      hermesChatSession.sessionId = m[1];
     }
     return { ok: true, output, sessionId: hermesChatSession.sessionId };
   } catch (err) {
@@ -3129,6 +3135,114 @@ ipcMain.handle('hermes:dashboard-start', async () => {
   return { ok: false, running: false, url: HERMES_DASHBOARD_URL, error: 'The Hermes dashboard did not become reachable. Try running `hermes dashboard` in a terminal.' };
 });
 
+// ─── PWA favicon extraction ─────────────────────────────────────────────────
+// Loads a URL in a hidden webContents, captures the page favicon and title,
+// and returns them as a data URI + metadata. Runs in the main process to
+// bypass CORS that would block renderer-side fetches.
+ipcMain.handle('pwa:extract-favicon', async (event, { url } = {}) => {
+  if (!url) return { ok: false, error: 'No URL provided' };
+
+  let targetUrl = url;
+  if (!/^https?:\/\//i.test(targetUrl)) targetUrl = `https://${targetUrl}`;
+
+  let parsed;
+  try {
+    parsed = new URL(targetUrl);
+  } catch {
+    return { ok: false, error: 'Invalid URL' };
+  }
+
+  return new Promise((resolve) => {
+    const TIMEOUT_MS = 15000;
+    let settled = false;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try { win.destroy(); } catch { /* ignore */ }
+      resolve(result);
+    };
+
+    const timer = setTimeout(() => {
+      finish({ ok: false, error: 'Timed out loading page' });
+    }, TIMEOUT_MS);
+
+    const win = new BrowserWindow({
+      show: false,
+      width: 1280,
+      height: 800,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        images: true,
+      },
+    });
+
+    const wc = win.webContents;
+
+    wc.on('page-favicon-updated', (evt, favicons) => {
+      if (favicons && favicons.length > 0) {
+        // Use the largest favicon available
+        const best = favicons.reduce((a, b) => {
+          const aArea = (a.naturalWidth || 0) * (a.naturalHeight || 0);
+          const bArea = (b.naturalWidth || 0) * (b.naturalHeight || 0);
+          return bArea > aArea ? b : a;
+        });
+        const dataUri = best.toDataURL();
+        const title = win.getTitle() || parsed.hostname;
+        finish({ ok: true, faviconDataUri: dataUri, title, origin: parsed.hostname, url: parsed.href });
+      }
+    });
+
+    wc.on('page-title-updated', () => {
+      // If favicon already fired this is a no-op; if not, we wait for favicon
+    });
+
+    wc.on('did-finish-load', () => {
+      // Give favicon event a moment; if it never fires, fall back
+      setTimeout(() => {
+        if (settled) return;
+        // Fallback: try fetching /favicon.ico directly
+        const fallbackUrl = `${parsed.origin}/favicon.ico`;
+        wc.executeJavaScript(`
+          (async () => {
+            try {
+              const r = await fetch('${fallbackUrl}', { mode: 'no-cors' });
+              if (r.ok || r.type === 'opaque') {
+                const blob = await r.blob();
+                return await new Promise((res) => {
+                  const fr = new FileReader();
+                  fr.onload = () => res(fr.result);
+                  fr.onerror = () => res(null);
+                  fr.readAsDataURL(blob);
+                });
+              }
+            } catch { /* ignore */ }
+            return null;
+          })()
+        `).then((dataUri) => {
+          const title = win.getTitle() || parsed.hostname;
+          if (dataUri) {
+            finish({ ok: true, faviconDataUri: dataUri, title, origin: parsed.hostname, url: parsed.href });
+          } else {
+            finish({ ok: true, faviconDataUri: null, title, origin: parsed.hostname, url: parsed.href });
+          }
+        }).catch(() => {
+          finish({ ok: true, faviconDataUri: null, title: parsed.hostname, origin: parsed.hostname, url: parsed.href });
+        });
+      }, 1500);
+    });
+
+    wc.on('did-fail-load', (evt, errorCode, errorDescription) => {
+      finish({ ok: false, error: `Failed to load: ${errorDescription || errorCode}` });
+    });
+
+    wc.loadURL(targetUrl).catch((err) => {
+      finish({ ok: false, error: err?.message || 'Failed to load URL' });
+    });
+  });
+});
+
 // ─── Memory ─────────────────────────────────────────────────────────────────
 ipcMain.handle('hermes:memory', async () => {
   const os = require('os');
@@ -3160,7 +3274,7 @@ ipcMain.handle('hermes:memory', async () => {
 
   return {
     ok: true,
-    memory: { entries: memoryEntries, chars: memChars, limit: 2200 },
+    memory: { entries: memoryEntries, chars: memChars, limit: 2500 },
     user: { entries: userEntries, chars: userChars, limit: 1375 },
   };
 });
@@ -3173,44 +3287,374 @@ function generateJobId() {
   return `job-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function getAgentCommand(agentId) {
-  // Map agent ids to their CLI command names.
-  // These must be on PATH. Users can configure custom paths later.
-  const commandMap = {
-    aider: 'aider',
-    antigravity_cli: 'antigravity',
-    claude_code: 'claude',
-    codex: 'codex',
-    copilot: 'copilot',
-    command_code: 'cmd',
-    cursor_cli: 'cursor',
-    jan: 'jan',
-    openhands: 'openhands',
-    opencode: 'opencode',
-    perci_code: 'perci',
-    qwen_code: 'qwen',
-    // hermes and openclaw have dedicated branches in agent-jobs:queue
-  };
-  return commandMap[agentId] || null;
+function loadCommandCodeEnv(env) {
+  if (env.COMMAND_CODE_API_KEY) return env;
+  try {
+    const keyFile = path.join(app.getPath('home'), '.commandcode', 'api-key');
+    if (!fsSync.existsSync(keyFile)) return env;
+    const key = fsSync.readFileSync(keyFile, 'utf8').trim();
+    return key ? { ...env, COMMAND_CODE_API_KEY: key } : env;
+  } catch {
+    return env;
+  }
 }
 
-// Per-agent flag used to select a model, verified against each CLI's --help.
-// Agents missing here have no --model flag (Jan picks its model via
-// `jan launch`; perci is a custom CLI), so the UI hides the model field for them.
-function getAgentModelFlag(agentId) {
-  const flagMap = {
-    aider: '--model',
-    antigravity_cli: '--model',
-    claude_code: '--model',
-    codex: '--model',
-    command_code: '--model',
-    copilot: '--model',
-    cursor_cli: '--model',
-    openhands: '--model',
-    opencode: '--model',
-    qwen_code: '--model',
+function checkCommandCodeAuth({ command, env }) {
+  if (env.COMMAND_CODE_API_KEY) return { ok: true };
+  try {
+    const result = spawnSync(command, ['status'], {
+      encoding: 'utf8',
+      timeout: 5000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env,
+    });
+    const output = `${result.stdout || ''}\n${result.stderr || ''}`.toLowerCase();
+    if (result.status === 0 && !/not\s+(authenticated|logged in)|login required|please log in/.test(output)) {
+      return { ok: true };
+    }
+  } catch {
+    // Fall through to the actionable auth message below.
+  }
+  return {
+    ok: false,
+    error: 'Command Code is not authenticated. Run `cmd login` or set COMMAND_CODE_API_KEY before queueing a job.',
   };
-  return flagMap[agentId] || null;
+}
+
+// Jules intentionally stays out of this local spawn map; it queues through the
+// separate `jules:queue` cloud IPC path below.
+const AGENT_SPAWN_CONFIG = {
+  aider: {
+    command: 'aider',
+    subcommand: null,
+    modelFlag: '--model',
+    pty: false,
+    promptDelivery: 'stdin',
+    needsAuth: false,
+  },
+  antigravity_cli: {
+    // This machine's Antigravity entrypoint is `agy`; keep fallback aliases for
+    // other installs without hardcoding that decision in the queue handler.
+    command: 'agy',
+    fallbackCommands: ['antigravity', 'antigravity_cli', 'gemini'],
+    subcommand: null,
+    modelFlag: '--model',
+    pty: false,
+    promptDelivery: 'stdin',
+    needsAuth: false,
+  },
+  claude_code: {
+    command: 'claude',
+    subcommand: null,
+    modelFlag: '--model',
+    pty: false,
+    promptDelivery: 'stdin',
+    needsAuth: false,
+  },
+  codex: {
+    // Codex needs `exec` for non-interactive runs; without it the CLI starts an
+    // interactive session and hangs on the generic stdin pipe. A PTY also keeps
+    // Codex's terminal/auth assumptions intact.
+    command: 'codex',
+    subcommand: 'exec',
+    modelFlag: '--model',
+    pty: true,
+    promptDelivery: 'stdin',
+    stdinPromptArg: '-',
+    needsAuth: false,
+  },
+  command_code: {
+    // Command Code's non-interactive mode is `cmd -p`, and automated runs should
+    // skip onboarding. Auth is preflighted so a missing key/login fails fast.
+    command: 'cmd',
+    subcommand: null,
+    modelFlag: '--model',
+    pty: true,
+    promptDelivery: '-p',
+    promptFlag: '-p',
+    trailingArgs: ['--skip-onboarding'],
+    prepareEnv: loadCommandCodeEnv,
+    authCheck: checkCommandCodeAuth,
+    needsAuth: true,
+  },
+  copilot: {
+    // Copilot supports `-p/--prompt`; these flags keep it autonomous in the
+    // background job runner instead of asking the hidden terminal for approval.
+    command: 'copilot',
+    subcommand: null,
+    modelFlag: '--model',
+    pty: true,
+    promptDelivery: '-p',
+    promptFlag: '-p',
+    trailingArgs: ['--allow-all-tools', '--no-ask-user'],
+    needsAuth: false,
+  },
+  cursor_cli: {
+    command: 'cursor',
+    subcommand: null,
+    modelFlag: '--model',
+    pty: false,
+    promptDelivery: 'stdin',
+    needsAuth: false,
+  },
+  hermes: {
+    // Hermes one-shots use `-z <prompt>` and print the final reply on stdout.
+    command: 'hermes',
+    subcommand: null,
+    modelFlag: '-m',
+    modelPosition: 'afterPrompt',
+    pty: false,
+    promptDelivery: '-p',
+    promptFlag: '-z',
+    outputMode: 'stdout-required',
+    emptyOutputMessage: 'No reply from Hermes.',
+    needsAuth: false,
+  },
+  jan: {
+    command: 'jan',
+    subcommand: null,
+    modelFlag: null,
+    pty: false,
+    promptDelivery: 'stdin',
+    needsAuth: false,
+  },
+  openclaw: {
+    // OpenClaw jobs go through the gateway agent command and return JSON with
+    // session metadata, but the spawn mechanics are still declared here.
+    command: 'openclaw',
+    subcommand: 'agent',
+    modelFlag: '--model',
+    modelPosition: 'afterPrompt',
+    pty: false,
+    promptDelivery: '-p',
+    promptFlag: '--message',
+    leadingArgs: ['--agent', 'main', '--json', '--timeout', '600'],
+    outputMode: 'openclaw-json',
+    emptyOutputMessage: 'No reply from the OpenClaw gateway agent.',
+    usesWorkingDirectory: false,
+    needsAuth: false,
+  },
+  openhands: {
+    command: 'openhands',
+    subcommand: null,
+    modelFlag: '--model',
+    pty: false,
+    promptDelivery: 'stdin',
+    needsAuth: false,
+  },
+  opencode: {
+    command: 'opencode',
+    subcommand: null,
+    modelFlag: '--model',
+    pty: false,
+    promptDelivery: 'stdin',
+    needsAuth: false,
+  },
+  perci_code: {
+    command: 'perci',
+    subcommand: null,
+    modelFlag: null,
+    pty: false,
+    promptDelivery: 'stdin',
+    needsAuth: false,
+  },
+  qwen_code: {
+    command: 'qwen',
+    subcommand: null,
+    modelFlag: '--model',
+    pty: false,
+    promptDelivery: 'stdin',
+    needsAuth: false,
+  },
+};
+
+function asArray(value) {
+  if (!value) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
+function resolveAgentCommand(config) {
+  const candidates = [config.command, ...asArray(config.fallbackCommands)].filter(Boolean);
+  for (const candidate of candidates) {
+    if (candidate.includes(path.sep)) {
+      try {
+        fsSync.accessSync(candidate, fsSync.constants.X_OK);
+        return { command: candidate, candidates };
+      } catch {
+        continue;
+      }
+    }
+    const resolved = resolveBinary(candidate);
+    if (resolved) return { command: resolved, candidates };
+  }
+  return { command: null, candidates };
+}
+
+function buildAgentSpawnArgs(config, prompt, requestedModel) {
+  const args = [
+    ...asArray(config.subcommand),
+    ...asArray(config.leadingArgs),
+  ];
+
+  if (requestedModel && config.modelFlag && config.modelPosition !== 'afterPrompt') {
+    args.push(config.modelFlag, requestedModel);
+  }
+
+  if (config.promptDelivery === 'stdin' && config.stdinPromptArg) {
+    args.push(config.stdinPromptArg);
+  }
+
+  if (config.promptDelivery === '-p') {
+    args.push(config.promptFlag || '-p', prompt);
+  }
+
+  if (requestedModel && config.modelFlag && config.modelPosition === 'afterPrompt') {
+    args.push(config.modelFlag, requestedModel);
+  }
+
+  args.push(...asArray(config.trailingArgs));
+  return args;
+}
+
+function finalizeAgentJob(jobRecord, config, code, stdout, stderr) {
+  jobRecord.completed_at = new Date().toISOString();
+  jobRecord.exit_code = code;
+
+  if (config.outputMode === 'stdout-required') {
+    const text = stdout.trim();
+    if (code === 0 && text) {
+      jobRecord.output = text;
+      jobRecord.output_kind = 'output';
+      jobRecord.status = 'completed';
+      jobRecord.exit_code = 0;
+      return;
+    }
+    jobRecord.status = 'failed';
+    jobRecord.output_kind = 'error';
+    jobRecord.output = stderr.trim().split('\n').filter(Boolean).slice(-4).join('\n') || text || config.emptyOutputMessage || 'No reply from agent.';
+    return;
+  }
+
+  if (config.outputMode === 'openclaw-json') {
+    const raw = `${stdout || ''}${stderr ? `\n${stderr}` : ''}`;
+    const data = extractJsonObject(raw);
+    const payload = data?.result || data;
+    const text = payload?.payloads?.map(p => p.text).filter(Boolean).join('\n').trim();
+    if (text) {
+      jobRecord.output = text;
+      jobRecord.output_kind = 'output';
+      jobRecord.status = 'completed';
+      jobRecord.exit_code = 0;
+      jobRecord.session_id = payload?.meta?.agentMeta?.sessionId || null;
+      return;
+    }
+    jobRecord.status = 'failed';
+    jobRecord.output_kind = 'error';
+    jobRecord.output = raw.split('\n').map(l => l.trim()).filter(Boolean).slice(-4).join('\n') || config.emptyOutputMessage || 'No reply from agent.';
+    return;
+  }
+
+  if (code === 0) {
+    jobRecord.status = 'completed';
+  } else {
+    jobRecord.status = 'failed';
+    if (!jobRecord.output_kind || (config.pty && jobRecord.output_kind === 'output')) {
+      jobRecord.output_kind = 'error';
+    }
+  }
+}
+
+function attachAgentPty(jobRecord, config, command, args, cwd, env, prompt) {
+  const pty = require('node-pty');
+  const child = pty.spawn(command, args, {
+    cwd,
+    env: { ...env, TERM: 'xterm-256color' },
+    cols: 120,
+    rows: 30,
+    name: 'xterm-256color',
+  });
+
+  let output = '';
+  child.on('data', (data) => {
+    const text = data.toString();
+    output += text;
+    if (config.outputMode !== 'stdout-required' && config.outputMode !== 'openclaw-json') {
+      jobRecord.output += text;
+      jobRecord.output_kind = 'output';
+    }
+  });
+
+  child.on('exit', (code) => {
+    finalizeAgentJob(jobRecord, config, code ?? 0, output, '');
+  });
+
+  if (config.promptDelivery === 'stdin' && prompt) {
+    setImmediate(() => {
+      try {
+        child.write(`${prompt}\r`);
+        child.write('\x04');
+      } catch {
+        // The process may have exited before accepting input.
+      }
+    });
+  }
+
+  return child;
+}
+
+function attachAgentChildProcess(jobRecord, config, command, args, cwd, env, prompt) {
+  const readsPromptFromStdin = config.promptDelivery === 'stdin';
+  const child = spawn(command, args, {
+    cwd,
+    env,
+    stdio: [readsPromptFromStdin ? 'pipe' : 'ignore', 'pipe', 'pipe'],
+    shell: false,
+    detached: false,
+  });
+
+  let stdout = '';
+  let stderr = '';
+
+  if (readsPromptFromStdin && prompt) {
+    try {
+      child.stdin.write(`${prompt}\n`);
+      child.stdin.end();
+    } catch {
+      // stdin may already be closed.
+    }
+  }
+
+  child.stdout.on('data', (chunk) => {
+    const text = chunk.toString();
+    stdout += text;
+    if (config.outputMode !== 'stdout-required' && config.outputMode !== 'openclaw-json') {
+      jobRecord.output += text;
+      jobRecord.output_kind = 'output';
+    }
+  });
+
+  child.stderr.on('data', (chunk) => {
+    const text = chunk.toString();
+    stderr += text;
+    if (config.outputMode !== 'stdout-required' && config.outputMode !== 'openclaw-json') {
+      if (!jobRecord.output_kind) jobRecord.output_kind = 'error';
+      jobRecord.output += (jobRecord.output ? '\n' : '') + text;
+    }
+  });
+
+  child.on('close', (code) => {
+    finalizeAgentJob(jobRecord, config, code, stdout, stderr);
+  });
+
+  child.on('error', (err) => {
+    jobRecord.completed_at = new Date().toISOString();
+    jobRecord.status = 'failed';
+    jobRecord.exit_code = null;
+    jobRecord.output_kind = 'error';
+    jobRecord.output += (jobRecord.output ? '\n' : '') + `Process error: ${err.message}`;
+  });
+
+  return child;
 }
 
 // Model names are user-supplied and get appended to the spawn args, so bound
@@ -3312,109 +3756,24 @@ ipcMain.handle('agent-jobs:queue', async (event, { agent, prompt, working_direct
   // current port state from ~/.config/agent-rules/ instead of running `lsof`.
   writePortsSnapshot();
 
-  // Hermes runs headless one-shots (`hermes -z`): stdout is the final reply.
-  if (agent === 'hermes') {
-    const jobId = generateJobId();
-    const startedAt = new Date().toISOString();
-    const jobRecord = {
-      id: jobId, agent, type: agent, status: 'running', prompt,
-      prompt_text: prompt,
-      prompt_preview: prompt?.slice(0, 120) || null,
-      working_directory: working_directory || null, model: requestedModel || null, source: 'agents_page',
-      created_at: startedAt, started_at: startedAt, completed_at: null,
-      exit_code: null, output: '', output_kind: null, childProcess: null,
-    };
-    const args = ['-z', prompt];
-    if (requestedModel) args.push('-m', requestedModel);
-    const child = spawn('hermes', args, {
-      cwd: working_directory || process.env.HOME || '/tmp',
-      env: { ...process.env }, stdio: ['ignore', 'pipe', 'pipe'], shell: false
-    });
-    jobRecord.childProcess = child;
-
-    let stdout = '';
-    let stderr = '';
-    child.stdout.on('data', chunk => { stdout += chunk.toString(); });
-    child.stderr.on('data', chunk => { stderr += chunk.toString(); });
-    child.on('error', err => {
-      jobRecord.completed_at = new Date().toISOString();
-      jobRecord.status = 'failed';
-      jobRecord.output_kind = 'error';
-      jobRecord.output = `Process error: ${err.message}`;
-    });
-    child.on('close', code => {
-      jobRecord.completed_at = new Date().toISOString();
-      const text = stdout.trim();
-      if (code === 0 && text) {
-        jobRecord.output = text;
-        jobRecord.output_kind = 'output';
-        jobRecord.status = 'completed';
-        jobRecord.exit_code = 0;
-      } else {
-        jobRecord.status = 'failed';
-        jobRecord.exit_code = code;
-        jobRecord.output_kind = 'error';
-        jobRecord.output = stderr.trim().split('\n').filter(Boolean).slice(-4).join('\n') || text || 'No reply from Hermes.';
-      }
-    });
-
-    agentJobs.set(jobId, { childProcess: child, job: jobRecord });
-    return { ok: true, job: serializeJob(jobRecord) };
-  }
-  // OpenClaw runs a gateway agent turn (session bridging) rather than a local
-  // CLI. Spawn `openclaw agent --json` (arg array, no shell — prompt is user
-  // input) and surface the agent's reply through the same job record machinery.
-  if (agent === 'openclaw') {
-    const jobId = generateJobId();
-    const startedAt = new Date().toISOString();
-    const jobRecord = {
-      id: jobId, agent, type: agent, status: 'running', prompt,
-      prompt_text: prompt,
-      prompt_preview: prompt?.slice(0, 120) || null,
-      working_directory: null, model: requestedModel || null, source: 'agents_page',
-      created_at: startedAt, started_at: startedAt, completed_at: null,
-      exit_code: null, output: '', output_kind: null, session_id: null, childProcess: null,
-    };
-    const args = ['agent', '--agent', 'main', '--json', '--timeout', '600', '--message', prompt];
-    if (requestedModel) args.push('--model', requestedModel);
-    const child = spawn('openclaw', args, { env: { ...process.env }, stdio: ['ignore', 'pipe', 'pipe'], shell: false });
-    jobRecord.childProcess = child;
-
-    let raw = '';
-    child.stdout.on('data', chunk => { raw += chunk.toString(); });
-    child.on('error', err => {
-      jobRecord.completed_at = new Date().toISOString();
-      jobRecord.status = 'failed';
-      jobRecord.output_kind = 'error';
-      jobRecord.output = `Process error: ${err.message}`;
-    });
-    child.on('close', code => {
-      jobRecord.completed_at = new Date().toISOString();
-      const data = extractJsonObject(raw);
-      // Gateway-routed replies nest under `result`; embedded fallback is top-level.
-      const payload = data?.result || data;
-      const text = payload?.payloads?.map(p => p.text).filter(Boolean).join('\n').trim();
-      if (text) {
-        jobRecord.output = text;
-        jobRecord.output_kind = 'output';
-        jobRecord.status = 'completed';
-        jobRecord.exit_code = 0;
-        jobRecord.session_id = payload?.meta?.agentMeta?.sessionId || null;
-      } else {
-        jobRecord.status = 'failed';
-        jobRecord.exit_code = code;
-        jobRecord.output_kind = 'error';
-        jobRecord.output = raw.split('\n').map(l => l.trim()).filter(Boolean).slice(-4).join('\n') || 'No reply from the OpenClaw gateway agent.';
-      }
-    });
-
-    agentJobs.set(jobId, { childProcess: child, job: jobRecord });
-    return { ok: true, job: serializeJob(jobRecord) };
-  }
-
-  const command = getAgentCommand(agent);
-  if (!command) {
+  const config = AGENT_SPAWN_CONFIG[agent];
+  if (!config) {
     return { ok: false, error: `Unknown agent: ${agent}. No CLI command is configured.` };
+  }
+  const { command, candidates } = resolveAgentCommand(config);
+  if (!command) {
+    return { ok: false, error: `No CLI command found for ${agent}. Tried: ${candidates.join(', ') || 'none'}.` };
+  }
+
+  let spawnEnv = { ...process.env };
+  if (typeof config.prepareEnv === 'function') {
+    spawnEnv = config.prepareEnv(spawnEnv);
+  }
+  if (config.needsAuth) {
+    const authResult = typeof config.authCheck === 'function'
+      ? config.authCheck({ command, env: spawnEnv })
+      : { ok: false, error: `${agent} requires authentication before it can run.` };
+    if (!authResult.ok) return authResult;
   }
 
   const jobId = generateJobId();
@@ -3428,7 +3787,7 @@ ipcMain.handle('agent-jobs:queue', async (event, { agent, prompt, working_direct
     prompt,
     prompt_text: prompt,
     prompt_preview: prompt?.slice(0, 120) || null,
-    working_directory: working_directory || null,
+    working_directory: config.usesWorkingDirectory === false ? null : working_directory || null,
     model: requestedModel || null,
     source: 'agents_page',
     created_at: now,
@@ -3437,145 +3796,31 @@ ipcMain.handle('agent-jobs:queue', async (event, { agent, prompt, working_direct
     exit_code: null,
     output: '',
     output_kind: null,
+    ...(config.outputMode === 'openclaw-json' ? { session_id: null } : {}),
     childProcess: null,
   };
 
-  // Spawn the agent CLI
-  const cwd = working_directory || process.env.HOME || '/tmp';
-  const modelFlag = getAgentModelFlag(agent);
-  const spawnArgs = requestedModel && modelFlag ? [modelFlag, requestedModel] : [];
-
-  // Agents that accept a -p/--prompt flag for non-interactive use.
-  // These CLIs run headlessly: prompt is passed as a flag, output goes to
-  // stdout, and the process exits when done.  All other agents are treated as
-  // interactive terminal CLIs that read their prompt from stdin.
-  const PROMPT_FLAG_AGENTS = new Set(['copilot', 'command_code']);
-  const usesPromptFlag = PROMPT_FLAG_AGENTS.has(agent);
-
-  if (usesPromptFlag) {
-    spawnArgs.push('-p', prompt);
-    // Copilot needs these to run without interactive TTY prompts.
-    if (agent === 'copilot') {
-      spawnArgs.push('--allow-all-tools', '--no-ask-user');
-    }
-    // Command Code needs to skip onboarding for automated runs.
-    if (agent === 'command_code') {
-      spawnArgs.push('--skip-onboarding');
-    }
-  }
-
-  const spawnEnv = { ...process.env };
-  // Inject COMMAND_CODE_API_KEY if available (from shell env or Perci config).
-  // Only inject if cmd doesn't already have valid auth (checked via cmd auth status).
-  if (agent === 'command_code' && !spawnEnv.COMMAND_CODE_API_KEY) {
-    // Try reading from ~/.commandcode/api-key if the env var isn't set
-    try {
-      const keyFile = path.join(app.getPath('home'), '.commandcode', 'api-key');
-      if (fsSync.existsSync(keyFile)) {
-        const key = fsSync.readFileSync(keyFile, 'utf8').trim();
-        if (key) spawnEnv.COMMAND_CODE_API_KEY = key;
-      }
-    } catch (_) {}
-  }
-
-  // Prompt-flag agents (Cmd Code, Copilot) need a PTY even though they run
-  // headlessly — they may still query the terminal for width, run interactive
-  // auth flows, or prompt for confirmation. Using a PTY avoids hangs.
-  let child;
-  if (usesPromptFlag) {
-    const pty = require('node-pty');
-    const ptyEnv = { ...spawnEnv, TERM: 'xterm-256color' };
-    child = pty.spawn(command, spawnArgs, {
-      cwd,
-      env: ptyEnv,
-      cols: 120,
-      rows: 30,
-      name: 'xterm-256color',
-    });
-
-    jobRecord.childProcess = child;
-    jobRecord.status = 'running';
-    jobRecord.started_at = new Date().toISOString();
-
-    child.on('data', (data) => {
-      const text = data.toString();
-      jobRecord.output += text;
-      jobRecord.output_kind = 'output';
-    });
-
-    child.on('exit', (code) => {
-      jobRecord.completed_at = new Date().toISOString();
-      jobRecord.exit_code = code ?? 0;
-      if (code === 0) {
-        jobRecord.status = 'completed';
-      } else {
-        jobRecord.status = 'failed';
-        if (!jobRecord.output_kind || jobRecord.output_kind === 'output') {
-          jobRecord.output_kind = 'error';
-        }
-      }
-    });
-
-    agentJobs.set(jobId, { childProcess: child, job: jobRecord });
-    return { ok: true, job: serializeJob(jobRecord) };
-  }
-
-  child = spawn(command, spawnArgs, {
-    cwd,
-    env: spawnEnv,
-    stdio: ['pipe', 'pipe', 'pipe'],
-    shell: false,
-    detached: false,
-  });
-
-  jobRecord.childProcess = child;
   jobRecord.status = 'running';
   jobRecord.started_at = new Date().toISOString();
 
-  // For interactive agents that read from stdin, send the prompt and close
-  // stdin so the process knows there is no more input.
-  if (!usesPromptFlag && prompt) {
-    try {
-      child.stdin.write(prompt + '\n');
-      child.stdin.end();
-    } catch (_) { /* stdin may already be closed */ }
-  }
+  const cwd = config.usesWorkingDirectory === false
+    ? process.env.HOME || '/tmp'
+    : working_directory || process.env.HOME || '/tmp';
+  const spawnArgs = buildAgentSpawnArgs(config, prompt, requestedModel);
 
-  // Capture stdout
-  child.stdout.on('data', (chunk) => {
-    const text = chunk.toString();
-    jobRecord.output += text;
-    jobRecord.output_kind = 'output';
-  });
-
-  // Capture stderr
-  child.stderr.on('data', (chunk) => {
-    const text = chunk.toString();
-    if (!jobRecord.output_kind) jobRecord.output_kind = 'error';
-    jobRecord.output += (jobRecord.output ? '\n' : '') + text;
-  });
-
-  // Process exited
-  child.on('close', (code) => {
-    jobRecord.completed_at = new Date().toISOString();
-    jobRecord.exit_code = code;
-    if (code === 0) {
-      jobRecord.status = 'completed';
-    } else {
-      jobRecord.status = 'failed';
-      if (!jobRecord.output_kind) jobRecord.output_kind = 'error';
-    }
-    // Keep in map for history — renderer reads from it via list
-  });
-
-  // Process error (e.g., command not found)
-  child.on('error', (err) => {
+  let child = null;
+  try {
+    child = config.pty
+      ? attachAgentPty(jobRecord, config, command, spawnArgs, cwd, spawnEnv, prompt)
+      : attachAgentChildProcess(jobRecord, config, command, spawnArgs, cwd, spawnEnv, prompt);
+    jobRecord.childProcess = child;
+  } catch (err) {
     jobRecord.completed_at = new Date().toISOString();
     jobRecord.status = 'failed';
     jobRecord.exit_code = null;
     jobRecord.output_kind = 'error';
     jobRecord.output += (jobRecord.output ? '\n' : '') + `Process error: ${err.message}`;
-  });
+  }
 
   agentJobs.set(jobId, { childProcess: child, job: jobRecord });
 

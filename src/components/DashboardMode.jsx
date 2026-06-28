@@ -10,10 +10,13 @@ import {
 import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, GDASH_WINDOW_ID, KLIPIT_WINDOW_ID } from '../context/ModeContext';
 import { useChat } from '../context/ChatContext';
 import DashboardPerciNowGlance from './DashboardPerciNowGlance';
+import UsageLimitsGlance from './UsageLimitsGlance';
 import { AGENT_DEFINITIONS, ACTIVE_JOB_STATUSES, ATTENTION_JOB_STATUSES } from './AgentsPanel';
 import OnboardingCard, { hasOnboardingBeenSeen } from './OnboardingCard';
 import { BeginnerGuideModal } from './BeginnerGuideModal';
 import { NATIVE_TILES, SYSTEM_TILES, LOGO_WHITE_BOX_IDS, LOGO_FILL_COVER_IDS } from '../lib/appCatalog';
+import { getPwaRegistry, removePwa, pwaToTile } from '../lib/pwaRegistry';
+import AddPwaModal from './windows/AddPwaModal';
 import { readJsonStorage, writeStringStorage } from '../lib/persistentStore';
 import './DashboardMode.css';
 
@@ -233,6 +236,25 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
     });
     const [alphabeticalSections, setAlphabeticalSections] = useState({ native: false, system: false });
     const [dragState, setDragState] = useState(null);
+
+    // ── PWA shortcut tiles ──────────────────────────────────────────────────
+    const [pwaTiles, setPwaTiles] = useState(() => getPwaRegistry().map(pwaToTile));
+    const [showAddPwa, setShowAddPwa] = useState(false);
+
+    const refreshPwaTiles = useCallback(() => {
+        setPwaTiles(getPwaRegistry().map(pwaToTile));
+    }, []);
+
+    const handleRemovePwa = useCallback((pwaId) => {
+        removePwa(pwaId);
+        refreshPwaTiles();
+        // If a window for this PWA is open, it will show a "removed" state
+        // via PwaShortcutWindow's logic since the registry no longer has it
+    }, [refreshPwaTiles]);
+
+    const handlePwaAdded = useCallback(() => {
+        refreshPwaTiles();
+    }, [refreshPwaTiles]);
 
     // Drop the user straight into Settings focused on OpenRouter, with its
     // API-key field revealed. Used by the beginner guide's OpenRouter CTA.
@@ -520,23 +542,24 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                                 onToggleAlphabetical={() => toggleAlphabeticalSection('system')}
                             />
                             <div className="dash-tiles dash-tiles-system">
-                                {orderedSystemTiles.map(({ id, icon: Icon, logo, title, desc, hue, artwork, bgImage }, i) => {
-                                    const isWhiteBox = LOGO_WHITE_BOX_IDS.has(id);
+                                {[...orderedSystemTiles, ...pwaTiles].map(({ id, icon: Icon, logo, title, desc, hue, artwork, bgImage, iconSize, isPwa }, i) => {
+                                    const isWhiteBox = isPwa || LOGO_WHITE_BOX_IDS.has(id);
                                     const isFillCover = LOGO_FILL_COVER_IDS.has(id);
                                     let logoStyle;
                                     if (id === GDASH_WINDOW_ID || id === MODES.LIGHTHOUSE) logoStyle = { width: '100%', height: '100%', borderRadius: 'inherit', objectFit: 'contain', padding: '5px' };
                                     else if (id === MODES.STUDIOOS) logoStyle = { width: '100%', height: '100%', borderRadius: 'inherit', objectFit: 'contain', padding: '2px' };
                                     else if (isFillCover) logoStyle = { width: '100%', height: '100%', borderRadius: 'inherit', objectFit: 'cover' };
                                     else if (id === HERMES_WINDOW_ID) logoStyle = { width: '28px', height: '28px' };
+                                    else if (isWhiteBox) logoStyle = { width: '100%', height: '100%', borderRadius: 'inherit', objectFit: 'contain', padding: '4px' };
 
                                     return (
                                     <button
                                         key={id}
                                         type="button"
-                                        draggable={!alphabeticalSections.system}
-                                        className={`dash-tile dash-tile-system${artwork ? ' dash-tile-hero' : ''}${id === HERMES_WINDOW_ID ? ' dash-tile-hermes' : ''}${id === MODES.LIGHTHOUSE ? ' dash-tile-lighthouse' : ''}${dragState?.id === id ? ' is-dragging' : ''}`}
+                                        draggable={!alphabeticalSections.system && !isPwa}
+                                        className={`dash-tile dash-tile-system${artwork ? ' dash-tile-hero' : ''}${id === HERMES_WINDOW_ID ? ' dash-tile-hermes' : ''}${id === MODES.LIGHTHOUSE ? ' dash-tile-lighthouse' : ''}${dragState?.id === id ? ' is-dragging' : ''}${isPwa ? ' dash-tile-pwa' : ''}`}
                                         style={{ '--tile': hue, '--i': i + NATIVE_TILES.length }}
-                                        onDragStart={(event) => startTileDrag('system', id, event)}
+                                        onDragStart={(event) => !isPwa && startTileDrag('system', id, event)}
                                         onDragEnd={endTileDrag}
                                         onDragOver={(event) => handleTileDragOver('system', id, event)}
                                         onDrop={(event) => handleTileDrop('system', id, event)}
@@ -557,7 +580,7 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                                             </span>
                                         )}
                                         <span className={`dash-tile-icon ${isWhiteBox || isFillCover ? 'overflow-hidden' : ''} ${isWhiteBox ? '!bg-white' : ''}`}>
-                                            {logo ? <img src={logo} alt="" className="dash-tile-logo" style={logoStyle} /> : <Icon size={20} />}
+                                            {logo ? <img src={logo} alt="" className="dash-tile-logo" style={logoStyle} /> : <Icon size={iconSize || 20} />}
                                         </span>
                                     <span className="dash-tile-name">
                                         {title}
@@ -567,10 +590,35 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                                     </span>
                                     <span className="dash-tile-desc">{id === OPENCLAW_WINDOW_ID ? openClawDesc : desc}</span>
                                     {openIds.has(id) && <span className="dash-tile-open">open</span>}
+                                    {isPwa && (
+                                        <span
+                                            className="dash-tile-remove"
+                                            role="button"
+                                            tabIndex={0}
+                                            aria-label={`Remove ${title}`}
+                                            onClick={(e) => { e.stopPropagation(); handleRemovePwa(id); }}
+                                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); handleRemovePwa(id); } }}
+                                        >
+                                            ×
+                                        </span>
+                                    )}
                                     <ArrowUpRight size={13} className="dash-tile-arrow" />
                                 </button>
                                 );
                                 })}
+                                {/* Add PWA tile — always last in system section */}
+                                <button
+                                    type="button"
+                                    className="dash-tile dash-tile-system dash-tile-add-pwa"
+                                    onClick={() => setShowAddPwa(true)}
+                                    aria-label="Add web app shortcut"
+                                >
+                                    <span className="dash-tile-icon dash-tile-add-icon">
+                                        <Plus size={20} />
+                                    </span>
+                                    <span className="dash-tile-name">Add Web App</span>
+                                    <span className="dash-tile-desc">Pin any site as a shortcut</span>
+                                </button>
                             </div>
                         </div>
                     </section>
@@ -635,6 +683,11 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                             )}
                         </div>
 
+                        {/* Usage limits */}
+                        <div className="dash-card" style={{ '--i': 2.5 }}>
+                            <UsageLimitsGlance />
+                        </div>
+
                         {/* Recent chats */}
                         <div className="dash-card" style={{ '--i': 3 }}>
                             <div className="dash-card-head">
@@ -679,6 +732,11 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
             <NativeToolModal
                 tool={nativeToolModal ? NATIVE_TOOL_MODALS[nativeToolModal] : null}
                 onClose={() => setNativeToolModal(null)}
+            />
+            <AddPwaModal
+                isOpen={showAddPwa}
+                onClose={() => setShowAddPwa(false)}
+                onAdded={handlePwaAdded}
             />
         </div>
     );

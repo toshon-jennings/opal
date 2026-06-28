@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ArrowUpToLine, Minus, Maximize2, Minimize2, X } from 'lucide-react';
 import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, ARTIFACT_WINDOW_ID, RESEARCH_WINDOW_ID, COMPARE_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID } from '../../context/ModeContext';
@@ -12,6 +12,7 @@ const GLYPHS = {
     [MODES.POWER_WORKSPACE]: 'PW',
     [MODES.SURFACE_MAP]: 'PM',
     [MODES.PERCI_NOW]: 'NW',
+    [MODES.PERCI_DESK]: 'PD',
     [MODES.COWORK]: 'CW',
     [MODES.CODE]: 'CD',
     [MODES.AGENTS]: 'AG',

@@ -572,7 +572,7 @@ function MemoryDashboard({ memoryData, onRefresh }) {
                 </div>
                 <p className="mt-4 pt-3 border-t border-[var(--text-tertiary)]/20 text-[10px] text-[var(--text-tertiary)] leading-relaxed">
                     These entries are injected into the system prompt on every turn. High usage reduces the available context window for conversation.
-                    Keep total overhead under 2,000 chars for best results.
+                    Keep total overhead under 2,500 chars for best results.
                 </p>
             </div>
         </div>

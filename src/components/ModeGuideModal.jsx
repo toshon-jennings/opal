@@ -141,9 +141,9 @@ function OrbitHero() {
         >
             <defs>
                 <radialGradient id="mgfm-core" cx="50%" cy="42%" r="65%">
-                    <stop offset="0%" stopColor="#c7d2fe" />
-                    <stop offset="55%" stopColor="#6366f1" />
-                    <stop offset="100%" stopColor="#4338ca" />
+                    <stop offset="0%" stopColor="#fdba74" />
+                    <stop offset="55%" stopColor="#f97316" />
+                    <stop offset="100%" stopColor="#c2410c" />
                 </radialGradient>
                 <filter id="mgfm-glow" x="-60%" y="-60%" width="220%" height="220%">
                     <feGaussianBlur stdDeviation="6" result="b" />
@@ -182,7 +182,9 @@ function OrbitHero() {
                     <g key={p.id} className="mgfm-station">
                         <circle cx={p.x} cy={p.y} r="16" fill="var(--bg-primary)" stroke={p.accent} strokeWidth="1.25" />
                         <g transform={`translate(${p.x - 8}, ${p.y - 8})`} style={{ color: p.accent }}>
-                            <Icon size={16} />
+                            <g className="mgfm-station-icon-wrap">
+                                <Icon size={16} />
+                            </g>
                         </g>
                         <text
                             x={p.x}
@@ -198,7 +200,7 @@ function OrbitHero() {
 
             {/* Core */}
             <circle cx={cx} cy={cy} r="46" fill="url(#mgfm-core)" filter="url(#mgfm-glow)" />
-            <circle cx={cx} cy={cy} r="46" fill="none" stroke="#e0e7ff" strokeOpacity="0.35" strokeWidth="1" />
+            <circle cx={cx} cy={cy} r="46" fill="none" stroke="#fed7aa" strokeOpacity="0.35" strokeWidth="1" />
             <text x={cx} y={cy - 4} textAnchor="middle" className="mgfm-core-label">PERCI</text>
             <text x={cx} y={cy + 13} textAnchor="middle" className="mgfm-core-sub">modes · workflow · control</text>
         </svg>
@@ -424,12 +426,12 @@ export function ModeGuideModal({ isOpen, onClose }) {
                                     {modeCards.map((mode) => {
                                         const Icon = mode.icon;
                                         return (
-                                            <article key={mode.id} className="mgfm-surface" style={{ borderColor: `${mode.accent}4d` }}>
+                                            <article key={mode.id} className="mgfm-surface" style={{ borderColor: `${mode.accent}4d`, '--mg-card-accent': mode.accent, '--mg-card-accent-soft': `${mode.accent}0d` }}>
                                                 <div className="mgfm-surface-head">
                                                     <span className="mgfm-surface-icon" style={{ backgroundColor: `${mode.accent}14`, color: mode.accent, borderColor: `${mode.accent}33` }}>
                                                         <Icon size={15} />
                                                     </span>
-                                                    <h4 style={{ color: 'var(--text-primary)' }}>{mode.label}</h4>
+                                                    <h4 style={{ color: mode.accent }}>{mode.label}</h4>
                                                 </div>
                                                 <p className="mgfm-surface-what">{mode.summary}</p>
                                                 <ul className="mgfm-surface-list">
@@ -620,10 +622,10 @@ export function ModeGuideModal({ isOpen, onClose }) {
 const GUIDE_STYLES = `
 .mgfm,
 .mgfm-backdrop {
-    --mg-accent: #6366f1;
-    --mg-accent-bright: #818cf8;
-    --mg-accent-soft: rgba(99, 102, 241, 0.12);
-    --mg-accent-line: rgba(99, 102, 241, 0.30);
+    --mg-accent: #f97316;
+    --mg-accent-bright: #fb923c;
+    --mg-accent-soft: rgba(249, 115, 22, 0.12);
+    --mg-accent-line: rgba(249, 115, 22, 0.30);
     --mg-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code", Menlo, monospace;
 }
 
@@ -724,9 +726,13 @@ const GUIDE_STYLES = `
     border: 1px solid var(--border);
     background: var(--bg-primary);
     color: var(--text-secondary);
-    transition: color 140ms, background 140ms;
+    transition: color 140ms, background-color 140ms, transform 200ms ease;
 }
-.mgfm-close:hover { background: var(--bg-hover); color: var(--text-primary); }
+.mgfm-close:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    transform: rotate(90deg);
+}
 
 /* Body layout */
 .mgfm-body { display: flex; min-height: 0; flex: 1; }
@@ -761,20 +767,31 @@ const GUIDE_STYLES = `
     border-radius: 0.55rem;
     text-align: left;
     color: var(--text-secondary);
-    transition: color 140ms, background 140ms;
+    transition: color 150ms ease, background-color 150ms ease, transform 150ms ease;
 }
-.mgfm-toc-link:hover { background: var(--bg-hover); color: var(--text-primary); }
-.mgfm-toc-link.is-active { background: var(--mg-accent-soft); color: var(--text-primary); }
-.mgfm-toc-link.is-active::before {
+.mgfm-toc-link:hover:not(.is-active) {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    transform: translateX(4px);
+}
+.mgfm-toc-link.is-active {
+    background: var(--mg-accent-soft);
+    color: var(--text-primary);
+}
+.mgfm-toc-link::before {
     content: "";
     position: absolute;
     left: -0.9rem;
     top: 50%;
-    transform: translateY(-50%);
+    transform: translateY(-50%) scaleY(0);
     width: 3px;
     height: 1.1rem;
     border-radius: 0 3px 3px 0;
     background: var(--mg-accent);
+    transition: transform 200ms ease;
+}
+.mgfm-toc-link.is-active::before {
+    transform: translateY(-50%) scaleY(1);
 }
 .mgfm-toc-no {
     font-family: var(--mg-mono);
@@ -815,6 +832,27 @@ const GUIDE_STYLES = `
         var(--bg-secondary);
 }
 .mgfm-orbit { display: block; width: 100%; height: auto; }
+.mgfm-station { cursor: pointer; }
+.mgfm-station circle,
+.mgfm-station-icon-wrap {
+    transition: transform 250ms cubic-bezier(0.34, 1.56, 0.64, 1), stroke-width 200ms ease;
+    transform-origin: center;
+    transform-box: fill-box;
+}
+.mgfm-station:hover circle {
+    transform: scale(1.15);
+    stroke-width: 2px;
+}
+.mgfm-station:hover .mgfm-station-icon-wrap {
+    transform: scale(1.15);
+}
+.mgfm-station text {
+    transition: fill 200ms ease, font-weight 200ms ease;
+}
+.mgfm-station:hover text {
+    fill: var(--text-primary);
+    font-weight: 700;
+}
 .mgfm-station-label {
     font-family: var(--mg-mono);
     font-size: 11px;
@@ -867,6 +905,12 @@ const GUIDE_STYLES = `
     border-radius: 0.75rem;
     border: 1px solid var(--border);
     background: var(--bg-secondary);
+    transition: transform 200ms ease, border-color 200ms ease, background-color 200ms ease;
+}
+.mgfm-step:hover {
+    transform: translateX(4px);
+    border-color: var(--mg-accent-line);
+    background: var(--bg-hover);
 }
 .mgfm-step-no {
     display: grid;
@@ -881,6 +925,10 @@ const GUIDE_STYLES = `
     font-size: 0.72rem;
     font-weight: 600;
     color: var(--mg-accent-bright);
+    transition: transform 350ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.mgfm-step:hover .mgfm-step-no {
+    transform: scale(1.1) rotate(-10deg);
 }
 .mgfm-step-name { font-size: 0.9rem; font-weight: 600; color: var(--text-primary); }
 .mgfm-step-body { margin-top: 0.2rem; font-size: 0.82rem; line-height: 1.5; color: var(--text-secondary); }
@@ -892,13 +940,29 @@ const GUIDE_STYLES = `
     display: flex;
     align-items: center;
     gap: 0.7rem;
-    padding: 0.62rem 0.4rem;
+    padding: 0.62rem 0.5rem;
     border-bottom: 1px solid var(--border);
     font-size: 0.83rem;
+    border-radius: 0.5rem;
+    transition: transform 200ms ease, background-color 200ms ease;
+}
+.mgfm-rung:hover {
+    transform: translateX(6px);
+    background: var(--bg-secondary);
 }
 .mgfm-rung:last-child { border-bottom: none; }
 .mgfm-rung-no { font-family: var(--mg-mono); font-size: 0.68rem; color: var(--text-tertiary); width: 1.4rem; }
-.mgfm-rung-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.mgfm-rung-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    transition: transform 200ms ease, box-shadow 200ms ease;
+}
+.mgfm-rung:hover .mgfm-rung-dot {
+    transform: scale(1.4);
+    box-shadow: 0 0 8px currentColor;
+}
 .mgfm-rung-when { color: var(--text-secondary); flex: 1; min-width: 0; }
 .mgfm-rung-arrow { color: var(--text-tertiary); flex-shrink: 0; }
 .mgfm-rung-then { color: var(--text-primary); font-weight: 550; flex: 1; min-width: 0; }
@@ -910,10 +974,22 @@ const GUIDE_STYLES = `
     padding: 0.95rem 1rem;
     border-radius: 0.8rem;
     border: 1px solid var(--border);
-    background: var(--bg-secondary);
+    background: 
+        radial-gradient(120% 120% at 100% 0%, var(--mg-card-accent-soft), transparent 70%),
+        var(--bg-secondary);
+    transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 200ms ease, box-shadow 200ms ease;
+}
+.mgfm-surface:hover {
+    transform: translateY(-3px) scale(1.015);
+    border-color: var(--mg-card-accent) !important;
+    background: 
+        radial-gradient(120% 120% at 100% 0%, var(--mg-card-accent-soft), transparent 50%),
+        var(--bg-secondary);
+    box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.5), 
+                0 0 20px -5px var(--mg-card-accent);
 }
 .mgfm-surface-head { display: flex; align-items: center; gap: 0.55rem; margin-bottom: 0.5rem; }
-.mgfm-surface-head h4 { font-size: 0.86rem; font-weight: 620; color: var(--text-primary); }
+.mgfm-surface-head h4 { font-size: 0.86rem; font-weight: 620; }
 .mgfm-surface-icon {
     display: grid;
     place-items: center;
@@ -924,15 +1000,19 @@ const GUIDE_STYLES = `
     border: 1px solid var(--mg-accent-line);
     background: var(--mg-accent-soft);
     color: var(--mg-accent-bright);
+    transition: transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-.mgfm-surface-what { font-size: 0.8rem; line-height: 1.5; color: var(--text-secondary); }
+.mgfm-surface:hover .mgfm-surface-icon {
+    transform: scale(1.15) rotate(5deg);
+}
+.mgfm-surface-what { font-size: 0.84rem; line-height: 1.55; color: var(--text-primary); }
 .mgfm-surface-list { margin: 0.6rem 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.4rem; }
 .mgfm-surface-list li {
     position: relative;
     padding-left: 0.95rem;
     font-size: 0.78rem;
-    line-height: 1.45;
-    color: var(--text-tertiary);
+    line-height: 1.5;
+    color: var(--text-secondary);
 }
 .mgfm-surface-list li::before {
     content: "";
@@ -985,6 +1065,11 @@ const GUIDE_STYLES = `
     font-size: 0.84rem;
     line-height: 1.55;
     color: var(--text-secondary);
+    transition: transform 150ms ease, color 150ms ease;
+}
+.mgfm-bullets li:hover {
+    transform: translateX(4px);
+    color: var(--text-primary);
 }
 .mgfm-bullets li::before {
     content: "";
@@ -995,6 +1080,11 @@ const GUIDE_STYLES = `
     height: 5px;
     border-radius: 50%;
     background: var(--mg-accent);
+    transition: transform 200ms ease, background-color 200ms ease;
+}
+.mgfm-bullets li:hover::before {
+    transform: scale(1.4);
+    background-color: var(--mg-accent-bright);
 }
 
 .mgfm-kbd {

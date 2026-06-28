@@ -1,0 +1,1006 @@
+.perci-desk-mode {
+    --desk-attention: #dc2626;
+    --desk-waiting: #d97706;
+    --desk-done: var(--accent-hover);
+    --desk-hero-bg:
+        radial-gradient(circle at 82% 35%, rgba(var(--accent-rgb), 0.14), transparent 28%),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.84), rgba(249, 115, 22, 0.12));
+    --desk-feature-0: linear-gradient(135deg, rgba(249, 115, 22, 0.13), rgba(255, 255, 255, 0.72));
+    --desk-feature-1: linear-gradient(135deg, rgba(251, 146, 60, 0.12), rgba(255, 255, 255, 0.72));
+    --desk-feature-2: linear-gradient(135deg, rgba(253, 186, 116, 0.14), rgba(255, 255, 255, 0.72));
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    background:
+        radial-gradient(circle at 16% 12%, rgba(var(--accent-rgb), 0.1), transparent 30%),
+        radial-gradient(circle at 82% 8%, rgba(251, 146, 60, 0.08), transparent 28%),
+        linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 48%, var(--bg-tertiary) 100%);
+    color: var(--text-primary);
+}
+
+.perci-desk-shell {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    height: calc(100% - 36px);
+    min-height: 0;
+    margin: 18px;
+    overflow: hidden;
+    border: 1px solid var(--glass-border);
+    border-radius: 34px;
+    background: var(--glass-bg);
+    box-shadow: var(--glass-shadow);
+    backdrop-filter: blur(22px);
+}
+
+.perci-desk-left,
+.perci-desk-center,
+.perci-desk-right {
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.perci-desk-left,
+.perci-desk-right {
+    display: grid;
+    align-content: start;
+    gap: 18px;
+    padding: 28px 20px;
+}
+
+.perci-desk-left {
+    border-right: 1px solid var(--border);
+    background: rgba(250, 250, 250, 0.58);
+}
+
+.perci-desk-right {
+    display: none;
+    border-left: 1px solid var(--border);
+    background: rgba(250, 250, 250, 0.46);
+}
+
+.perci-desk-center {
+    display: grid;
+    align-content: start;
+    gap: 24px;
+    padding: 28px;
+}
+
+.perci-desk-brand {
+    display: grid;
+    gap: 8px;
+    padding: 2px 8px 12px;
+}
+
+.perci-desk-brand span,
+.perci-desk-providers h2,
+.perci-desk-add label,
+.perci-desk-right-head span,
+.perci-desk-bars-card h2,
+.perci-desk-system-card span,
+.perci-desk-ask label,
+.perci-desk-core-copy span,
+.perci-desk-section-title span {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    color: var(--text-tertiary);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.perci-desk-brand strong {
+    font-family: 'Outfit', system-ui, sans-serif;
+    font-size: 32px;
+    line-height: 1;
+    font-weight: 760;
+    letter-spacing: 0;
+}
+
+.perci-desk-providers,
+.perci-desk-add,
+.perci-desk-ask,
+.perci-desk-feature,
+.perci-desk-item,
+.perci-desk-system-card,
+.perci-desk-bars-card {
+    border: 1px solid var(--glass-border);
+    background: rgba(255, 255, 255, 0.58);
+    box-shadow: var(--shadow-md);
+    backdrop-filter: blur(18px);
+}
+
+.perci-desk-providers,
+.perci-desk-add,
+.perci-desk-bars-card {
+    display: grid;
+    gap: 12px;
+    border-radius: 26px;
+    padding: 14px;
+}
+
+.perci-desk-signal {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    min-height: 56px;
+    border: 0;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.6);
+    padding: 10px;
+    color: var(--text-primary);
+    text-align: left;
+    transition: transform 0.16s ease, background-color 0.16s ease;
+}
+
+.perci-desk-signal:hover {
+    transform: translateY(-1px);
+    background: rgba(255, 255, 255, 0.84);
+}
+
+.perci-desk-signal svg {
+    color: var(--accent);
+}
+
+.perci-desk-signal span {
+    display: grid;
+    min-width: 0;
+    gap: 3px;
+}
+
+.perci-desk-signal strong,
+.perci-desk-feed strong,
+.perci-desk-bars-card strong {
+    overflow: hidden;
+    font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: normal;
+}
+
+.perci-desk-signal em,
+.perci-desk-feed em,
+.perci-desk-bars-card span,
+.perci-desk-system-card p {
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-style: normal;
+    line-height: 1.45;
+}
+
+.perci-desk-signal b {
+    color: var(--text-tertiary);
+    font-size: 12px;
+}
+
+.perci-desk-add > div {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 42px;
+    gap: 8px;
+}
+
+.perci-desk-add input,
+.perci-desk-ask input {
+    width: 100%;
+    min-width: 0;
+    border: 0;
+    border-radius: 18px;
+    background: rgba(242, 242, 246, 0.9);
+    color: var(--text-primary);
+    font-size: 13px;
+    outline: none;
+}
+
+.perci-desk-add input {
+    min-height: 42px;
+    padding: 0 12px;
+}
+
+.perci-desk-add button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 16px;
+    background: var(--accent);
+    color: #ffffff;
+}
+
+.perci-desk-topbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: center;
+    gap: 14px;
+}
+
+.perci-desk-welcome h1 {
+    margin: 0;
+    font-family: 'Outfit', system-ui, sans-serif;
+    font-size: 34px;
+    line-height: 1;
+    font-weight: 760;
+    letter-spacing: 0;
+}
+
+.perci-desk-welcome p {
+    margin: 8px 0 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.perci-desk-topbar nav {
+    display: flex;
+    gap: 8px;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    padding: 6px;
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.5);
+}
+
+.perci-desk-topbar button {
+    min-height: 38px;
+    border: 0;
+    border-radius: 17px;
+    background: transparent;
+    padding: 0 15px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.perci-desk-topbar button.is-active {
+    background: var(--accent);
+    color: #ffffff;
+    box-shadow: 0 10px 22px var(--accent-glow);
+}
+
+.perci-desk-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+}
+
+.perci-desk-core {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(160px, 220px);
+    align-items: center;
+    gap: 20px;
+    min-height: 250px;
+    overflow: hidden;
+    border: 1px solid var(--glass-border);
+    border-radius: 34px;
+    background: var(--desk-hero-bg);
+    padding: 28px;
+    box-shadow: 0 24px 58px rgba(94, 102, 132, 0.14);
+}
+
+.perci-desk-core-copy {
+    display: grid;
+    gap: 10px;
+    max-width: 440px;
+}
+
+.perci-desk-core-copy h2 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: clamp(24px, 3vw, 30px);
+    line-height: 1.04;
+    font-weight: 760;
+    letter-spacing: 0;
+}
+
+.perci-desk-core-copy p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.55;
+}
+
+.perci-desk-orbit {
+    position: relative;
+    display: grid;
+    place-items: center;
+    justify-self: center;
+    width: 168px;
+    height: 168px;
+    border-radius: 50%;
+    background:
+        radial-gradient(circle, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.36) 62%, transparent 64%),
+        rgba(255, 255, 255, 0.36);
+}
+
+.perci-desk-orbit::before,
+.perci-desk-orbit::after,
+.perci-desk-orbit span {
+    position: absolute;
+    content: '';
+    border-radius: 50%;
+}
+
+.perci-desk-orbit::before {
+    inset: 14px;
+    border: 14px solid rgba(var(--accent-rgb), 0.18);
+    border-top-color: var(--accent);
+    border-right-color: transparent;
+    transform: rotate(-18deg);
+}
+
+.perci-desk-orbit::after {
+    inset: 34px;
+    border: 9px solid rgba(251, 146, 60, 0.16);
+    border-left-color: var(--accent-secondary);
+    border-bottom-color: transparent;
+    transform: rotate(28deg);
+}
+
+.perci-desk-orbit .desk-orbit-a {
+    width: 32px;
+    height: 32px;
+    right: 18px;
+    top: 24px;
+    background: var(--accent);
+    filter: blur(8px);
+    opacity: 0.66;
+}
+
+.perci-desk-orbit .desk-orbit-b {
+    width: 34px;
+    height: 34px;
+    left: 18px;
+    bottom: 30px;
+    background: var(--accent-secondary);
+    filter: blur(8px);
+    opacity: 0.62;
+}
+
+.perci-desk-orbit .desk-orbit-c {
+    width: 18px;
+    height: 18px;
+    right: 44px;
+    bottom: 20px;
+    background: var(--accent-cyan);
+    filter: blur(6px);
+    opacity: 0.7;
+}
+
+.perci-desk-orbit strong {
+    z-index: 1;
+    color: var(--text-primary);
+    font-size: 48px;
+    line-height: 0.9;
+    font-weight: 850;
+    letter-spacing: 0;
+}
+
+.perci-desk-orbit em {
+    z-index: 1;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 850;
+    text-transform: uppercase;
+}
+
+.perci-desk-appointment-bar {
+    position: absolute;
+    left: 28px;
+    right: 28px;
+    bottom: 24px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.perci-desk-appointment-bar span {
+    min-width: 0;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.58);
+    padding: 10px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 850;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.perci-desk-ask {
+    display: grid;
+    align-content: start;
+    gap: 13px;
+    border-radius: 30px;
+    padding: 20px;
+}
+
+.perci-desk-ask input {
+    min-height: 58px;
+    padding: 16px;
+    resize: none;
+}
+
+.perci-desk-feature-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.perci-desk-feature {
+    position: relative;
+    display: grid;
+    min-height: 150px;
+    overflow: hidden;
+    border-radius: 30px;
+    padding: 22px;
+    color: var(--text-primary);
+    text-align: left;
+    transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.perci-desk-feature:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 24px 58px rgba(94, 102, 132, 0.18);
+}
+
+.perci-desk-feature.is-0 {
+    background: var(--desk-feature-0);
+}
+
+.perci-desk-feature.is-1 {
+    background: var(--desk-feature-1);
+}
+
+.perci-desk-feature.is-2 {
+    background: var(--desk-feature-2);
+}
+
+.perci-desk-feature-icon {
+    position: absolute;
+    right: 18px;
+    top: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.48);
+    color: rgba(var(--accent-rgb), 0.62);
+}
+
+.perci-desk-feature-body {
+    display: grid;
+    align-content: end;
+    gap: 10px;
+    min-height: 96px;
+    padding-right: 58px;
+}
+
+.perci-desk-feature-body strong {
+    overflow-wrap: anywhere;
+    font-size: 15px;
+    line-height: 1.25;
+}
+
+.perci-desk-feature-body em,
+.perci-desk-feature-source {
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 720;
+    line-height: 1.35;
+}
+
+.perci-desk-feature-source {
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+}
+
+.perci-desk-queue {
+    display: grid;
+    gap: 12px;
+}
+
+.perci-desk-section-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.perci-desk-section-title h2 {
+    margin: 0;
+    font-size: 19px;
+    line-height: 1;
+}
+
+.perci-desk-list {
+    display: grid;
+    gap: 12px;
+}
+
+.perci-desk-item {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px;
+    border-radius: 26px;
+    padding: 15px;
+}
+
+.perci-desk-item.is-overdue,
+.perci-desk-item.is-blocked {
+    border-color: rgba(220, 38, 38, 0.34);
+}
+
+.perci-desk-check {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border: 0;
+    border-radius: 15px;
+    background: rgba(242, 242, 246, 0.92);
+    color: var(--text-tertiary);
+}
+
+.perci-desk-check:disabled {
+    cursor: default;
+    opacity: 0.58;
+}
+
+.perci-desk-check:not(:disabled):hover,
+.perci-desk-item.is-done .perci-desk-check {
+    color: var(--accent);
+}
+
+.perci-desk-item-title {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.perci-desk-item-title strong {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: 14px;
+    line-height: 1.35;
+}
+
+.perci-desk-item-title span {
+    flex: 0 0 auto;
+    border-radius: 999px;
+    background: rgba(242, 242, 246, 0.9);
+    padding: 5px 9px;
+    color: var(--text-tertiary);
+    font-size: 10px;
+    font-weight: 850;
+    text-transform: uppercase;
+}
+
+.perci-desk-item p,
+.perci-desk-item em {
+    display: block;
+    margin: 5px 0 0;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-style: normal;
+    line-height: 1.45;
+}
+
+.perci-desk-source {
+    border: 0;
+    border-radius: 15px;
+    background: rgba(242, 242, 246, 0.92);
+    padding: 9px 11px;
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 850;
+}
+
+.perci-desk-right-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 4px;
+}
+
+.perci-desk-right-head svg {
+    color: var(--accent);
+}
+
+.perci-desk-feed {
+    display: grid;
+    gap: 10px;
+}
+
+.perci-desk-feed button {
+    display: grid;
+    grid-template-columns: 16px minmax(0, 1fr);
+    gap: 4px 10px;
+    border: 0;
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.52);
+    padding: 14px;
+    color: var(--text-primary);
+    text-align: left;
+}
+
+.desk-feed-dot {
+    grid-row: 1 / span 2;
+    width: 9px;
+    height: 9px;
+    margin-top: 4px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.12);
+}
+
+.desk-feed-dot.is-overdue,
+.desk-feed-dot.is-blocked {
+    background: var(--desk-attention);
+    box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.14);
+}
+
+.desk-feed-dot.is-waiting {
+    background: var(--desk-waiting);
+    box-shadow: 0 0 0 4px rgba(217, 119, 6, 0.14);
+}
+
+.desk-feed-dot.is-done {
+    background: var(--desk-done);
+    box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.12);
+}
+
+.perci-desk-system-card {
+    display: grid;
+    gap: 12px;
+    border-radius: 26px;
+    padding: 18px;
+}
+
+.perci-desk-system-card > div {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.perci-desk-system-card svg {
+    color: var(--accent);
+}
+
+.perci-desk-system-card p,
+.perci-desk-bars-card p {
+    margin: 0;
+}
+
+.perci-desk-bars-card button {
+    display: grid;
+    gap: 6px;
+    border: 0;
+    border-radius: 20px;
+    background: rgba(242, 242, 246, 0.82);
+    padding: 14px;
+    color: var(--text-primary);
+    text-align: left;
+}
+
+.perci-desk-empty {
+    display: grid;
+    justify-items: center;
+    gap: 8px;
+    border: 1px dashed rgba(135, 144, 168, 0.3);
+    border-radius: 24px;
+    padding: 28px 16px;
+    color: #8790a8;
+    text-align: center;
+}
+
+.perci-desk-empty.is-featured {
+    min-height: 172px;
+    align-content: center;
+    grid-column: 1 / -1;
+}
+
+.perci-desk-empty p {
+    margin: 0;
+    font-weight: 850;
+}
+
+@media (max-width: 1180px) {
+    .perci-desk-shell {
+        grid-template-columns: 230px minmax(0, 1fr);
+    }
+
+    .perci-desk-right {
+        display: none;
+    }
+
+    .perci-desk-hero {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 900px) {
+    .perci-desk-shell {
+        display: block;
+        height: calc(100% - 20px);
+        margin: 10px;
+        overflow-y: auto;
+    }
+
+    .perci-desk-left,
+    .perci-desk-center,
+    .perci-desk-right {
+        overflow: visible;
+    }
+
+    .perci-desk-left {
+        border-right: 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.54);
+    }
+
+    .perci-desk-right {
+        display: grid;
+        border-left: 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.54);
+    }
+
+    .perci-desk-topbar,
+    .perci-desk-core,
+    .perci-desk-feature-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .perci-desk-appointment-bar {
+        position: static;
+        grid-column: 1;
+        margin-top: 6px;
+    }
+
+    .perci-desk-item {
+        grid-template-columns: 38px minmax(0, 1fr);
+    }
+
+    .perci-desk-source {
+        grid-column: 2;
+        width: fit-content;
+    }
+}
+
+:root.dark .perci-desk-mode {
+    --desk-attention: #f87171;
+    --desk-waiting: #f59e0b;
+    --desk-done: var(--accent-hover);
+    --desk-hero-bg:
+        radial-gradient(circle at 82% 35%, rgba(var(--accent-rgb), 0.18), transparent 28%),
+        linear-gradient(135deg, rgba(28, 28, 33, 0.92), rgba(249, 115, 22, 0.14));
+    --desk-feature-0: linear-gradient(135deg, rgba(249, 115, 22, 0.2), rgba(28, 28, 33, 0.86));
+    --desk-feature-1: linear-gradient(135deg, rgba(251, 146, 60, 0.16), rgba(28, 28, 33, 0.86));
+    --desk-feature-2: linear-gradient(135deg, rgba(253, 186, 116, 0.14), rgba(28, 28, 33, 0.86));
+    background:
+        radial-gradient(circle at 16% 12%, rgba(var(--accent-rgb), 0.13), transparent 30%),
+        radial-gradient(circle at 82% 8%, rgba(251, 146, 60, 0.08), transparent 28%),
+        linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 48%, var(--bg-tertiary) 100%);
+    color: var(--text-primary);
+}
+
+:root.dark .perci-desk-shell {
+    border-color: var(--glass-border);
+    background: var(--glass-bg);
+    box-shadow: var(--glass-shadow);
+}
+
+:root.dark .perci-desk-left,
+:root.dark .perci-desk-right {
+    border-color: var(--border);
+    background: rgba(20, 20, 23, 0.56);
+}
+
+:root.dark .perci-desk-brand span,
+:root.dark .perci-desk-providers h2,
+:root.dark .perci-desk-add label,
+:root.dark .perci-desk-right-head span,
+:root.dark .perci-desk-bars-card h2,
+:root.dark .perci-desk-system-card span,
+:root.dark .perci-desk-ask label,
+:root.dark .perci-desk-core-copy span,
+:root.dark .perci-desk-section-title span {
+    color: var(--text-tertiary);
+}
+
+:root.dark .perci-desk-brand strong,
+:root.dark .perci-desk-welcome h1,
+:root.dark .perci-desk-core-copy h2,
+:root.dark .perci-desk-section-title h2,
+:root.dark .perci-desk-orbit strong,
+:root.dark .perci-desk-signal strong,
+:root.dark .perci-desk-feed strong,
+:root.dark .perci-desk-bars-card strong,
+:root.dark .perci-desk-item-title strong {
+    color: var(--text-primary);
+}
+
+:root.dark .perci-desk-welcome p,
+:root.dark .perci-desk-core-copy p,
+:root.dark .perci-desk-signal em,
+:root.dark .perci-desk-feed em,
+:root.dark .perci-desk-bars-card span,
+:root.dark .perci-desk-system-card p,
+:root.dark .perci-desk-item p,
+:root.dark .perci-desk-item em,
+:root.dark .perci-desk-feature-body em,
+:root.dark .perci-desk-feature-source {
+    color: var(--text-secondary);
+}
+
+:root.dark .perci-desk-providers,
+:root.dark .perci-desk-add,
+:root.dark .perci-desk-ask,
+:root.dark .perci-desk-feature,
+:root.dark .perci-desk-item,
+:root.dark .perci-desk-system-card,
+:root.dark .perci-desk-bars-card {
+    border-color: var(--glass-border);
+    background: rgba(20, 20, 23, 0.72);
+    box-shadow: var(--shadow-md);
+}
+
+:root.dark .perci-desk-signal,
+:root.dark .perci-desk-feed button,
+:root.dark .perci-desk-bars-card button {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-primary);
+}
+
+:root.dark .perci-desk-signal:hover,
+:root.dark .perci-desk-feed button:hover,
+:root.dark .perci-desk-bars-card button:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+:root.dark .perci-desk-signal svg,
+:root.dark .perci-desk-system-card svg {
+    color: var(--accent);
+}
+
+:root.dark .perci-desk-signal b,
+:root.dark .perci-desk-item-title span,
+:root.dark .perci-desk-source,
+:root.dark .perci-desk-check,
+:root.dark .perci-desk-orbit em {
+    color: var(--text-tertiary);
+}
+
+:root.dark .perci-desk-add input,
+:root.dark .perci-desk-ask input {
+    background: rgba(8, 12, 20, 0.74);
+    color: var(--text-primary);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+:root.dark .perci-desk-add input::placeholder,
+:root.dark .perci-desk-ask input::placeholder {
+    color: #778297;
+}
+
+:root.dark .perci-desk-add button {
+    background: var(--accent);
+    color: #ffffff;
+}
+
+:root.dark .perci-desk-topbar nav,
+:root.dark .perci-desk-appointment-bar span,
+:root.dark .perci-desk-item-title span,
+:root.dark .perci-desk-source,
+:root.dark .perci-desk-check {
+    background: rgba(255, 255, 255, 0.07);
+}
+
+:root.dark .perci-desk-topbar button {
+    color: var(--text-secondary);
+}
+
+:root.dark .perci-desk-topbar button.is-active {
+    background: var(--accent);
+    color: #ffffff;
+    box-shadow: 0 10px 24px var(--accent-glow);
+}
+
+:root.dark .perci-desk-core {
+    border-color: var(--glass-border);
+    background: var(--desk-hero-bg);
+    box-shadow: var(--shadow-md);
+}
+
+:root.dark .perci-desk-orbit {
+    background:
+        radial-gradient(circle, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04) 62%, transparent 64%),
+        rgba(255, 255, 255, 0.05);
+}
+
+:root.dark .perci-desk-orbit::before {
+    border-color: rgba(var(--accent-rgb), 0.18);
+    border-top-color: var(--accent);
+    border-right-color: transparent;
+}
+
+:root.dark .perci-desk-orbit::after {
+    border-color: rgba(251, 146, 60, 0.16);
+    border-left-color: var(--accent-secondary);
+    border-bottom-color: transparent;
+}
+
+:root.dark .perci-desk-appointment-bar span {
+    color: var(--text-secondary);
+}
+
+:root.dark .perci-desk-feature {
+    color: var(--text-primary);
+}
+
+:root.dark .perci-desk-feature.is-0 {
+    background: var(--desk-feature-0);
+}
+
+:root.dark .perci-desk-feature.is-1 {
+    background: var(--desk-feature-1);
+}
+
+:root.dark .perci-desk-feature.is-2 {
+    background: var(--desk-feature-2);
+}
+
+:root.dark .perci-desk-feature-icon {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(249, 115, 22, 0.72);
+}
+
+:root.dark .perci-desk-feature:hover {
+    box-shadow: 0 24px 58px rgba(0, 0, 0, 0.34);
+}
+
+:root.dark .perci-desk-item.is-overdue,
+:root.dark .perci-desk-item.is-blocked {
+    border-color: rgba(248, 113, 113, 0.38);
+}
+
+:root.dark .perci-desk-check:not(:disabled):hover,
+:root.dark .perci-desk-item.is-done .perci-desk-check {
+    color: var(--accent);
+}
+
+:root.dark .perci-desk-right-head svg {
+    color: var(--accent);
+}
+
+:root.dark .desk-feed-dot {
+    background: var(--accent);
+    box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.16);
+}
+
+:root.dark .desk-feed-dot.is-overdue,
+:root.dark .desk-feed-dot.is-blocked {
+    background: var(--desk-attention);
+    box-shadow: 0 0 0 4px rgba(248, 113, 113, 0.16);
+}
+
+:root.dark .desk-feed-dot.is-waiting {
+    background: var(--desk-waiting);
+    box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.16);
+}
+
+:root.dark .desk-feed-dot.is-done {
+    background: var(--desk-done);
+    box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.16);
+}
+
+:root.dark .perci-desk-empty {
+    border-color: rgba(148, 160, 180, 0.26);
+    color: var(--text-tertiary);
+}

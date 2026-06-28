@@ -11,6 +11,8 @@ import { EditableTitle } from './EditableTitle';
 import { encryptNote, decryptNote, isEncrypted } from '../utils/note-crypto';
 import { readStringStorage, writeStringStorage } from '../lib/persistentStore';
 import { normalizeNoteTags, parseNoteTags, setNoteTags, stripNoteFrontmatter, tagKey } from '../lib/notesTags';
+import { parseNoteOKF, ensureOKFDefaults, buildNoteOKF, updateOKFTags } from '../lib/notesOKF';
+import { NotesOKFPanel } from './NotesOKFPanel';
 import {
     POWER_WORKSPACE_SURFACE_HANDOFF_EVENT,
     consumeWorkspaceSurfaceHandoff,
@@ -163,6 +165,7 @@ export default function NotesMode() {
     const [passwordInput, setPasswordInput] = useState('');
     const [passwordError, setPasswordError] = useState('');
     const [tagInput, setTagInput] = useState('');
+    const [okfFields, setOkfFields] = useState({ type: 'Note', title: '', description: '', resource: '', tags: [], timestamp: '' });
     const [workspaceOnly, setWorkspaceOnly] = useState(false);
     const [workspaceSnapshot, setWorkspaceSnapshot] = useState(() => readPowerWorkspaceSnapshot());
     const [pendingWorkspaceNoteRef, setPendingWorkspaceNoteRef] = useState(initialWorkspaceHandoff?.itemRef || '');
@@ -504,6 +507,29 @@ export default function NotesMode() {
         setActiveNote(fileName);
         setUnsavedContent(content);
         setIsDirty(false);
+
+        // Parse OKF fields from content
+        const parsed = parseNoteOKF(content);
+        if (parsed.hasOKF) {
+            setOkfFields({
+                type: parsed.type || 'Note',
+                title: parsed.title || '',
+                description: parsed.description || '',
+                resource: parsed.resource || '',
+                tags: parsed.tags || [],
+                timestamp: parsed.timestamp || '',
+            });
+        } else {
+            const defaults = ensureOKFDefaults(parsed, fileName);
+            setOkfFields({
+                type: defaults.type,
+                title: defaults.title,
+                description: defaults.description,
+                resource: defaults.resource,
+                tags: defaults.tags,
+                timestamp: defaults.timestamp,
+            });
+        }
     };
 
     // Create a new note
@@ -525,15 +551,23 @@ export default function NotesMode() {
 
             const initialText = `# ${name.replace(/\.md$/, '')}\n\n`;
             await window.electron.writeFile(filePath, initialText);
-            
+
             const newFilesMap = { ...filesMap, [name]: initialText };
             setFilesMap(newFilesMap);
             setNotesList(prev => [...prev.filter(f => f !== name), name].sort());
-            
+
             setActiveNote(name);
             setUnsavedContent(initialText);
             setIsDirty(false);
-            
+            setOkfFields({
+                type: 'Note',
+                title: name.replace(/\.md$/, ''),
+                description: `Note about ${name.replace(/\.md$/, '')}`,
+                resource: '',
+                tags: [],
+                timestamp: new Date().toISOString(),
+            });
+
             setNewNoteName('');
             setShowNewNoteInput(false);
         } catch (err) {
@@ -648,10 +682,15 @@ export default function NotesMode() {
         if (!notesFolder || !fileName) return;
         const pwd = encryptedPasswords[fileName];
         const displayName = fileName.replace(/\.md$/, '');
+
+        // Build OKF document: frontmatter from okfFields + body from content
+        const bodyContent = stripNoteFrontmatter(content);
+        const okfDoc = buildNoteOKF(okfFields, bodyContent);
+
         if (pwd) {
             // Encrypt before writing; use .enc.md extension
             const encFileName = `${displayName}.enc.md`;
-            const encrypted = await encryptNote(content, pwd);
+            const encrypted = await encryptNote(okfDoc, pwd);
             await window.electron.writeFile(`${notesFolder}/${encFileName}`, encrypted);
             setFilesMap(prev => ({ ...prev, [fileName]: encrypted }));
             // If the file was previously .md but now we're encrypting, delete old .md
@@ -671,8 +710,8 @@ export default function NotesMode() {
                 }
             }
         } else {
-            await window.electron.writeFile(`${notesFolder}/${fileName}`, content);
-            setFilesMap(prev => ({ ...prev, [fileName]: content }));
+            await window.electron.writeFile(`${notesFolder}/${fileName}`, okfDoc);
+            setFilesMap(prev => ({ ...prev, [fileName]: okfDoc }));
         }
         setIsDirty(false);
     };
@@ -876,6 +915,20 @@ export default function NotesMode() {
     const handleEditorChange = (value) => {
         setUnsavedContent(value || '');
         setIsDirty(true);
+
+        // Sync OKF fields if user edits frontmatter directly in editor
+        const parsed = parseNoteOKF(value || '');
+        if (parsed.hasOKF) {
+            setOkfFields(prev => ({
+                ...prev,
+                type: parsed.type || prev.type,
+                title: parsed.title || prev.title,
+                description: parsed.description || prev.description,
+                resource: parsed.resource || prev.resource,
+                tags: parsed.tags.length > 0 ? parsed.tags : prev.tags,
+                timestamp: parsed.timestamp || prev.timestamp,
+            }));
+        }
     };
 
     useEffect(() => {
@@ -898,14 +951,14 @@ export default function NotesMode() {
     const activeNoteLocked = !!activeNote && isEncrypted(filesMap[activeNote]) && !encryptedPasswords[activeNote] && !masterPasswordUsedFor[activeNote];
     const activeTags = useMemo(() => {
         if (!activeNote || activeNoteLocked) return [];
-        return parseNoteTags(unsavedContent);
-    }, [activeNote, activeNoteLocked, unsavedContent]);
+        return okfFields.tags || [];
+    }, [activeNote, activeNoteLocked, okfFields.tags]);
 
     const updateActiveTags = useCallback((tags) => {
         if (!activeNote || activeNoteLocked) return;
-        setUnsavedContent(setNoteTags(unsavedContent, tags));
+        setOkfFields(prev => ({ ...prev, tags }));
         setIsDirty(true);
-    }, [activeNote, activeNoteLocked, unsavedContent]);
+    }, [activeNote, activeNoteLocked]);
 
     const commitTagInput = useCallback(() => {
         const newTags = normalizeNoteTags(tagInput);
@@ -1515,6 +1568,14 @@ export default function NotesMode() {
                                 </button>
                             </div>
                         </div>
+
+                        {/* OKF Metadata Panel */}
+                        <NotesOKFPanel
+                            fields={okfFields}
+                            onFieldChange={setOkfFields}
+                            onTagsChange={(tags) => setOkfFields(prev => ({ ...prev, tags }))}
+                            disabled={activeNoteLocked}
+                        />
 
                         <div className="min-h-10 border-b border-[var(--border)] px-4 py-2 flex items-center gap-2 bg-[var(--bg-primary)] shrink-0">
                             <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] shrink-0">
