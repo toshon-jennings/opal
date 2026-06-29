@@ -26,7 +26,7 @@ const TIME_SCENES = {
         fog: '#24172a',
         background: '#1c1421',
         ambient: '#ffd2aa',
-        ambientIntensity: 0.82,
+        ambientIntensity: 0.95,
         sunColor: '#ffd38a',
         sunIntensity: 1.25,
         lampIntensity: 10,
@@ -41,7 +41,7 @@ const TIME_SCENES = {
         fog: '#223345',
         background: '#182536',
         ambient: '#fff1dc',
-        ambientIntensity: 0.95,
+        ambientIntensity: 1.1,
         sunColor: '#fff3cf',
         sunIntensity: 1.75,
         lampIntensity: 4,
@@ -56,7 +56,7 @@ const TIME_SCENES = {
         fog: '#232e3d',
         background: '#1a2130',
         ambient: '#ffe8c8',
-        ambientIntensity: 0.88,
+        ambientIntensity: 1.0,
         sunColor: '#ffe0a0',
         sunIntensity: 1.5,
         lampIntensity: 6,
@@ -71,7 +71,7 @@ const TIME_SCENES = {
         fog: '#25172d',
         background: '#1b1322',
         ambient: '#ffc2a2',
-        ambientIntensity: 0.76,
+        ambientIntensity: 0.9,
         sunColor: '#ffae73',
         sunIntensity: 1.15,
         lampIntensity: 13,
@@ -86,7 +86,7 @@ const TIME_SCENES = {
         fog: '#1b1322',
         background: '#1b1322',
         ambient: '#ffd9b8',
-        ambientIntensity: 0.58,
+        ambientIntensity: 0.8,
         sunColor: '#d7e7ff',
         sunIntensity: 0.45,
         lampIntensity: 16,
@@ -610,11 +610,11 @@ function useAgedBrickTexture() {
 
 function Room() {
     const brick = useAgedBrickTexture();
-    const strips = useMemo(() => Array.from({ length: 9 }, (_, i) => (i - 4) * 2.4), []);
+    const strips = useMemo(() => Array.from({ length: 11 }, (_, i) => (i - 5) * 2.4), []);
     return (
         <group>
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 1]}>
-                <planeGeometry args={[22, 13]} />
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[3, 0, 1]}>
+                <planeGeometry args={[28, 13]} />
                 <meshStandardMaterial color="#4a3328" roughness={0.95} />
             </mesh>
             {strips.map((x) => (
@@ -625,7 +625,7 @@ function Room() {
             ))}
             {/* aisle rug for Perci's patrol */}
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, AISLE_Z]}>
-                <planeGeometry args={[13.2, 2]} />
+                <planeGeometry args={[15.2, 2]} />
                 <meshStandardMaterial color="#5c1f1a" roughness={0.95} />
             </mesh>
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.018, AISLE_Z]}>
@@ -633,23 +633,28 @@ function Room() {
                 <meshStandardMaterial color="#7c2d24" roughness={0.95} />
             </mesh>
             {/* walls */}
-            <mesh position={[0, 3.25, -5]}>
-                <planeGeometry args={[22, 6.5]} />
+            <mesh position={[3, 4, -5]}>
+                <planeGeometry args={[28, 8]} />
                 <meshStandardMaterial color="#2c1f31" roughness={0.95} />
             </mesh>
             {/* left wall: aged brick */}
-            <mesh position={[-11, 3.25, 0.5]} rotation={[0, Math.PI / 2, 0]}>
-                <planeGeometry args={[13, 6.5]} />
+            <mesh position={[-11, 4, 0.5]} rotation={[0, Math.PI / 2, 0]}>
+                <planeGeometry args={[13, 8]} />
                 <meshStandardMaterial map={brick} roughness={0.95} />
             </mesh>
-            <mesh position={[11, 3.25, 0.5]} rotation={[0, -Math.PI / 2, 0]}>
-                <planeGeometry args={[13, 6.5]} />
+            <mesh position={[17, 4, 0.5]} rotation={[0, -Math.PI / 2, 0]}>
+                <planeGeometry args={[13, 8]} />
                 <meshStandardMaterial color="#241a2b" roughness={0.95} />
             </mesh>
             {/* baseboard */}
-            <mesh position={[0, 0.12, -4.96]}>
-                <boxGeometry args={[22, 0.24, 0.08]} />
+            <mesh position={[3, 0.12, -4.96]}>
+                <boxGeometry args={[28, 0.24, 0.08]} />
                 <meshStandardMaterial color="#1b1220" />
+            </mesh>
+            {/* ceiling */}
+            <mesh position={[3, 8, 0.5]} rotation={[Math.PI / 2, 0, 0]}>
+                <planeGeometry args={[28, 13]} />
+                <meshStandardMaterial color="#1b1220" roughness={0.95} side={THREE.DoubleSide} />
             </mesh>
         </group>
     );
@@ -805,7 +810,7 @@ function OfficeWindow({ scene, position = [-5.6, 3.4, -4.94], rotation = [0, 0, 
 
 function Door3D() {
     return (
-        <group position={[10.96, 1.38, -0.3]} rotation={[0, -Math.PI / 2, 0]}>
+        <group position={[16.96, 1.38, -0.3]} rotation={[0, -Math.PI / 2, 0]}>
             <mesh position={[0, 0.05, 0]}>
                 <boxGeometry args={[1.42, 2.85, 0.08]} />
                 <meshStandardMaterial color="#2b1b17" roughness={0.72} />
@@ -1093,20 +1098,20 @@ function HangingLamp({ x, z, offset, reduce, intensity }) {
         swing.current.rotation.z = Math.sin(s.clock.elapsedTime * 0.7 + offset) * 0.06;
     });
     return (
-        <group ref={swing} position={[x, 4.8, z]}>
-            <mesh position={[0, -0.45, 0]}>
-                <cylinderGeometry args={[0.015, 0.015, 0.9, 6]} />
+        <group ref={swing} position={[x, 5.5, z]}>
+            <mesh position={[0, 0.6, 0]}>
+                <cylinderGeometry args={[0.015, 0.015, 3.8, 6]} />
                 <meshStandardMaterial color="#120d18" />
             </mesh>
-            <mesh position={[0, -1, 0]}>
+            <mesh position={[0, -1.3, 0]}>
                 <coneGeometry args={[0.34, 0.28, 16, 1, true]} />
                 <meshStandardMaterial color="#3b2a18" roughness={0.8} side={THREE.DoubleSide} />
             </mesh>
-            <mesh position={[0, -1.08, 0]}>
+            <mesh position={[0, -1.38, 0]}>
                 <sphereGeometry args={[0.07, 10, 10]} />
                 <meshStandardMaterial color="#ffd9a0" emissive="#ffd9a0" emissiveIntensity={2.4} />
             </mesh>
-            <pointLight position={[0, -1.2, 0]} color="#ffc97a" intensity={intensity} distance={8} decay={2} />
+            <pointLight position={[0, -1.5, 0]} color="#ffc97a" intensity={intensity} distance={8} decay={2} />
         </group>
     );
 }
@@ -1413,6 +1418,43 @@ function FloorRadio3D({ position, rotation = [0, 0, 0] }) {
                 ))}
             </group>
 
+        </group>
+    );
+}
+
+/* A tall floor lamp with a warm glow, for placement in room corners. */
+function FloorLamp3D({ position, rotation = [0, 0, 0], scale = 1 }) {
+    return (
+        <group position={position} rotation={rotation} scale={scale}>
+            {/* base */}
+            <mesh position={[0, 0.05, 0]} castShadow>
+                <cylinderGeometry args={[0.22, 0.25, 0.1, 24]} />
+                <meshStandardMaterial color="#2a2a2a" roughness={0.4} metalness={0.6} />
+            </mesh>
+            {/* pole */}
+            <mesh position={[0, 1.1, 0]}>
+                <cylinderGeometry args={[0.025, 0.025, 2.1, 12]} />
+                <meshStandardMaterial color="#333333" roughness={0.3} metalness={0.7} />
+            </mesh>
+            {/* shade */}
+            <mesh position={[0, 2.15, 0]}>
+                <cylinderGeometry args={[0.18, 0.28, 0.4, 24, 1, true]} />
+                <meshStandardMaterial color="#f5e6c8" roughness={0.85} side={2} />
+            </mesh>
+            {/* shade top cap */}
+            <mesh position={[0, 2.35, 0]}>
+                <cylinderGeometry args={[0.02, 0.18, 0.04, 24]} />
+                <meshStandardMaterial color="#2a2a2a" roughness={0.4} metalness={0.6} />
+            </mesh>
+            {/* warm light bulb glow */}
+            <mesh position={[0, 2.1, 0]}>
+                <sphereGeometry args={[0.1, 16, 16]} />
+                <meshStandardMaterial color="#ffe4a0" emissive="#ffcf70" emissiveIntensity={2} />
+            </mesh>
+            {/* point light — strong warm fill to overcome room shadow in the corner */}
+            <pointLight position={[0, 2.1, 0]} color="#ffcf70" intensity={35} distance={24} decay={0.95} />
+            {/* secondary low bounce light */}
+            <pointLight position={[0, 0.35, 0]} color="#ffab50" intensity={16} distance={10} decay={1.2} />
         </group>
     );
 }
@@ -1756,7 +1798,7 @@ function OliveTree3D({ position = [0, 0, -4.05], rotation = [0, 0, 0], reduce })
 function WarmOfficeDressing({ reduce }) {
     return (
         <group>
-            <PottedTree position={[-10.4, 0, 1.35]} rotation={[0, Math.PI / 2, 0]} scale={1.08} reduce={reduce} />
+            <PottedTree position={[-10.4, 0, 2.75]} rotation={[0, Math.PI / 2, 0]} scale={1.08} reduce={reduce} />
             <Plant3D position={[8.6, 0, 2.7]} scale={1.25} reduce={reduce} potColor="#46637f" accent="#b9d2df" leafColor="#4ea86c" leafDark="#276d47" variant="round" swayOffset={1.5} />
             <Plant3D position={[-10.2, 0, -4.15]} scale={1.05} reduce={reduce} potColor="#b9553c" accent="#f1b77a" leafColor="#5abf82" leafDark="#2f7a53" variant="tall" swayOffset={2.1} />
             <Plant3D position={[8.95, 0, -4.15]} scale={1.05} reduce={reduce} potColor="#7c5b96" accent="#d8c3ec" leafColor="#6bbf72" leafDark="#386d44" variant="tall" swayOffset={2.8} />
@@ -1781,23 +1823,18 @@ function WarmOfficeDressing({ reduce }) {
 
             {/* moved from under the sign to the empty stretch of right wall behind the door */}
             <WallArt3D
-                position={[10.94, 3.12, -3.1]}
+                position={[16.94, 3.12, -3.1]}
                 rotation={[0, -Math.PI / 2, 0]}
                 image="FullSizeRender.JPEG"
                 frameColor="#4a3526"
                 width={0.92}
                 height={1.16}
             />
-            <FloorRadio3D position={[10.8, 0, -3.1]} rotation={[0, -Math.PI / 2, 0]} />
-            {/* artwork on the right wall, facing inward */}
-            <WallArt3D
-                position={[10.94, 3.12, 3.45]}
-                rotation={[0, -Math.PI / 2, 0]}
-                image="FullSizeRender (7).JPEG"
-                frameColor="#5a3c25"
-                width={3.75}
-                height={3.75}
-            />
+            <FloorRadio3D position={[16.8, 0, -3.1]} rotation={[0, -Math.PI / 2, 0]} />
+            {/* floor lamp in the back right corner */}
+            <FloorLamp3D position={[16.85, 0, -4.85]} />
+            {/* snack table on the right side of the back wall */}
+            <SnackTable3D position={[16.6, 0, 2.5]} rotation={[0, 0, 0]} scale={1.35} />
             {/* restored artwork on the back wall, left section */}
             <WallArt3D
                 position={[-9.5, 3.0, -4.91]}
@@ -1817,7 +1854,15 @@ function WarmOfficeDressing({ reduce }) {
             />
             <WallShelf3D position={[-10.72, 2.55, -1]} rotation={[0, Math.PI / 2, 0]} reduce={reduce} />
             {/* snack table near the left-wall window */}
-            <SnackTable3D position={[-9.35, 0, 3.05]} scale={1.35} />
+            <WallArt3D
+                position={[11.8, 3.12, -4.9]}
+                rotation={[0, 0, 0]}
+                image="FullSizeRender (7).JPEG"
+                frameColor="#5a3c25"
+                width={3.75}
+                height={3.75}
+            />
+            <Plant3D position={[15.0, 0, -4.5]} scale={1.25} reduce={reduce} potColor="#46637f" accent="#b9d2df" leafColor="#4ea86c" leafDark="#276d47" variant="round" swayOffset={1.5} />
             {/* comic covers in glass cases on the back wall, beneath the PERCI HQ sign */}
             <ComicCase3D
                 position={[-0.55, 3.0, -4.96]}
@@ -1852,6 +1897,40 @@ function WarmOfficeDressing({ reduce }) {
 const BACK_ROW = { z: -1.8, count: 7 };
 const FRONT_ROW = { z: 1, count: 7 };
 
+function StainedGlassWindow() {
+    return (
+        <group>
+            {/* stained glass window above the sign */}
+            <mesh position={[0, 6.5, -4.97]}>
+                <planeGeometry args={[3, 1.5]} />
+                <meshStandardMaterial color="#1a1022" emissive="#3a2060" emissiveIntensity={0.3} />
+            </mesh>
+            {/* stained glass panes */}
+            {[-1.2, -0.4, 0.4, 1.2].map((px, i) => (
+                <mesh key={i} position={[px, 6.5, -4.96]}>
+                    <planeGeometry args={[0.6, 1.2]} />
+                    <meshStandardMaterial
+                        color={['#7b2d8e', '#c4462a', '#2d6e8e', '#d4a42a'][i]}
+                        emissive={['#7b2d8e', '#c4462a', '#2d6e8e', '#d4a42a'][i]}
+                        emissiveIntensity={0.6}
+                        transparent
+                        opacity={0.85}
+                    />
+                </mesh>
+            ))}
+            {/* window frame cross */}
+            <mesh position={[0, 6.5, -4.95]}>
+                <boxGeometry args={[3.1, 0.06, 0.02]} />
+                <meshStandardMaterial color="#2a1a10" />
+            </mesh>
+            <mesh position={[0, 6.5, -4.95]}>
+                <boxGeometry args={[0.06, 1.6, 0.02]} />
+                <meshStandardMaterial color="#2a1a10" />
+            </mesh>
+        </group>
+    );
+}
+
 export default function OfficeScene({ desks, perciState, bubble, weather, onDeskClick }) {
     const [now, setNow] = useState(() => new Date());
     const reduce = useMemo(
@@ -1874,7 +1953,7 @@ export default function OfficeScene({ desks, perciState, bubble, weather, onDesk
     }, []);
 
     return (
-        <Canvas dpr={[1, 2]} camera={{ position: [0, 6.8, 11.4], fov: 42 }}>
+        <Canvas dpr={[1, 2]} camera={{ position: [0, 6.8, 11.4], fov: 42 }} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
             <fog attach="fog" args={[timeScene.fog, 18, 36]} />
             <color attach="background" args={[timeScene.background]} />
 
@@ -1893,8 +1972,21 @@ export default function OfficeScene({ desks, perciState, bubble, weather, onDesk
             <HangingLamp x={0} z={0.4} offset={1.8} reduce={reduce} intensity={timeScene.lampIntensity} />
             <HangingLamp x={5.2} z={0.4} offset={3.1} reduce={reduce} intensity={timeScene.lampIntensity} />
 
+            {/* recessed ceiling lights */}
+            {[-8, -3, 3, 8, 13].map((lx) => (
+                <group key={lx} position={[lx, 7.98, 0.5]}>
+                    <mesh rotation={[Math.PI / 2, 0, 0]}>
+                        <planeGeometry args={[0.8, 0.8]} />
+                        <meshStandardMaterial color="#fff7e8" emissive="#fff7e8" emissiveIntensity={1.5} />
+                    </mesh>
+                    <pointLight position={[0, -0.5, 0]} color="#fff3d8" intensity={6} distance={6} decay={2} />
+                </group>
+            ))}
+
             {/* 3D Neon sign sorted perfectly in WebGL depth, resolving lighting occlusion issues */}
             <NeonSign3D reduce={reduce} />
+
+            <StainedGlassWindow />
 
             {placed.map(({ agent, mood, color, x, z }) => (
                 <DeskPod
@@ -1921,11 +2013,11 @@ export default function OfficeScene({ desks, perciState, bubble, weather, onDesk
                 enableDamping
                 dampingFactor={0.08}
                 minDistance={5}
-                maxDistance={15}
+                maxDistance={20}
                 minPolarAngle={0.6}
                 maxPolarAngle={1.48}
-                minAzimuthAngle={-0.75}
-                maxAzimuthAngle={0.75}
+                minAzimuthAngle={-0.5}
+                maxAzimuthAngle={0.5}
             />
         </Canvas>
     );

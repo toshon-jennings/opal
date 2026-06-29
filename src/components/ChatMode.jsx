@@ -518,7 +518,7 @@ function ProjectDetailPage({
 }
 
 function ChatMode() {
-    const { setCurrentMode, openArtifactWindow, setShowChatGuide } = useMode();
+    const { setCurrentMode, openArtifactWindow, showChatGuide, setShowChatGuide } = useMode();
     const { isDarkMode } = useTheme();
     const {
         messages,

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu, shell, safeStorage, session } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, shell, safeStorage, session, nativeImage } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const { installRedactedConsole, redactSecrets } = require('./redact-console.cjs');
 const path = require('path');
@@ -3136,9 +3136,18 @@ ipcMain.handle('hermes:dashboard-start', async () => {
 });
 
 // ─── PWA favicon extraction ─────────────────────────────────────────────────
-// Loads a URL in a hidden webContents, captures the page favicon and title,
-// and returns them as a data URI + metadata. Runs in the main process to
-// bypass CORS that would block renderer-side fetches.
+// Fetches the page HTML in the main process, parses <link rel="icon"> to find
+// the favicon URL, then fetches the favicon bytes directly via Node https.
+// This avoids CORS, renderer crashes, and the unreliability of webContents
+// events.
+//
+// Strategy:
+//   1. GET the page HTML (follow redirects, cap at 500KB).
+//   2. Regex out <link rel="...icon..." href="...">.
+//   3. GET the favicon URL as raw bytes.
+//   4. Base64-encode → data URI. Downscale via nativeImage if large.
+//   5. Fallback: try /favicon.ico if no <link> tag or fetch failed.
+//   6. Page title: parse <title> from HTML.
 ipcMain.handle('pwa:extract-favicon', async (event, { url } = {}) => {
   if (!url) return { ok: false, error: 'No URL provided' };
 
@@ -3152,95 +3161,165 @@ ipcMain.handle('pwa:extract-favicon', async (event, { url } = {}) => {
     return { ok: false, error: 'Invalid URL' };
   }
 
-  return new Promise((resolve) => {
-    const TIMEOUT_MS = 15000;
-    let settled = false;
-    const finish = (result) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      try { win.destroy(); } catch { /* ignore */ }
-      resolve(result);
-    };
+  // ── Helpers ─────────────────────────────────────────────────────────────
 
-    const timer = setTimeout(() => {
-      finish({ ok: false, error: 'Timed out loading page' });
-    }, TIMEOUT_MS);
-
-    const win = new BrowserWindow({
-      show: false,
-      width: 1280,
-      height: 800,
-      webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: true,
-        images: true,
-      },
-    });
-
-    const wc = win.webContents;
-
-    wc.on('page-favicon-updated', (evt, favicons) => {
-      if (favicons && favicons.length > 0) {
-        // Use the largest favicon available
-        const best = favicons.reduce((a, b) => {
-          const aArea = (a.naturalWidth || 0) * (a.naturalHeight || 0);
-          const bArea = (b.naturalWidth || 0) * (b.naturalHeight || 0);
-          return bArea > aArea ? b : a;
+  // GET a URL, follow redirects (up to 5), resolve with { status, body, finalUrl }.
+  function nodeGet(reqUrl, maxBytes = 500000, depth = 0) {
+    return new Promise((resolve, reject) => {
+      const mod = reqUrl.startsWith('https') ? https : http;
+      const req = mod.get(reqUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5',
+        },
+        timeout: 10000,
+      }, (res) => {
+        // Follow redirects
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && depth < 5) {
+          const redirectUrl = new URL(res.headers.location, reqUrl).href;
+          res.resume();
+          nodeGet(redirectUrl, maxBytes, depth + 1).then(resolve).catch(reject);
+          return;
+        }
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          res.resume();
+          reject(new Error(`HTTP ${res.statusCode}`));
+          return;
+        }
+        const chunks = [];
+        let total = 0;
+        res.on('data', (chunk) => {
+          total += chunk.length;
+          if (total > maxBytes) { req.destroy(); reject(new Error('Response too large')); return; }
+          chunks.push(chunk);
         });
-        const dataUri = best.toDataURL();
-        const title = win.getTitle() || parsed.hostname;
-        finish({ ok: true, faviconDataUri: dataUri, title, origin: parsed.hostname, url: parsed.href });
-      }
+        res.on('end', () => resolve({ status: res.statusCode, body: Buffer.concat(chunks), finalUrl: reqUrl }));
+        res.on('error', reject);
+      });
+      req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout')); });
+      req.on('error', reject);
     });
+  }
 
-    wc.on('page-title-updated', () => {
-      // If favicon already fired this is a no-op; if not, we wait for favicon
+  // GET a URL as raw bytes (for favicon), resolve with Buffer or null.
+  function nodeGetBytes(favUrl, depth = 0) {
+    return new Promise((resolve) => {
+      const mod = favUrl.startsWith('https') ? https : http;
+      const req = mod.get(favUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+          'Accept': 'image/*,*/*;q=0.8',
+        },
+        timeout: 8000,
+      }, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && depth < 5) {
+          res.resume();
+          nodeGetBytes(new URL(res.headers.location, favUrl).href, depth + 1).then(resolve);
+          return;
+        }
+        if (res.statusCode < 200 || res.statusCode >= 300) { res.resume(); resolve(null); return; }
+        const chunks = [];
+        let total = 0;
+        res.on('data', (c) => { total += c.length; if (total > 2000000) { req.destroy(); resolve(null); return; } chunks.push(c); });
+        res.on('end', () => resolve(Buffer.concat(chunks)));
+        res.on('error', () => resolve(null));
+      });
+      req.on('timeout', () => { req.destroy(); resolve(null); });
+      req.on('error', () => resolve(null));
     });
+  }
 
-    wc.on('did-finish-load', () => {
-      // Give favicon event a moment; if it never fires, fall back
-      setTimeout(() => {
-        if (settled) return;
-        // Fallback: try fetching /favicon.ico directly
-        const fallbackUrl = `${parsed.origin}/favicon.ico`;
-        wc.executeJavaScript(`
-          (async () => {
-            try {
-              const r = await fetch('${fallbackUrl}', { mode: 'no-cors' });
-              if (r.ok || r.type === 'opaque') {
-                const blob = await r.blob();
-                return await new Promise((res) => {
-                  const fr = new FileReader();
-                  fr.onload = () => res(fr.result);
-                  fr.onerror = () => res(null);
-                  fr.readAsDataURL(blob);
-                });
-              }
-            } catch { /* ignore */ }
-            return null;
-          })()
-        `).then((dataUri) => {
-          const title = win.getTitle() || parsed.hostname;
-          if (dataUri) {
-            finish({ ok: true, faviconDataUri: dataUri, title, origin: parsed.hostname, url: parsed.href });
-          } else {
-            finish({ ok: true, faviconDataUri: null, title, origin: parsed.hostname, url: parsed.href });
+  // Extract favicon URL from HTML string.
+  function parseFaviconUrl(html, baseUrl) {
+    // Match <link rel="...icon..." href="..."> — case-insensitive
+    const re = /<link[^>]+rel=["'][^"']*(?:icon|shortcut\s+icon)[^"']*["'][^>]+href=["']([^"']+)["']/gi;
+    let match;
+    while ((match = re.exec(html)) !== null) {
+      try { return new URL(match[1], baseUrl).href; } catch { /* try next */ }
+    }
+    // Try href before rel (some sites order attributes differently)
+    const re2 = /<link[^>]+href=["']([^"']+)["'][^>]+rel=["'][^"']*(?:icon|shortcut\s+icon)[^"']*["']/gi;
+    while ((match = re2.exec(html)) !== null) {
+      try { return new URL(match[1], baseUrl).href; } catch { /* try next */ }
+    }
+    return null;
+  }
+
+  function parseTitle(html) {
+    const match = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+    return match ? match[1].trim() : '';
+  }
+
+  // Convert a Buffer to a data URI, downscaling if large.
+  function bufferToDataUri(buf) {
+    if (!buf || buf.length === 0) return null;
+    // Detect MIME from magic bytes
+    let mime = 'image/x-icon';
+    if (buf[0] === 0x89 && buf[1] === 0x50) mime = 'image/png';
+    else if (buf[0] === 0xFF && buf[1] === 0xD8) mime = 'image/jpeg';
+    else if (buf[0] === 0x47 && buf[1] === 0x49) mime = 'image/gif';
+    else if (buf.includes(Buffer.from('<svg'))) mime = 'image/svg+xml';
+    else if (buf.slice(0, 4).toString() === 'RIFF') mime = 'image/webp';
+
+    // Downscale large images via nativeImage
+    if (buf.length > 10000) {
+      try {
+        const img = nativeImage.createFromBuffer(buf);
+        if (!img.isEmpty()) {
+          const size = img.getSize();
+          const scale = 128 / Math.max(size.width, size.height, 1);
+          if (scale < 1) {
+            const resized = img.resize({ width: Math.round(size.width * scale), quality: 'good' });
+            return resized.toDataURL();
           }
-        }).catch(() => {
-          finish({ ok: true, faviconDataUri: null, title: parsed.hostname, origin: parsed.hostname, url: parsed.href });
-        });
-      }, 1500);
-    });
+          return img.toDataURL();
+        }
+      } catch { /* fall through to raw base64 */ }
+    }
 
-    wc.on('did-fail-load', (evt, errorCode, errorDescription) => {
-      finish({ ok: false, error: `Failed to load: ${errorDescription || errorCode}` });
-    });
+    return `data:${mime};base64,${buf.toString('base64')}`;
+  }
 
-    wc.loadURL(targetUrl).catch((err) => {
-      finish({ ok: false, error: err?.message || 'Failed to load URL' });
-    });
-  });
+  // ── Main logic ──────────────────────────────────────────────────────────
+
+  try {
+    // Step 1: Fetch page HTML
+    const page = await nodeGet(parsed.href);
+    const html = page.body.toString('utf8');
+
+    // Step 2: Parse title
+    const title = parseTitle(html) || parsed.hostname;
+
+    // Step 3: Parse favicon URL from <link> tags
+    const favUrl = parseFaviconUrl(html, page.finalUrl || parsed.href);
+
+    // Step 4: Fetch favicon bytes
+    if (favUrl) {
+      const buf = await nodeGetBytes(favUrl);
+      if (buf) {
+        const dataUri = bufferToDataUri(buf);
+        if (dataUri) {
+          return { ok: true, faviconDataUri: dataUri, title, origin: parsed.hostname, url: parsed.href };
+        }
+      }
+    }
+
+    // Step 5: Fallback — try /favicon.ico
+    const icoUrl = `${parsed.protocol}//${parsed.host}/favicon.ico`;
+    const icoBuf = await nodeGetBytes(icoUrl);
+    if (icoBuf) {
+      const dataUri = bufferToDataUri(icoBuf);
+      if (dataUri) {
+        return { ok: true, faviconDataUri: dataUri, title, origin: parsed.hostname, url: parsed.href };
+      }
+    }
+
+    // Step 6: No favicon found, but still return success with metadata
+    return { ok: true, faviconDataUri: null, title, origin: parsed.hostname, url: parsed.href };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Failed to extract favicon' };
+  }
 });
 
 // ─── Memory ─────────────────────────────────────────────────────────────────
@@ -5617,13 +5696,14 @@ ipcMain.handle('docker:start-orbstack', async () => {
   }
 });
 
-ipcMain.handle('cleanmac:run', async (event) => {
+ipcMain.handle('cleanmac:run', async (event, opts = {}) => {
   const { BrowserWindow } = require('electron');
   const win = BrowserWindow.fromWebContents(event.sender);
   const scriptPath = path.join(app.getPath('home'), 'cleanmac', 'cleanmac');
+  const args = opts.aggressive ? ['--aggressive'] : [];
 
   return new Promise((resolve) => {
-    const child = spawn('/bin/bash', [scriptPath], {
+    const child = spawn('/bin/bash', [scriptPath, ...args], {
       env: { ...process.env, HOME: app.getPath('home') },
       stdio: ['ignore', 'pipe', 'pipe'],
       shell: false,

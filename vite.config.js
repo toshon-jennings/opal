@@ -4,8 +4,17 @@ import { readFileSync } from 'fs'
 
 const { version } = JSON.parse(readFileSync('./package.json', 'utf-8'))
 
+// The IPTV window frames its own player page (public/iptv-player.html) in an
+// <iframe> to play HLS streams. Like the G-Dash surface, this page must be
+// embeddable by the same-origin app shell — otherwise the default
+// `frame-ancestors 'none'` / `X-Frame-Options: DENY` blocks the frame with
+// ERR_BLOCKED_BY_RESPONSE and the TV renders blank white. COEP is kept on the
+// player (see setSecurityHeaders): the shell is cross-origin isolated (COOP +
+// COEP), so even this same-origin iframe must itself send COEP: require-corp or
+// it fails to load.
 function allowsSameOriginFrame(req) {
-  return (req.url || '').startsWith('/gdash/');
+  const url = req.url || '';
+  return url.startsWith('/gdash/') || url.startsWith('/iptv-player.html');
 }
 
 function setSecurityHeaders(req, res) {

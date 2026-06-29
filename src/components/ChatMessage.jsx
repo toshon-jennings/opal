@@ -335,7 +335,7 @@ function WeatherWidget({ data }) {
 }
 
 function StockWidget({ data }) {
-    const { symbol, name, price, change, percentChange, isPositive, high, low, volume } = data;
+    const { symbol, name, price, change, percentChange, isPositive, high, low } = data;
     
     return (
         <div className="my-3 p-4 rounded-2xl border border-[var(--border)] bg-[var(--bg-tertiary)] flex items-center justify-between shadow-sm max-w-md">
@@ -367,7 +367,7 @@ function StockWidget({ data }) {
     );
 }
 
-export function ChatMessage({ message }) {
+export function ChatMessage({ message, assistantName = 'Perci', assistantAvatar = null, assistantTitle = null }) {
     const isUser = message.role === 'user';
     const isError = !isUser && typeof message.content === 'string' && message.content.startsWith('Error:');
     const weatherData = !isUser ? extractWeatherData(message) : null;
@@ -400,7 +400,7 @@ export function ChatMessage({ message }) {
     };
 
     const markdownComponents = {
-        code({ node, inline, className, children, ...props }) {
+        code({ inline, className, children, ...props }) {
             const match = /language-(\w+)/.exec(className || '');
             const codeString = String(children).replace(/\n$/, '');
             const codeIndex = `${message.id}-${codeString.substring(0, 20)}`;
@@ -520,13 +520,19 @@ export function ChatMessage({ message }) {
                 ? 'bg-[var(--accent)] text-white'
                 : ''
                 }`}>
-                {isUser ? <User size={18} /> : <PerciMascot state={mascotState} size={32} title={isError ? 'Perci hit an error' : 'Perci'} />}
+                {isUser ? <User size={18} /> : (assistantAvatar || (
+                    <PerciMascot
+                        state={mascotState}
+                        size={32}
+                        title={assistantTitle || (isError ? `${assistantName} hit an error` : assistantName)}
+                    />
+                ))}
             </div>
 
             <div className="flex-1 overflow-hidden">
                 <div className="flex items-center justify-between gap-3 mb-1.5">
                     <div className="font-semibold text-sm text-[var(--accent)]">
-                        {isUser ? 'You' : 'Perci'}
+                        {isUser ? 'You' : assistantName}
                     </div>
                     <button
                         type="button"

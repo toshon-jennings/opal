@@ -1006,6 +1006,10 @@ html.dark .packages-branded.active {
   padding-bottom: var(--perci-dock-space);
 }
 
+.perci-dock-reserved--autohide {
+  --perci-dock-space: 20px;
+}
+
 .perci-dock-reserved .perci-desktop-host {
   bottom: var(--perci-dock-space);
 }
@@ -1622,4 +1626,3 @@ html.dark .packages-branded.active {
 .studioos-logo-dark { display: none; }
 :root.dark .studioos-logo-dark { display: inline-block; }
 :root.dark .studioos-logo-light { display: none; }
-

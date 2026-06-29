@@ -52,6 +52,7 @@ export const PACKAGES_WINDOW_ID = 'packages-window';
 export const AGENTMAIL_WINDOW_ID = 'agentmail';
 export const AUTOFORGE_WINDOW_ID = 'autoforge';
 export const OPEN_NOTEBOOK_WINDOW_ID = 'open-notebook';
+export const IPTV_WINDOW_ID = 'iptv';
 
 // Titles shown in window headers and dock chips for each windowed surface.
 export const WINDOW_TITLES = {
@@ -91,6 +92,7 @@ export const WINDOW_TITLES = {
     [AGENTMAIL_WINDOW_ID]: 'AgentMail',
     [AUTOFORGE_WINDOW_ID]: 'AutoForge',
     [OPEN_NOTEBOOK_WINDOW_ID]: 'Open Notebook',
+    [IPTV_WINDOW_ID]: 'IPTV',
 };
 
 // Windows whose content is an embedded <webview>/<iframe>; CSS transforms can make
@@ -100,23 +102,38 @@ const NO_WHIRLPOOL_IDS = new Set([OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_
 
 const WINDOW_DEFAULTS = { width: 960, height: 640, minWidth: 420, minHeight: 300, cascade: 34 };
 const DOCK_RESERVED_HEIGHT = 64;
+const DESKTOP_HOST_SELECTOR = '.perci-desktop-host';
+const DESKTOP_SURFACE_SELECTOR = '.perci-dock-reserved';
 
 function viewportSize() {
     if (typeof window === 'undefined') return { width: 1440, height: 900 };
-    return { width: window.innerWidth, height: window.innerHeight };
+    const host = document.querySelector(DESKTOP_HOST_SELECTOR);
+    const hostRect = host?.getBoundingClientRect();
+    if (hostRect?.width > 0 && hostRect?.height > 0) {
+        return { width: hostRect.width, height: hostRect.height };
+    }
+
+    const surface = document.querySelector(DESKTOP_SURFACE_SELECTOR);
+    const surfaceRect = surface?.getBoundingClientRect();
+    if (surfaceRect?.width > 0 && surfaceRect?.height > 0) {
+        const dockSpace = parseFloat(getComputedStyle(surface).getPropertyValue('--perci-dock-space')) || 0;
+        return { width: surfaceRect.width, height: Math.max(0, surfaceRect.height - dockSpace) };
+    }
+
+    return { width: window.innerWidth, height: Math.max(0, window.innerHeight - DOCK_RESERVED_HEIGHT) };
 }
 
 function defaultBounds(index = 0) {
     const { width: vw, height: vh } = viewportSize();
     const width = Math.min(WINDOW_DEFAULTS.width, Math.round(vw * 0.72));
-    const height = Math.min(WINDOW_DEFAULTS.height, Math.round((vh - 120 - DOCK_RESERVED_HEIGHT) * 0.94));
+    const height = Math.min(WINDOW_DEFAULTS.height, Math.max(WINDOW_DEFAULTS.minHeight, Math.round((vh - 120) * 0.94)));
     const offset = (index % 6) * WINDOW_DEFAULTS.cascade;
     return { x: 80 + offset, y: 36 + offset, width, height };
 }
 
 function clampBounds(bounds) {
     const { width: vw, height: vh } = viewportSize();
-    const availableHeight = Math.max(0, vh - DOCK_RESERVED_HEIGHT);
+    const availableHeight = Math.max(0, vh);
     const width = Math.min(vw, Math.max(WINDOW_DEFAULTS.minWidth, Math.min(bounds.width, vw)));
     const height = Math.min(availableHeight, Math.max(WINDOW_DEFAULTS.minHeight, Math.min(bounds.height, availableHeight)));
     const x = Math.min(Math.max(bounds.x, 0), Math.max(0, vw - width));
@@ -216,6 +233,7 @@ export function ModeProvider({ children }) {
                 }));
             });
         };
+        handleResize();
         window.addEventListener('resize', handleResize);
         return () => {
             window.removeEventListener('resize', handleResize);
@@ -480,10 +498,11 @@ export function ModeProvider({ children }) {
     // rebuilds on every startup. Persisting it causes unbounded growth when a large
     // directory is opened (thousands of paths × empty strings = megabytes of JSON).
     useEffect(() => {
-        const { files: _files, ...stateToSave } = {
+        const stateToSave = {
             ...codeState,
             expandedFolders: Array.from(codeState.expandedFolders || [])
         };
+        delete stateToSave.files;
         const serializedCodeState = serializeJson(stateToSave);
         writeStringStorage('perci_code_state', serializedCodeState);
         if (codeState.workingDirectory) {

@@ -108,6 +108,72 @@ const NATIVE_TOOL_MODALS = {
             },
         ],
     },
+    'config-map': {
+        eyebrow: 'Config topology lens',
+        title: 'config-map',
+        accent: '#34d399',
+        tabs: [
+            {
+                id: 'overview',
+                label: 'Overview',
+                summary: 'Maps every configuration surface in Perci — persisted storage keys, API key slots, env vars, and IPC channels — into a single topology. Shows what reads/writes each key, where it flows, and which keys are stale or orphaned. Ships as a local script in this repo; install globally with npm install -g perci-config-map.',
+                commands: [
+                    { label: 'install', code: 'npm install -g perci-config-map' },
+                    { label: 'in repo', code: 'npm run config-map --' },
+                    { label: 'global', code: 'config-map' },
+                ],
+                stats: [
+                    { label: 'Sources', value: 'persistentStore · env · IPC' },
+                    { label: 'Keys tracked', value: '60+ persisted + 9 API slots' },
+                    { label: 'Output', value: 'Table / Graphify JSON' },
+                ],
+                signals: [
+                    'Scans PERSISTED_KEYS, API_KEY_STORAGE_KEYS, and known env vars to build a live dependency map.',
+                    'Flags orphaned keys — present in appData but no longer referenced by any reader.',
+                    'Exports to Graphify JSON so config topology can be queried alongside the architecture graph.',
+                    'Run --graph to emit nodes/edges for graphify query or gdiff impact analysis.',
+                ],
+            },
+            {
+                id: 'keys',
+                label: 'Key families',
+                description: 'Perci config is organized into families. Each family maps to a storage layer and one or more readers/writers in the renderer.',
+                commands: [
+                    { label: 'persisted', code: 'config-map --family persisted' },
+                    { label: 'api-keys', code: 'config-map --family api-keys' },
+                    { label: 'env', code: 'config-map --family env' },
+                    { label: 'ipc', code: 'config-map --family ipc' },
+                    { label: 'windows', code: 'config-map --family windows' },
+                ],
+            },
+            {
+                id: 'examples',
+                label: 'Examples',
+                description: 'In this repo: npm run config-map -- (the -- passes flags through). Globally installed: config-map. The tool auto-detects persistentStore.js and known env/IPC patterns.',
+                commands: [
+                    { label: 'full topology', code: 'config-map' },
+                    { label: 'orphaned keys only', code: 'config-map --orphans' },
+                    { label: 'export for graphify', code: 'config-map --graph --out graphify-out/config-topology.json' },
+                    { label: 'check specific key', code: 'config-map --key theme' },
+                    { label: 'diff vs last run', code: 'config-map --diff' },
+                ],
+            },
+            {
+                id: 'options',
+                label: 'Options',
+                description: 'All flags are optional. Without flags, config-map prints a human-readable topology table to stdout.',
+                flags: [
+                    { flag: '--orphans', description: 'Only show keys in appData with no active reader in the codebase.' },
+                    { flag: '--graph', description: 'Emit Graphify-compatible JSON (nodes + edges) instead of a table.' },
+                    { flag: '--out <path>', description: 'Write output to a file (used with --graph).' },
+                    { flag: '--family <name>', description: 'Filter to one key family: persisted, api-keys, env, ipc, windows.' },
+                    { flag: '--key <name>', description: 'Show detailed info for a single key — every reader, writer, and its storage layer.' },
+                    { flag: '--diff', description: 'Compare current key set against the last saved snapshot (~/.config/config-map-snapshot.json).' },
+                    { flag: '--config <path>', description: 'Path to a custom key manifest (default: auto-detect from src/lib/persistentStore.js).' },
+                ],
+            },
+        ],
+    },
     'graphify-diff': {
         eyebrow: 'Architecture diff lens',
         title: 'gdiff  (graphify-diff)',
@@ -479,6 +545,15 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                             >
                                 <Terminal size={13} strokeWidth={2.5} />
                                 <span>gdiff</span>
+                                <ChevronRight size={13} strokeWidth={2.5} />
+                            </button>
+                            <button
+                                type="button"
+                                className="dash-tool-btn"
+                                onClick={() => setNativeToolModal('config-map')}
+                            >
+                                <Terminal size={13} strokeWidth={2.5} />
+                                <span>config-map</span>
                                 <ChevronRight size={13} strokeWidth={2.5} />
                             </button>
                         </div>

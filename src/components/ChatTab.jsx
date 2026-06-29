@@ -1,52 +1,75 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Send, Square, Trash2, User } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ArrowUp, MessageSquare, Plus, RefreshCw, X } from 'lucide-react';
+import { ChatMessage } from './ChatMessage';
 import NousBadge from './NousBadge';
+import { useTheme } from '../context/ThemeContext';
 import './ChatTab.css';
 
-// ---------------------------------------------------------------------------
-// Message types
-// ---------------------------------------------------------------------------
+const HERMES_TILE_BACKGROUND = '/artwork/design-01kv2y38zh-1781436378.png';
 
-// { id, role: 'user'|'assistant', text, ts, status: 'pending'|'streaming'|'done'|'error' }
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
 
-// ---------------------------------------------------------------------------
-// Single message bubble
-// ---------------------------------------------------------------------------
-function MessageBubble({ msg }) {
-  const isUser = msg.role === 'user';
+function formatSessionLabel(sessionId) {
+  if (!sessionId) return 'Starting';
+  if (sessionId.startsWith('pending-')) return 'Pending first turn';
+  if (sessionId.length <= 18) return sessionId;
+  return `${sessionId.slice(0, 8)}...${sessionId.slice(-6)}`;
+}
 
+function toChatMessage(message) {
+  const timestamp = message.timestamp || (message.ts ? Date.parse(message.ts) : Date.now());
+  return {
+    id: message.id,
+    role: message.role === 'user' ? 'user' : 'assistant',
+    content: message.text || '',
+    timestamp,
+    metadata: message.metadata || {},
+  };
+}
+
+function HermesAvatar({ title = 'Hermes' }) {
   return (
-    <div className={`chat-msg ${isUser ? 'chat-msg-user' : 'chat-msg-assistant'}`}>
-      <div className="chat-msg-avatar">
-        {isUser ? (
-          <div className="chat-avatar chat-avatar-user">
-            <User size={13} />
-          </div>
-        ) : (
-          <div className="chat-avatar chat-avatar-hermes">
-            <NousBadge size="h-5 w-5" />
-          </div>
-        )}
-      </div>
-      <div className="chat-msg-body">
-        <div className="chat-msg-header">
-          <span className="chat-msg-name">{isUser ? 'You' : 'Hermes'}</span>
-          {msg.ts && (
-            <span className="chat-msg-time">
-              {new Date(msg.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </span>
+    <div className="hermes-chat-avatar" title={title}>
+      <NousBadge size="h-8 w-8" />
+    </div>
+  );
+}
+
+function HermesEmpty({ isStarting, onRetry }) {
+  return (
+    <div className="flex min-h-[360px] items-center justify-center">
+      <div className="w-full px-6 py-14 text-center md:px-10">
+        <div className="flex flex-col items-center justify-center">
+          <h2
+            className="flex items-center justify-center gap-3 text-3xl font-light text-[var(--text-primary)] md:text-4xl"
+            style={{ fontFamily: "'Georgia', 'Tiempos Text', serif", letterSpacing: '0' }}
+          >
+            <HermesAvatar />
+            {getGreeting()}
+          </h2>
+          <p className="mx-auto mt-3 max-w-md text-sm text-[var(--text-secondary)]">
+            Ask Hermes to work through code, plans, files, or local tasks.
+          </p>
+          {isStarting && (
+            <div className="mt-6 inline-flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-[var(--text-secondary)]">
+              <span className="hermes-chat-dot is-active" />
+              Starting Hermes chat
+            </div>
           )}
-        </div>
-        <div className={`chat-msg-text ${msg.status === 'streaming' ? 'chat-streaming' : ''}`}>
-          {msg.text || (
-            <span className="chat-thinking">
-              <span className="chat-thinking-dots">
-                <span /><span /><span />
-              </span>
-            </span>
-          )}
-          {msg.status === 'error' && (
-            <span className="chat-error-icon" title="Failed">⚠</span>
+          {!isStarting && onRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="mt-6 inline-flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-3.5 py-2 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+            >
+              <RefreshCw size={15} />
+              Retry session
+            </button>
           )}
         </div>
       </div>
@@ -54,99 +77,98 @@ function MessageBubble({ msg }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Empty state
-// ---------------------------------------------------------------------------
-function ChatEmpty() {
+function HermesThinkingRow() {
   return (
-    <div className="chat-empty">
-      <div className="chat-empty-icon">
-        <NousBadge size="h-12 w-12" />
+    <div className="flex gap-3 rounded-lg bg-[var(--bg-secondary)] px-4 py-6 transition-colors md:gap-4" role="status">
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center md:h-8 md:w-8">
+        <HermesAvatar title="Hermes is thinking" />
       </div>
-      <h3 className="chat-empty-title">Chat with Hermes</h3>
-      <p className="chat-empty-desc">
-        A persistent conversation with tools, memory, and full context.
-        Each message carries the full history forward.
-      </p>
-      <div className="chat-empty-hints">
-        <span className="chat-hint">⌘↩ send</span>
-        <span className="chat-hint">Shift+↩ new line</span>
+      <div className="min-w-0 flex-1">
+        <div className="mb-2 text-sm font-semibold text-[var(--accent)]">Hermes</div>
+        <div className="inline-flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+          <span className="hermes-chat-thinking-dots" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </span>
+          Thinking
+        </div>
       </div>
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Chat input area
-// ---------------------------------------------------------------------------
-function ChatInput({ onSend, onCancel, isRunning, disabled }) {
+function ChatComposer({ onSend, onCancel, isRunning, disabled, isStarting }) {
   const [text, setText] = useState('');
   const textareaRef = useRef(null);
+  const canSend = text.trim().length > 0 && !disabled && !isRunning;
 
-  const submit = useCallback(() => {
-    const msg = text.trim();
-    if (!msg || isRunning || disabled) return;
-    onSend(msg);
-    setText('');
-    // Reset height
+  const resetHeight = useCallback(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
-  }, [text, isRunning, disabled, onSend]);
+  }, []);
 
-  const handleKeyDown = useCallback((e) => {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      submit();
-    }
-    if (e.key === 'Enter' && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
-      // Allow Shift+Enter for newline; plain Enter submits
-      e.preventDefault();
+  const submit = useCallback(() => {
+    const message = text.trim();
+    if (!message || disabled || isRunning) return;
+    onSend(message);
+    setText('');
+    resetHeight();
+  }, [disabled, isRunning, onSend, resetHeight, text]);
+
+  const handleKeyDown = useCallback((event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
       submit();
     }
   }, [submit]);
 
-  const handleInput = useCallback((e) => {
-    setText(e.target.value);
-    // Auto-resize
-    const el = e.target;
-    el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+  const handleChange = useCallback((event) => {
+    setText(event.target.value);
+    event.target.style.height = 'auto';
+    event.target.style.height = `${Math.min(event.target.scrollHeight, 200)}px`;
   }, []);
 
   return (
-    <div className="chat-input-area">
-      <div className="chat-input-wrap">
-        <textarea
-          ref={textareaRef}
-          value={text}
-          onChange={handleInput}
-          onKeyDown={handleKeyDown}
-          rows={1}
-          placeholder={disabled ? 'Start a chat session first…' : 'Message Hermes…'}
-          disabled={disabled}
-          className="chat-textarea"
-        />
-      </div>
-      <div className="chat-input-actions">
+    <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded-2xl p-3 transition-colors focus-within:border-[var(--text-tertiary)] md:p-4">
+      <textarea
+        ref={textareaRef}
+        value={text}
+        onChange={handleChange}
+        onKeyDown={handleKeyDown}
+        rows={1}
+        placeholder={isStarting ? 'Starting Hermes chat...' : 'Message Hermes...'}
+        disabled={disabled || isRunning}
+        className="min-h-[40px] max-h-[200px] w-full resize-none border-none bg-transparent text-base leading-relaxed text-[var(--text-primary)] outline-none placeholder:text-[var(--text-tertiary)] disabled:cursor-not-allowed disabled:opacity-60"
+      />
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className={`hermes-chat-dot ${isRunning ? 'is-active' : ''}`} />
+          <span className="truncate text-sm text-[var(--text-secondary)]">
+            {isRunning ? 'Hermes is working' : 'Hermes CLI'}
+          </span>
+        </div>
         {isRunning ? (
           <button
+            type="button"
             onClick={onCancel}
-            className="chat-btn chat-btn-cancel"
-            title="Cancel"
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--bg-primary)] text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+            title="Cancel Hermes turn"
+            aria-label="Cancel Hermes turn"
           >
-            <Square size={14} />
-            Cancel
+            <X size={18} />
           </button>
         ) : (
           <button
+            type="button"
             onClick={submit}
-            disabled={!text.trim() || disabled}
-            className="chat-btn chat-btn-send"
-            title="Send (⌘↩)"
+            disabled={!canSend}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--accent)] text-white transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+            title="Send"
+            aria-label="Send message to Hermes"
           >
-            <Send size={14} />
-            Send
+            <ArrowUp size={18} />
           </button>
         )}
       </div>
@@ -154,126 +176,117 @@ function ChatInput({ onSend, onCancel, isRunning, disabled }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Main ChatTab
-// ---------------------------------------------------------------------------
 export default function ChatTab({ isDesktop }) {
+  const { isDarkMode } = useTheme();
   const [messages, setMessages] = useState([]);
   const [sessionId, setSessionId] = useState(null);
+  const [started, setStarted] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState(null);
-  const [started, setStarted] = useState(false);
   const bottomRef = useRef(null);
   const activeRunId = useRef(null);
+  const autoStartedRef = useRef(false);
 
-  // Auto-scroll to bottom on new messages
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  // Start a chat session
-  const startSession = useCallback(async () => {
+  const startSession = useCallback(async ({ clearMessages = false } = {}) => {
     if (!isDesktop) return;
+    setIsStarting(true);
     setError(null);
     try {
       const result = await window.electron.startHermesChat();
-      if (result?.ok) {
-        setSessionId(result.sessionId);
-        setStarted(true);
-        if (result.resumed) {
-          // Session was already active in the main process — we're picking it up.
-          setMessages([{
-            id: `sys-${Date.now()}`,
-            role: 'system',
-            text: 'Conversation resumed. Hermes remembers the previous context.',
-            ts: new Date().toISOString(),
-            status: 'done',
-          }]);
-        } else {
-          setMessages([]);
-        }
-      } else {
-        setError(result?.error || 'Could not start chat session.');
+      if (!result?.ok) {
+        setStarted(false);
+        setSessionId(null);
+        setError(result?.error || 'Could not start Hermes chat.');
+        return;
+      }
+
+      setStarted(true);
+      setSessionId(result.sessionId || null);
+      if (clearMessages || !result.resumed) {
+        setMessages([]);
       }
     } catch (err) {
       console.error('[ChatTab] startHermesChat error:', err);
-      setError(err.message || 'Could not start chat session.');
+      setStarted(false);
+      setSessionId(null);
+      setError(err.message || 'Could not start Hermes chat.');
+    } finally {
+      setIsStarting(false);
     }
   }, [isDesktop]);
 
-  // Stop / clear the session
-  const stopSession = useCallback(async () => {
-    if (!isDesktop) return;
-    await window.electron.stopHermesChat();
-    setSessionId(null);
-    setStarted(false);
-    setMessages([]);
-    setIsRunning(false);
+  useEffect(() => {
+    if (!isDesktop || autoStartedRef.current) return;
+    autoStartedRef.current = true;
+    void startSession();
+  }, [isDesktop, startSession]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isRunning]);
+
+  const startFreshChat = useCallback(async () => {
+    if (!isDesktop || isStarting || isRunning) return;
     activeRunId.current = null;
-  }, [isDesktop]);
+    setError(null);
+    setMessages([]);
+    setStarted(false);
+    setSessionId(null);
+    try {
+      await window.electron.stopHermesChat();
+    } catch (err) {
+      console.error('[ChatTab] stopHermesChat error:', err);
+    }
+    await startSession({ clearMessages: true });
+  }, [isDesktop, isRunning, isStarting, startSession]);
 
-  // Send a message
   const sendMessage = useCallback(async (text) => {
-    if (!sessionId || isRunning) return;
+    if (!isDesktop || !sessionId || isRunning) return;
 
-    const userMsg = {
-      id: `u-${Date.now()}`,
+    const now = new Date().toISOString();
+    const userMessage = {
+      id: `hermes-user-${Date.now()}`,
       role: 'user',
       text,
-      ts: new Date().toISOString(),
+      ts: now,
       status: 'done',
     };
-    const runId = `a-${Date.now()}`;
+    const runId = `hermes-assistant-${Date.now()}`;
     activeRunId.current = runId;
-    const assistantMsg = {
-      id: runId,
-      role: 'assistant',
-      text: '',
-      ts: new Date().toISOString(),
-      status: 'streaming',
-    };
 
-    setMessages(prev => [...prev, userMsg, assistantMsg]);
+    setMessages(prev => [...prev, userMessage]);
     setIsRunning(true);
     setError(null);
 
     try {
       const result = await window.electron.sendHermesChat({ text });
-
-      // If cancel was pressed while waiting, discard the result
       if (activeRunId.current !== runId) return;
 
-      if (!result?.ok) {
-        setMessages(prev =>
-          prev.map(m =>
-            m.id === runId
-              ? { ...m, text: result?.error || 'Something went wrong.', status: 'error' }
-              : m
-          )
-        );
-        return;
-      }
+      const assistantText = result?.ok
+        ? (result.output || 'Hermes completed the turn without output.')
+        : `Error: ${result?.error || 'Hermes chat turn failed.'}`;
 
-      // Replace the streaming bubble with the final output
-      setMessages(prev =>
-        prev.map(m =>
-          m.id === runId
-            ? { ...m, text: result.output, status: 'done' }
-            : m
-        )
-      );
-      if (result.sessionId) {
+      setMessages(prev => [...prev, {
+        id: runId,
+        role: 'assistant',
+        text: assistantText,
+        ts: new Date().toISOString(),
+        status: result?.ok ? 'done' : 'error',
+      }]);
+
+      if (result?.sessionId) {
         setSessionId(result.sessionId);
       }
     } catch (err) {
       if (activeRunId.current === runId) {
-        setMessages(prev =>
-          prev.map(m =>
-            m.id === runId
-              ? { ...m, text: err.message || 'Something went wrong.', status: 'error' }
-              : m
-          )
-        );
+        setMessages(prev => [...prev, {
+          id: runId,
+          role: 'assistant',
+          text: `Error: ${err.message || 'Hermes chat turn failed.'}`,
+          ts: new Date().toISOString(),
+          status: 'error',
+        }]);
       }
     } finally {
       if (activeRunId.current === runId) {
@@ -281,97 +294,113 @@ export default function ChatTab({ isDesktop }) {
         activeRunId.current = null;
       }
     }
-  }, [sessionId, isDesktop, isRunning]);
+  }, [isDesktop, isRunning, sessionId]);
 
-  // Cancel a running turn
   const cancelRun = useCallback(async () => {
-    if (isDesktop) {
-      await window.electron.cancelHermesChat();
-    }
-    setIsRunning(false);
+    if (!isDesktop || !isRunning) return;
+    const runId = activeRunId.current;
     activeRunId.current = null;
-    setMessages(prev =>
-      prev.map(m =>
-        m.status === 'streaming' ? { ...m, text: 'Cancelled.', status: 'cancelled' } : m
-      )
-    );
-  }, [isDesktop]);
+    setIsRunning(false);
+    try {
+      await window.electron.cancelHermesChat();
+    } catch (err) {
+      console.error('[ChatTab] cancelHermesChat error:', err);
+    }
+    setMessages(prev => [...prev, {
+      id: runId ? `${runId}-cancelled` : `hermes-cancelled-${Date.now()}`,
+      role: 'assistant',
+      text: 'Cancelled.',
+      ts: new Date().toISOString(),
+      status: 'cancelled',
+    }]);
+  }, [isDesktop, isRunning]);
 
-  // If desktop but session not started, show a start prompt
-  if (isDesktop && !started) {
+  if (!isDesktop) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col justify-center chat-page-container">
-        <div className="chat-start-prompt">
-          <div className="chat-start-icon">
-            <NousBadge size="h-14 w-14" />
-          </div>
-          <h2 className="chat-start-title">Hermes Chat</h2>
-          <p className="chat-start-desc">
-            Start a persistent conversation. Hermes remembers everything you say
-            and can use tools, read files, run commands, and more.
+      <div className="flex h-full items-center justify-center bg-[var(--bg-primary)] p-8 text-center">
+        <div className="max-w-md">
+          <div className="mb-4 flex justify-center"><NousBadge size="h-12 w-12" /></div>
+          <h2 className="text-lg font-semibold text-[var(--text-primary)]">Hermes requires the desktop app</h2>
+          <p className="mt-2 text-sm text-[var(--text-secondary)]">
+            Hermes chat is available from the Perci desktop shell.
           </p>
-          {error && <p className="chat-start-error">{error}</p>}
-          <button onClick={startSession} className="chat-start-btn">
-            Start chat session
-          </button>
         </div>
       </div>
     );
   }
 
+  const canUseComposer = started && Boolean(sessionId) && !isStarting;
+  const showRetry = Boolean(error) && !isStarting && !started;
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col chat-page-container">
-      {/* Session header */}
-      <div className="chat-session-bar">
-        <div className="chat-session-info">
-          <span className={`chat-session-dot ${isRunning ? 'chat-session-dot-active' : ''}`} />
-          <span className="chat-session-label">
-            {isRunning ? 'Thinking…' : 'Session active'}
-          </span>
-          {sessionId && (
-            <span className="chat-session-id">{sessionId}</span>
+    <div className="hermes-chat-root relative flex min-h-0 flex-1 flex-col overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)]">
+      <div
+        className="pointer-events-none absolute inset-0 bg-center bg-no-repeat opacity-20"
+        style={{
+          backgroundImage: `url('${HERMES_TILE_BACKGROUND}')`,
+          backgroundSize: 'auto 140%',
+          filter: isDarkMode
+            ? 'grayscale(1) saturate(0.6) brightness(1.15)'
+            : 'saturate(0.72) brightness(1.18) contrast(0.9)'
+        }}
+      />
+      <div className="pointer-events-none absolute inset-0 bg-[var(--bg-primary)]/55" />
+
+      <div className="relative min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-6 md:px-6 md:py-8">
+          {messages.length === 0 ? (
+            <HermesEmpty isStarting={isStarting} onRetry={showRetry ? () => startSession({ clearMessages: true }) : null} />
+          ) : (
+            messages.map(message => (
+              <ChatMessage
+                key={message.id}
+                message={toChatMessage(message)}
+                assistantName="Hermes"
+                assistantAvatar={<HermesAvatar title={message.status === 'error' ? 'Hermes hit an error' : 'Hermes'} />}
+                assistantTitle="Hermes"
+              />
+            ))
           )}
+          {isRunning && <HermesThinkingRow />}
+          <div ref={bottomRef} />
         </div>
-        <div className="chat-session-actions">
+      </div>
+
+      <div className="relative mx-auto w-full max-w-3xl p-4 md:p-6">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2 text-sm text-[var(--text-secondary)]">
+            <MessageSquare size={15} className="shrink-0 text-[var(--text-tertiary)]" />
+            <span className="truncate">
+              {isStarting ? 'Starting Hermes' : `Session ${formatSessionLabel(sessionId)}`}
+            </span>
+          </div>
           <button
-            onClick={stopSession}
-            className="chat-session-clear"
-            title="End session & clear"
+            type="button"
+            onClick={startFreshChat}
+            disabled={isStarting || isRunning}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-1.5 text-sm font-medium text-[var(--text-secondary)] shadow-sm transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="Start a new Hermes chat"
+            title="Start a new Hermes chat"
           >
-            <Trash2 size={13} />
-            End
+            <Plus size={15} />
+            New chat
           </button>
         </div>
-      </div>
 
-      {/* Messages */}
-      <div className="chat-messages">
-        {messages.length === 0 ? (
-          <ChatEmpty />
-        ) : (
-          <>
-            {messages.map(msg => (
-              <MessageBubble key={msg.id} msg={msg} />
-            ))}
-            <div ref={bottomRef} />
-          </>
+        {error && (
+          <div className="mb-2 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-[var(--text-secondary)]">
+            {error}
+          </div>
         )}
+
+        <ChatComposer
+          onSend={sendMessage}
+          onCancel={cancelRun}
+          isRunning={isRunning}
+          isStarting={isStarting}
+          disabled={!canUseComposer}
+        />
       </div>
-
-      {/* Error banner */}
-      {error && !isRunning && (
-        <div className="chat-error-banner">
-          {error}
-        </div>
-      )}
-
-      {/* Input */}
-      <ChatInput
-        onSend={sendMessage}
-        onCancel={cancelRun}
-        isRunning={isRunning}
-        disabled={!sessionId}
-      />
     </div>
   );
 }

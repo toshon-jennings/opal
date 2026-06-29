@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IPTV Player</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
+  video { width: 100%; height: 100%; display: block; }
+  #error {
+    position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+    color: #fff; font-family: system-ui; font-size: 14px; text-align: center; padding: 20px;
+  }
+</style>
+</head>
+<body>
+<video id="video" playsinline muted></video>
+<div id="error"></div>
+<!-- Relative path so it resolves both in dev (http://…/vendor/…) and in the
+     packaged Electron build, where the player loads over file:// and an
+     absolute "/vendor/…" would point at the filesystem root. -->
+<script src="vendor/hls.min.js"></script>
+<script>
+const video = document.getElementById('video');
+const errorEl = document.getElementById('error');
+let hls = null;
+
+function showError(msg) {
+  errorEl.style.display = 'flex';
+  errorEl.textContent = msg;
+}
+
+function loadStream(url, autoMute) {
+  if (hls) {
+    hls.destroy();
+    hls = null;
+  }
+  errorEl.style.display = 'none';
+  video.pause();
+  video.removeAttribute('src');
+  video.load();
+
+  // Set mute state
+  video.muted = !!autoMute;
+  video.volume = video.muted ? 0 : 1;
+
+  if (!url) {
+    showError('No stream URL');
+    return;
+  }
+
+  // Try a muted play() — muted autoplay is permitted by every browser policy, so
+  // a rejection here means the media couldn't be played, not a policy block.
+  function tryPlay() {
+    video.play().catch(() => {
+      // Surface a click-to-play affordance instead of a dead screen.
+      showError('Tap to play');
+      const resume = () => { errorEl.style.display = 'none'; video.play().catch(() => showError('Tap to play')); };
+      errorEl.onclick = resume;
+      video.onclick = resume;
+    });
+  }
+
+  // Prefer hls.js wherever it is supported (Chromium / Electron). Desktop
+  // Chromium reports canPlayType('application/vnd.apple.mpegurl') as "maybe" but
+  // cannot actually demux HLS, so checking native first routes to a dead path
+  // (DEMUXER_ERROR_COULD_NOT_PARSE → looks like a blank/blocked player). Native
+  // HLS is the Safari/iOS fallback, used only when hls.js is unavailable.
+  if (window.Hls && Hls.isSupported()) {
+    hls = new Hls({
+      enableWorker: true,
+      lowLatencyMode: false,
+      backBufferLength: 90,
+    });
+    hls.loadSource(url);
+    hls.attachMedia(video);
+    hls.on(Hls.Events.MANIFEST_PARSED, tryPlay);
+    hls.on(Hls.Events.ERROR, (_event, data) => {
+      if (data.fatal) {
+        switch (data.type) {
+          case Hls.ErrorTypes.NETWORK_ERROR:
+            showError('Network error — stream may be offline');
+            break;
+          case Hls.ErrorTypes.MEDIA_ERROR:
+            hls.recoverMediaError();
+            break;
+          default:
+            showError('Stream error: ' + (data.details || 'unknown'));
+            break;
+        }
+      }
+    });
+  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    // Native HLS (Safari / iOS)
+    video.src = url;
+    tryPlay();
+  } else {
+    showError('HLS not supported in this browser');
+  }
+}
+
+window.addEventListener('message', (event) => {
+  if (event.source !== window.parent) return;
+  if (event.data?.source !== 'perci-iptv-host') return;
+  if (event.data?.type !== 'set-muted') return;
+
+  video.muted = !!event.data.muted;
+  video.volume = video.muted ? 0 : 1;
+});
+
+// Get URL and mute state from query parameters and auto-play
+const params = new URLSearchParams(window.location.search);
+const streamUrl = params.get('url');
+const muteParam = params.get('mute');
+if (streamUrl) {
+  loadStream(streamUrl, muteParam !== '0');
+}
+</script>
+</body>
+</html>

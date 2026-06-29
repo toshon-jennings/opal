@@ -21,9 +21,17 @@ const RED = '\x1b[0;31m';
 const SCRIPT_PATH = '~/cleanmac/cleanmac';
 
 const CLEANUP_TARGETS = [
-    { label: 'Package caches', value: 'uv, pip, npm, bun, Cargo', icon: HardDrive },
-    { label: 'Build debris', value: 'Homebrew cleanup, Xcode DerivedData', icon: Clock3 },
-    { label: 'Docker engine', value: 'Delegated to the local script', icon: Database },
+    { label: 'Package caches', value: 'uv, pip, npm, bun', icon: HardDrive },
+    { label: 'Build artifacts', value: 'Homebrew cleanup, Xcode DerivedData, Cargo', icon: Clock3 },
+    { label: 'Docker / OrbStack', value: 'Unused images, containers, volumes', icon: Database },
+];
+
+const AGGRESSIVE_TARGETS = [
+    { label: 'App caches', value: '~/Library/Caches/* and cache subdirectories in App Support', icon: HardDrive },
+    { label: 'Log files', value: '~/Library/Logs/* and Crashpad reports', icon: Clock3 },
+    { label: 'Orphaned app data', value: 'Data for uninstalled apps (Docker Desktop, etc.)', icon: Database },
+    { label: 'Old installers', value: 'DMG/ZIP/PKG files older than 30 days in Downloads', icon: ListChecks },
+    { label: 'Code signing clones', value: 'Orphaned *.code_sign_clone temp directories', icon: AlertTriangle },
 ];
 
 function stripAnsi(str) {
@@ -85,6 +93,7 @@ export default function CleanmacMode() {
     const [dockerInspection, setDockerInspection] = useState(null);
     const [dockerInspecting, setDockerInspecting] = useState(false);
     const [confirmedDockerReview, setConfirmedDockerReview] = useState(false);
+    const [aggressive, setAggressive] = useState(false);
     const outputRef = useRef(null);
     const cleanupRef = useRef(null);
 
@@ -227,7 +236,7 @@ export default function CleanmacMode() {
         });
 
         try {
-            await window.electron.cleanmacRun();
+            await window.electron.cleanmacRun({ aggressive });
         } catch (err) {
             setLines(prev => [...prev, { text: `Failed to start: ${err.message}`, color: '#ef4444' }]);
             setRunning(false);
@@ -269,7 +278,7 @@ export default function CleanmacMode() {
                     ) : (
                         <>
                             <Play size={15} className="transition-transform group-hover:scale-110" />
-                            Run Cleanmac
+                            {aggressive ? 'Run Aggressive' : 'Run Cleanmac'}
                         </>
                     )}
                 </button>
@@ -400,9 +409,27 @@ export default function CleanmacMode() {
                     </section>
 
                     <section className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] p-4">
-                        <p className="m-0 text-xs font-semibold text-[var(--text-tertiary)]">Cleanup Areas</p>
+                        <div className="flex items-center justify-between">
+                            <p className="m-0 text-xs font-semibold text-[var(--text-tertiary)]">Cleanup Areas</p>
+                            <div className="flex items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--bg-primary)] p-0.5">
+                                <button
+                                    type="button"
+                                    onClick={() => setAggressive(false)}
+                                    className={`rounded px-2 py-0.5 text-[10px] font-semibold transition-colors ${!aggressive ? 'bg-teal-500/20 text-teal-500' : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'}`}
+                                >
+                                    Standard
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setAggressive(true)}
+                                    className={`rounded px-2 py-0.5 text-[10px] font-semibold transition-colors ${aggressive ? 'bg-amber-500/20 text-amber-500' : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'}`}
+                                >
+                                    Aggressive
+                                </button>
+                            </div>
+                        </div>
                         <div className="mt-3 divide-y divide-[var(--border)]">
-                            {CLEANUP_TARGETS.map(({ label, value, icon: Icon }) => (
+                            {(aggressive ? AGGRESSIVE_TARGETS : CLEANUP_TARGETS).map(({ label, value, icon: Icon }) => (
                                 <div key={label} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
                                     <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-[var(--text-secondary)]">
                                         <Icon size={15} />
@@ -414,6 +441,11 @@ export default function CleanmacMode() {
                                 </div>
                             ))}
                         </div>
+                        {aggressive && (
+                            <div className="mt-2 rounded-md border border-amber-500/20 bg-amber-500/10 p-2 text-[10px] leading-4 text-amber-400">
+                                Aggressive mode cleans app caches, logs, and orphaned data. Browser profiles and system files are always protected.
+                            </div>
+                        )}
                     </section>
                 </aside>
 

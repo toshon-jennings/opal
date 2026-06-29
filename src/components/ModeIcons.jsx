@@ -304,3 +304,23 @@ export function PackagesIcon(props) {
         </Svg>
     );
 }
+
+/* IPTV — retro TV set with antenna and screen glow. */
+export function IptvIcon(props) {
+    return (
+        <Svg {...props}>
+            <rect x="2" y="5" width="20" height="14" rx="2" {...shell} />
+            <rect x="4" y="7" width="16" height="10" rx="1" {...tint} opacity="0.4" />
+            {/* Antenna */}
+            <line x1="8" y1="5" x2="6" y2="1" strokeWidth="1.8" />
+            <line x1="16" y1="5" x2="18" y2="1" strokeWidth="1.8" />
+            {/* Screen content bars */}
+            <rect x="6" y="9" width="2.5" height="5" rx="0.5" {...ink} opacity="0.6" />
+            <rect x="9.5" y="10" width="2.5" height="4" rx="0.5" {...ink} opacity="0.4" />
+            <rect x="13" y="8" width="2.5" height="6" rx="0.5" {...ink} opacity="0.7" />
+            {/* Legs */}
+            <line x1="7" y1="19" x2="7" y2="22" strokeWidth="1.8" />
+            <line x1="17" y1="19" x2="17" y2="22" strokeWidth="1.8" />
+        </Svg>
+    );
+}
