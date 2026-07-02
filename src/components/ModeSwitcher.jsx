@@ -37,7 +37,7 @@ export default function ModeSwitcher() {
         { id: MODES.OFFICE, icon: OfficeIcon,       label: 'Office' },
         { id: MODES.BUILD,  icon: BuildIcon,        label: 'Build' },
         { id: MODES.MISSION, icon: MissionIcon,     label: 'Mission' },
-        { id: MODES.LIGHTHOUSE, icon: Globe,          label: 'Localhost', color: '#f97316' },
+        { id: MODES.LIGHTHOUSE, icon: Globe, label: 'Localhost', color: '#f97316' },
     ];
 
     return (

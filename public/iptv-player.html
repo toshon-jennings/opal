@@ -31,7 +31,10 @@ function showError(msg) {
   errorEl.textContent = msg;
 }
 
-function loadStream(url, autoMute) {
+// Volume persistence across stream changes
+let lastVolume = 0.5;
+
+function loadStream(url) {
   if (hls) {
     hls.destroy();
     hls = null;
@@ -41,9 +44,11 @@ function loadStream(url, autoMute) {
   video.removeAttribute('src');
   video.load();
 
-  // Set mute state
-  video.muted = !!autoMute;
-  video.volume = video.muted ? 0 : 1;
+  // Preserve volume across stream changes.  Start muted to satisfy
+  // browser autoplay policies; the host syncs the correct mute state
+  // post-mount.
+  video.volume = lastVolume;
+  video.muted = true;
 
   if (!url) {
     showError('No stream URL');
@@ -103,18 +108,25 @@ function loadStream(url, autoMute) {
 window.addEventListener('message', (event) => {
   if (event.source !== window.parent) return;
   if (event.data?.source !== 'perci-iptv-host') return;
-  if (event.data?.type !== 'set-muted') return;
 
-  video.muted = !!event.data.muted;
-  video.volume = video.muted ? 0 : 1;
+  if (event.data?.type === 'set-muted') {
+    video.muted = !!event.data.muted;
+  } else if (event.data?.type === 'set-volume') {
+    const vol = parseFloat(event.data.volume);
+    if (!isNaN(vol) && vol >= 0 && vol <= 1) {
+      lastVolume = vol;
+      video.volume = vol;
+      // Unmute when volume is raised from 0
+      if (vol > 0) video.muted = false;
+    }
+  }
 });
 
-// Get URL and mute state from query parameters and auto-play
+// Get URL from query parameters and auto-play
 const params = new URLSearchParams(window.location.search);
 const streamUrl = params.get('url');
-const muteParam = params.get('mute');
 if (streamUrl) {
-  loadStream(streamUrl, muteParam !== '0');
+  loadStream(streamUrl);
 }
 </script>
 </body>

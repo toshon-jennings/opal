@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Plus, RefreshCw, RotateCcw, X } from 'lucide-react';
+import { Plus, RefreshCw, RotateCcw, X, GripVertical } from 'lucide-react';
 import TerminalPanel from './Terminal';
 
 // A multitab wrapper over TerminalPanel. Every tab is its own PTY session
@@ -29,6 +29,9 @@ export default function TerminalTabs({ idPrefix = 'term' }) {
     const [tabs, setTabs] = useState(() => [newTab(1, idPrefix)]);
     const [activeId, setActiveId] = useState(() => null);
     const [statuses, setStatuses] = useState({});
+    const [dragId, setDragId] = useState(null);
+    const [dropIndex, setDropIndex] = useState(null);
+    const dragCounter = useRef(0);
 
     const currentId = activeId && tabs.some(t => t.id === activeId) ? activeId : tabs[0]?.id;
     const currentStatus = statuses[currentId] || 'connecting';
@@ -62,27 +65,84 @@ export default function TerminalTabs({ idPrefix = 'term' }) {
         requestAnimationFrame(() => panelRefs.current[id]?.focus());
     };
 
+    // --- Drag and drop reordering ---
+    const onDragStart = (e, id) => {
+        setDragId(id);
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', id);
+    };
+
+    const onDragEnter = (e, index) => {
+        dragCounter.current += 1;
+        setDropIndex(index);
+    };
+
+    const onDragLeave = () => {
+        dragCounter.current -= 1;
+        if (dragCounter.current === 0) setDropIndex(null);
+    };
+
+    const onDragOver = (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    };
+
+    const onDrop = (e, targetIndex) => {
+        e.preventDefault();
+        const sourceId = e.dataTransfer.getData('text/plain');
+        dragCounter.current = 0;
+        setDragId(null);
+        if (!sourceId) return;
+        setTabs(prev => {
+            const sourceIndex = prev.findIndex(t => t.id === sourceId);
+            if (sourceIndex === -1 || sourceIndex === targetIndex) return prev;
+            const next = [...prev];
+            const [moved] = next.splice(sourceIndex, 1);
+            next.splice(targetIndex, 0, moved);
+            return next;
+        });
+        setDropIndex(null);
+    };
+
+    const onDragEnd = () => {
+        dragCounter.current = 0;
+        setDragId(null);
+        setDropIndex(null);
+    };
+
     return (
         <div className="flex min-h-0 flex-1 flex-col">
             {/* Session strip */}
             <div className="flex shrink-0 items-center gap-1 border-b border-[var(--border)] bg-[var(--bg-secondary)] px-2 py-1.5">
                 <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
-                    {tabs.map(tab => {
+                    {tabs.map((tab, index) => {
                         const active = tab.id === currentId;
+                        const isDragging = dragId === tab.id;
+                        const isDropTarget = dropIndex === index;
                         return (
                             <div
                                 key={tab.id}
                                 role="tab"
                                 tabIndex={0}
                                 aria-selected={active}
+                                draggable
+                                onDragStart={e => onDragStart(e, tab.id)}
+                                onDragEnter={e => onDragEnter(e, index)}
+                                onDragLeave={onDragLeave}
+                                onDragOver={onDragOver}
+                                onDrop={e => onDrop(e, index)}
+                                onDragEnd={onDragEnd}
                                 onClick={() => selectTab(tab.id)}
                                 onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectTab(tab.id); } }}
-                                className={`group flex shrink-0 cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1 font-mono text-[11px] transition-colors ${
+                                className={`group relative flex shrink-0 cursor-pointer select-none items-center gap-2 rounded-md border px-2.5 py-1 font-mono text-[11px] transition-colors ${
+                                    isDragging ? 'opacity-40' : ''
+                                } ${
                                     active
                                         ? 'border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-300'
                                         : 'border-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'
-                                }`}
+                                } ${isDropTarget && !isDragging ? 'border-l-2 border-l-amber-500' : ''}`}
                             >
+                                <GripVertical size={10} className="-ml-0.5 shrink-0 text-[var(--text-tertiary)] opacity-0 group-hover:opacity-60" />
                                 <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[statuses[tab.id]] || STATUS_DOT.connecting}`} />
                                 {tab.label}
                                 <button

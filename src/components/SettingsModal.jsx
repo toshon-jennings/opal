@@ -1,15 +1,40 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Key, Globe, RefreshCw, ChevronDown, Check, Wifi, WifiOff, User, ScrollText, Search, Server, Plus, Trash2, Monitor, Moon, Sun, Bot } from 'lucide-react';
+import { X, Key, Globe, RefreshCw, ChevronDown, Check, Wifi, WifiOff, User, ScrollText, Search, Server, Plus, Trash2, Monitor, Moon, Sun, Bot, Database, Keyboard, Palette } from 'lucide-react';
 import { useChat } from '../context/ChatContext';
 import { useMode } from '../context/ModeContext';
 import { useTheme } from '../context/ThemeContext';
 
 import openclawLogo from '../assets/openclaw-color.png';
+import TasteSkillDial from './TasteSkillDial';
 
 const LOCAL_IMAGE_PATHS = {
     openclaw: openclawLogo,
 };
+
+function formatBytes(value) {
+    const bytes = Number(value) || 0;
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
+const SUPERMEMORY_MODEL_PROVIDERS = [
+    { id: 'openrouter', label: 'OpenRouter', baseURL: 'https://openrouter.ai/api/v1', needsKey: true },
+    { id: 'openai', label: 'OpenAI', baseURL: 'https://api.openai.com/v1', needsKey: true },
+    { id: 'anthropic', label: 'Anthropic', baseURL: 'https://api.anthropic.com/v1', needsKey: true },
+    { id: 'mistral', label: 'Mistral', baseURL: 'https://api.mistral.ai/v1', needsKey: true },
+    { id: 'groq', label: 'Groq', baseURL: 'https://api.groq.com/openai/v1', needsKey: true },
+    { id: 'gemini', label: 'Gemini', baseURL: '', needsKey: true },
+    { id: 'ollama', label: 'Ollama', baseURL: 'http://localhost:11434/v1', needsKey: false },
+    { id: 'lmstudio', label: 'LM Studio', baseURL: 'http://localhost:1234/v1', needsKey: false },
+    { id: 'jan', label: 'Jan', baseURL: 'http://localhost:1337/v1', needsKey: false },
+];
+
+function getSupermemoryProviderMeta(provider) {
+    return SUPERMEMORY_MODEL_PROVIDERS.find(option => option.id === provider) || SUPERMEMORY_MODEL_PROVIDERS[0];
+}
 
 // Collapsible section wrapper
 function Section({ title, icon: Icon, defaultOpen = true, children }) {
@@ -65,6 +90,10 @@ export function SettingsModal({ isOpen, onClose }) {
         openClawConfig,
         setOpenClawConfig,
         setShowOpenClawDashboard,
+        cycleOrder,
+        setCycleOrder,
+        cycleScope,
+        setCycleScope,
     } = useMode();
     const { themeMode, setThemeMode, resolvedTheme } = useTheme();
 
@@ -95,6 +124,24 @@ export function SettingsModal({ isOpen, onClose }) {
 
     // Jules — Google cloud coding agent
     const [julesApiKey, setJulesApiKey] = useState('');
+
+    // Memory backend — memU Docker stack or Supermemory binary.
+    const [memoryBackend, setMemoryBackend] = useState('memu');
+    const [supermemoryConfig, setSupermemoryConfig] = useState({
+        enabled: false,
+        provider: 'openrouter',
+        providerKey: '',
+        openrouterKey: '',
+        modelBaseURL: 'https://openrouter.ai/api/v1',
+        model: 'anthropic/claude-sonnet-4',
+        dataDir: '',
+        containerTag: 'perci_memory',
+        binaryPath: '',
+        port: 6768,
+    });
+    const [supermemoryStatus, setSupermemoryStatus] = useState(null);
+    const [memoryMessage, setMemoryMessage] = useState('');
+    const [isWipingMemory, setIsWipingMemory] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
@@ -129,11 +176,28 @@ export function SettingsModal({ isOpen, onClose }) {
                         setGdashClientId(data?.gdash_google_client_id || '');
                         setGdashClientSecret(data?.gdash_google_client_secret || '');
                         setJulesApiKey(data?.jules_api_key || '');
+                        const backend = data?.perci_memory_backend || (data?.perci_supermemory_enabled === 'true' ? 'supermemory' : 'memu');
+                        setMemoryBackend(backend === 'supermemory' ? 'supermemory' : 'memu');
                     })
                     .catch(() => { /* leave fields blank */ });
             }
+            if (window.electron?.supermemoryConfig) {
+                window.electron.supermemoryConfig()
+                    .then((config) => {
+                        if (config && !config.error) {
+                            setSupermemoryConfig(prev => ({
+                                ...prev,
+                                ...config,
+                            }));
+                        }
+                    })
+                    .catch(() => { /* leave defaults */ });
+                window.electron.supermemoryStatus?.()
+                    .then((status) => setSupermemoryStatus(status || null))
+                    .catch(() => { /* leave unknown */ });
+            }
         }
-    }, [isOpen, userName, customInstructions]);
+    }, [apiKeys.openrouter, isOpen, userName, customInstructions]);
 
     const saveGdashClientId = async () => {
         if (!window.electron?.setAppData) return;
@@ -159,6 +223,70 @@ export function SettingsModal({ isOpen, onClose }) {
             await window.electron.setAppData({ jules_api_key: julesApiKey.trim() });
         } catch (err) {
             console.error('Failed to save Jules API key:', err);
+        }
+    };
+
+    const saveSupermemoryConfig = async (patch = {}) => {
+        if (!window.electron?.supermemoryConfig) return;
+        const next = { ...supermemoryConfig, ...patch };
+        setSupermemoryConfig(next);
+        try {
+            const saved = await window.electron.supermemoryConfig(patch);
+            if (saved && !saved.error) {
+                setSupermemoryConfig(prev => ({ ...prev, ...saved }));
+            } else if (saved?.error) {
+                setMemoryMessage(saved.error);
+            }
+        } catch (err) {
+            setMemoryMessage(err.message || 'Failed to save Supermemory settings.');
+        }
+    };
+
+    const saveMemoryBackend = async (backend) => {
+        setMemoryBackend(backend);
+        if (!window.electron?.supermemoryConfig) return;
+        try {
+            const enabled = backend === 'supermemory';
+            await window.electron.supermemoryConfig({ enabled });
+            setSupermemoryConfig(prev => ({ ...prev, enabled }));
+            window.dispatchEvent(new CustomEvent('perci-memory-backend-change', { detail: { backend } }));
+            setMemoryMessage(enabled ? 'Supermemory selected as the active memory backend.' : 'memU Docker selected as the active memory backend.');
+        } catch (err) {
+            setMemoryMessage(err.message || 'Failed to save memory backend.');
+        }
+    };
+
+    const refreshSupermemoryStatus = async () => {
+        if (!window.electron?.supermemoryStatus) return;
+        try {
+            const status = await window.electron.supermemoryStatus();
+            setSupermemoryStatus(status || null);
+        } catch (err) {
+            setMemoryMessage(err.message || 'Failed to refresh Supermemory status.');
+        }
+    };
+
+    const wipeSupermemoryData = async () => {
+        if (!window.electron?.supermemoryConfig) return;
+        const ok = window.confirm(
+            'This deletes the local Supermemory data directory and clears the saved Supermemory instance key. Export anything you need first. Continue?'
+        );
+        if (!ok) return;
+        setIsWipingMemory(true);
+        setMemoryMessage('');
+        try {
+            const result = await window.electron.supermemoryConfig({ action: 'wipe-data' });
+            if (result?.ok) {
+                setMemoryMessage('Supermemory data directory wiped.');
+                setSupermemoryConfig(prev => ({ ...prev, apiKey: '' }));
+                await refreshSupermemoryStatus();
+            } else {
+                setMemoryMessage(result?.error || 'Could not wipe Supermemory data.');
+            }
+        } catch (err) {
+            setMemoryMessage(err.message || 'Could not wipe Supermemory data.');
+        } finally {
+            setIsWipingMemory(false);
         }
     };
 
@@ -294,6 +422,17 @@ export function SettingsModal({ isOpen, onClose }) {
 
     const currentProviderModels = availableModels[selectedProvider] || [];
     const selectedModelObj = currentProviderModels.find(m => m.id === selectedModel);
+    const supermemoryProviderMeta = getSupermemoryProviderMeta(supermemoryConfig.provider || 'openrouter');
+    const hasSupermemoryProviderKey = Boolean(
+        supermemoryConfig.providerKey ||
+        apiKeys[supermemoryProviderMeta.id] ||
+        supermemoryStatus?.hasProviderKey
+    );
+    const supermemoryProviderText = supermemoryProviderMeta.needsKey
+        ? hasSupermemoryProviderKey
+            ? `Supermemory uses the ${supermemoryProviderMeta.label} key already saved in Perci.`
+            : `Add a ${supermemoryProviderMeta.label} key in Settings > Models before starting Supermemory.`
+        : `Supermemory uses the local ${supermemoryProviderMeta.label} endpoint.`;
 
     const filteredModels = modelSearch.trim()
         ? currentProviderModels.filter(m =>
@@ -521,6 +660,87 @@ export function SettingsModal({ isOpen, onClose }) {
                         </div>
                     </Section>
 
+                    {/* Window Switching */}
+                    <Section title="Window Switcher" icon={Keyboard} defaultOpen={true}>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">
+                                    Cycling Order
+                                </label>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-1.5">
+                                    {[
+                                        { id: 'dock', label: 'Dock Order', desc: 'Left to right' },
+                                        { id: 'mru', label: 'Recently Focused', desc: 'Most recently used' }
+                                    ].map(opt => {
+                                        const isSelected = cycleOrder === opt.id;
+                                        return (
+                                            <button
+                                                key={opt.id}
+                                                type="button"
+                                                onClick={() => setCycleOrder(opt.id)}
+                                                className={`rounded-xl border p-3.5 text-left transition-colors flex items-center justify-between ${
+                                                    isSelected
+                                                        ? 'border-[var(--accent)] bg-[var(--accent)]/6'
+                                                        : 'border-[var(--border)] bg-[var(--bg-tertiary)]/40 hover:bg-[var(--bg-hover)]'
+                                                }`}
+                                            >
+                                                <div>
+                                                    <span className="text-sm font-semibold text-[var(--text-primary)]">{opt.label}</span>
+                                                    <p className="mt-1 text-xs text-[var(--text-tertiary)]">{opt.desc}</p>
+                                                </div>
+                                                {isSelected && (
+                                                    <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[var(--accent)] text-white">
+                                                        <Check size={12} />
+                                                    </span>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide">
+                                    Cycling Scope
+                                </label>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-1.5">
+                                    {[
+                                        { id: 'all', label: 'All Open Windows', desc: 'Cycle through all open windows' },
+                                        { id: 'maximized', label: 'Only Maximized', desc: 'Ignore normal/minimized windows' }
+                                    ].map(opt => {
+                                        const isSelected = cycleScope === opt.id;
+                                        return (
+                                            <button
+                                                key={opt.id}
+                                                type="button"
+                                                onClick={() => setCycleScope(opt.id)}
+                                                className={`rounded-xl border p-3.5 text-left transition-colors flex items-center justify-between ${
+                                                    isSelected
+                                                        ? 'border-[var(--accent)] bg-[var(--accent)]/6'
+                                                        : 'border-[var(--border)] bg-[var(--bg-tertiary)]/40 hover:bg-[var(--bg-hover)]'
+                                                }`}
+                                            >
+                                                <div>
+                                                    <span className="text-sm font-semibold text-[var(--text-primary)]">{opt.label}</span>
+                                                    <p className="mt-1 text-xs text-[var(--text-tertiary)]">{opt.desc}</p>
+                                                </div>
+                                                {isSelected && (
+                                                    <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[var(--accent)] text-white">
+                                                        <Check size={12} />
+                                                    </span>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <p className="text-xs text-[var(--text-tertiary)] leading-relaxed">
+                                Use <kbd className="px-1.5 py-0.5 rounded border border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] font-mono text-[10px]">Ctrl + Tab</kbd> to cycle windows forward, and <kbd className="px-1.5 py-0.5 rounded border border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] font-mono text-[10px]">Ctrl + Shift + Tab</kbd> to cycle backward.
+                            </p>
+                        </div>
+                    </Section>
+
                     {/* Custom Instructions */}
                     <Section title="Custom Instructions" icon={ScrollText} defaultOpen={false}>
                         <textarea
@@ -661,6 +881,193 @@ export function SettingsModal({ isOpen, onClose }) {
                                     jules.google.com
                                 </button>.
                             </p>
+                        </Section>
+                    )}
+
+                    {window.electron && (
+                        <Section title="Memory Backend" icon={Database} defaultOpen={false}>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                                {[
+                                    {
+                                        id: 'memu',
+                                        label: 'memU Docker',
+                                        detail: 'memU Docker stack',
+                                    },
+                                    {
+                                        id: 'supermemory',
+                                        label: 'Supermemory',
+                                        detail: 'Local binary on port 6768',
+                                    },
+                                ].map(option => {
+                                    const selected = memoryBackend === option.id;
+                                    return (
+                                        <button
+                                            key={option.id}
+                                            type="button"
+                                            onClick={() => saveMemoryBackend(option.id)}
+                                            className={`rounded-xl border p-3.5 text-left transition-colors ${
+                                                selected
+                                                    ? 'border-[var(--accent)] bg-[var(--accent)]/6'
+                                                    : 'border-[var(--border)] bg-[var(--bg-tertiary)]/40 hover:bg-[var(--bg-hover)]'
+                                            }`}
+                                        >
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div>
+                                                    <div className="text-sm font-semibold text-[var(--text-primary)]">{option.label}</div>
+                                                    <p className="mt-1 text-xs text-[var(--text-tertiary)]">{option.detail}</p>
+                                                </div>
+                                                {selected && (
+                                                    <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[var(--accent)] text-white">
+                                                        <Check size={12} />
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-tertiary)]/30 p-4 space-y-3">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                        <h4 className="text-sm font-semibold text-[var(--text-primary)]">Local Supermemory server</h4>
+                                        <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
+                                            {supermemoryStatus?.binaryFound
+                                                ? `${supermemoryStatus.version || 'Installed'} · ${supermemoryStatus.binaryPath || supermemoryConfig.binaryPath || 'Auto-detected'}`
+                                                : 'supermemory-server not found'}
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={refreshSupermemoryStatus}
+                                        className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[var(--border)] text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+                                    >
+                                        <RefreshCw size={13} />
+                                        Refresh
+                                    </button>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                                    <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] px-3 py-2.5 md:col-span-2">
+                                        <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Provider key</span>
+                                        <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                                            {supermemoryProviderText}
+                                        </p>
+                                        <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">
+                                            No separate provider key is stored here. The local Supermemory instance key is generated by the binary and stored automatically.
+                                        </p>
+                                    </div>
+                                    <label className="space-y-1">
+                                        <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Model provider</span>
+                                        <select
+                                            value={supermemoryConfig.provider || 'openrouter'}
+                                            onChange={(e) => {
+                                                const nextProvider = e.target.value;
+                                                const nextProviderMeta = getSupermemoryProviderMeta(nextProvider);
+                                                const patch = {
+                                                    provider: nextProvider,
+                                                    modelBaseURL: nextProviderMeta.baseURL || supermemoryConfig.modelBaseURL || '',
+                                                };
+                                                setSupermemoryConfig(prev => ({ ...prev, ...patch }));
+                                                saveSupermemoryConfig(patch);
+                                            }}
+                                            className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                                        >
+                                            {SUPERMEMORY_MODEL_PROVIDERS.map(option => (
+                                                <option key={option.id} value={option.id}>{option.label}</option>
+                                            ))}
+                                        </select>
+                                    </label>
+                                    <label className="space-y-1">
+                                        <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Model ID</span>
+                                        <input
+                                            value={supermemoryConfig.model || ''}
+                                            onChange={e => setSupermemoryConfig(prev => ({ ...prev, model: e.target.value }))}
+                                            onBlur={() => saveSupermemoryConfig({ model: supermemoryConfig.model || 'anthropic/claude-sonnet-4' })}
+                                            className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-xs font-mono text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                                            placeholder="anthropic/claude-sonnet-4"
+                                            spellCheck={false}
+                                        />
+                                    </label>
+                                    <label className="space-y-1 md:col-span-2">
+                                        <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Model API base URL</span>
+                                        <input
+                                            value={supermemoryConfig.modelBaseURL || ''}
+                                            onChange={e => setSupermemoryConfig(prev => ({ ...prev, modelBaseURL: e.target.value }))}
+                                            onBlur={() => saveSupermemoryConfig({ modelBaseURL: supermemoryConfig.modelBaseURL || supermemoryProviderMeta.baseURL || '' })}
+                                            className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-xs font-mono text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                                            placeholder={supermemoryProviderMeta.baseURL || 'Provider endpoint'}
+                                            spellCheck={false}
+                                        />
+                                    </label>
+                                    <label className="space-y-1">
+                                        <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Data directory</span>
+                                        <input
+                                            value={supermemoryConfig.dataDir || ''}
+                                            onChange={e => setSupermemoryConfig(prev => ({ ...prev, dataDir: e.target.value }))}
+                                            onBlur={() => saveSupermemoryConfig({ dataDir: supermemoryConfig.dataDir || '' })}
+                                            className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-xs font-mono text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                                            spellCheck={false}
+                                        />
+                                    </label>
+                                    <label className="space-y-1">
+                                        <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Port</span>
+                                        <input
+                                            type="number"
+                                            min="1024"
+                                            max="65535"
+                                            value={supermemoryConfig.port || 6768}
+                                            onChange={e => setSupermemoryConfig(prev => ({ ...prev, port: e.target.value }))}
+                                            onBlur={() => saveSupermemoryConfig({ port: supermemoryConfig.port || 6768 })}
+                                            className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-xs font-mono text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                                            spellCheck={false}
+                                        />
+                                    </label>
+                                    <label className="space-y-1">
+                                        <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Container tag</span>
+                                        <input
+                                            value={supermemoryConfig.containerTag || ''}
+                                            onChange={e => setSupermemoryConfig(prev => ({ ...prev, containerTag: e.target.value }))}
+                                            onBlur={() => saveSupermemoryConfig({ containerTag: supermemoryConfig.containerTag || 'perci_memory' })}
+                                            className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-xs font-mono text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
+                                            placeholder="perci_memory"
+                                            spellCheck={false}
+                                        />
+                                    </label>
+                                </div>
+
+                                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] px-3 py-2.5">
+                                    <div className="text-xs text-[var(--text-secondary)]">
+                                        <span className={supermemoryStatus?.running ? 'text-emerald-500' : supermemoryStatus?.state === 'port-conflict' ? 'text-red-400' : 'text-[var(--text-tertiary)]'}>
+                                            {supermemoryStatus?.running ? 'Running' : supermemoryStatus?.state === 'port-conflict' ? 'Port conflict' : 'Stopped'}
+                                        </span>
+                                        {supermemoryStatus?.port && (
+                                            <span className="text-[var(--text-tertiary)]"> · port {supermemoryStatus.port}</span>
+                                        )}
+                                        {supermemoryStatus?.dataDir && (
+                                            <span className="text-[var(--text-tertiary)]"> · {supermemoryStatus.dataDir}</span>
+                                        )}
+                                        {supermemoryStatus?.dataDirSize && (
+                                            <span className="text-[var(--text-tertiary)]">
+                                                {' '}· {formatBytes(supermemoryStatus.dataDirSize.bytes)}
+                                                {supermemoryStatus.dataDirSize.truncated ? '+' : ''}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={wipeSupermemoryData}
+                                        disabled={isWipingMemory}
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-red-500/40 text-xs font-medium text-red-400 hover:bg-red-500/10 disabled:opacity-50 transition-colors"
+                                    >
+                                        <Trash2 size={13} />
+                                        Wipe all memories
+                                    </button>
+                                </div>
+                                {memoryMessage && (
+                                    <p className="text-xs text-[var(--text-secondary)]">{memoryMessage}</p>
+                                )}
+                            </div>
                         </Section>
                     )}
 
@@ -1151,6 +1558,12 @@ export function SettingsModal({ isOpen, onClose }) {
                                 </div>
                             </div>
                         )}
+                    </Section>
+
+                    <Section title="Design Taste" icon={Palette} defaultOpen={false}>
+                        <TasteSkillDial onApply={(config) => {
+                            console.log('Taste skill config:', config);
+                        }} />
                     </Section>
 
                     {/* Bottom padding */}

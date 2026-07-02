@@ -53,11 +53,12 @@ function parseExtinf(line, urlLine, index) {
   const tvgId = attrs['tvg-id'] || '';
   const country = extractCountry(tvgId, group, name);
 
-  // Stable ID from tvg-id or name hash
+  // Stable ID from tvg-id or name hash — NO index suffix so IDs
+  // survive playlist re-ordering and upstream additions/removals.
   const id = tvgId || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `ch-${index}`;
 
   return {
-    id: `${id}-${index}`,
+    id,
     name,
     url,
     logo: attrs['tvg-logo'] || '',
@@ -276,14 +277,33 @@ export default function useIptvPlaylist() {
   );
   const [favorites, setFavorites] = useState(() => {
     try {
-      return JSON.parse(readStringStorage(FAVORITES_KEY, '[]')) || [];
+      const raw = JSON.parse(readStringStorage(FAVORITES_KEY, '[]')) || [];
+      // Normalise: old format stored plain channel IDs with trailing `-{index}`
+      // suffix (removed in newer code for stability).  New format stores
+      // {src, id, name}.  Strip the suffix for IDs that look like tvg-ids.
+      const stripIndexSuffix = (id) => {
+        // Only strip trailing `-{digits}` when the base ID looks like a
+        // tvg-id (contains . or @) — these are iptv-org tvg-ids that had
+        // the unstable index appended.
+        const m = id.match(/^(.+?)-\d+$/);
+        if (m && (m[1].includes('.') || m[1].includes('@'))) return m[1];
+        return id;
+      };
+      return raw.map((f) => {
+        if (typeof f === 'string') return { id: stripIndexSuffix(f), src: null, name: '' };
+        return { ...f, id: stripIndexSuffix(f.id || '') };
+      });
     } catch {
       return [];
     }
   });
-  const [lastChannelId, setLastChannelId] = useState(() =>
-    readStringStorage(LAST_CHANNEL_KEY, '')
-  );
+  const [lastChannelId, setLastChannelId] = useState(() => {
+    const raw = readStringStorage(LAST_CHANNEL_KEY, '');
+    // Strip trailing `-{index}` suffix from pre-stable-ID era
+    const m = raw.match(/^(.+?)-\d+$/);
+    if (m && (m[1].includes('.') || m[1].includes('@'))) return m[1];
+    return raw;
+  });
 
   const sources = DEFAULT_SOURCES;
 
@@ -312,6 +332,31 @@ export default function useIptvPlaylist() {
     loadPlaylist(activeSource);
   }, [activeSource, loadPlaylist]);
 
+  // When channels load, upgrade legacy favorites (src: null) that
+  // match channels in the current source — so future Favorites-tab
+  // clicks can auto-switch to the right source.
+  useEffect(() => {
+    if (channels.length === 0) return;
+    setFavorites((prev) => {
+      const legacyIds = prev.filter((f) => f.src === null).map((f) => f.id);
+      if (legacyIds.length === 0) return prev; // no legacy to upgrade
+      const legacySet = new Set(legacyIds);
+      let changed = false;
+      const updated = prev.map((f) => {
+        if (f.src !== null || !legacySet.has(f.id)) return f;
+        const match = channels.find((c) => c.id === f.id);
+        if (!match) return f;
+        changed = true;
+        return { id: f.id, src: activeSource, name: match.name };
+      });
+      if (changed) {
+        writeStringStorage(FAVORITES_KEY, JSON.stringify(updated));
+        return updated;
+      }
+      return prev;
+    });
+  }, [channels, activeSource]);
+
   // Derived: unique categories from channels (split multi-value groups like "News;Public")
   const categories = useMemo(() => {
     const set = new Set();
@@ -338,20 +383,32 @@ export default function useIptvPlaylist() {
 
   // Derived: favorite channels
   const favoriteChannels = useMemo(() => {
-    const favSet = new Set(favorites);
+    const favSet = new Set(favorites.map((f) => f.id));
     return channels.filter((ch) => favSet.has(ch.id));
   }, [channels, favorites]);
+
+  // Derived: which sources have favorites (deduped, excludes null/legacy)
+  const favoriteSources = useMemo(
+    () => [...new Set(favorites.map((f) => f.src).filter(Boolean))],
+    [favorites]
+  );
 
   // Toggle favorite
   const toggleFavorite = useCallback((channelId) => {
     setFavorites((prev) => {
-      const next = prev.includes(channelId)
-        ? prev.filter((id) => id !== channelId)
-        : [...prev, channelId];
+      const existing = prev.find((f) => f.id === channelId);
+      if (existing) {
+        const next = prev.filter((f) => f.id !== channelId);
+        writeStringStorage(FAVORITES_KEY, JSON.stringify(next));
+        return next;
+      }
+      // Look up channel to get its name and source
+      const ch = channels.find((c) => c.id === channelId);
+      const next = [...prev, { id: channelId, src: activeSource, name: ch?.name || '' }];
       writeStringStorage(FAVORITES_KEY, JSON.stringify(next));
       return next;
     });
-  }, []);
+  }, [channels, activeSource]);
 
   // Record last-watched channel
   const setLastChannel = useCallback((channelId) => {
@@ -391,6 +448,7 @@ export default function useIptvPlaylist() {
     countries,
     favorites,
     favoriteChannels,
+    favoriteSources,
     toggleFavorite,
     lastChannelId,
     setLastChannel,

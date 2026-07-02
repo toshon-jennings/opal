@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     AlertCircle,
     ArrowUpRight,
     BookOpen,
     CheckCircle2,
+    Database,
     ExternalLink,
     GitBranch,
     GitCommitHorizontal,
@@ -15,6 +16,7 @@ import {
 } from 'lucide-react';
 import eidosLogo from '../assets/eidos-logo.png';
 import { EidosGuideModal } from './EidosGuideModal';
+import SupermemoryPanel from './SupermemoryPanel';
 import './EidosMode.css';
 
 const DASHBOARD_URL = 'http://localhost:3000';
@@ -84,18 +86,28 @@ function KpiCard({ label, value, detail, tone = 'default' }) {
     );
 }
 
+
 function EidosModeInner({ onOpenGuide }) {
     const [status, setStatus] = useState('idle'); // idle | checking | starting | running | error
     const [currentStep, setCurrentStep] = useState(0);
     const [error, setError] = useState(null);
     const [dashboardReady, setDashboardReady] = useState(false);
-    const [surface, setSurface] = useState('dashboard'); // overview | dashboard
+    const [surface, setSurface] = useState('dashboard'); // overview | dashboard | supermemory
     const [frameKey, setFrameKey] = useState(0);
     const [insights, setInsights] = useState(null);
     const [insightsLoading, setInsightsLoading] = useState(false);
     const [insightsError, setInsightsError] = useState('');
+    const [contribGraphFailed, setContribGraphFailed] = useState(false);
     const pollRef = useRef(null);
     const runningRef = useRef(false);
+
+    const [preloadPath, setPreloadPath] = useState('');
+
+    useEffect(() => {
+        if (window.electron?.getPreloadPath) {
+            window.electron.getPreloadPath().then(path => setPreloadPath(`file://${path}`));
+        }
+    }, []);
 
     const isElectron = !!window.electron;
     const hasEidosAPI = isElectron && window.electron?.eidosStatus;
@@ -107,6 +119,7 @@ function EidosModeInner({ onOpenGuide }) {
             pollRef.current = null;
         }
     }, []);
+
 
     const loadInsights = useCallback(async ({ silent = false } = {}) => {
         if (!hasInsightsAPI) {
@@ -238,6 +251,8 @@ function EidosModeInner({ onOpenGuide }) {
         void window.electron?.openExternal?.(DASHBOARD_URL);
     }, []);
 
+
+
     const summary = insights?.summary || EMPTY_SUMMARY;
     const services = insights?.services || {
         runtime: 'unknown',
@@ -267,8 +282,8 @@ function EidosModeInner({ onOpenGuide }) {
                         Eidos requires the desktop app
                     </h2>
                     <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                        Eidos runs as a local Docker stack managed by Perci&apos;s desktop runtime.
-                        Open Perci from the desktop app to use Eidos.
+                        Eidos manages local memory backends through Perci&apos;s desktop runtime.
+                        Open Perci from the desktop app to use memory services.
                     </p>
                     <button
                         type="button"
@@ -283,9 +298,11 @@ function EidosModeInner({ onOpenGuide }) {
         );
     }
 
+    let body;
+
     if (status === 'error') {
-        return (
-            <div className="h-full w-full flex items-center justify-center p-8">
+        body = (
+            <div className="flex-1 min-h-0 w-full flex items-center justify-center p-8">
                 <div className="max-w-lg text-center">
                     <div className="mx-auto mb-4 w-12 h-12 rounded-xl border border-red-500/30 bg-red-500/10 flex items-center justify-center">
                         <AlertCircle size={22} className="text-red-400" />
@@ -320,21 +337,19 @@ function EidosModeInner({ onOpenGuide }) {
                 </div>
             </div>
         );
-    }
-
-    if (status !== 'running' || !dashboardReady) {
-        return (
-            <div className="h-full w-full flex items-center justify-center p-8">
+    } else if (status !== 'running' || !dashboardReady) {
+        body = (
+            <div className="flex-1 min-h-0 w-full flex items-center justify-center p-8">
                 <div className="max-w-md w-full">
                     <div className="text-center mb-8">
                         <div className="mx-auto mb-4 w-12 h-12 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] flex items-center justify-center overflow-hidden">
                             <img src={eidosLogo} alt="Eidos" className="w-8 h-8" />
                         </div>
                         <h2 className="text-lg font-semibold text-[var(--text-primary)]">
-                            {status === 'checking' ? 'Checking Eidos…' : 'Starting Eidos'}
+                            {status === 'checking' ? 'Checking Eidos...' : 'Starting Eidos'}
                         </h2>
                         <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                            Setting up your persistent memory stack…
+                            Setting up the memU Docker stack...
                         </p>
                     </div>
                     <div className="space-y-3">
@@ -375,321 +390,280 @@ function EidosModeInner({ onOpenGuide }) {
                 </div>
             </div>
         );
-    }
-
-    if (surface === 'dashboard') {
-        return (
-            <div className="eidos-dashboard-root">
-                <div className="eidos-dashboard-toolbar">
-                    <button
-                        type="button"
-                        className="eidos-toolbar-btn eidos-toolbar-btn-primary"
-                        onClick={() => setSurface('overview')}
-                    >
-                        <Layers size={14} />
-                        Overview
-                    </button>
-                    <button
-                        type="button"
-                        className="eidos-toolbar-btn"
-                        onClick={() => setFrameKey((prev) => prev + 1)}
-                    >
-                        <RefreshCw size={14} />
-                        Reload dashboard
-                    </button>
-                    <button
-                        type="button"
-                        className="eidos-toolbar-btn"
-                        onClick={handleOpenDashboardInBrowser}
-                    >
-                        <ExternalLink size={14} />
-                        Open in browser
-                    </button>
-                    <button
-                        type="button"
-                        className="eidos-toolbar-btn"
-                        onClick={onOpenGuide}
-                        style={{ marginLeft: 'auto' }}
-                    >
-                        <BookOpen size={14} />
-                        Guide
-                    </button>
+    } else if (surface === 'supermemory') {
+        body = <SupermemoryPanel />;
+    } else if (surface === 'dashboard') {
+        body = (
+            <webview
+                key={`eidos-${frameKey}`}
+                src={DASHBOARD_URL}
+                title="Eidos Dashboard"
+                className="eidos-dashboard-webview"
+                partition="persist:perci-eidos"
+                allowpopups="true"
+            />
+        );
+    } else {
+        body = (
+            <div className="eidos-front-root">
+                <div className="eidos-front-bg" aria-hidden="true">
+                    <span className="eidos-front-orb eidos-front-orb-main" />
+                    <span className="eidos-front-orb eidos-front-orb-side" />
+                    <span className="eidos-front-grid" />
                 </div>
-                <webview
-                    key={`eidos-${frameKey}`}
-                    src={DASHBOARD_URL}
-                    title="Eidos Dashboard"
-                    className="eidos-dashboard-webview"
-                    partition="persist:perci-eidos"
-                    allowpopups="true"
-                />
+    
+                <div className="eidos-front-scroll">
+                    <section className="eidos-front-hero">
+                        <div>
+                            <p className="eidos-front-kicker">
+                                <GitBranch size={13} />
+                                Eidos command center
+                            </p>
+                            <div className="eidos-front-title-row">
+                                <Github size={34} aria-hidden="true" />
+                                <h1 className="eidos-front-title">Git Visualizer</h1>
+                            </div>
+                            <p className="eidos-front-subtitle">
+                                See open commits, branch drift, and local change pressure across your active repositories.
+                            </p>
+                        </div>
+                        <div className="eidos-front-actions">
+                            <button
+                                type="button"
+                                className="eidos-cta eidos-cta-primary"
+                                onClick={() => void loadInsights()}
+                                disabled={insightsLoading}
+                            >
+                                <RefreshCw size={14} className={insightsLoading ? 'animate-spin' : ''} />
+                                Refresh
+                            </button>
+                        </div>
+                    </section>
+    
+                    <section className="eidos-contrib-card" aria-label="Toshon Jennings GitHub contribution graph">
+                        <div className="eidos-contrib-head">
+                            <span>
+                                <Github size={13} />
+                                GitHub activity
+                            </span>
+                            <a
+                                href="https://github.com/toshon-jennings"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                toshon-jennings
+                                <ArrowUpRight size={13} />
+                            </a>
+                        </div>
+                        {contribGraphFailed ? (
+                            <div className="eidos-contrib-fallback" role="status">
+                                <Github size={18} aria-hidden="true" />
+                                <div>
+                                    <strong>Contribution graph unavailable</strong>
+                                    <span>The external graph image did not render in Perci. Open GitHub for live activity.</span>
+                                </div>
+                            </div>
+                        ) : (
+                            <img
+                                src={CONTRIBUTIONS_GRAPH_URL}
+                                alt="GitHub contribution graph for toshon-jennings"
+                                className="eidos-contrib-graph"
+                                loading="eager"
+                                referrerPolicy="no-referrer"
+                                onError={() => setContribGraphFailed(true)}
+                                onLoad={() => setContribGraphFailed(false)}
+                            />
+                        )}
+                    </section>
+    
+                    <section className="eidos-kpi-grid">
+                        <KpiCard
+                            label="Open commits"
+                            value={compactNumber(summary.totalOpenCommits)}
+                            detail={`${summary.reposWithOpenCommits} repos ahead`}
+                            tone="attention"
+                        />
+                        <KpiCard
+                            label="Changed files"
+                            value={compactNumber(summary.totalChangedFiles)}
+                            detail={`${summary.openRepoCount} repos with active work`}
+                            tone="active"
+                        />
+                        <KpiCard
+                            label="Need pull"
+                            value={compactNumber(summary.reposNeedingPull)}
+                            detail={`${summary.staleRepoCount} stale repos`}
+                            tone="warning"
+                        />
+                        <KpiCard
+                            label="Tracked repos"
+                            value={compactNumber(summary.repoCount)}
+                            detail={`${summary.branchCount} active branches`}
+                            tone="default"
+                        />
+                    </section>
+    
+                    <section className="eidos-front-grid-layout">
+                        <article className="eidos-panel eidos-panel-main">
+                            <div className="eidos-panel-head">
+                                <div>
+                                    <h2>Repos with open work</h2>
+                                    <p>Updated {snapshotText}</p>
+                                </div>
+                                <span>{attentionRepos.length} repos</span>
+                            </div>
+    
+                            {insightsError && (
+                                <div className="eidos-inline-error">
+                                    <AlertTriangle size={14} />
+                                    <span>{insightsError}</span>
+                                </div>
+                            )}
+    
+                            {attentionRepos.length > 0 ? (
+                                <ul className="eidos-repo-list">
+                                    {attentionRepos.map((repo) => {
+                                        const stackTotal = Math.max(repo.changedFiles + repo.openCommits + repo.behindCommits, 1);
+                                        const dirtyWidth = ratioPercent(repo.changedFiles, stackTotal);
+                                        const aheadWidth = ratioPercent(repo.openCommits, stackTotal);
+                                        const behindWidth = ratioPercent(repo.behindCommits, stackTotal);
+                                        return (
+                                            <li key={repo.id || repo.path} className="eidos-repo-card">
+                                                <div className="eidos-repo-header">
+                                                    <div className="eidos-repo-title">
+                                                        <strong>{repo.name}</strong>
+                                                        <span>{repo.branch || 'detached'}</span>
+                                                    </div>
+                                                    <div className="eidos-repo-age">{relativeTime(repo.lastCommitAt)}</div>
+                                                </div>
+                                                <div className="eidos-repo-stack" aria-hidden="true">
+                                                    <span className="is-dirty" style={{ width: `${dirtyWidth}%` }} />
+                                                    <span className="is-ahead" style={{ width: `${aheadWidth}%` }} />
+                                                    <span className="is-behind" style={{ width: `${behindWidth}%` }} />
+                                                </div>
+                                                <div className="eidos-repo-meta">
+                                                    <span className="eidos-chip is-dirty">{repo.changedFiles} changed</span>
+                                                    <span className="eidos-chip is-ahead">{repo.openCommits} open commits</span>
+                                                    <span className="eidos-chip is-behind">{repo.behindCommits} behind</span>
+                                                    <span className="eidos-chip">{repo.untrackedFiles} untracked</span>
+                                                </div>
+                                                <p className="eidos-repo-path">{shortenPath(repo.path)}</p>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            ) : (
+                                <p className="eidos-empty-state">
+                                    {insightsLoading
+                                        ? 'Loading repository state...'
+                                        : 'No repos currently need attention. Register projects in Git Shells to expand this visualizer.'}
+                                </p>
+                            )}
+                        </article>
+    
+                        <aside className="eidos-rail">
+                            <article className="eidos-panel">
+                                <div className="eidos-panel-head">
+                                    <h2>Service heartbeat</h2>
+                                    <span>{services.runtime || 'unknown'}</span>
+                                </div>
+                                <div className="eidos-health-grid">
+                                    <span className={`eidos-health-pill ${services.apiHealthy ? 'is-online' : 'is-offline'}`}>
+                                        API {services.apiHealthy ? 'online' : 'offline'}
+                                    </span>
+                                    <span className={`eidos-health-pill ${services.dashboardHealthy ? 'is-online' : 'is-offline'}`}>
+                                        Dashboard {services.dashboardHealthy ? 'online' : 'offline'}
+                                    </span>
+                                    <span className="eidos-health-pill">
+                                        Runtime {services.runtime || 'unknown'}
+                                    </span>
+                                </div>
+                            </article>
+    
+                            <article className="eidos-panel">
+                                <div className="eidos-panel-head">
+                                    <h2>Clean repos</h2>
+                                    <span>{summary.cleanRepoCount}</span>
+                                </div>
+                                {cleanRepos.length > 0 ? (
+                                    <ul className="eidos-clean-list">
+                                        {cleanRepos.map((repo) => (
+                                            <li key={repo.id || repo.path}>
+                                                <span>{repo.name}</span>
+                                                <small>{repo.branch || 'detached'}</small>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                ) : (
+                                    <p className="eidos-empty-state">No clean repos detected yet.</p>
+                                )}
+                            </article>
+                        </aside>
+                    </section>
+    
+                    {repos.length > 0 && (
+                        <section className="eidos-panel eidos-panel-matrix">
+                            <div className="eidos-panel-head">
+                                <div>
+                                    <h2>Repository matrix</h2>
+                                    <p>At-a-glance state for all tracked repos</p>
+                                </div>
+                                <span>{repos.length}</span>
+                            </div>
+                            <div className="eidos-matrix">
+                                {repos.map((repo) => (
+                                    <div
+                                        key={`matrix-${repo.id || repo.path}`}
+                                        className={`eidos-matrix-item ${repo.hasOpenWork ? 'is-hot' : 'is-cool'}`}
+                                    >
+                                        <div className="eidos-matrix-top">
+                                            <strong>{repo.name}</strong>
+                                            {repo.hasOpenWork ? (
+                                                <GitCommitHorizontal size={13} />
+                                            ) : (
+                                                <CheckCircle2 size={13} />
+                                            )}
+                                        </div>
+                                        <div className="eidos-matrix-bottom">
+                                            <span>{repo.branch || 'detached'}</span>
+                                            <span>
+                                                {repo.openCommits > 0
+                                                    ? `${repo.openCommits} open`
+                                                    : repo.changedFiles > 0
+                                                        ? `${repo.changedFiles} changed`
+                                                        : 'Clean'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+                    )}
+    
+                    <section className="eidos-front-footer">
+                        <p>
+                            Source scan: {insights?.sources?.candidateCount || 0} candidate folders ·
+                            {` `}Git Shells projects: {insights?.sources?.gitShellProjectCount || 0}
+                        </p>
+                    </section>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="eidos-front-root">
-            <div className="eidos-front-bg" aria-hidden="true">
-                <span className="eidos-front-orb eidos-front-orb-main" />
-                <span className="eidos-front-orb eidos-front-orb-side" />
-                <span className="eidos-front-grid" />
-            </div>
-
-            <div className="eidos-front-scroll">
-                <section className="eidos-contrib-card" aria-label="Toshon Jennings GitHub contribution graph">
-                    <div className="eidos-contrib-head">
-                        <span>
-                            <Github size={13} />
-                            GitHub activity
-                        </span>
-                        <a
-                            href="https://github.com/toshon-jennings"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            toshon-jennings
-                            <ArrowUpRight size={13} />
-                        </a>
-                    </div>
-                    <img
-                        src={CONTRIBUTIONS_GRAPH_URL}
-                        alt="GitHub contribution graph for toshon-jennings"
-                        className="eidos-contrib-graph"
-                        loading="eager"
-                        referrerPolicy="no-referrer"
-                    />
-                </section>
-
-                <section className="eidos-front-hero">
-                    <div>
-                        <p className="eidos-front-kicker">
-                            <GitBranch size={13} />
-                            Eidos command center
-                        </p>
-                        <div className="eidos-front-title-row">
-                            <Github size={34} aria-hidden="true" />
-                            <h1 className="eidos-front-title">Git Visualizer</h1>
-                        </div>
-                        <p className="eidos-front-subtitle">
-                            See open commits, branch drift, and local change pressure across your active repositories.
-                        </p>
-                    </div>
-                    <div className="eidos-front-actions">
-                        <button
-                            type="button"
-                            className="eidos-cta eidos-cta-primary"
-                            onClick={() => setSurface('dashboard')}
-                        >
-                            <Layers size={14} />
-                            Open Eidos dashboard
-                        </button>
-                        <button
-                            type="button"
-                            className="eidos-cta"
-                            onClick={() => void loadInsights()}
-                            disabled={insightsLoading}
-                        >
-                            <RefreshCw size={14} className={insightsLoading ? 'animate-spin' : ''} />
-                            Refresh
-                        </button>
-                        <button
-                            type="button"
-                            className="eidos-cta"
-                            onClick={handleOpenDashboardInBrowser}
-                        >
-                            <ExternalLink size={14} />
-                            Browser
-                        </button>
-                        <button
-                            type="button"
-                            className="eidos-cta"
-                            onClick={onOpenGuide}
-                        >
-                            <BookOpen size={14} />
-                            Guide
-                        </button>
-                    </div>
-                </section>
-
-                <section className="eidos-kpi-grid">
-                    <KpiCard
-                        label="Open commits"
-                        value={compactNumber(summary.totalOpenCommits)}
-                        detail={`${summary.reposWithOpenCommits} repos ahead`}
-                        tone="attention"
-                    />
-                    <KpiCard
-                        label="Changed files"
-                        value={compactNumber(summary.totalChangedFiles)}
-                        detail={`${summary.openRepoCount} repos with active work`}
-                        tone="active"
-                    />
-                    <KpiCard
-                        label="Need pull"
-                        value={compactNumber(summary.reposNeedingPull)}
-                        detail={`${summary.staleRepoCount} stale repos`}
-                        tone="warning"
-                    />
-                    <KpiCard
-                        label="Tracked repos"
-                        value={compactNumber(summary.repoCount)}
-                        detail={`${summary.branchCount} active branches`}
-                        tone="default"
-                    />
-                </section>
-
-                <section className="eidos-front-grid-layout">
-                    <article className="eidos-panel eidos-panel-main">
-                        <div className="eidos-panel-head">
-                            <div>
-                                <h2>Repos with open work</h2>
-                                <p>Updated {snapshotText}</p>
-                            </div>
-                            <span>{attentionRepos.length} repos</span>
-                        </div>
-
-                        {insightsError && (
-                            <div className="eidos-inline-error">
-                                <AlertTriangle size={14} />
-                                <span>{insightsError}</span>
-                            </div>
-                        )}
-
-                        {attentionRepos.length > 0 ? (
-                            <ul className="eidos-repo-list">
-                                {attentionRepos.map((repo) => {
-                                    const stackTotal = Math.max(repo.changedFiles + repo.openCommits + repo.behindCommits, 1);
-                                    const dirtyWidth = ratioPercent(repo.changedFiles, stackTotal);
-                                    const aheadWidth = ratioPercent(repo.openCommits, stackTotal);
-                                    const behindWidth = ratioPercent(repo.behindCommits, stackTotal);
-                                    return (
-                                        <li key={repo.id || repo.path} className="eidos-repo-card">
-                                            <div className="eidos-repo-header">
-                                                <div className="eidos-repo-title">
-                                                    <strong>{repo.name}</strong>
-                                                    <span>{repo.branch || 'detached'}</span>
-                                                </div>
-                                                <div className="eidos-repo-age">{relativeTime(repo.lastCommitAt)}</div>
-                                            </div>
-                                            <div className="eidos-repo-stack" aria-hidden="true">
-                                                <span className="is-dirty" style={{ width: `${dirtyWidth}%` }} />
-                                                <span className="is-ahead" style={{ width: `${aheadWidth}%` }} />
-                                                <span className="is-behind" style={{ width: `${behindWidth}%` }} />
-                                            </div>
-                                            <div className="eidos-repo-meta">
-                                                <span className="eidos-chip is-dirty">{repo.changedFiles} changed</span>
-                                                <span className="eidos-chip is-ahead">{repo.openCommits} open commits</span>
-                                                <span className="eidos-chip is-behind">{repo.behindCommits} behind</span>
-                                                <span className="eidos-chip">{repo.untrackedFiles} untracked</span>
-                                            </div>
-                                            <p className="eidos-repo-path">{shortenPath(repo.path)}</p>
-                                        </li>
-                                    );
-                                })}
-                            </ul>
-                        ) : (
-                            <p className="eidos-empty-state">
-                                {insightsLoading
-                                    ? 'Loading repository state...'
-                                    : 'No repos currently need attention. Register projects in Git Shells to expand this visualizer.'}
-                            </p>
-                        )}
-                    </article>
-
-                    <aside className="eidos-rail">
-                        <article className="eidos-panel">
-                            <div className="eidos-panel-head">
-                                <h2>Service heartbeat</h2>
-                                <span>{services.runtime || 'unknown'}</span>
-                            </div>
-                            <div className="eidos-health-grid">
-                                <span className={`eidos-health-pill ${services.apiHealthy ? 'is-online' : 'is-offline'}`}>
-                                    API {services.apiHealthy ? 'online' : 'offline'}
-                                </span>
-                                <span className={`eidos-health-pill ${services.dashboardHealthy ? 'is-online' : 'is-offline'}`}>
-                                    Dashboard {services.dashboardHealthy ? 'online' : 'offline'}
-                                </span>
-                                <span className="eidos-health-pill">
-                                    Runtime {services.runtime || 'unknown'}
-                                </span>
-                            </div>
-                        </article>
-
-                        <article className="eidos-panel">
-                            <div className="eidos-panel-head">
-                                <h2>Clean repos</h2>
-                                <span>{summary.cleanRepoCount}</span>
-                            </div>
-                            {cleanRepos.length > 0 ? (
-                                <ul className="eidos-clean-list">
-                                    {cleanRepos.map((repo) => (
-                                        <li key={repo.id || repo.path}>
-                                            <span>{repo.name}</span>
-                                            <small>{repo.branch || 'detached'}</small>
-                                        </li>
-                                    ))}
-                                </ul>
-                            ) : (
-                                <p className="eidos-empty-state">No clean repos detected yet.</p>
-                            )}
-                        </article>
-                    </aside>
-                </section>
-
-                {repos.length > 0 && (
-                    <section className="eidos-panel eidos-panel-matrix">
-                        <div className="eidos-panel-head">
-                            <div>
-                                <h2>Repository matrix</h2>
-                                <p>At-a-glance state for all tracked repos</p>
-                            </div>
-                            <span>{repos.length}</span>
-                        </div>
-                        <div className="eidos-matrix">
-                            {repos.map((repo) => (
-                                <div
-                                    key={`matrix-${repo.id || repo.path}`}
-                                    className={`eidos-matrix-item ${repo.hasOpenWork ? 'is-hot' : 'is-cool'}`}
-                                >
-                                    <div className="eidos-matrix-top">
-                                        <strong>{repo.name}</strong>
-                                        {repo.hasOpenWork ? (
-                                            <GitCommitHorizontal size={13} />
-                                        ) : (
-                                            <CheckCircle2 size={13} />
-                                        )}
-                                    </div>
-                                    <div className="eidos-matrix-bottom">
-                                        <span>{repo.branch || 'detached'}</span>
-                                        <span>
-                                            {repo.openCommits > 0
-                                                ? `${repo.openCommits} open`
-                                                : repo.changedFiles > 0
-                                                    ? `${repo.changedFiles} changed`
-                                                    : 'Clean'}
-                                        </span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </section>
-                )}
-
-                <section className="eidos-front-footer">
-                    <p>
-                        Source scan: {insights?.sources?.candidateCount || 0} candidate folders ·
-                        {` `}Git Shells projects: {insights?.sources?.gitShellProjectCount || 0}
-                    </p>
-                    <button
-                        type="button"
-                        className="eidos-footer-link"
-                        onClick={() => setSurface('dashboard')}
-                    >
-                        Open full dashboard
-                        <ArrowUpRight size={13} />
-                    </button>
-                </section>
-            </div>
+        <div className="eidos-dashboard-root">
+            {body}
+            {status === 'running' && surface === 'dashboard' && (
+                <button
+                    type="button"
+                    onClick={() => setFrameKey(prev => prev + 1)}
+                    className="eidos-floating-reload-btn"
+                    title="Reload Eidos view"
+                >
+                    <RefreshCw size={15} />
+                </button>
+            )}
         </div>
     );
 }

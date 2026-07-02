@@ -88,6 +88,7 @@ export const SURFACE_ROUTE_TYPES = {
 export const SURFACE_MAP_DISTRICTS = [
     {
         id: 'core-concourse',
+        color: '#6366f1',
         label: 'Core Concourse',
         description: 'The orientation layer: where users start, return, and understand the workspace.',
         x: 460,
@@ -97,6 +98,7 @@ export const SURFACE_MAP_DISTRICTS = [
     },
     {
         id: 'knowledge-quarter',
+        color: '#059669',
         label: 'Knowledge Quarter',
         description: 'Ideas, notes, research, and durable memory.',
         x: 100,
@@ -106,6 +108,7 @@ export const SURFACE_MAP_DISTRICTS = [
     },
     {
         id: 'creation-yard',
+        color: '#e11d48',
         label: 'Creation Yard',
         description: 'Conversation, coding, build output, previews, and generated artifacts.',
         x: 220,
@@ -115,6 +118,7 @@ export const SURFACE_MAP_DISTRICTS = [
     },
     {
         id: 'operations-terminal',
+        color: '#d97706',
         label: 'Operations Terminal',
         description: 'Agent work, mission supervision, CLI skills, and AI runtimes.',
         x: 700,
@@ -124,6 +128,7 @@ export const SURFACE_MAP_DISTRICTS = [
     },
     {
         id: 'local-systems-depot',
+        color: '#0891b2',
         label: 'Local Systems Depot',
         description: 'Machine-local services, ports, terminals, and embedded external tools.',
         x: 700,
@@ -133,6 +138,7 @@ export const SURFACE_MAP_DISTRICTS = [
     },
     {
         id: 'business-office',
+        color: '#84cc16',
         label: 'Business Office',
         description: 'User money, bills, workspace administration, and business dashboards.',
         x: 460,

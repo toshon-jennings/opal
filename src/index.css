@@ -1113,6 +1113,19 @@ html.dark .packages-branded.active {
   background: var(--bg-primary);
 }
 
+/* Inactive windows use a body shield so the first body click always raises the
+   window, including over Electron webviews and cross-document iframes. */
+.perci-window-focus-shield {
+  position: absolute;
+  top: 40px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  background: transparent;
+  cursor: default;
+}
+
 /* ─── OpenClaw window: red accent overrides ─────────────────────────────── */
 /* The OpenClaw embedded dashboard lives inside a .oc-window wrapper.
    All Tailwind arbitrary-value classes like border-[var(--accent)] resolve

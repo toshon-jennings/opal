@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu, shell, safeStorage, session, nativeImage } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const { installRedactedConsole, redactSecrets } = require('./redact-console.cjs');
+const supermemoryProcess = require('./lib/supermemory-process.cjs');
 const path = require('path');
 const fsSync = require('fs');
 const { spawn, spawnSync } = require('child_process');
@@ -793,6 +794,25 @@ function createMenu() {
       submenu: [
         { role: 'minimize' },
         { role: 'zoom' },
+        { type: 'separator' },
+        {
+          label: 'Cycle Next Window',
+          accelerator: 'Ctrl+Tab',
+          click: (menuItem, browserWindow) => {
+            if (browserWindow) {
+              browserWindow.webContents.send('menu-action', 'cycle-next-window');
+            }
+          }
+        },
+        {
+          label: 'Cycle Previous Window',
+          accelerator: 'Ctrl+Shift+Tab',
+          click: (menuItem, browserWindow) => {
+            if (browserWindow) {
+              browserWindow.webContents.send('menu-action', 'cycle-prev-window');
+            }
+          }
+        },
         ...(process.platform === 'darwin' ? [
           { type: 'separator' },
           { role: 'front' },
@@ -1079,6 +1099,7 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   stopOpenClawLogStream();
   stopHermesLogStream();
+  supermemoryProcess.stop().catch(err => console.error('[supermemory] stop failed:', err));
   if (hermesActiveRun) {
     try { hermesActiveRun.child.kill('SIGTERM'); } catch { /* already gone */ }
     hermesActiveRun = null;
@@ -1164,7 +1185,9 @@ const apiKeyStorageKeys = new Set([
   'hermes_config',
   'gdash_google_client_id',
   'gdash_google_client_secret',
-  'gdash_google_tokens'
+  'gdash_google_tokens',
+  'perci_supermemory_api_key',
+  'perci_supermemory_openrouter_key'
 ]);
 
 function getAppDataPath() {
@@ -1310,6 +1333,8 @@ ipcMain.on('show-context-menu', (event, params) => {
 });
 
 ipcMain.handle('app-data:path', async () => getAppDataPath());
+ipcMain.handle('get-preload-path', async () => path.join(__dirname, 'preload.cjs'));
+
 
 ipcMain.handle('terminal:get-connection-info', async () => ({
   token: terminalServerToken
@@ -5534,6 +5559,172 @@ ipcMain.handle('eidos:restart', async () => {
     return { ok: true, state: 'running' };
   } catch (err) {
     return { error: err.message };
+  }
+});
+
+function getSupermemoryProviderKeyFromAppData(appData = {}, provider = supermemoryProcess.DEFAULT_PROVIDER) {
+  const providerKeyMap = {
+    openrouter: appData.openrouter_key || '',
+    openai: appData.openai_key || '',
+    anthropic: appData.anthropic_key || '',
+    mistral: appData.mistral_key || '',
+    groq: appData.groq_key || '',
+    gemini: appData.gemini_key || '',
+  };
+  return providerKeyMap[provider] || '';
+}
+
+function getSupermemoryConfigFromAppData(appData = {}) {
+  const provider = appData.perci_supermemory_provider || appData.selected_provider || supermemoryProcess.DEFAULT_PROVIDER;
+  const localBaseURLMap = {
+    lmstudio: appData.lm_studio_url || '',
+    jan: appData.jan_url || '',
+  };
+  return supermemoryProcess.normalizeConfig({
+    enabled: appData.perci_supermemory_enabled === true || appData.perci_supermemory_enabled === 'true',
+    apiKey: appData.perci_supermemory_api_key || '',
+    provider,
+    providerKey: getSupermemoryProviderKeyFromAppData(appData, provider),
+    openrouterKey: appData.perci_supermemory_openrouter_key || appData.openrouter_key || '',
+    modelBaseURL: appData.perci_supermemory_model_base_url || localBaseURLMap[provider] || supermemoryProcess.defaultModelBaseURL(provider),
+    model: appData.perci_supermemory_model || supermemoryProcess.DEFAULT_MODEL,
+    dataDir: appData.perci_supermemory_data_dir || supermemoryProcess.defaultDataDir(),
+    containerTag: appData.perci_supermemory_container_tag || supermemoryProcess.DEFAULT_CONTAINER_TAG,
+    binaryPath: appData.perci_supermemory_binary_path || '',
+    port: appData.perci_supermemory_port || supermemoryProcess.DEFAULT_PORT,
+  });
+}
+
+async function readSupermemoryConfig() {
+  const appData = await readAppData();
+  const config = getSupermemoryConfigFromAppData(appData);
+  const binaryPath = config.binaryPath || supermemoryProcess.discoverBinary(config);
+  return {
+    ...config,
+    binaryPath,
+    binaryFound: Boolean(binaryPath),
+  };
+}
+
+async function writeSupermemoryConfig(patch = {}) {
+  const currentData = await readAppData();
+  const current = getSupermemoryConfigFromAppData(currentData);
+  const next = supermemoryProcess.normalizeConfig({
+    ...current,
+    ...patch,
+    providerKey: getSupermemoryProviderKeyFromAppData(currentData, patch.provider || current.provider),
+    enabled: patch.enabled !== undefined ? patch.enabled : current.enabled,
+  });
+  const binaryPath = next.binaryPath || supermemoryProcess.discoverBinary(next);
+
+  await writeAppData({
+    ...currentData,
+    perci_supermemory_enabled: next.enabled ? 'true' : 'false',
+    perci_memory_backend: next.enabled ? 'supermemory' : 'memu',
+    perci_supermemory_api_key: next.apiKey || '',
+    perci_supermemory_openrouter_key: Object.prototype.hasOwnProperty.call(patch, 'openrouterKey')
+      ? (next.openrouterKey || '')
+      : (currentData.perci_supermemory_openrouter_key || ''),
+    perci_supermemory_provider: next.provider,
+    perci_supermemory_model_base_url: next.modelBaseURL,
+    perci_supermemory_model: next.model,
+    perci_supermemory_data_dir: next.dataDir,
+    perci_supermemory_container_tag: next.containerTag,
+    perci_supermemory_binary_path: binaryPath || '',
+    perci_supermemory_port: String(next.port),
+  });
+
+  return {
+    ...next,
+    binaryPath,
+    binaryFound: Boolean(binaryPath),
+  };
+}
+
+async function persistSupermemoryApiKey(apiKey) {
+  if (!apiKey) return;
+  const currentData = await readAppData();
+  await writeAppData({
+    ...currentData,
+    perci_supermemory_api_key: apiKey,
+  });
+}
+
+ipcMain.handle('supermemory:status', async () => {
+  try {
+    const config = await readSupermemoryConfig();
+    return await supermemoryProcess.getStatus(config);
+  } catch (err) {
+    return { running: false, state: 'error', error: err.message };
+  }
+});
+
+ipcMain.handle('supermemory:start', async () => {
+  try {
+    const config = await readSupermemoryConfig();
+    return await supermemoryProcess.start(config, {
+      onApiKey: (apiKey) => {
+        persistSupermemoryApiKey(apiKey).catch(err => console.error('[supermemory] failed to persist API key:', err));
+      },
+    });
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle('supermemory:stop', async () => {
+  try {
+    return await supermemoryProcess.stop();
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle('supermemory:restart', async () => {
+  try {
+    const config = await readSupermemoryConfig();
+    return await supermemoryProcess.restart(config, {
+      onApiKey: (apiKey) => {
+        persistSupermemoryApiKey(apiKey).catch(err => console.error('[supermemory] failed to persist API key:', err));
+      },
+    });
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle('supermemory:progress', async () => supermemoryProcess.progress());
+
+ipcMain.handle('supermemory:config', async (event, patch = null) => {
+  try {
+    if (patch?.action === 'wipe-data') {
+      const config = await readSupermemoryConfig();
+      const result = await supermemoryProcess.wipeData(config);
+      if (result.ok) {
+        const currentData = await readAppData();
+        await writeAppData({
+          ...currentData,
+          perci_supermemory_api_key: '',
+        });
+      }
+      return result;
+    }
+
+    if (patch && typeof patch === 'object') {
+      return await writeSupermemoryConfig(patch);
+    }
+    return await readSupermemoryConfig();
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle('supermemory:api', async (event, method, apiPath, body) => {
+  try {
+    const config = await readSupermemoryConfig();
+    return await supermemoryProcess.proxyApi(config, method, apiPath, body);
+  } catch (err) {
+    return { ok: false, status: 500, error: err.message };
   }
 });
 

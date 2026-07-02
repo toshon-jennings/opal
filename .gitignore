@@ -58,6 +58,7 @@ docs/architecture/odysseus-graphify/
 perci-data.json
 renderer.log
 jan-serve.log
+.supermemory/
 
 # ── Generated Vite chunks ───────────────────────────────────────────────────────
 index-*.js

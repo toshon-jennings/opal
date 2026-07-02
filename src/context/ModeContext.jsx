@@ -252,6 +252,18 @@ export function ModeProvider({ children }) {
     // Agent id to pre-select when the Agents window opens (e.g. clicking a desk
     // in Perci HQ). Consumed and cleared by AgentsPanel.
     const [pendingAgentSelection, setPendingAgentSelection] = useState(null);
+
+    // Keyboard switcher settings
+    const [cycleOrder, setCycleOrder] = useState(() => readStringStorage('perci_cycle_order', 'dock'));
+    const [cycleScope, setCycleScope] = useState(() => readStringStorage('perci_cycle_scope', 'all'));
+
+    useEffect(() => {
+        writeStringStorage('perci_cycle_order', cycleOrder);
+    }, [cycleOrder]);
+
+    useEffect(() => {
+        writeStringStorage('perci_cycle_scope', cycleScope);
+    }, [cycleScope]);
     const zCounterRef = useRef(windows.reduce((max, w) => Math.max(max, w.z || 0), 20));
 
     // Mirror of `windows` so actions can read the latest set without putting
@@ -296,6 +308,43 @@ export function ModeProvider({ children }) {
             ? { ...w, z: nextZ, focusedAt: Date.now(), state: w.state === 'minimized' ? 'normal' : w.state }
             : w));
         setActiveMode(id);
+    }, []);
+
+    const cycleWindows = useCallback((direction = 'forward') => {
+        let candidates = windowsRef.current;
+        if (cycleScope === 'maximized') {
+            candidates = candidates.filter(w => w.state === 'maximized');
+        }
+
+        if (candidates.length <= 1) return;
+
+        // Sort candidates based on cycleOrder
+        let sorted = [...candidates];
+        if (cycleOrder === 'mru') {
+            sorted.sort((a, b) => {
+                const focusDiff = (b.focusedAt || 0) - (a.focusedAt || 0);
+                if (focusDiff !== 0) return focusDiff;
+                return (b.z || 0) - (a.z || 0);
+            });
+        }
+
+        const currentIndex = sorted.findIndex(w => w.id === currentMode);
+
+        let nextIndex;
+        if (direction === 'forward') {
+            nextIndex = (currentIndex + 1) % sorted.length;
+        } else {
+            nextIndex = (currentIndex - 1 + sorted.length) % sorted.length;
+        }
+
+        const nextWin = sorted[nextIndex];
+        focusWindow(nextWin.id);
+    }, [currentMode, focusWindow, cycleOrder, cycleScope]);
+
+    // Minimize all open windows — "show desktop" behavior.
+    const focusDashboard = useCallback(() => {
+        setWindows(ws => ws.map(w => w.state === 'minimized' ? w : { ...w, state: 'minimized' }));
+        setActiveMode(MODES.DASHBOARD);
     }, []);
 
     const openWindow = useCallback((modeId) => {
@@ -406,6 +455,7 @@ export function ModeProvider({ children }) {
         openWindow,
         closeWindow,
         focusWindow,
+        focusDashboard,
         minimizeWindow,
         toggleMaximizeWindow,
         moveWindow,
@@ -424,7 +474,12 @@ export function ModeProvider({ children }) {
         pendingComparePrompt,
         setPendingComparePrompt,
         openCompareWindow,
-    }), [windows, openWindow, closeWindow, focusWindow, minimizeWindow, toggleMaximizeWindow, moveWindow, resizeWindow, youtubeUrl, openYouTubeWindow, pendingAgentSelection, openAgentWindow, pendingArtifactId, openArtifactWindow, researchData, openResearchWindow, pendingComparePrompt, openCompareWindow]);
+        cycleWindows,
+        cycleOrder,
+        setCycleOrder,
+        cycleScope,
+        setCycleScope,
+    }), [windows, openWindow, closeWindow, focusWindow, focusDashboard, minimizeWindow, toggleMaximizeWindow, moveWindow, resizeWindow, youtubeUrl, openYouTubeWindow, pendingAgentSelection, openAgentWindow, pendingArtifactId, openArtifactWindow, researchData, openResearchWindow, pendingComparePrompt, openCompareWindow, cycleWindows, cycleOrder, cycleScope]);
 
     const createDefaultCodeState = () => ({
         workingDirectory: readStringStorage('working_directory', null),

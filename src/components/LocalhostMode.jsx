@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
-import { ArrowLeft, ArrowRight, ArrowUp, ArrowDown, ExternalLink, Globe, Home, RefreshCw, Settings, Plus, X, PanelRight, Radar, Play, ChevronDown, ChevronUp, Bookmark, Star, Search, History, Trash2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowUp, ArrowDown, ExternalLink, Globe, Home, RefreshCw, Settings, Plus, X, PanelRight, Radar, Play, ChevronDown, ChevronUp, Bookmark, Star, Search, History, Trash2, Pin } from 'lucide-react';
 import { readStringStorage, writeStringStorage, removeStorageKey } from '../lib/persistentStore';
 import { useTheme } from '../context/ThemeContext';
 import { useMode, MODES } from '../context/ModeContext';
@@ -10,6 +10,7 @@ import lighthouseBg from '../assets/lighthouse-bg.jpg';
 
 const QUICK_PORTS = [3000, 5173, 8080, 4200];
 const MAX_HISTORY_ITEMS = 80;
+const MAX_PINNED_TABS = 24;
 
 const PROCESS_NAME_MAP = {
   'com.docke': 'Docker Desktop', 'Docker': 'Docker Desktop', 'docker': 'Docker',
@@ -55,7 +56,32 @@ const getStorageKeys = (isKlipit) => ({
     BOOKMARKS: isKlipit ? 'perci_klipit_bookmarks' : 'perci_localhost_bookmarks',
     HISTORY: isKlipit ? 'perci_klipit_history' : 'perci_localhost_history',
     SEARCH_ENGINE: isKlipit ? 'perci_klipit_search' : 'perci_localhost_search',
+    PINNED_TABS: isKlipit ? 'perci_klipit_pinned_tabs' : 'perci_localhost_pinned_tabs',
 });
+
+function createTabId() {
+    return `tab-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function readPinnedTabs(key) {
+    try {
+        const parsed = JSON.parse(readStringStorage(key, '[]'));
+        if (!Array.isArray(parsed)) return [];
+        return parsed
+            .filter((tab) => tab && typeof tab.url === 'string' && tab.url.trim())
+            .map((tab) => ({
+                id: createTabId(),
+                url: tab.url.trim(),
+                title: typeof tab.title === 'string' && tab.title.trim()
+                    ? tab.title.trim()
+                    : addressLabel(tab.url.trim()) || 'Pinned Tab',
+                pinned: true,
+            }))
+            .slice(0, MAX_PINNED_TABS);
+    } catch {
+        return [];
+    }
+}
 
 function readHistoryEntries(key) {
     try {
@@ -92,7 +118,7 @@ function addressLabel(url) {
 }
 
 
-function LocalhostTab({ id, initialUrl, hidden, onTitleChange, isKlipit, isDarkMode, onNewTab }) {
+function LocalhostTab({ id, initialUrl, hidden, onTitleChange, onUrlChange, isKlipit, isDarkMode, onNewTab }) {
     const keys = useMemo(() => getStorageKeys(isKlipit), [isKlipit]);
     const [url, setUrl] = useState(initialUrl);
     const [title, setTitle] = useState(addressLabel(initialUrl) || 'New Tab');
@@ -357,8 +383,9 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, isKlipit, isDarkM
         setLoadError(null);
         setUrl(next);
         setInputValue(addressLabel(next));
+        onUrlChange?.(id, next, addressLabel(next) || 'New Tab');
         if (!hidden) writeStringStorage(keys.LAST_URL, next);
-    }, [hidden, allowHttp, keys.LAST_URL, searchEngine]);
+    }, [hidden, allowHttp, keys.LAST_URL, searchEngine, id, onUrlChange]);
 
     const saveHome = useCallback((raw) => {
         const next = normalizeAddress(raw);
@@ -367,7 +394,7 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, isKlipit, isDarkM
         if (next) writeStringStorage(keys.HOME, next);
         else removeStorageKey(keys.HOME);
         setShowSettings(false);
-    }, [isKlipit, keys.HOME]);
+    }, [keys.HOME]);
 
     const toggleAllowHttp = useCallback(() => {
         const next = !allowHttp;
@@ -386,11 +413,14 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, isKlipit, isDarkM
         const handleStart = () => { setIsLoading(true); setLoadError(null); };
         const handleStop = () => setIsLoading(false);
         const handleNavigate = (e) => {
+            if (e.isMainFrame === false) return; // ignore sub-frame navigations (e.g. iframe embeds)
             setUrl(e.url);
             setInputValue(addressLabel(e.url));
             setNavState({ canGoBack: webview.canGoBack(), canGoForward: webview.canGoForward() });
             if (!hidden) writeStringStorage(keys.LAST_URL, e.url);
             const fallbackTitle = addressLabel(e.url) || 'New Tab';
+            setTitle(fallbackTitle);
+            onUrlChange?.(id, e.url, fallbackTitle);
             onTitleChange(id, fallbackTitle);
             addHistoryEntry(e.url, fallbackTitle);
         };
@@ -404,6 +434,7 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, isKlipit, isDarkM
                 onTitleChange(id, e.title);
                 setTitle(e.title);
                 const currentUrl = webview.getURL?.();
+                if (currentUrl) onUrlChange?.(id, currentUrl, e.title);
                 if (currentUrl) addHistoryEntry(currentUrl, e.title);
             }
         };
@@ -462,7 +493,7 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, isKlipit, isDarkM
             webview.removeEventListener('new-window', handleNewWindow);
             webview.removeEventListener('found-in-page', handleFoundInPage);
         };
-    }, [id, onTitleChange, allowHttp, hidden, keys.LAST_URL, addHistoryEntry, isKlipit, onNewTab]);
+    }, [id, onTitleChange, onUrlChange, allowHttp, hidden, keys.LAST_URL, addHistoryEntry, isKlipit, onNewTab]);
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -771,7 +802,7 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, isKlipit, isDarkM
 
             {loadError && (
                 <div className="flex shrink-0 items-center justify-between gap-3 border-b border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs text-red-400">
-                    <span className="truncate">{loadError.desc}</span>
+                    <span className="truncate">{loadError}</span>
                     <button type="button" onClick={() => webviewRef.current?.reload()} className="shrink-0 font-medium hover:text-red-300">
                         Retry
                     </button>
@@ -906,12 +937,15 @@ export default function LocalhostMode({ isKlipit }) {
     const isElectron = !!window.electron;
     const { isDarkMode } = useTheme();
     const { openWindow } = useMode();
+    const storageKeys = useMemo(() => getStorageKeys(isKlipit), [isKlipit]);
     const [tabs, setTabs] = useState(() => {
-        const keys = getStorageKeys(isKlipit);
-        const savedUrl = readStringStorage(keys.LAST_URL, '');
-        return [{ id: Date.now().toString(), url: savedUrl, title: addressLabel(savedUrl) || 'New Tab' }];
+        const pinnedTabs = readPinnedTabs(storageKeys.PINNED_TABS);
+        if (pinnedTabs.length > 0) return pinnedTabs;
+        const savedUrl = readStringStorage(storageKeys.LAST_URL, '');
+        return [{ id: createTabId(), url: savedUrl, title: addressLabel(savedUrl) || 'New Tab', pinned: false }];
     });
     const [activeTabId, setActiveTabId] = useState(tabs[0].id);
+    const [draggedTabId, setDraggedTabId] = useState(null);
 
     // ── Lighthouse discovered servers ──────────────────────────────────
     const [discoveredServers, setDiscoveredServers] = useState([]);
@@ -946,15 +980,46 @@ export default function LocalhostMode({ isKlipit }) {
         scanForServers();
     }, [scanForServers]);
 
+    useEffect(() => {
+        const pinnedTabs = tabs
+            .filter((tab) => tab.pinned && tab.url)
+            .map((tab) => ({
+                url: tab.url,
+                title: tab.title || addressLabel(tab.url) || 'Pinned Tab',
+            }))
+            .slice(0, MAX_PINNED_TABS);
+        writeStringStorage(storageKeys.PINNED_TABS, JSON.stringify(pinnedTabs));
+    }, [tabs, storageKeys.PINNED_TABS]);
+
     const handleTitleChange = useCallback((id, title) => {
         setTabs(currentTabs => currentTabs.map(t => t.id === id ? { ...t, title } : t));
     }, []);
 
+    const handleUrlChange = useCallback((id, url, title) => {
+        setTabs(currentTabs => currentTabs.map(t => (
+            t.id === id
+                ? { ...t, url, title: title || t.title || addressLabel(url) || 'New Tab' }
+                : t
+        )));
+    }, []);
+
     const handleNewTab = useCallback((url) => {
         console.log('[LocalhostMode] Creating new tab with URL:', url);
-        const newId = Date.now().toString();
-        setTabs(prev => [...prev, { id: newId, url, title: 'New Tab' }]);
+        const newId = createTabId();
+        setTabs(prev => [...prev, { id: newId, url, title: addressLabel(url || '') || 'New Tab', pinned: false }]);
         setActiveTabId(newId);
+    }, []);
+
+    const togglePinnedTab = useCallback((id) => {
+        setTabs((currentTabs) => {
+            const nextTabs = currentTabs.map((tab) => (
+                tab.id === id ? { ...tab, pinned: !tab.pinned } : tab
+            ));
+            return [
+                ...nextTabs.filter((tab) => tab.pinned),
+                ...nextTabs.filter((tab) => !tab.pinned),
+            ];
+        });
     }, []);
 
     // Open a discovered server into a new tab
@@ -1017,36 +1082,38 @@ export default function LocalhostMode({ isKlipit }) {
 
             {/* Discovered servers — collapsible, collapsed by default */}
             <div className={`shrink-0 border-b border-[var(--border)] bg-[var(--bg-secondary)]/20 ${isKlipit ? 'border-[#dac39c] dark:border-[#322c20] bg-[#f1e4cf]/30 dark:bg-[#141009]/30' : ''}`}>
-                <button
-                    type="button"
-                    onClick={() => setServersCollapsed(c => !c)}
-                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-[var(--bg-hover)]/30"
-                    title={serversCollapsed ? 'Show discovered servers' : 'Hide discovered servers'}
-                >
-                    <div className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--text-tertiary)]">
-                        <Radar size={11} className={scanning ? 'animate-pulse text-[var(--accent)]' : ''} />
-                        <span>Running</span>
-                    </div>
+                <div className="flex w-full items-center gap-2 px-3 py-1.5 transition-colors hover:bg-[var(--bg-hover)]/30">
                     <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); scanForServers(); }}
+                        onClick={() => setServersCollapsed(c => !c)}
+                        className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                        title={serversCollapsed ? 'Show discovered servers' : 'Hide discovered servers'}
+                    >
+                        <div className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--text-tertiary)]">
+                            <Radar size={11} className={scanning ? 'animate-pulse text-[var(--accent)]' : ''} />
+                            <span>Running</span>
+                        </div>
+                        {lastScanTime && (
+                            <span className="text-[10px] text-[var(--text-tertiary)]">Scanned {lastScanTime}</span>
+                        )}
+                        <div className="flex-1" />
+                        {discoveredServers.length > 0 && serversCollapsed && (
+                            <span className="rounded-md border border-[var(--border)] bg-[var(--bg-primary)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
+                                {discoveredServers.length}
+                            </span>
+                        )}
+                        {serversCollapsed ? <ChevronDown size={11} className="text-[var(--text-tertiary)]" /> : <ChevronUp size={11} className="text-[var(--text-tertiary)]" />}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={scanForServers}
                         disabled={scanning}
                         className="micro-interaction rounded-md p-0.5 text-[var(--text-tertiary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] disabled:opacity-40"
                         title="Scan for running servers"
                     >
                         <RefreshCw size={10} className={scanning ? 'animate-spin' : ''} />
                     </button>
-                    {lastScanTime && (
-                        <span className="text-[10px] text-[var(--text-tertiary)]">Scanned {lastScanTime}</span>
-                    )}
-                    <div className="flex-1" />
-                    {discoveredServers.length > 0 && serversCollapsed && (
-                        <span className="rounded-md border border-[var(--border)] bg-[var(--bg-primary)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
-                            {discoveredServers.length}
-                        </span>
-                    )}
-                    {serversCollapsed ? <ChevronDown size={11} className="text-[var(--text-tertiary)]" /> : <ChevronUp size={11} className="text-[var(--text-tertiary)]" />}
-                </button>
+                </div>
                 {!serversCollapsed && (
                     <div className="px-3 pb-2">
                         {discoveredServers.length > 0 ? (
@@ -1086,45 +1153,87 @@ export default function LocalhostMode({ isKlipit }) {
                 )}
             </div>
 
-            <div className="flex items-center gap-1 border-b border-[var(--border)] bg-[var(--bg-secondary)]/30 px-2 pt-2">
-                {tabs.map((tab) => (
-                    <div
-                        key={tab.id}
-                        className={`group relative flex h-8 min-w-[120px] max-w-[200px] cursor-pointer items-center justify-between gap-2 rounded-t-lg border-x border-t px-3 text-xs transition-colors ${
-                            tab.id === activeTabId
-                                ? 'border-[var(--border)] bg-[var(--bg-primary)] text-[var(--text-primary)]'
-                                : 'border-transparent bg-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
-                        }`}
-                        onClick={() => setActiveTabId(tab.id)}
-                    >
-                        <div className="flex min-w-0 items-center gap-2">
-                            <Globe size={12} className={tab.id === activeTabId ? 'text-[var(--accent)]' : 'text-[var(--text-tertiary)]'} />
-                            <span className="truncate">{tab.title}</span>
-                        </div>
-                        {tabs.length > 1 && (
+            <div className="flex items-center gap-1 border-b border-[var(--border)] bg-[var(--bg-secondary)]/30 px-2 pt-2" style={{ WebkitAppRegion: 'no-drag' }}>
+                {tabs.map((tab) => {
+                    const isActive = tab.id === activeTabId;
+                    return (
+                        <div
+                            key={tab.id}
+                            draggable={true}
+                            className={`group relative flex h-8 min-w-[120px] max-w-[210px] cursor-pointer items-center justify-between gap-1.5 rounded-t-lg border-x border-t px-2.5 text-xs transition-colors ${
+                                isActive
+                                    ? 'border-[var(--border)] bg-[var(--bg-primary)] text-[var(--text-primary)]'
+                                    : 'border-transparent bg-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
+                            }`}
+                            onClick={() => setActiveTabId(tab.id)}
+                            onDragStart={(e) => {
+                              setDraggedTabId(tab.id);
+                              e.dataTransfer.setData('text/plain', tab.id);
+                            }}
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              if (draggedTabId === null) return;
+                              const draggedIndex = tabs.findIndex(t => t.id === draggedTabId);
+                              const targetIndex = tabs.findIndex(t => t.id === tab.id);
+                              if (draggedIndex >= 0 && targetIndex >= 0 && draggedIndex !== targetIndex) {
+                                setTabs(prev => {
+                                  const cloned = [...prev];
+                                  const [dragged] = cloned.splice(draggedIndex, 1);
+                                  cloned.splice(targetIndex, 0, dragged);
+                                  return cloned;
+                                });
+                                setActiveTabId(draggedTabId);
+                              }
+                              setDraggedTabId(null);
+                            }}
+                            onDragEnd={() => setDraggedTabId(null)}
+                        >
                             <button
                                 type="button"
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    const nextTabs = tabs.filter(t => t.id !== tab.id);
-                                    if (tab.id === activeTabId) {
-                                        setActiveTabId(nextTabs[nextTabs.length - 1].id);
-                                    }
-                                    setTabs(nextTabs);
+                                    togglePinnedTab(tab.id);
                                 }}
-                                className="invisible shrink-0 rounded-md p-0.5 hover:bg-[var(--bg-hover)] group-hover:visible"
-                                title="Close tab"
+                                className={`shrink-0 rounded-md p-0.5 transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] ${
+                                    tab.pinned ? 'text-[var(--accent)]' : 'text-[var(--text-tertiary)]'
+                                }`}
+                                title={tab.pinned ? 'Unpin tab' : 'Pin tab'}
+                                aria-label={tab.pinned ? 'Unpin tab' : 'Pin tab'}
+                                aria-pressed={tab.pinned}
                             >
-                                <X size={12} />
+                                <Pin size={12} className={tab.pinned ? 'fill-current' : ''} />
                             </button>
-                        )}
-                    </div>
-                ))}
+                            <div className="flex min-w-0 flex-1 items-center gap-2">
+                                <Globe size={12} className={isActive ? 'text-[var(--accent)]' : 'text-[var(--text-tertiary)]'} />
+                                <span className="truncate">{tab.title}</span>
+                            </div>
+                            {tabs.length > 1 && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        const nextTabs = tabs.filter(t => t.id !== tab.id);
+                                        if (tab.id === activeTabId) {
+                                            setActiveTabId(nextTabs[nextTabs.length - 1].id);
+                                        }
+                                        setTabs(nextTabs);
+                                    }}
+                                    className="shrink-0 rounded-md p-0.5 text-[var(--text-tertiary)] opacity-0 transition-opacity hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] group-hover:opacity-100 focus:opacity-100"
+                                    title="Close tab"
+                                    aria-label="Close tab"
+                                >
+                                    <X size={12} />
+                                </button>
+                            )}
+                        </div>
+                    );
+                })}
                 <button
                     type="button"
                     onClick={() => {
-                        const newId = Date.now().toString();
-                        setTabs([...tabs, { id: newId, url: '', title: 'New Tab' }]);
+                        const newId = createTabId();
+                        setTabs([...tabs, { id: newId, url: '', title: 'New Tab', pinned: false }]);
                         setActiveTabId(newId);
                     }}
                     className="ml-1 mb-1 rounded-md p-1.5 text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
@@ -1142,6 +1251,7 @@ export default function LocalhostMode({ isKlipit }) {
                         initialUrl={tab.url}
                         hidden={tab.id !== activeTabId}
                         onTitleChange={handleTitleChange}
+                        onUrlChange={handleUrlChange}
                         isKlipit={isKlipit}
                         isDarkMode={isDarkMode}
                         onNewTab={handleNewTab}

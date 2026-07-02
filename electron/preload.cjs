@@ -109,6 +109,14 @@ contextBridge.exposeInMainWorld('electron', {
   eidosRestart: () => ipcRenderer.invoke('eidos:restart'),
   eidosProgress: () => ipcRenderer.invoke('eidos:progress'),
   eidosInsights: () => ipcRenderer.invoke('eidos:insights'),
+  // Supermemory — self-hosted local memory binary.
+  supermemoryStatus: () => ipcRenderer.invoke('supermemory:status'),
+  supermemoryStart: () => ipcRenderer.invoke('supermemory:start'),
+  supermemoryStop: () => ipcRenderer.invoke('supermemory:stop'),
+  supermemoryRestart: () => ipcRenderer.invoke('supermemory:restart'),
+  supermemoryProgress: () => ipcRenderer.invoke('supermemory:progress'),
+  supermemoryConfig: (config) => ipcRenderer.invoke('supermemory:config', config),
+  supermemoryApi: (method, path, body) => ipcRenderer.invoke('supermemory:api', method, path, body),
   // Cleanmac — developer cache cleanup runner.
   cleanmacInspectDocker: () => ipcRenderer.invoke('cleanmac:inspect-docker'),
   cleanmacRun: () => ipcRenderer.invoke('cleanmac:run'),
@@ -152,4 +160,5 @@ contextBridge.exposeInMainWorld('electron', {
   },
   // PWA shortcuts — extract favicon + title from a URL
   extractPwaMetadata: (url) => ipcRenderer.invoke('pwa:extract-favicon', { url }),
+  getPreloadPath: () => ipcRenderer.invoke('get-preload-path'),
 });

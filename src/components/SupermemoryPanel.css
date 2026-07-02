@@ -1,0 +1,490 @@
+.supermemory-panel {
+    height: 100%;
+    overflow-y: auto;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    padding: clamp(18px, 3vw, 30px);
+}
+
+.supermemory-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 18px;
+}
+
+.supermemory-kicker {
+    margin: 0 0 7px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--text-tertiary);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.supermemory-header h1 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 28px;
+    line-height: 1.1;
+    font-weight: 700;
+    letter-spacing: 0;
+}
+
+.supermemory-header p {
+    margin: 7px 0 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.supermemory-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 32px;
+    padding: 0 11px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.supermemory-status-pill.is-running {
+    border-color: color-mix(in srgb, #10b981 40%, var(--border));
+    background: color-mix(in srgb, #10b981 12%, var(--bg-secondary));
+    color: var(--text-primary);
+}
+
+.supermemory-status-pill.is-error {
+    border-color: color-mix(in srgb, #ef4444 42%, var(--border));
+    background: color-mix(in srgb, #ef4444 12%, var(--bg-secondary));
+    color: var(--text-primary);
+}
+
+.supermemory-grid {
+    display: grid;
+    grid-template-columns: minmax(280px, 0.9fr) minmax(320px, 1.1fr);
+    gap: 14px;
+}
+
+.supermemory-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-secondary);
+    padding: 16px;
+}
+
+.supermemory-status-card {
+    align-self: start;
+}
+
+.supermemory-search-card {
+    grid-column: 1 / -1;
+}
+
+.supermemory-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.supermemory-card-head h2 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.supermemory-card-head span {
+    color: var(--text-tertiary);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.supermemory-icon-btn,
+.supermemory-primary-btn,
+.supermemory-secondary-btn,
+.supermemory-search button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 700;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.supermemory-icon-btn {
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--border);
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+}
+
+.supermemory-icon-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.supermemory-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.supermemory-metrics div {
+    min-width: 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    padding: 10px;
+}
+
+.supermemory-metrics span,
+.supermemory-form-grid span {
+    display: block;
+    color: var(--text-tertiary);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+}
+
+.supermemory-metrics strong {
+    display: block;
+    margin-top: 5px;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.supermemory-detail-list {
+    display: grid;
+    gap: 7px;
+    margin-top: 13px;
+}
+
+.supermemory-detail-list span {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.supermemory-detail-list svg {
+    flex: 0 0 auto;
+    color: var(--text-tertiary);
+}
+
+.supermemory-error,
+.supermemory-notice {
+    margin: 12px 0 0;
+    border: 1px solid color-mix(in srgb, #ef4444 36%, var(--border));
+    border-radius: 8px;
+    background: color-mix(in srgb, #ef4444 10%, var(--bg-primary));
+    color: var(--text-primary);
+    padding: 9px 10px;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.supermemory-notice.is-success {
+    border-color: color-mix(in srgb, #22c55e 36%, var(--border));
+    background: color-mix(in srgb, #22c55e 10%, var(--bg-primary));
+}
+
+.supermemory-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.supermemory-primary-btn,
+.supermemory-secondary-btn,
+.supermemory-search button {
+    min-height: 34px;
+    padding: 0 12px;
+}
+
+.supermemory-primary-btn {
+    border: 1px solid transparent;
+    background: var(--accent);
+    color: white;
+}
+
+.supermemory-primary-btn:hover:not(:disabled) {
+    background: var(--accent-hover);
+}
+
+.supermemory-secondary-btn,
+.supermemory-search button {
+    border: 1px solid var(--border);
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+}
+
+.supermemory-secondary-btn:hover:not(:disabled),
+.supermemory-search button:hover:not(:disabled) {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.supermemory-primary-btn:disabled,
+.supermemory-secondary-btn:disabled,
+.supermemory-search button:disabled {
+    cursor: default;
+    opacity: 0.55;
+}
+
+.supermemory-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.supermemory-backend-choice {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.supermemory-backend-choice button {
+    min-width: 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    padding: 10px;
+    text-align: left;
+    transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.supermemory-backend-choice button:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.supermemory-backend-choice button.is-selected {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, var(--bg-primary));
+    color: var(--text-primary);
+}
+
+.supermemory-backend-choice strong,
+.supermemory-backend-choice span {
+    display: block;
+}
+
+.supermemory-backend-choice strong {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.supermemory-backend-choice span {
+    margin-top: 3px;
+    font-size: 11px;
+    color: var(--text-tertiary);
+}
+
+.supermemory-form-grid label {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+}
+
+.supermemory-form-grid label.is-wide {
+    grid-column: 1 / -1;
+}
+
+.supermemory-key-note {
+    grid-column: 1 / -1;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    padding: 10px;
+}
+
+.supermemory-key-note span {
+    display: block;
+    color: var(--text-tertiary);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+}
+
+.supermemory-key-note strong {
+    display: block;
+    margin-top: 4px;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.supermemory-key-note p {
+    margin: 4px 0 0;
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.supermemory-form-grid input,
+.supermemory-form-grid select,
+.supermemory-search input {
+    min-width: 0;
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 13px;
+    outline: none;
+}
+
+.supermemory-form-grid input,
+.supermemory-form-grid select {
+    height: 36px;
+    padding: 0 10px;
+}
+
+.supermemory-form-grid input {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.supermemory-form-grid input::placeholder,
+.supermemory-search input::placeholder {
+    color: var(--text-tertiary);
+}
+
+.supermemory-form-grid input:focus,
+.supermemory-form-grid select:focus,
+.supermemory-search input:focus {
+    border-color: var(--accent);
+}
+
+.supermemory-search {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 9px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    padding: 8px;
+}
+
+.supermemory-search > svg {
+    color: var(--text-tertiary);
+    margin-left: 4px;
+}
+
+.supermemory-search input {
+    height: 34px;
+    border: 0;
+    background: transparent;
+    padding: 0;
+}
+
+.supermemory-results {
+    display: grid;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.supermemory-result {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    padding: 10px 12px;
+}
+
+.supermemory-result p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.supermemory-result span {
+    flex: 0 0 auto;
+    color: var(--text-tertiary);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.supermemory-empty,
+.supermemory-empty-line {
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.supermemory-empty {
+    display: grid;
+    place-items: center;
+    min-height: 320px;
+    gap: 8px;
+}
+
+.supermemory-empty h2,
+.supermemory-empty p,
+.supermemory-empty-line {
+    margin: 0;
+}
+
+.supermemory-empty-line {
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    font-size: 13px;
+}
+
+@media (max-width: 860px) {
+    .supermemory-header,
+    .supermemory-card-head {
+        align-items: flex-start;
+    }
+
+    .supermemory-header {
+        flex-direction: column;
+    }
+
+    .supermemory-grid,
+    .supermemory-backend-choice,
+    .supermemory-form-grid,
+    .supermemory-metrics {
+        grid-template-columns: 1fr;
+    }
+
+    .supermemory-search {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .supermemory-search button {
+        grid-column: 1 / -1;
+    }
+}

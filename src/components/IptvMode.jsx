@@ -68,6 +68,7 @@ export default function IptvMode() {
     countries,
     favorites,
     favoriteChannels,
+    favoriteSources,
     toggleFavorite,
     lastChannelId,
     setLastChannel,
@@ -142,12 +143,26 @@ export default function IptvMode() {
     setSelectedChannelId(filteredChannels[0].id);
   }, [activeCategory, activeCountry, filter, filteredChannels]);
 
+  // Auto-switch source when Favorites tab is clicked but the current
+  // source doesn't have any matching channels — only works when
+  // favorites carry src info (new format). Legacy favorites (src: null)
+  // are upgraded silently by the hook when their source is encountered.
+  useEffect(() => {
+    if (filter !== 'favorites') return;
+    if (!initializedRef.current) return;
+    if (favorites.length === 0) return;
+    if (favoriteChannels.length > 0) return;
+    if (favoriteSources.length > 0) {
+      setActiveSource(favoriteSources[0]);
+    }
+  }, [filter, favoriteChannels, favoriteSources, favorites.length]);
+
   const selectedChannel = useMemo(
     () => filteredChannels.find((c) => c.id === selectedChannelId) || filteredChannels[0] || null,
     [selectedChannelId, filteredChannels]
   );
-  const selectedIsFavorite = selectedChannel ? favorites.includes(selectedChannel.id) : false;
-  const favoriteIds = useMemo(() => new Set(favorites), [favorites]);
+  const selectedIsFavorite = selectedChannel ? favorites.some((f) => f.id === selectedChannel.id) : false;
+  const favoriteIds = useMemo(() => new Set(favorites.map((f) => f.id)), [favorites]);
 
   const handleSelectChannel = useCallback((channelId) => {
     const sidebarScrollTop = sidebarScrollRef.current?.scrollTop || 0;
@@ -370,7 +385,21 @@ export default function IptvMode() {
                 </div>
               ) : filteredChannels.length === 0 ? (
                 <div className="iptv-empty">
-                  No channels match.
+                  {filter === 'favorites' && favorites.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center' }}>
+                      {favorites[0]?.name ? (
+                        <span>"{favorites[0].name}" was favorited from a different playlist.</span>
+                      ) : (
+                        <span>Your favorite is from a different playlist.</span>
+                      )}
+                      <div style={{ fontSize: 10, color: 'var(--text-tertiary)', maxWidth: 220, lineHeight: 1.5 }}>
+                        Try switching the <strong>Playlist</strong> dropdown above to find it.{' '}
+                        Available: {sources.map(s => s.label).join(', ')}
+                      </div>
+                    </div>
+                  ) : (
+                    'No channels match.'
+                  )}
                 </div>
               ) : (
                 <div className="iptv-channel-list" ref={scrollRef}>

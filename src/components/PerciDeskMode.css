@@ -20,7 +20,7 @@
 
 .perci-desk-shell {
     display: grid;
-    grid-template-columns: 240px minmax(0, 1fr);
+    grid-template-columns: var(--perci-desk-left-width, 268px) 10px minmax(0, 1fr);
     height: calc(100% - 36px);
     min-height: 0;
     margin: 18px;
@@ -49,8 +49,49 @@
 }
 
 .perci-desk-left {
-    border-right: 1px solid var(--border);
     background: rgba(250, 250, 250, 0.58);
+}
+
+.perci-desk-left-resizer {
+    position: relative;
+    cursor: col-resize;
+    background: color-mix(in srgb, var(--border) 60%, transparent);
+}
+
+.perci-desk-left-resizer::before {
+    position: absolute;
+    inset: 0 -5px;
+    content: '';
+}
+
+.perci-desk-left-resizer::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 3px;
+    height: 44px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent) 44%, var(--border));
+    content: '';
+    opacity: 0.42;
+    transform: translate(-50%, -50%);
+    transition: opacity 0.16s ease, background-color 0.16s ease;
+}
+
+.perci-desk-left-resizer:hover::after,
+.perci-desk-left-resizer:focus-visible::after {
+    background: var(--accent);
+    opacity: 1;
+}
+
+.perci-desk-left-resizer:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+    outline-offset: -2px;
+}
+
+body.perci-desk-resizing-left {
+    cursor: col-resize;
+    user-select: none;
 }
 
 .perci-desk-right {
@@ -182,6 +223,12 @@
     gap: 8px;
 }
 
+.perci-desk-ask > div {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+}
+
 .perci-desk-add input,
 .perci-desk-ask input {
     width: 100%;
@@ -207,6 +254,26 @@
     border-radius: 16px;
     background: var(--accent);
     color: #ffffff;
+}
+
+.perci-desk-ask button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-width: 92px;
+    border: 0;
+    border-radius: 18px;
+    background: var(--accent);
+    padding: 0 16px;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 850;
+}
+
+.perci-desk-ask button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
 }
 
 .perci-desk-topbar {
@@ -714,7 +781,7 @@
 
 @media (max-width: 1180px) {
     .perci-desk-shell {
-        grid-template-columns: 230px minmax(0, 1fr);
+        grid-template-columns: var(--perci-desk-left-width, 250px) 10px minmax(0, 1fr);
     }
 
     .perci-desk-right {
@@ -745,6 +812,10 @@
         border-bottom: 1px solid rgba(255, 255, 255, 0.54);
     }
 
+    .perci-desk-left-resizer {
+        display: none;
+    }
+
     .perci-desk-right {
         display: grid;
         border-left: 0;
@@ -761,6 +832,14 @@
         position: static;
         grid-column: 1;
         margin-top: 6px;
+    }
+
+    .perci-desk-ask > div {
+        grid-template-columns: 1fr;
+    }
+
+    .perci-desk-ask button {
+        min-height: 42px;
     }
 
     .perci-desk-item {
@@ -800,6 +879,10 @@
 :root.dark .perci-desk-right {
     border-color: var(--border);
     background: rgba(20, 20, 23, 0.56);
+}
+
+:root.dark .perci-desk-left-resizer {
+    background: color-mix(in srgb, var(--border) 78%, transparent);
 }
 
 :root.dark .perci-desk-brand span,
@@ -890,6 +973,11 @@
 }
 
 :root.dark .perci-desk-add button {
+    background: var(--accent);
+    color: #ffffff;
+}
+
+:root.dark .perci-desk-ask button {
     background: var(--accent);
     color: #ffffff;
 }

@@ -110,6 +110,19 @@
     stroke-width: 3;
 }
 
+.perci-station-hit,
+.perci-station-halo {
+    pointer-events: none;
+}
+
+.perci-station-hit {
+    fill: transparent;
+}
+
+.perci-station-halo {
+    fill: transparent;
+}
+
 .perci-station-ring {
     fill: var(--bg-primary);
     stroke: var(--border);

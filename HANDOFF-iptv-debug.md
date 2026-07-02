@@ -78,3 +78,21 @@ Confirmed and fixed on 2026-06-28:
 - Validation: focused ESLint on `src/components/IptvMode.jsx`,
   `git diff --check` for the touched IPTV files, live Electron check for
   scroll retention and favorite toggling, and `npm run build`.
+
+## Follow-up: audio control
+Confirmed and fixed on 2026-06-29:
+- The host looked like it could unmute, but the iframe player treated a missing
+  `mute` query parameter as muted (`muteParam !== '0'`). Rebuilding the iframe
+  URL to unmute was also brittle because it reloads the stream and re-enters
+  Chromium/Electron autoplay policy.
+- `RetroTvPlayer.tsx` now starts every stream with `mute=1` so autoplay can
+  begin, then sends a `postMessage` to the iframe when the user toggles audio.
+  `public/iptv-player.html` handles that message by setting `video.muted` and
+  `video.volume` on the existing video element, without reloading the stream.
+- The TV audio button is now labeled `Unmute` / `Audio on`, so the current audio
+  state is visible instead of being icon-only.
+- Validation: focused ESLint on `src/components/RetroTvPlayer.tsx` and
+  `src/components/IptvMode.jsx`, `git diff --check`, a Playwright probe that
+  verified iframe `postMessage` changes the player from `muted=true, volume=0`
+  to `muted=false, volume=1`, live Electron check that the button changes from
+  `UNMUTE` to `AUDIO ON`, and `npm run build`.

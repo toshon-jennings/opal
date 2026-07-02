@@ -36,6 +36,8 @@ import cleanmacBg from '../assets/cleanmac-bg.jpeg';
 import cleanmacLogo from '../assets/cleanmac-logo.jpeg';
 import autoforgeBg from '../assets/autoforge-bg.jpeg';
 import openNotebookBg from '../assets/open-notebook-bg.jpeg';
+import iptvLogo from '../assets/iptv-logo.png';
+import iptvBg from '../assets/iptv-bg.jpeg';
 
 // Native Perci surfaces — first-class workspace modes.
 // Sorted alphabetically by title so the dashboard tile grid and Sir Perci
@@ -55,17 +57,17 @@ export const NATIVE_TILES = [
     { id: MODES.NOTES, icon: NotesIcon, title: 'Notes', desc: 'Markdown wiki with backlinks', hue: '#10b981' },
     { id: MODES.OFFICE, icon: OfficeIcon, title: 'Office', desc: 'Visit the crew at Perci HQ', hue: '#fbbf24' },
     { id: PACKAGES_WINDOW_ID, icon: PackagesIcon, title: 'Packages', desc: 'Registry dashboard for package updates', hue: '#8b5cf6' },
-    { id: MODES.PERCI_NOW, icon: PerciNowIcon, title: 'Perci Now', desc: 'Live workspace state', hue: '#0891b2' },
     { id: MODES.SURFACE_MAP, icon: SurfaceMapIcon, title: 'Perci Map', desc: 'Surface relationship map', hue: '#14b8a6' },
-    { id: SKILLS_WINDOW_ID, icon: SkillsIcon, title: 'Skills', desc: 'Manage skills & agent CLIs', hue: '#f97316' },
+    { id: MODES.PERCI_NOW, icon: PerciNowIcon, title: 'Perci Now', desc: 'Live workspace state', hue: '#0891b2' },
     { id: MODES.POWER_WORKSPACE, icon: Sparkles, title: 'Power Workspace', desc: 'Ideas, runs & next action', hue: '#f97316' },
+    { id: SKILLS_WINDOW_ID, icon: SkillsIcon, title: 'Skills', desc: 'Manage skills & agent CLIs', hue: '#f97316' },
 ];
 
 // Logo presentation hints shared by the Dashboard tile grid and the Sir
 // Perci launcher, so both render the same artwork (white backing vs.
 // edge-to-edge cover) instead of drifting apart.
 export const LOGO_WHITE_BOX_IDS = new Set([GDASH_WINDOW_ID, MODES.STUDIOOS, MODES.LIGHTHOUSE, HERMES_WINDOW_ID, CLEANMAC_WINDOW_ID]);
-export const LOGO_FILL_COVER_IDS = new Set([EIDOS_WINDOW_ID, KLIPIT_WINDOW_ID, MODES.BARS, MODES.MARKITDOWN, MODES.CONCERNS, AUTOFORGE_WINDOW_ID, AGENTMAIL_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID]);
+export const LOGO_FILL_COVER_IDS = new Set([EIDOS_WINDOW_ID, KLIPIT_WINDOW_ID, MODES.BARS, MODES.MARKITDOWN, MODES.CONCERNS, AUTOFORGE_WINDOW_ID, AGENTMAIL_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID, IPTV_WINDOW_ID]);
 
 // OS-level tools and external runtimes. Bars belongs here when its Perci
 // surface is wired, not in the native Perci app group.
@@ -79,10 +81,10 @@ export const SYSTEM_TILES = [
     { id: MODES.BARS, icon: null, logo: barsLogo, title: 'BARS', desc: 'Idea notebook', hue: '#f59e0b', artwork: true, bgImage: barsBg },
     { id: MODES.MARKITDOWN, icon: null, logo: markitdownLogo, title: 'MarkItDownUI', desc: 'Convert files and URLs to Markdown', hue: '#0ea5e9', artwork: true, bgImage: markitdownBg },
     { id: MODES.CONCERNS, icon: null, logo: billboardLogo, title: 'Bill Board', desc: 'Services, keys & subscriptions', hue: '#06b6d4', artwork: true, bgImage: billboardBg },
-    { id: MODES.STUDIOOS, icon: Layers, logo: studioosLogo, title: 'StudioOS', desc: 'View/manage your StudioOS workspace', hue: '#3b82f6', artwork: true, bgImage: studioosBg },
+    { id: MODES.STUDIOOS, icon: Layers, logo: studioosLogo, title: 'StudioOS Review', desc: 'View/manage your StudioOS workspace', hue: '#3b82f6', artwork: true, bgImage: studioosBg },
     { id: CLEANMAC_WINDOW_ID, icon: TerminalSquare, title: 'Cleanmac', desc: 'Clean developer caches on macOS', hue: '#10b981', artwork: true, bgImage: cleanmacBg, iconSize: 34 },
     { id: AUTOFORGE_WINDOW_ID, icon: null, logo: autoforgeLogo, title: 'AutoForge', desc: 'Autonomous coding agent', hue: '#f97316', artwork: true, bgImage: autoforgeBg },
     { id: AGENTMAIL_WINDOW_ID, icon: null, logo: agentmailLogo, title: 'AgentMail', desc: 'Email via AgentMail web console', hue: '#6366f1', artwork: true, bgImage: agentmailBg },
     { id: OPEN_NOTEBOOK_WINDOW_ID, logo: cleanmacLogo, title: 'Open Notebook', desc: 'Embedded localhost notebook window', hue: '#10b981', artwork: true, bgImage: openNotebookBg },
-    { id: IPTV_WINDOW_ID, icon: IptvIcon, title: 'IPTV', desc: 'Watch live TV channels from around the world', hue: '#8b5cf6' },
+    { id: IPTV_WINDOW_ID, icon: IptvIcon, logo: iptvLogo, title: 'IPTV', desc: 'Watch live TV channels from around the world', hue: '#8b5cf6', artwork: true, bgImage: iptvBg },
 ];

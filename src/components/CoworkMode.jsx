@@ -15,6 +15,7 @@ import { useAgentTools } from '../hooks/useAgentTools';
 import perciLogo from '../assets/perci-logo.png';
 import { hasElectronStore, loadElectronPersistence, saveElectronPersistence, readStringStorage, writeStringStorage, removeStorageKey } from '../lib/persistentStore';
 import { normalizeAssistantSpacing } from '../lib/textFormatting';
+import DeSlopButton from './DeSlopButton';
 import { ProviderModelPicker } from './ProviderModelPicker';
 import { buildBudgetPrompt, createBudgetRun, estimateCharsFromMessages, recordBudgetIteration, recordBudgetResponse, recordBudgetToolCalls } from '../lib/budgetGovernor';
 import { buildMemoryPrompt } from '../lib/harnessMemory';
@@ -1523,8 +1524,13 @@ export default function CoworkMode() {
                                         <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-xs font-medium ${msg.role === 'user' ? 'bg-[var(--accent)] text-white' : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)]'}`}>
                                             {msg.role === 'user' ? (userName?.charAt(0) || 'U') : 'A'}
                                         </div>
-                                        <div className="flex-1 text-sm text-[var(--text-primary)] leading-relaxed whitespace-pre-wrap">{msg.content}</div>
-                                    </div>
+                                    <div className="flex-1 text-sm text-[var(--text-primary)] leading-relaxed whitespace-pre-wrap">{msg.content}</div>
+                                    {msg.role !== 'user' && (
+                                        <div className="self-end">
+                                            <DeSlopButton text={msg.content || ''} />
+                                        </div>
+                                    )}
+                                </div>
                                 ))}
                                 {streamingMessage && (
                                     <div className="flex gap-3">

@@ -115,7 +115,8 @@ function AppContent() {
         setShowGlobalTerminal,
         openClawConfig,
         showChatGuide,
-        setShowChatGuide
+        setShowChatGuide,
+        cycleWindows
     } = useMode();
     const openClawWindowOpen = windows.some(w => w.id === OPENCLAW_WINDOW_ID && w.state !== 'minimized');
     const hermesWindowOpen = windows.some(w => w.id === HERMES_WINDOW_ID && w.state !== 'minimized');
@@ -217,12 +218,18 @@ function AppContent() {
                         // We can either emit an event or handle it in some specialized context
                         document.dispatchEvent(new CustomEvent('trigger-choose-folder'));
                         break;
+                    case 'cycle-next-window':
+                        cycleWindows('forward');
+                        break;
+                    case 'cycle-prev-window':
+                        cycleWindows('backward');
+                        break;
                     default:
                         break;
                 }
             });
         }
-    }, [setCurrentMode, createNewChat]);
+    }, [setCurrentMode, createNewChat, cycleWindows]);
 
     useEffect(() => {
         if (!activeOpenClawProfile) return;

@@ -20,9 +20,6 @@ function buildPlayerUrl(streamUrl) {
   if (!streamUrl) return PLAYER_HTML;
   const params = new URLSearchParams();
   params.set('url', streamUrl);
-  // Start each stream muted so Chromium/Electron autoplay can begin reliably.
-  // The host toggles audible playback afterward via postMessage.
-  params.set('mute', '1');
   return `${PLAYER_HTML}?${params.toString()}`;
 }
 
@@ -38,16 +35,48 @@ export default function RetroTvPlayer({
   const iframeRef = useRef(null);
   const [powered, setPowered] = useState(true);
   const [muted, setMuted] = useState(true);
+  const [volume, setVolume] = useState(50); // 0–100
+  const prevVolumeRef = useRef(50);
 
+  // Reset mute on stream change
   useEffect(() => {
     setMuted(true);
   }, [streamUrl]);
+
+  // Sync volume/mute to iframe when it mounts (new stream URL → new iframe)
+  useEffect(() => {
+    // iframe won't be available until next paint — delay slightly
+    const timer = setTimeout(() => {
+      if (iframeRef.current?.contentWindow) {
+        const vol = muted ? 0 : volume;
+        iframeRef.current.contentWindow.postMessage({
+          source: 'perci-iptv-host',
+          type: 'set-volume',
+          volume: vol / 100,
+        }, '*');
+        iframeRef.current.contentWindow.postMessage({
+          source: 'perci-iptv-host',
+          type: 'set-muted',
+          muted,
+        }, '*');
+      }
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [streamUrl]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const postMuteState = useCallback((nextMuted) => {
     iframeRef.current?.contentWindow?.postMessage({
       source: 'perci-iptv-host',
       type: 'set-muted',
       muted: nextMuted,
+    }, '*');
+  }, []);
+
+  const postVolumeState = useCallback((nextVolume) => {
+    iframeRef.current?.contentWindow?.postMessage({
+      source: 'perci-iptv-host',
+      type: 'set-volume',
+      volume: nextVolume / 100,
     }, '*');
   }, []);
 
@@ -58,12 +87,30 @@ export default function RetroTvPlayer({
   const handleUnmute = useCallback(() => {
     setMuted(false);
     postMuteState(false);
-  }, [postMuteState]);
+    // Restore previous volume
+    const restored = prevVolumeRef.current;
+    setVolume(restored);
+    postVolumeState(restored);
+  }, [postMuteState, postVolumeState]);
 
   const handleMute = useCallback(() => {
+    prevVolumeRef.current = volume;
     setMuted(true);
     postMuteState(true);
-  }, [postMuteState]);
+    setVolume(0);
+    postVolumeState(0);
+  }, [volume, postMuteState, postVolumeState]);
+
+  const handleVolumeChange = useCallback((e) => {
+    const v = Number(e.target.value);
+    setVolume(v);
+    prevVolumeRef.current = v > 0 ? v : prevVolumeRef.current;
+    postVolumeState(v);
+    if (v > 0 && muted) {
+      setMuted(false);
+      postMuteState(false);
+    }
+  }, [muted, postMuteState, postVolumeState]);
 
   const showNoSignal = powered && !streamUrl;
   const playerUrl = buildPlayerUrl(streamUrl);
@@ -115,12 +162,21 @@ export default function RetroTvPlayer({
             type="button"
             onClick={muted ? handleUnmute : handleMute}
             disabled={!powered}
-            className="retro-tv__audio-btn"
             title={muted ? 'Unmute' : 'Mute'}
           >
-            {muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
-            <span>{muted ? 'Unmute' : 'Audio on'}</span>
+            {muted || volume === 0 ? <VolumeX size={14} /> : <Volume2 size={14} />}
           </button>
+          <input
+            type="range"
+            className="retro-tv__volume-slider"
+            min="0"
+            max="100"
+            value={muted ? 0 : volume}
+            onChange={handleVolumeChange}
+            disabled={!powered}
+            title={`Volume ${muted ? 0 : volume}%`}
+            aria-label="Volume"
+          />
           {onChannelUp && (
             <button type="button" onClick={onChannelUp} disabled={!powered} title="Channel Up">
               <ChevronUp size={14} />

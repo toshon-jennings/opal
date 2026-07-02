@@ -1,6 +1,7 @@
 .eidos-front-root {
     position: relative;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
     overflow: hidden;
     background: var(--bg-primary);
     --eidos-ink: var(--text-primary);
@@ -125,6 +126,36 @@
     border: 1px solid color-mix(in srgb, var(--eidos-blue) 20%, var(--eidos-line));
     background: light-dark(#ffffff, #0b1117);
     object-fit: contain;
+}
+
+.eidos-contrib-fallback {
+    min-height: 132px;
+    border-radius: 10px;
+    border: 1px dashed color-mix(in srgb, var(--eidos-blue) 28%, var(--eidos-line));
+    background: color-mix(in srgb, var(--eidos-panel) 86%, var(--bg-secondary));
+    color: var(--eidos-ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 18px;
+    text-align: left;
+}
+
+.eidos-contrib-fallback strong,
+.eidos-contrib-fallback span {
+    display: block;
+}
+
+.eidos-contrib-fallback strong {
+    font-size: 13px;
+}
+
+.eidos-contrib-fallback span {
+    margin-top: 3px;
+    color: var(--eidos-muted);
+    font-size: 12px;
+    line-height: 1.4;
 }
 
 .eidos-front-hero {
@@ -565,18 +596,8 @@
     margin: 0;
 }
 
-.eidos-footer-link {
-    border: none;
-    background: none;
-    color: color-mix(in srgb, var(--eidos-cyan) 64%, var(--eidos-ink));
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 11px;
-    font-weight: 600;
-}
-
 .eidos-dashboard-root {
+    position: relative;
     height: 100%;
     display: flex;
     flex-direction: column;
@@ -680,4 +701,31 @@
         animation: none !important;
         transition: none !important;
     }
+}
+
+/* Floating reload button for Eidos webview */
+.eidos-floating-reload-btn {
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    z-index: 50;
+    padding: 8px;
+    border-radius: 9999px;
+    background: rgba(17, 24, 39, 0.85);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(6px);
+    opacity: 0.45;
+    transition: opacity 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.eidos-floating-reload-btn:hover {
+    opacity: 1;
+    color: var(--text-primary);
+    border-color: color-mix(in srgb, var(--eidos-cyan) 45%, var(--border));
 }

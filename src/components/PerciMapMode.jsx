@@ -28,6 +28,9 @@ import {
     MapGrid,
     MapZoomBar,
     Station,
+    buildOctilinearPath,
+    expandOctilinearPoints,
+    pointAlongPolyline,
     useMapZoom,
 } from './PerciSurfaceCanvas';
 import './PerciMapMode.css';
@@ -275,28 +278,29 @@ function RoutePath({ route, routeIndex, stationById, selectedStationId }) {
         .filter(Boolean);
     if (points.length < 2) return null;
 
-    const d = points.map((station, index) => `${index === 0 ? 'M' : 'L'} ${station.x} ${station.y}`).join(' ');
+    const d = buildOctilinearPath(points);
+    const polyline = expandOctilinearPoints(points);
+    const badgeAt = pointAlongPolyline(polyline, 0.14 + (routeIndex % 4) * 0.22);
     const selectedOnRoute = route.stationIds.includes(selectedStationId);
-    const offset = (routeIndex % 3 - 1) * 2;
+    const offset = (routeIndex % 3 - 1) * 3;
+    const badgeWidth = routeType.shortLabel.length * 6.6 + 16;
 
     return (
-        <g className={selectedOnRoute ? 'perci-map-route is-related' : 'perci-map-route'}>
+        <g
+            className={selectedOnRoute ? 'perci-map-route is-related' : 'perci-map-route'}
+            style={{ '--route': routeType.color, '--route-delay': `${routeIndex * 70}ms` }}
+        >
             <path d={d} transform={`translate(${offset} ${-offset})`} className="perci-route-underlay" />
             <path
                 d={d}
                 transform={`translate(${offset} ${-offset})`}
                 className="perci-route-line"
-                style={{ '--route': routeType.color }}
                 strokeDasharray={routeType.linePattern?.dasharray || undefined}
             />
-            <text
-                x={points[1].x}
-                y={points[1].y - 14}
-                className="perci-route-label"
-                style={{ '--route': routeType.color }}
-            >
-                {routeType.shortLabel}
-            </text>
+            <g className="perci-route-badge" transform={`translate(${badgeAt.x} ${badgeAt.y})`}>
+                <rect x={-badgeWidth / 2} y="-9" width={badgeWidth} height="18" rx="9" />
+                <text y="3.5">{routeType.shortLabel}</text>
+            </g>
         </g>
     );
 }

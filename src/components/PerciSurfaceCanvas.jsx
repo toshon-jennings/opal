@@ -58,7 +58,10 @@ export function Districts({ districts, heatById }) {
                     <g
                         key={district.id}
                         className={`perci-map-district${heat > 0 ? ' is-active' : ''}`}
-                        style={heat > 0 ? { '--heat': Math.min(1, heat) } : undefined}
+                        style={{
+                            ...(district.color ? { '--district': district.color } : null),
+                            ...(heat > 0 ? { '--heat': Math.min(1, heat) } : null),
+                        }}
                     >
                         <rect
                             x={district.x}
@@ -82,10 +85,85 @@ export function MapGrid() {
     const horizontals = [80, 160, 240, 320, 400, 480, 560, 640, 720, 800];
     return (
         <g className="perci-map-grid" aria-hidden="true">
-            {verticals.map(x => <line key={`v-${x}`} x1={x} y1="28" x2={x} y2="832" />)}
-            {horizontals.map(y => <line key={`h-${y}`} x1="36" y1={y} x2="1284" y2={y} />)}
+            {verticals.flatMap(x =>
+                horizontals.map(y => <circle key={`d-${x}-${y}`} cx={x} cy={y} r="1.4" />)
+            )}
         </g>
     );
+}
+
+// Expands consecutive station points into a Beck-style octilinear polyline:
+// each leg travels along one axis first, then finishes on a 45° diagonal.
+export function expandOctilinearPoints(points) {
+    if (points.length === 0) return [];
+    const expanded = [{ x: points[0].x, y: points[0].y }];
+    for (let i = 1; i < points.length; i++) {
+        const a = expanded[expanded.length - 1];
+        const b = points[i];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const adx = Math.abs(dx);
+        const ady = Math.abs(dy);
+        if (adx > 1 && ady > 1 && Math.abs(adx - ady) > 1) {
+            if (adx > ady) {
+                expanded.push({ x: b.x - Math.sign(dx) * ady, y: a.y });
+            } else {
+                expanded.push({ x: a.x, y: b.y - Math.sign(dy) * adx });
+            }
+        }
+        if (Math.hypot(b.x - a.x, b.y - a.y) > 1) {
+            expanded.push({ x: b.x, y: b.y });
+        }
+    }
+    return expanded;
+}
+
+export function buildOctilinearPath(points, radius = 15) {
+    const pts = expandOctilinearPoints(points);
+    if (pts.length < 2) return '';
+    const fmt = value => Math.round(value * 10) / 10;
+    let d = `M ${fmt(pts[0].x)} ${fmt(pts[0].y)}`;
+    for (let i = 1; i < pts.length - 1; i++) {
+        const prev = pts[i - 1];
+        const v = pts[i];
+        const next = pts[i + 1];
+        const inLen = Math.hypot(v.x - prev.x, v.y - prev.y);
+        const outLen = Math.hypot(next.x - v.x, next.y - v.y);
+        const r = Math.min(radius, inLen / 2, outLen / 2);
+        const p1 = { x: v.x - ((v.x - prev.x) / inLen) * r, y: v.y - ((v.y - prev.y) / inLen) * r };
+        const p2 = { x: v.x + ((next.x - v.x) / outLen) * r, y: v.y + ((next.y - v.y) / outLen) * r };
+        d += ` L ${fmt(p1.x)} ${fmt(p1.y)} Q ${fmt(v.x)} ${fmt(v.y)} ${fmt(p2.x)} ${fmt(p2.y)}`;
+    }
+    const last = pts[pts.length - 1];
+    d += ` L ${fmt(last.x)} ${fmt(last.y)}`;
+    return d;
+}
+
+export function pointAlongPolyline(points, t) {
+    if (points.length === 0) return { x: 0, y: 0, angle: 0 };
+    if (points.length === 1) return { x: points[0].x, y: points[0].y, angle: 0 };
+    const lengths = [];
+    let total = 0;
+    for (let i = 1; i < points.length; i++) {
+        const len = Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+        lengths.push(len);
+        total += len;
+    }
+    let target = Math.min(Math.max(t, 0), 1) * total;
+    for (let i = 0; i < lengths.length; i++) {
+        if (target <= lengths[i] || i === lengths.length - 1) {
+            const f = lengths[i] === 0 ? 0 : target / lengths[i];
+            const a = points[i];
+            const b = points[i + 1];
+            return {
+                x: a.x + (b.x - a.x) * f,
+                y: a.y + (b.y - a.y) * f,
+                angle: Math.atan2(b.y - a.y, b.x - a.x),
+            };
+        }
+        target -= lengths[i];
+    }
+    return { x: points[0].x, y: points[0].y, angle: 0 };
 }
 
 export function Station({ station, extraClassNames = [], selected, onOpen }) {
@@ -115,8 +193,10 @@ export function Station({ station, extraClassNames = [], selected, onOpen }) {
             onClick={onOpen}
             onKeyDown={handleKeyDown}
         >
-            <circle className="perci-station-ring" r="15" />
-            <circle className="perci-station-dot" r={station.kind === 'home' ? 8 : 6.5} />
+            <circle className="perci-station-hit" r="18" />
+            <circle className="perci-station-halo" r="17" />
+            <circle className="perci-station-ring" r={station.kind === 'home' ? 11 : 9} />
+            <circle className="perci-station-dot" r={station.kind === 'home' ? 4.5 : 3.5} />
             <text
                 x={labelProps.x}
                 y={labelProps.y}

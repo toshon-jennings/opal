@@ -110,6 +110,10 @@ export default function PerciNowMode({ openClawStatus }) {
         ),
         [liveSnapshot]
     );
+    const openWindowStationIds = useMemo(
+        () => new Set(liveSnapshot.openWindows.map(windowState => windowState.stationId).filter(Boolean)),
+        [liveSnapshot]
+    );
     const attentionStationIds = useMemo(() => {
         const ids = new Set();
         if (liveSnapshot.attentionMissionRuns.length > 0) ids.add('mission');
@@ -272,7 +276,10 @@ export default function PerciNowMode({ openClawStatus }) {
                                     key={station.id}
                                     station={station}
                                     selected={selectedMapStation.id === station.id}
-                                    extraClassNames={[`is-${getStationStatus(station.id)}`]}
+                                    extraClassNames={[
+                                        `is-${getStationStatus(station.id)}`,
+                                        openWindowStationIds.has(station.id) ? 'is-open-window' : '',
+                                    ]}
                                     onOpen={() => openMapStation(station)}
                                 />
                             ))}

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     AlertTriangle,
     ArrowUpRight,
@@ -11,9 +11,11 @@ import {
     Plus,
     RadioTower,
     Search,
+    Send,
 } from 'lucide-react';
 import { useMode, MODES } from '../context/ModeContext';
 import { MISSION_UPDATED_EVENT, readMissionRuns } from '../lib/missionControl';
+import { readStringStorage, writeStringStorage } from '../lib/persistentStore';
 import {
     answerPerciQuestion,
     createManualTask,
@@ -24,6 +26,11 @@ import {
 import './PerciDeskMode.css';
 
 const JOBS_POLL_MS = 10000;
+const DEFAULT_QUESTION = 'What needs action now?';
+const DESK_LEFT_WIDTH_KEY = 'perci_desk_left_width';
+const DEFAULT_DESK_LEFT_WIDTH = 268;
+const MIN_DESK_LEFT_WIDTH = 240;
+const MAX_DESK_LEFT_WIDTH = 380;
 
 const STATUS_LABELS = {
     overdue: 'Overdue',
@@ -41,14 +48,24 @@ const FILTERS = [
     ['done', 'Done'],
 ];
 
+function clampDeskLeftWidth(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return DEFAULT_DESK_LEFT_WIDTH;
+    return Math.min(MAX_DESK_LEFT_WIDTH, Math.max(MIN_DESK_LEFT_WIDTH, Math.round(numeric)));
+}
+
 export default function PerciDeskMode({ openClawStatus }) {
     const { windows, openWindow } = useMode();
     const [missionRuns, setMissionRuns] = useState(() => readMissionRuns());
     const [agentJobs, setAgentJobs] = useState([]);
     const [manualTasks, setManualTasks] = useState(() => readPerciDeskTasks());
     const [taskText, setTaskText] = useState('');
-    const [question, setQuestion] = useState('What needs action now?');
+    const [question, setQuestion] = useState(DEFAULT_QUESTION);
+    const [questionDraft, setQuestionDraft] = useState(DEFAULT_QUESTION);
     const [filter, setFilter] = useState('open');
+    const [leftWidth, setLeftWidth] = useState(() => clampDeskLeftWidth(readStringStorage(DESK_LEFT_WIDTH_KEY, DEFAULT_DESK_LEFT_WIDTH)));
+    const [isResizingLeft, setIsResizingLeft] = useState(false);
+    const resizeStartRef = useRef(null);
 
     useEffect(() => {
         const handleMissionUpdate = () => setMissionRuns(readMissionRuns());
@@ -71,6 +88,35 @@ export default function PerciDeskMode({ openClawStatus }) {
         const id = window.setInterval(() => void loadJobs(), JOBS_POLL_MS);
         return () => window.clearInterval(id);
     }, [loadJobs]);
+
+    useEffect(() => {
+        writeStringStorage(DESK_LEFT_WIDTH_KEY, String(leftWidth));
+    }, [leftWidth]);
+
+    useEffect(() => {
+        if (!isResizingLeft) return undefined;
+
+        const handlePointerMove = (event) => {
+            const start = resizeStartRef.current;
+            if (!start) return;
+            setLeftWidth(clampDeskLeftWidth(start.width + event.clientX - start.x));
+        };
+        const handlePointerUp = () => {
+            resizeStartRef.current = null;
+            setIsResizingLeft(false);
+            document.body.classList.remove('perci-desk-resizing-left');
+        };
+
+        window.addEventListener('pointermove', handlePointerMove);
+        window.addEventListener('pointerup', handlePointerUp, { once: true });
+        window.addEventListener('pointercancel', handlePointerUp, { once: true });
+        return () => {
+            window.removeEventListener('pointermove', handlePointerMove);
+            window.removeEventListener('pointerup', handlePointerUp);
+            window.removeEventListener('pointercancel', handlePointerUp);
+            document.body.classList.remove('perci-desk-resizing-left');
+        };
+    }, [isResizingLeft]);
 
     const snapshot = useMemo(() => createPerciContextSnapshot({
         windows,
@@ -104,6 +150,14 @@ export default function PerciDeskMode({ openClawStatus }) {
         setTaskText('');
     };
 
+    const askPerci = (event) => {
+        event.preventDefault();
+        const nextQuestion = questionDraft.trim();
+        if (!nextQuestion) return;
+        setQuestion(nextQuestion);
+        setFilter('answer');
+    };
+
     const toggleTask = (task) => {
         if (task.sourceType !== 'manual') return;
         const next = savePerciDeskTasks(manualTasks.map(item => (
@@ -122,9 +176,24 @@ export default function PerciDeskMode({ openClawStatus }) {
         if (item.sourceType === 'openclaw') openWindow('openclaw');
     };
 
+    const startLeftResize = (event) => {
+        if (event.button !== 0) return;
+        event.preventDefault();
+        resizeStartRef.current = { x: event.clientX, width: leftWidth };
+        setIsResizingLeft(true);
+        document.body.classList.add('perci-desk-resizing-left');
+    };
+
+    const adjustLeftWidth = (event) => {
+        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+        event.preventDefault();
+        const direction = event.key === 'ArrowLeft' ? -1 : 1;
+        setLeftWidth(width => clampDeskLeftWidth(width + direction * (event.shiftKey ? 24 : 12)));
+    };
+
     return (
         <div className="perci-desk-mode">
-            <div className="perci-desk-shell">
+            <div className="perci-desk-shell" style={{ '--perci-desk-left-width': `${leftWidth}px` }}>
                 <aside className="perci-desk-left" aria-label="Desk telemetry">
                     <header className="perci-desk-brand">
                         <span><ClipboardList size={15} /> Perci OS</span>
@@ -151,7 +220,7 @@ export default function PerciDeskMode({ openClawStatus }) {
                     </section>
 
                     <form className="perci-desk-add" onSubmit={addManualTask}>
-                        <label htmlFor="perci-desk-task">Capture</label>
+                        <label htmlFor="perci-desk-task">Add task</label>
                         <div>
                             <input
                                 id="perci-desk-task"
@@ -159,10 +228,22 @@ export default function PerciDeskMode({ openClawStatus }) {
                                 onChange={event => setTaskText(event.target.value)}
                                 placeholder="Validate result, pay invoice..."
                             />
-                            <button type="submit" title="Add task"><Plus size={16} /></button>
+                            <button type="submit" title="Add task" aria-label="Add task"><Plus size={16} /></button>
                         </div>
                     </form>
                 </aside>
+                <div
+                    className="perci-desk-left-resizer"
+                    role="separator"
+                    aria-label="Resize Desk sidebar"
+                    aria-orientation="vertical"
+                    aria-valuemin={MIN_DESK_LEFT_WIDTH}
+                    aria-valuemax={MAX_DESK_LEFT_WIDTH}
+                    aria-valuenow={leftWidth}
+                    tabIndex={0}
+                    onPointerDown={startLeftResize}
+                    onKeyDown={adjustLeftWidth}
+                />
 
                 <main className="perci-desk-center" aria-label="Perci Desk operating picture">
                     <header className="perci-desk-topbar">
@@ -206,20 +287,23 @@ export default function PerciDeskMode({ openClawStatus }) {
                             </div>
                         </div>
 
-                        <form className="perci-desk-ask" onSubmit={(event) => event.preventDefault()}>
+                        <form className="perci-desk-ask" onSubmit={askPerci}>
                             <label htmlFor="perci-desk-question">
                                 <Search size={15} />
                                 Ask Perci
                             </label>
-                            <input
-                                id="perci-desk-question"
-                                value={question}
-                                onChange={event => {
-                                    setQuestion(event.target.value);
-                                    setFilter('answer');
-                                }}
-                                placeholder="What did I last write in BARS? What bills are overdue?"
-                            />
+                            <div>
+                                <input
+                                    id="perci-desk-question"
+                                    value={questionDraft}
+                                    onChange={event => setQuestionDraft(event.target.value)}
+                                    placeholder="What did I last write in BARS? What bills are overdue?"
+                                />
+                                <button type="submit" disabled={!questionDraft.trim()}>
+                                    <Send size={15} />
+                                    <span>Send</span>
+                                </button>
+                            </div>
                         </form>
                     </section>
 

@@ -21,5 +21,13 @@
     "registryName": "graphify-diff",
     "installCommand": "pip install graphify-diff",
     "description": "Incremental graph updates from git diffs"
+  },
+  {
+    "name": "config-map",
+    "registry": "pypi",
+    "githubRepo": "toshon-jennings/config-map",
+    "registryName": "config-map",
+    "installCommand": "npm install -g perci-config-map",
+    "description": "A beautiful terminal map of your configuration files."
   }
 ]

@@ -8,6 +8,7 @@ import { useChat } from '../context/ChatContext';
 import { useMode } from '../context/ModeContext';
 import { CitationDisplay } from './CitationDisplay';
 import { ThinkingDisplay } from './ThinkingDisplay';
+import DeSlopButton from './DeSlopButton';
 import PerciMascot from './PerciMascot';
 
 // Maps an artifact's type to a human label and icon for the in-chat reference card.
@@ -534,15 +535,20 @@ export function ChatMessage({ message, assistantName = 'Perci', assistantAvatar 
                     <div className="font-semibold text-sm text-[var(--accent)]">
                         {isUser ? 'You' : assistantName}
                     </div>
-                    <button
-                        type="button"
-                        onClick={copyMessage}
-                        className="message-copy-button inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
-                        title="Copy message"
-                    >
-                        {copiedMessage ? <Check size={13} className="text-green-500" /> : <Copy size={13} />}
-                        <span className={copiedMessage ? 'text-green-500' : ''}>{copiedMessage ? 'Copied' : 'Copy'}</span>
-                    </button>
+                    <div className="flex items-center gap-1">
+                        <button
+                            type="button"
+                            onClick={copyMessage}
+                            className="message-copy-button inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+                            title="Copy message"
+                        >
+                            {copiedMessage ? <Check size={13} className="text-green-500" /> : <Copy size={13} />}
+                            <span className={copiedMessage ? 'text-green-500' : ''}>{copiedMessage ? 'Copied' : 'Copy'}</span>
+                        </button>
+                        {!isUser && !isError && (
+                            <DeSlopButton text={message.content || ''} />
+                        )}
+                    </div>
                 </div>
 
                 {/* Display uploaded images */}

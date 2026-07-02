@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useMode } from '../../context/ModeContext';
 import { BookOpen } from 'lucide-react';
@@ -22,6 +22,7 @@ export default function WindowFrame({ win, active, modeId, children }) {
     const { focusWindow, closeWindow, minimizeWindow, toggleMaximizeWindow, moveWindow, resizeWindow, setShowChatGuide } = useMode();
     const frameRef = useRef(null);
     const dragRef = useRef(null);
+    const lastShieldActivationRef = useRef(0);
     const openedRef = useRef(false);
     const prevStateRef = useRef(win.state);
     const [anim, setAnim] = useState(null); // 'open' | 'in' | 'out' | 'close'
@@ -99,8 +100,22 @@ export default function WindowFrame({ win, active, modeId, children }) {
         else setAnim(null);
     };
 
+    const focusFromShield = useCallback((e) => {
+        if (e.button !== undefined && e.button !== 0) return;
+        if (e.type === 'mousedown' && e.timeStamp - lastShieldActivationRef.current < 500) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+        }
+        lastShieldActivationRef.current = e.timeStamp;
+        e.preventDefault();
+        e.stopPropagation();
+        focusWindow(win.id);
+    }, [focusWindow, win.id]);
+
     const maximized = win.state === 'maximized';
     const hidden = win.state === 'minimized' && anim !== 'out';
+    const showFocusShield = !active && !hidden;
 
     // Webview-backed windows fade instead of whirlpooling (transforms flicker webviews).
     let animClass = '';
@@ -116,9 +131,9 @@ export default function WindowFrame({ win, active, modeId, children }) {
     return (
         <div
             ref={frameRef}
+            data-window-id={win.id}
             className={`perci-window${active ? ' active' : ''}${maximized ? ' maximized' : ''}${modeId === 'openclaw' ? ' perci-window--openclaw' : ''}${animClass ? ` ${animClass}` : ''}`}
             style={style}
-            onPointerDown={() => focusWindow(win.id)}
             onAnimationEnd={handleAnimEnd}
         >
             <div
@@ -145,6 +160,14 @@ export default function WindowFrame({ win, active, modeId, children }) {
                     )}
                 </div>
             </div>
+
+            {showFocusShield && (
+                <div
+                    className="perci-window-focus-shield"
+                    onPointerDown={focusFromShield}
+                    onMouseDown={focusFromShield}
+                />
+            )}
 
             <div className="perci-window-body">{children}</div>
 

@@ -449,8 +449,19 @@
     filter: drop-shadow(0 0 6px color-mix(in srgb, #10b981 55%, transparent));
 }
 
+.perci-map-station.is-open-window .perci-station-halo {
+    animation: perci-now-open-window-light 1.7s ease-in-out infinite;
+    fill: color-mix(in srgb, #10b981 24%, transparent);
+    transform-box: fill-box;
+    transform-origin: center;
+}
+
 .perci-map-station.is-attention {
     filter: drop-shadow(0 0 7px color-mix(in srgb, #e11d48 60%, transparent));
+}
+
+.perci-map-station.is-open-window.is-attention .perci-station-halo {
+    fill: color-mix(in srgb, #e11d48 22%, transparent);
 }
 
 .perci-map-station.is-active .perci-station-ring,
@@ -465,6 +476,17 @@
 @keyframes perci-now-pulse-ring {
     0%, 100% { stroke-opacity: 1; }
     50% { stroke-opacity: 0.35; }
+}
+
+@keyframes perci-now-open-window-light {
+    0%, 100% {
+        opacity: 0.5;
+        transform: scale(0.92);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.3);
+    }
 }
 
 .perci-now-map-status {
@@ -556,7 +578,8 @@
     }
 
     .perci-map-station.is-active .perci-station-ring,
-    .perci-map-station.is-attention .perci-station-ring {
+    .perci-map-station.is-attention .perci-station-ring,
+    .perci-map-station.is-open-window .perci-station-halo {
         animation: none;
     }
 }

@@ -109,10 +109,21 @@ function InsightsDashboard({ text, insightDays }) {
             if (idx === 0) return;
             const parts = line.split(/\s{2,}/);
             if (parts.length >= 2) {
+                let sessions, tokens;
+                // When only 2 parts, the second part has both sessions and tokens
+                // (happens when a long token value leaves only 1 space between columns)
+                if (parts.length === 2) {
+                    const vals = parts[1].trim().split(/\s+/);
+                    sessions = vals[0] || '0';
+                    tokens = vals.slice(1).join('') || '0';
+                } else {
+                    sessions = parts[1];
+                    tokens = parts[2] || '0';
+                }
                 models.push({
                     name: parts[0],
-                    sessions: parts[1],
-                    tokens: parts[2] || '0'
+                    sessions,
+                    tokens
                 });
             }
         });
