@@ -25,6 +25,7 @@ import { CavemanDropdown } from './CavemanDropdown';
 import { cavemanDirective } from '../lib/caveman';
 import { PonytailDropdown } from './PonytailDropdown';
 import { ponytailDirective } from '../lib/ponytail';
+import { tasteDirective } from '../lib/taste';
 import LivePreviewPanel from './LivePreviewPanel';
 import { buildPreviewErrorDocument, buildStaticPreviewDocument } from '../lib/previewSecurity';
 import { ProviderModelPicker } from './ProviderModelPicker';
@@ -639,6 +640,24 @@ function ChatMode() {
         setPonytailLevel(level);
         writeStringStorage('ponytail_level_chat', level);
     };
+    const [tasteConfig, setTasteConfig] = useState(() => {
+        try {
+            const stored = readStringStorage('perci_taste_config', '');
+            return stored ? JSON.parse(stored) : null;
+        } catch { return null; }
+    });
+    useEffect(() => {
+        // Re-read on every render so SettingsModal saves are picked up
+        try {
+            const stored = readStringStorage('perci_taste_config', '');
+            const parsed = stored ? JSON.parse(stored) : null;
+            // Only update state if the stored config actually changed
+            setTasteConfig((prev) => {
+                const same = JSON.stringify(prev) === JSON.stringify(parsed);
+                return same ? prev : parsed;
+            });
+        } catch { /* ignore */ }
+    });
     const [previewKey, setPreviewKey] = useState(0);
     const [artifactPreviewUrl, setArtifactPreviewUrl] = useState('');
     // Width (px) of the artifact preview panel, resizable via the splitter. Persisted.
@@ -1035,7 +1054,7 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                 ? '\n\nPermission level: Read only — you may only read, summarize, or discuss information. Do not suggest or perform any actions that create, modify, or delete files or data.'
                 : '';
             const integrationPrompt = `\n\nTOOLS:\n${buildIntegrationToolsPrompt(apiKeys)}`;
-            const systemPrompt = `${baseSystemPrompt}${artifactInstruction}${customInstructionsPrompt}${projectSystemPrompt}${permissionPrompt}${integrationPrompt}${cavemanDirective(cavemanLevel)}${ponytailDirective(ponytailLevel)}`;
+            const systemPrompt = `${baseSystemPrompt}${artifactInstruction}${customInstructionsPrompt}${projectSystemPrompt}${permissionPrompt}${integrationPrompt}${cavemanDirective(cavemanLevel)}${ponytailDirective(ponytailLevel)}${tasteDirective(tasteConfig)}`;
 
             const messagesWithContext = [
                 { role: 'system', content: systemPrompt },
@@ -2008,6 +2027,11 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                                 <PermissionsDropdown value={permissionLevel} onChange={setPermissionLevel} />
                                 <CavemanDropdown value={cavemanLevel} onChange={handleCavemanChange} />
                                 <PonytailDropdown value={ponytailLevel} onChange={handlePonytailChange} />
+                                {tasteConfig && (
+                                    <div className="px-2 py-1 text-[10px] font-medium text-[var(--accent)] bg-[var(--accent-subtle)] rounded-md" title={`Taste: V${tasteConfig.variance}/M${tasteConfig.motion}/D${tasteConfig.density}`}>
+                                        🎨 Taste
+                                    </div>
+                                )}
                                 <button
                                     onClick={handleNavigateMessages}
                                     className="p-2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-lg transition-colors"

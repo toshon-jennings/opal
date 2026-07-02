@@ -13,6 +13,7 @@ import { CavemanDropdown } from './CavemanDropdown';
 import { cavemanDirective } from '../lib/caveman';
 import { PonytailDropdown } from './PonytailDropdown';
 import { ponytailDirective } from '../lib/ponytail';
+import { tasteDirective } from '../lib/taste';
 
 import MonacoEditor from '@monaco-editor/react';
 import ReactMarkdown from 'react-markdown';
@@ -22,6 +23,7 @@ import { normalizeAssistantSpacing } from '../lib/textFormatting';
 import { SyntaxHighlighter } from '../lib/syntaxHighlighter';
 import { buildMemoryPrompt } from '../lib/harnessMemory';
 import { chooseModelForTask, buildRoutingPrompt } from '../lib/modelRouter';
+import DeSlopButton from './DeSlopButton';
 import { buildBudgetPrompt, createBudgetRun, estimateCharsFromMessages, recordBudgetResponse } from '../lib/budgetGovernor';
 import {
     buildIntegrationToolsPrompt,
@@ -96,6 +98,23 @@ export default function CodeMode() {
         setPonytailLevel(level);
         writeStringStorage('ponytail_level_code', level);
     };
+    const [tasteConfig, setTasteConfig] = useState(() => {
+        try {
+            const stored = readStringStorage('perci_taste_config', '');
+            return stored ? JSON.parse(stored) : null;
+        } catch { return null; }
+    });
+    useEffect(() => {
+        // Re-read on every render so SettingsModal saves are picked up
+        try {
+            const stored = readStringStorage('perci_taste_config', '');
+            const parsed = stored ? JSON.parse(stored) : null;
+            setTasteConfig((prev) => {
+                const same = JSON.stringify(prev) === JSON.stringify(parsed);
+                return same ? prev : parsed;
+            });
+        } catch { /* ignore */ }
+    });
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
     // Resizable widths
@@ -348,7 +367,8 @@ export default function CodeMode() {
                 buildIntegrationToolsPrompt(apiKeys),
                 `Context: ${fileContext}`,
                 ...(cavemanDirective(cavemanLevel).trim() ? [cavemanDirective(cavemanLevel).trim()] : []),
-                ...(ponytailDirective(ponytailLevel).trim() ? [ponytailDirective(ponytailLevel).trim()] : [])
+                ...(ponytailDirective(ponytailLevel).trim() ? [ponytailDirective(ponytailLevel).trim()] : []),
+                ...(tasteDirective(tasteConfig).trim() ? [tasteDirective(tasteConfig).trim()] : [])
             ].join('\n\n');
             const messagesForLLM = [{ role: 'system', content: systemPrompt }, ...updatedMessages];
             appendMissionRunEvent(missionRunId, {
@@ -524,6 +544,11 @@ export default function CodeMode() {
                                             {msg.content}
                                         </ReactMarkdown>
                                     </div>
+                                    {msg.role !== 'user' && (
+                                        <div className="flex justify-end mt-1">
+                                            <DeSlopButton text={msg.content || ''} />
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                             {streamingMessage && (
@@ -549,6 +574,11 @@ export default function CodeMode() {
                             <PermissionsDropdown value={permissionLevel} onChange={setPermissionLevel} />
                             <CavemanDropdown value={cavemanLevel} onChange={handleCavemanChange} />
                             <PonytailDropdown value={ponytailLevel} onChange={handlePonytailChange} />
+                            {tasteConfig && (
+                                <div className="px-2 py-1 text-[10px] font-medium text-[var(--accent)] bg-[var(--accent-subtle)] rounded-md" title={`Taste: V${tasteConfig.variance}/M${tasteConfig.motion}/D${tasteConfig.density}`}>
+                                    🎨 Taste
+                                </div>
+                            )}
                         </div>
                         <button
                             type={isLoading ? 'button' : 'submit'}
