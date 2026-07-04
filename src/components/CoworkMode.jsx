@@ -200,7 +200,7 @@ function CoworkModelSelector({ selectedProvider, selectedModel, availableModels,
             updateProvider={updateProvider}
             updateModel={updateModel}
             showIcon={true}
-            buttonClassName="flex items-center gap-1.5 px-2.5 py-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-lg transition-colors text-xs max-w-[160px] overflow-hidden"
+            buttonClassName="flex items-center gap-1.5 px-2.5 py-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-lg transition-colors text-xs max-w-[160px] min-w-0 overflow-hidden"
             labelClassName="truncate text-xs"
             iconSize={13}
             title="Select model"
@@ -1590,7 +1590,7 @@ export default function CoworkMode() {
                                             placeholder="Describe a task or ask a question"
                                             className="w-full bg-[var(--bg-secondary)] border border-[var(--border)] rounded-xl py-3 pl-4 pr-12 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent)] min-h-[80px] resize-none"
                                         />
-                                        <div className="flex items-center gap-1 mt-2">
+                                        <div className="flex flex-wrap gap-y-2 items-center gap-1 mt-2 pr-12">
                                         <AttachmentMenu
                                             onUploadImage={() => imageInputRef.current?.click()}
                                             onUploadFile={() => fileInputRef.current?.click()}
@@ -1855,7 +1855,7 @@ export default function CoworkMode() {
                                     placeholder="Describe a task or ask a question"
                                     className="w-full bg-[var(--bg-secondary)] border border-[var(--border)] rounded-2xl py-4 pl-5 pr-14 text-base focus:outline-none focus:ring-1 focus:ring-[var(--accent)] min-h-[120px] shadow-sm resize-none"
                                 />
-                                <div className="flex items-center gap-1 mt-2">
+                                <div className="flex flex-wrap gap-y-2 items-center gap-1 mt-2 pr-12">
                                     <AttachmentMenu
                                         onUploadImage={() => imageInputRef.current?.click()}
                                         onUploadFile={() => fileInputRef.current?.click()}

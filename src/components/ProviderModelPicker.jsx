@@ -123,7 +123,7 @@ export function ProviderModelPicker({
     };
 
     return (
-        <div className="relative">
+        <div className="relative min-w-0">
             <button
                 ref={buttonRef}
                 type="button"
