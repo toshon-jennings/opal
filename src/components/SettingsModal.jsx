@@ -21,15 +21,15 @@ function formatBytes(value) {
 }
 
 const SUPERMEMORY_MODEL_PROVIDERS = [
-    { id: 'openrouter', label: 'OpenRouter', baseURL: 'https://openrouter.ai/api/v1', needsKey: true },
-    { id: 'openai', label: 'OpenAI', baseURL: 'https://api.openai.com/v1', needsKey: true },
-    { id: 'anthropic', label: 'Anthropic', baseURL: 'https://api.anthropic.com/v1', needsKey: true },
-    { id: 'mistral', label: 'Mistral', baseURL: 'https://api.mistral.ai/v1', needsKey: true },
-    { id: 'groq', label: 'Groq', baseURL: 'https://api.groq.com/openai/v1', needsKey: true },
-    { id: 'gemini', label: 'Gemini', baseURL: '', needsKey: true },
-    { id: 'ollama', label: 'Ollama', baseURL: 'http://localhost:11434/v1', needsKey: false },
-    { id: 'lmstudio', label: 'LM Studio', baseURL: 'http://localhost:1234/v1', needsKey: false },
-    { id: 'jan', label: 'Jan', baseURL: 'http://localhost:1337/v1', needsKey: false },
+    { id: 'openrouter', label: 'OpenRouter', baseURL: 'https://openrouter.ai/api/v1', model: 'anthropic/claude-sonnet-4', needsKey: true },
+    { id: 'openai', label: 'OpenAI', baseURL: 'https://api.openai.com/v1', model: 'gpt-4o-mini', needsKey: true },
+    { id: 'anthropic', label: 'Anthropic', baseURL: 'https://api.anthropic.com/v1', model: 'claude-sonnet-4-20250514', needsKey: true },
+    { id: 'mistral', label: 'Mistral', baseURL: 'https://api.mistral.ai/v1', model: 'mistral-small-latest', needsKey: true },
+    { id: 'groq', label: 'Groq', baseURL: 'https://api.groq.com/openai/v1', model: 'llama-3.3-70b-versatile', needsKey: true },
+    { id: 'gemini', label: 'Gemini', baseURL: '', model: 'gemini-2.0-flash', needsKey: true },
+    { id: 'ollama', label: 'Ollama', baseURL: 'http://localhost:11434/v1', model: 'llama3.2', needsKey: false },
+    { id: 'lmstudio', label: 'LM Studio', baseURL: 'http://localhost:1234/v1', model: 'local-model', needsKey: false },
+    { id: 'jan', label: 'Jan', baseURL: 'http://localhost:1337/v1', model: 'local-model', needsKey: false },
 ];
 
 function getSupermemoryProviderMeta(provider) {
@@ -966,7 +966,8 @@ export function SettingsModal({ isOpen, onClose }) {
                                                 const nextProviderMeta = getSupermemoryProviderMeta(nextProvider);
                                                 const patch = {
                                                     provider: nextProvider,
-                                                    modelBaseURL: nextProviderMeta.baseURL || supermemoryConfig.modelBaseURL || '',
+                                                    model: nextProviderMeta.model || '',
+                                                    modelBaseURL: nextProviderMeta.baseURL || '',
                                                 };
                                                 setSupermemoryConfig(prev => ({ ...prev, ...patch }));
                                                 saveSupermemoryConfig(patch);
@@ -983,9 +984,9 @@ export function SettingsModal({ isOpen, onClose }) {
                                         <input
                                             value={supermemoryConfig.model || ''}
                                             onChange={e => setSupermemoryConfig(prev => ({ ...prev, model: e.target.value }))}
-                                            onBlur={() => saveSupermemoryConfig({ model: supermemoryConfig.model || 'anthropic/claude-sonnet-4' })}
+                                            onBlur={() => saveSupermemoryConfig({ model: supermemoryConfig.model || supermemoryProviderMeta.model || '' })}
                                             className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-primary)] text-xs font-mono text-[var(--text-primary)] outline-none focus:border-[var(--accent)]"
-                                            placeholder="anthropic/claude-sonnet-4"
+                                            placeholder={supermemoryProviderMeta.model || 'Model ID'}
                                             spellCheck={false}
                                         />
                                     </label>

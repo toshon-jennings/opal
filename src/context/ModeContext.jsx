@@ -53,6 +53,7 @@ export const AGENTMAIL_WINDOW_ID = 'agentmail';
 export const AUTOFORGE_WINDOW_ID = 'autoforge';
 export const OPEN_NOTEBOOK_WINDOW_ID = 'open-notebook';
 export const IPTV_WINDOW_ID = 'iptv';
+export const SIMPLEX_WINDOW_ID = 'simplex';
 
 // Titles shown in window headers and dock chips for each windowed surface.
 export const WINDOW_TITLES = {
@@ -85,7 +86,7 @@ export const WINDOW_TITLES = {
     [COMPARE_WINDOW_ID]: 'Compare',
     [EIDOS_WINDOW_ID]: 'Eidos',
     [LOCALHOST_WINDOW_ID]: 'Localhost',
-    [KLIPIT_WINDOW_ID]: 'Klipit',
+    [KLIPIT_WINDOW_ID]: 'Klipit Browser',
     [SKILLS_WINDOW_ID]: 'Skills',
     [CLEANMAC_WINDOW_ID]: 'Cleanmac',
     [PACKAGES_WINDOW_ID]: 'Packages',
@@ -93,12 +94,13 @@ export const WINDOW_TITLES = {
     [AUTOFORGE_WINDOW_ID]: 'AutoForge',
     [OPEN_NOTEBOOK_WINDOW_ID]: 'Open Notebook',
     [IPTV_WINDOW_ID]: 'IPTV',
+    [SIMPLEX_WINDOW_ID]: 'SimpleX',
 };
 
 // Windows whose content is an embedded <webview>/<iframe>; CSS transforms can make
 // embedded frames flicker (and reload), so these minimize with a plain fade instead
 // of the whirlpool spin.
-const NO_WHIRLPOOL_IDS = new Set([OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, AUTOFORGE_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID]);
+const NO_WHIRLPOOL_IDS = new Set([OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, AUTOFORGE_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID, SIMPLEX_WINDOW_ID]);
 
 const WINDOW_DEFAULTS = { width: 960, height: 640, minWidth: 420, minHeight: 300, cascade: 34 };
 const DOCK_RESERVED_HEIGHT = 64;

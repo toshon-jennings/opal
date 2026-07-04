@@ -2,6 +2,26 @@
 
 ## Current Milestone
 
+- [x] Supermemory provider/model mismatch fixed (2026-07-02). The remaining
+      issue called out in the prior Supermemory handoff was a stale
+      OpenRouter-style model ID surviving after switching the Supermemory
+      model provider to local providers such as Ollama. Added provider default
+      models in `electron/lib/supermemory-process.cjs` and normalized
+      Supermemory config so local providers clamp empty or OpenRouter-style
+      model IDs plus stale OpenRouter base URLs to provider-appropriate
+      defaults: Ollama `llama3.2` at `http://localhost:11434/v1`, LM Studio
+      `local-model` at `http://localhost:1234/v1`, and Jan `local-model` at
+      `http://localhost:1337/v1`. Mirrored the same defaults in
+      `SettingsModal.jsx` and `SupermemoryPanel.jsx` so changing the provider
+      writes provider/model/base URL together and the visible form updates
+      immediately. Validation: `node --check electron/lib/supermemory-process.cjs`,
+      `node --check electron/main.cjs`, direct `normalizeConfig` smoke with
+      `deepseek/deepseek-v4-flash` plus OpenRouter base URL for Ollama/LM
+      Studio/Jan, focused ESLint on `SupermemoryPanel.jsx`, `git diff --check`
+      for touched files, and `npm run build` passed. Focused ESLint on
+      `SettingsModal.jsx` still fails only on the pre-existing
+      unused/unescaped-text issues already noted in this handoff.
+
 - [x] Perci Desk left rail is draggable (2026-07-02). User asked to slightly
       widen the left column or make it draggable after the Ask/Send/Add task
       pass, then clarified that hard refresh still showed no resizeable column.

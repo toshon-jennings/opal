@@ -22,9 +22,14 @@
 .perci-map-header h1 {
     margin: 4px 0 0;
     font-family: 'Outfit', system-ui, sans-serif;
-    font-size: 28px;
+    font-size: 30px;
     line-height: 1.08;
-    font-weight: 650;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    background: linear-gradient(120deg, var(--text-primary), color-mix(in srgb, var(--accent) 55%, var(--text-primary)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 
 .perci-map-header p {
@@ -42,6 +47,7 @@
     margin: 0;
     font-size: 11px;
     font-weight: 700;
+    letter-spacing: 1.2px;
     text-transform: uppercase;
     color: var(--accent);
 }
@@ -56,10 +62,11 @@
     display: grid;
     min-width: 76px;
     gap: 2px;
-    padding: 9px 10px;
+    padding: 9px 12px;
     border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg-primary);
+    border-radius: 12px;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 55%, transparent), transparent), var(--bg-primary);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .perci-map-metric strong {
@@ -91,23 +98,28 @@
     justify-content: center;
     gap: 7px;
     min-height: 32px;
-    border-radius: 8px;
+    border-radius: 999px;
     border: 1px solid var(--border);
     background: var(--bg-primary);
     color: var(--text-secondary);
     font-size: 12px;
     font-weight: 650;
-    transition: border-color 0.16s ease, color 0.16s ease, background-color 0.16s ease, transform 0.16s ease;
+    transition: border-color 0.16s ease, color 0.16s ease, background-color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
 }
 
 .perci-route-filter {
-    padding: 7px 10px;
+    padding: 7px 12px;
+}
+
+.perci-route-filter[aria-pressed="false"] {
+    opacity: 0.62;
 }
 
 .perci-route-filter[aria-pressed="true"] {
     border-color: color-mix(in srgb, var(--route) 55%, var(--border));
-    background: color-mix(in srgb, var(--route) 12%, var(--bg-primary));
+    background: color-mix(in srgb, var(--route) 13%, var(--bg-primary));
     color: var(--text-primary);
+    box-shadow: 0 3px 10px color-mix(in srgb, var(--route) 18%, transparent);
 }
 
 .perci-route-filter svg {
@@ -134,12 +146,23 @@
 }
 
 .perci-map-route {
-    opacity: 0.82;
-    transition: opacity 0.16s ease;
+    opacity: 0.52;
+    transition: opacity 0.22s ease;
+    animation: perci-route-in 0.5s ease both;
+    animation-delay: var(--route-delay, 0ms);
 }
 
 .perci-map-route.is-related {
     opacity: 1;
+}
+
+.perci-map-route.is-related .perci-route-line {
+    stroke-width: 5;
+    filter: drop-shadow(0 0 5px color-mix(in srgb, var(--route) 45%, transparent));
+}
+
+@keyframes perci-route-in {
+    from { opacity: 0; }
 }
 
 .perci-route-underlay,
@@ -157,17 +180,24 @@
 .perci-route-line {
     stroke: var(--route);
     stroke-width: 4;
+    transition: stroke-width 0.22s ease, filter 0.22s ease;
 }
 
-.perci-route-label {
+.perci-route-badge rect {
     fill: var(--route);
+    stroke: var(--bg-primary);
+    stroke-width: 2;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.22));
+}
+
+.perci-route-badge text {
+    fill: #fff;
     font-size: 10px;
     font-weight: 800;
+    letter-spacing: 0.5px;
+    text-anchor: middle;
     text-transform: uppercase;
-    paint-order: stroke;
-    stroke: var(--bg-primary);
-    stroke-width: 4;
-    stroke-linejoin: round;
+    pointer-events: none;
 }
 
 .perci-map-station.is-muted {
@@ -199,12 +229,17 @@
     grid-template-columns: 32px minmax(0, 1fr);
     gap: 10px;
     width: 100%;
-    border-radius: 8px;
+    border-radius: 12px;
     border: 1px solid var(--border);
+    border-left: 3px solid color-mix(in srgb, var(--route) 70%, var(--border));
     background: var(--bg-primary);
     padding: 10px;
     text-align: left;
-    transition: border-color 0.16s ease, transform 0.16s ease;
+    transition: border-color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.perci-route-row:hover {
+    box-shadow: 0 6px 16px color-mix(in srgb, var(--route) 14%, transparent);
 }
 
 .perci-route-row-icon {
@@ -212,8 +247,8 @@
     width: 32px;
     height: 32px;
     place-items: center;
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--route) 12%, transparent);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--route) 14%, transparent);
     color: var(--route);
 }
 
@@ -266,7 +301,9 @@
     .perci-route-filter,
     .perci-route-reset,
     .perci-route-row,
+    .perci-route-line,
     .perci-map-route {
         transition: none;
+        animation: none;
     }
 }

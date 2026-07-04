@@ -1,0 +1,622 @@
+.simplex-mode {
+    width: 100%;
+    height: 100%;
+    background-color: var(--bg-primary);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.simplex-container {
+    display: flex;
+    width: 100%;
+    flex-grow: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Left side: Information and Actions */
+.simplex-info-panel {
+    display: flex;
+    flex-direction: column;
+    width: 380px;
+    height: 100%;
+    background-color: var(--bg-secondary);
+    border-right: 1px solid var(--border);
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.simplex-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px;
+    border-b: 1px solid var(--border);
+    background-color: color-mix(in srgb, var(--bg-secondary) 95%, var(--text-primary) 5%);
+    flex-shrink: 0;
+}
+
+.simplex-logo-wrapper {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    overflow: hidden;
+    background-color: #0c0c0d;
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.simplex-logo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.simplex-header-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.simplex-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+}
+
+.simplex-subtitle {
+    margin: 2px 0 0 0;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.simplex-scrollable-content {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* Card Styling */
+.simplex-card {
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+}
+
+.simplex-card-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin: 0 0 12px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+}
+
+/* Feature List */
+.simplex-feature-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.simplex-feature-list li {
+    display: flex;
+    gap: 10px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--text-secondary);
+}
+
+.simplex-feature-bullet {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background-color: #0197ff;
+    margin-top: 6px;
+    flex-shrink: 0;
+}
+
+/* Status Indicator */
+.simplex-status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.simplex-status-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.simplex-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 3px 8px;
+    border-radius: 9999px;
+    border: 1px solid transparent;
+}
+
+.simplex-badge-checking {
+    background-color: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+    border-color: rgba(245, 158, 11, 0.2);
+}
+
+.simplex-badge-installed {
+    background-color: rgba(1, 151, 255, 0.1);
+    color: #0197ff;
+    border-color: rgba(1, 151, 255, 0.2);
+}
+
+.simplex-badge-missing {
+    background-color: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.2);
+}
+
+.simplex-badge-unknown {
+    background-color: rgba(107, 114, 128, 0.1);
+    color: #6b7280;
+    border-color: rgba(107, 114, 128, 0.2);
+}
+
+.simplex-refresh-btn {
+    background: none;
+    border: none;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.15s, background-color 0.15s;
+}
+
+.simplex-refresh-btn:hover {
+    color: var(--text-primary);
+    background-color: var(--bg-tertiary);
+}
+
+/* Alert Message Boxes */
+.simplex-alert {
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 11px;
+    line-height: 1.4;
+    margin-bottom: 12px;
+    border: 1px solid transparent;
+}
+
+.simplex-alert-warning {
+    background-color: #d97706;
+    color: #fff8e9;
+    border-color: #b45309;
+}
+
+.simplex-alert-multi-client {
+    background-color: #f97316 !important;
+    color: #030749 !important;
+    border-color: #ea580c !important;
+}
+
+.simplex-alert-multi-client strong,
+.simplex-alert-multi-client code,
+.simplex-alert-multi-client svg {
+    color: #030749 !important;
+}
+
+.simplex-alert-multi-client code {
+    background-color: rgba(3, 7, 73, 0.1) !important;
+    border-color: rgba(3, 7, 73, 0.2) !important;
+}
+
+.simplex-alert-info {
+    background-color: rgba(59, 130, 246, 0.08);
+    color: #2563eb;
+    border-color: rgba(59, 130, 246, 0.15);
+}
+
+/* Actions and Buttons */
+.simplex-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.simplex-action-hint {
+    margin: 0;
+    font-size: 11px;
+    color: var(--text-tertiary);
+    line-height: 1.4;
+}
+
+.simplex-btn-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.simplex-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    border: 1px solid transparent;
+    text-decoration: none;
+    box-sizing: border-box;
+}
+
+.simplex-btn-primary {
+    background-color: #0197ff;
+    color: #ffffff;
+}
+
+.simplex-btn-primary:hover:not(:disabled) {
+    background-color: #0082eb;
+    box-shadow: 0 4px 12px rgba(1, 151, 255, 0.25);
+}
+
+.simplex-btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.simplex-btn-secondary {
+    background-color: var(--accent);
+    color: var(--bg-primary);
+}
+
+.simplex-btn-secondary:hover:not(:disabled) {
+    background-color: var(--accent-hover);
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
+}
+
+.simplex-btn-secondary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.simplex-btn-outline {
+    background-color: transparent;
+    border-color: var(--border);
+    color: var(--text-primary);
+}
+
+.simplex-btn-outline:hover {
+    background-color: var(--bg-hover);
+    border-color: var(--text-secondary);
+}
+
+.simplex-divider-text {
+    font-size: 10px;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    text-align: center;
+    margin: 8px 0;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.simplex-divider-text::before,
+.simplex-divider-text::after {
+    content: '';
+    flex-grow: 1;
+    height: 1px;
+    background-color: var(--border);
+}
+
+/* Links List */
+.simplex-link-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.simplex-link-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.15s;
+}
+
+.simplex-link-item:hover {
+    color: var(--text-primary);
+    border-color: var(--text-tertiary);
+    background-color: var(--bg-hover);
+    transform: translateX(2px);
+}
+
+/* Right side: Terminal Panel */
+.simplex-terminal-panel {
+    flex-grow: 1;
+    height: 100%;
+    min-width: 0;
+    background-color: #0c0c0d;
+}
+
+/* Window Header Bar & Tabs */
+.simplex-window-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 48px;
+    padding: 0 20px;
+    background-color: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.simplex-window-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.simplex-window-logo {
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+    object-fit: cover;
+}
+
+.simplex-window-tabs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.simplex-window-tab-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.simplex-window-tab-btn:hover {
+    color: var(--text-primary);
+    background-color: var(--bg-hover);
+}
+
+.simplex-window-tab-btn.active {
+    color: var(--text-primary);
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* User Guide Tab Styling */
+.simplex-guide-container {
+    flex-grow: 1;
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    background-color: var(--bg-primary);
+    padding: 30px 20px;
+}
+
+.simplex-guide-content {
+    max-width: 780px;
+    margin: 0 auto;
+    padding-bottom: 60px;
+}
+
+.simplex-guide-main-title {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+}
+
+.simplex-guide-kicker {
+    margin: 6px 0 24px 0;
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.simplex-guide-section {
+    margin-bottom: 32px;
+    border: 1px solid var(--border);
+    background-color: var(--bg-secondary);
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.simplex-guide-heading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 16px 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+}
+
+.simplex-guide-section p {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    margin: 0 0 14px 0;
+}
+
+.simplex-guide-section p:last-of-type {
+    margin-bottom: 0;
+}
+
+.simplex-guide-list,
+.simplex-guide-steps {
+    margin: 12px 0 16px 0;
+    padding-left: 20px;
+}
+
+.simplex-guide-list li,
+.simplex-guide-steps li {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.simplex-guide-list li strong,
+.simplex-guide-steps li strong {
+    color: var(--text-primary);
+}
+
+.simplex-guide-section h3 {
+    margin: 20px 0 12px 0;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Command Table */
+.simplex-command-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background-color: var(--bg-primary);
+    margin: 12px 0 16px 0;
+}
+
+.simplex-command-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 12px;
+}
+
+.simplex-command-table th {
+    background-color: color-mix(in srgb, var(--bg-secondary) 95%, var(--text-primary) 5%);
+    color: var(--text-primary);
+    font-weight: 600;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+.simplex-command-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-secondary);
+    vertical-align: middle;
+}
+
+.simplex-command-table tr:last-child td {
+    border-bottom: none;
+}
+
+.simplex-command-table code {
+    font-family: 'JetBrains Mono', Menlo, Monaco, Consolas, monospace;
+    background-color: var(--bg-secondary);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+}
+
+/* Code Blocks */
+.simplex-code-header {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
+    background-color: #0c0c0d;
+    padding: 6px 12px;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    border: 1px solid var(--border);
+    border-bottom: none;
+    margin-top: 14px;
+}
+
+.simplex-code-block {
+    margin: 0 0 14px 0;
+    padding: 12px;
+    background-color: #0c0c0d;
+    border: 1px solid var(--border);
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    font-family: 'JetBrains Mono', Menlo, Monaco, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #a3e635; /* Neon green code print */
+    overflow-x: auto;
+}
+
+.simplex-guide-note {
+    font-size: 12px;
+    line-height: 1.5;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background-color: rgba(59, 130, 246, 0.05);
+    border: 1px solid rgba(59, 130, 246, 0.15);
+    color: var(--text-secondary);
+    margin-top: 14px;
+}
+
+.simplex-guide-note strong {
+    color: var(--text-primary);
+}

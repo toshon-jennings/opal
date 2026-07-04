@@ -289,14 +289,39 @@
 
 .perci-now-work-row {
     display: grid;
-    grid-template-columns: 98px minmax(0, 1fr);
+    grid-template-columns: 98px minmax(0, 1fr) auto;
     align-items: center;
     gap: 10px;
+    width: 100%;
     padding: 10px;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    transition: border-color 0.16s ease, transform 0.16s ease;
+}
+
+.perci-now-work-row:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--accent) 46%, var(--border));
 }
 
 .perci-now-work-row.is-attention {
     border-color: color-mix(in srgb, #e11d48 48%, var(--border));
+}
+
+.perci-now-work-row.is-attention:hover {
+    border-color: #e11d48;
+}
+
+.perci-now-work-surface {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
 }
 
 .perci-now-work-status {
@@ -573,6 +598,7 @@
 
 @media (prefers-reduced-motion: reduce) {
     .perci-now-surface-row,
+    .perci-now-work-row,
     .perci-now-tabs button {
         transition: none;
     }
