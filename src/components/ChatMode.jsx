@@ -1451,23 +1451,23 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                 placeholder="Type / for skills"
                 className="w-full bg-transparent border-none outline-none resize-none min-h-[52px] max-h-[180px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] leading-relaxed text-base"
             />
-            <div className="flex justify-between items-center mt-3">
-                <div className="flex gap-0.5 items-center">
+            <div className="flex flex-wrap gap-y-2 justify-between items-center mt-3">
+                <div className="flex flex-wrap gap-0.5 items-center">
                     <AttachmentMenu
                         onUploadImage={() => imageInputRef.current?.click()}
                         onUploadFile={() => fileInputRef.current?.click()}
                         disabled={isLoading}
                     />
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 ml-auto">
                     <ProviderModelPicker
                         selectedProvider={selectedProvider}
                         selectedModel={selectedModel}
                         availableModels={availableModels}
                         updateProvider={updateProvider}
                         updateModel={updateModel}
-                        buttonClassName="flex items-center gap-1.5 px-3 py-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-lg transition-colors text-sm"
-                        labelClassName="text-sm"
+                        buttonClassName="flex items-center gap-1.5 px-3 py-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-lg transition-colors text-sm max-w-[160px] min-w-0 overflow-hidden"
+                        labelClassName="text-sm truncate"
                         iconSize={14}
                         title="Select model"
                         dropdownWidthClassName="w-72"
@@ -2016,9 +2016,9 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                             placeholder="How can I help you today?"
                             className="w-full bg-transparent border-none outline-none resize-none min-h-[40px] max-h-[200px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] leading-relaxed text-base"
                         />
-                        <div className="flex justify-between items-center mt-3">
+                        <div className="flex flex-wrap gap-y-2 justify-between items-center mt-3">
 	                            {/* Left side toolbar */}
-	                            <div className="flex gap-0.5 items-center">
+	                            <div className="flex flex-wrap gap-0.5 items-center">
                                     <AttachmentMenu
                                         onUploadImage={() => imageInputRef.current?.click()}
                                         onUploadFile={() => fileInputRef.current?.click()}
@@ -2078,7 +2078,7 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                             </div>
 
                             {/* Right side - Model selector and Send */}
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2 ml-auto">
                                 <button
                                     onClick={() => setIsSearchEnabled(!isSearchEnabled)}
                                     className={`p-2 rounded-lg transition-colors ${isSearchEnabled
@@ -2122,7 +2122,7 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                                     availableModels={availableModels}
                                     updateProvider={updateProvider}
                                     updateModel={updateModel}
-                                    buttonClassName="flex items-center gap-1.5 px-3 py-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-lg transition-colors text-sm max-w-[160px]"
+                                    buttonClassName="flex items-center gap-1.5 px-3 py-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-lg transition-colors text-sm max-w-[160px] min-w-0 overflow-hidden"
                                     labelClassName="text-sm truncate"
                                     iconSize={14}
                                     title="Select model"

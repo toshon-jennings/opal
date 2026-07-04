@@ -24,6 +24,8 @@ import { SyntaxHighlighter } from '../lib/syntaxHighlighter';
 import { buildMemoryPrompt } from '../lib/harnessMemory';
 import { chooseModelForTask, buildRoutingPrompt } from '../lib/modelRouter';
 import DeSlopButton from './DeSlopButton';
+import { useAgentTools } from '../hooks/useAgentTools';
+import { ProviderModelPicker } from './ProviderModelPicker';
 import { buildBudgetPrompt, createBudgetRun, estimateCharsFromMessages, recordBudgetResponse } from '../lib/budgetGovernor';
 import {
     buildIntegrationToolsPrompt,
@@ -77,8 +79,9 @@ class EditorErrorBoundary extends Component {
 
 export default function CodeMode() {
     const { codeState, setCodeState } = useMode();
-    const { userName, selectedProvider, selectedModel, availableModels, apiKeys, lmStudioUrl, janUrl } = useChat();
+    const { userName, selectedProvider, selectedModel, availableModels, updateProvider, updateModel, apiKeys, lmStudioUrl, janUrl } = useChat();
     const { isDarkMode } = useTheme();
+    const { executeTool: runAgentTool } = useAgentTools(codeState.workingDirectory, null, apiKeys);
     
     const [input, setInput] = useState('');
     const [activeSession, setActiveSession] = useState(null);
@@ -358,12 +361,57 @@ export default function CodeMode() {
                 : permissionLevel === 'read'
                 ? 'Permission level: Read only. Do not create, modify, or delete external data.'
                 : 'Permission level: Full access.';
+            const localTools = [
+                {
+                    name: 'read_file',
+                    description: 'Read the full contents of a file at the given path.',
+                    parameters: { path: 'Absolute or project-relative path to the file to read.' }
+                },
+                {
+                    name: 'list_directory',
+                    description: 'List the files and subdirectories at the given path.',
+                    parameters: { path: 'Absolute or project-relative directory path. Defaults to the project root.' }
+                }
+            ];
+
+            const localWriteTools = [
+                {
+                    name: 'write_file',
+                    description: 'Write content to a file, creating it and any missing parent directories if needed.',
+                    parameters: {
+                        path: 'Absolute or project-relative path of the file to write.',
+                        content: 'Full content to write to the file.'
+                    }
+                },
+                {
+                    name: 'run_command',
+                    description: 'Run an executable in the selected local workspace without a shell. Operators such as pipes, redirects, &&, and loops are not supported; make multiple tool calls instead.',
+                    parameters: {
+                        command: 'Executable name only, e.g. "git", "npm", or "node".',
+                        arguments: 'JSON array of argument strings, e.g. ["status", "--short"]. Use [] when there are no arguments.'
+                    }
+                }
+            ];
+
+            const activeTools = [
+                ...localTools,
+                ...(permissionLevel !== 'read' ? localWriteTools : []),
+                ...getIntegrationTools({ allowWrites: permissionLevel !== 'read', apiKeys })
+            ];
+
+            const localToolsPrompt = permissionLevel === 'read'
+                ? 'You have access to local tools: read_file, list_directory.'
+                : 'You have access to local tools: read_file, write_file, list_directory, run_command.';
+            const useToolsPrompt = 'Use tools proactively to inspect the codebase, read files before editing them, and verify your changes.';
+
             const systemPrompt = [
                 'Expert software engineer.',
                 buildRoutingPrompt(route),
                 buildBudgetPrompt(budgetRun),
                 memoryContext.prompt,
                 permissionPrompt,
+                localToolsPrompt,
+                useToolsPrompt,
                 buildIntegrationToolsPrompt(apiKeys),
                 `Context: ${fileContext}`,
                 ...(cavemanDirective(cavemanLevel).trim() ? [cavemanDirective(cavemanLevel).trim()] : []),
@@ -380,10 +428,16 @@ export default function CodeMode() {
             const toolRun = await runChatWithTools({
                 client,
                 messages: messagesForLLM,
-                tools: getIntegrationTools({ allowWrites: permissionLevel !== 'read', apiKeys }),
+                tools: activeTools,
                 modelId: routedModel,
                 signal: abortController.signal,
-                executeTool: (name, params) => executeIntegrationTool(name, params, apiKeys),
+                executeTool: async (name, params) => {
+                    const isLocal = ['read_file', 'write_file', 'list_directory', 'run_command'].includes(name);
+                    if (isLocal) {
+                        return await runAgentTool(name, params);
+                    }
+                    return await executeIntegrationTool(name, params, apiKeys);
+                },
                 onToolCall: (toolCall) => {
                     setStreamingMessage(`Using ${toolCall.name}...`);
                 },
@@ -570,15 +624,33 @@ export default function CodeMode() {
                             placeholder={activeSession ? "What should we change?" : "Type to start a new session..."}
                             className="w-full bg-[var(--bg-primary)] border border-[var(--border)] rounded-2xl py-3.5 pl-4 pr-12 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent)] shadow-sm min-h-[90px] max-h-[250px] resize-none"
                         />
-                        <div className="mt-2 flex items-center gap-1">
-                            <PermissionsDropdown value={permissionLevel} onChange={setPermissionLevel} />
-                            <CavemanDropdown value={cavemanLevel} onChange={handleCavemanChange} />
-                            <PonytailDropdown value={ponytailLevel} onChange={handlePonytailChange} />
-                            {tasteConfig && (
-                                <div className="px-2 py-1 text-[10px] font-medium text-[var(--accent)] bg-[var(--accent-subtle)] rounded-md" title={`Taste: V${tasteConfig.variance}/M${tasteConfig.motion}/D${tasteConfig.density}`}>
-                                    🎨 Taste
-                                </div>
-                            )}
+                        <div className="mt-2 flex flex-wrap gap-y-2 justify-between items-center pr-12">
+                            <div className="flex flex-wrap gap-1 items-center">
+                                <PermissionsDropdown value={permissionLevel} onChange={setPermissionLevel} />
+                                <CavemanDropdown value={cavemanLevel} onChange={handleCavemanChange} />
+                                <PonytailDropdown value={ponytailLevel} onChange={handlePonytailChange} />
+                                {tasteConfig && (
+                                    <div className="px-2 py-1 text-[10px] font-medium text-[var(--accent)] bg-[var(--accent-subtle)] rounded-md" title={`Taste: V${tasteConfig.variance}/M${tasteConfig.motion}/D${tasteConfig.density}`}>
+                                        🎨 Taste
+                                    </div>
+                                )}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 ml-auto">
+                                <ProviderModelPicker
+                                    selectedProvider={selectedProvider}
+                                    selectedModel={selectedModel}
+                                    availableModels={availableModels}
+                                    updateProvider={updateProvider}
+                                    updateModel={updateModel}
+                                    buttonClassName="flex items-center gap-1.5 px-3 py-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-lg transition-colors text-sm max-w-[160px] min-w-0 overflow-hidden"
+                                    labelClassName="text-sm truncate"
+                                    iconSize={14}
+                                    title="Select model"
+                                    dropdownWidthClassName="w-72"
+                                    panelClassName="absolute bottom-full right-0 mb-2 max-h-80 overflow-y-auto z-20"
+                                    overlayClassName="fixed inset-0 z-10"
+                                />
+                            </div>
                         </div>
                         <button
                             type={isLoading ? 'button' : 'submit'}

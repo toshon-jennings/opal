@@ -441,8 +441,8 @@ export default function BuildMode() {
                                         availableModels={availableModels}
                                         updateProvider={updateProvider}
                                         updateModel={updateModel}
-                                        buttonClassName="flex items-center gap-1.5 px-2.5 py-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-lg transition-colors"
-                                        labelClassName="text-xs"
+                                        buttonClassName="flex items-center gap-1.5 px-2.5 py-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded-lg transition-colors max-w-[160px] min-w-0 overflow-hidden"
+                                        labelClassName="text-xs truncate"
                                         iconSize={13}
                                         title="Select model"
                                         dropdownWidthClassName="w-72"
