@@ -31,6 +31,7 @@ import {
     MAP_HEIGHT,
     MAP_WIDTH,
     Districts,
+    DistrictLabels,
     MapGrid,
     MapZoomBar,
     Station,
@@ -187,11 +188,16 @@ export default function PerciNowMode({ openClawStatus }) {
 
     const openWindows = liveSnapshot.openWindows || liveSnapshot.visibleWindows;
     const activeWork = [
-        ...liveSnapshot.attentionMissionRuns,
-        ...liveSnapshot.activeMissionRuns,
-        ...liveSnapshot.attentionAgentJobs,
-        ...liveSnapshot.activeAgentJobs,
+        ...liveSnapshot.attentionMissionRuns.map(item => ({ ...item, stationId: 'mission' })),
+        ...liveSnapshot.activeMissionRuns.map(item => ({ ...item, stationId: 'mission' })),
+        ...liveSnapshot.attentionAgentJobs.map(item => ({ ...item, stationId: 'agents' })),
+        ...liveSnapshot.activeAgentJobs.map(item => ({ ...item, stationId: 'agents' })),
     ].slice(0, 8);
+
+    const openWorkItem = (item) => {
+        const station = stationById.get(item.stationId);
+        if (station) openMapStation(station);
+    };
 
     return (
         <div className="perci-now-mode">
@@ -283,6 +289,7 @@ export default function PerciNowMode({ openClawStatus }) {
                                     onOpen={() => openMapStation(station)}
                                 />
                             ))}
+                            <DistrictLabels districts={SURFACE_MAP_DISTRICTS} heatById={districtHeatById} />
                         </svg>
                     </section>
 
@@ -317,7 +324,12 @@ export default function PerciNowMode({ openClawStatus }) {
                             ) : (
                                 <div className="perci-now-work-list">
                                     {selectedMapActivity.map(item => (
-                                        <WorkRow key={`${item.id}-${item.status}`} item={item} now={now} />
+                                        <WorkRow
+                                            key={`${item.id}-${item.status}`}
+                                            item={item}
+                                            now={now}
+                                            onOpen={() => openMapStation(selectedMapStation)}
+                                        />
                                     ))}
                                 </div>
                             )}
@@ -364,7 +376,13 @@ export default function PerciNowMode({ openClawStatus }) {
                         ) : (
                             <div className="perci-now-work-list">
                                 {activeWork.map(item => (
-                                    <WorkRow key={`${item.id}-${item.status}`} item={item} now={now} />
+                                    <WorkRow
+                                        key={`${item.id}-${item.status}`}
+                                        item={item}
+                                        now={now}
+                                        onOpen={() => openWorkItem(item)}
+                                        surfaceLabel={stationById.get(item.stationId)?.label}
+                                    />
                                 ))}
                             </div>
                         )}
@@ -462,16 +480,26 @@ function EmptyState({ text }) {
     );
 }
 
-function WorkRow({ item, now }) {
+function WorkRow({ item, now, onOpen, surfaceLabel }) {
     const attention = ['blocked', 'failed', 'error', 'cancelled', 'denied'].includes(item.status);
     return (
-        <div className={`perci-now-work-row${attention ? ' is-attention' : ''}`}>
+        <button
+            type="button"
+            className={`perci-now-work-row${attention ? ' is-attention' : ''}`}
+            onClick={onOpen}
+        >
             <span className="perci-now-work-status">{item.status}</span>
             <span>
                 <strong>{item.title}</strong>
                 <small>{item.agent}{item.updatedAt ? ` · ${relativeTime(item.updatedAt, now)}` : ''}</small>
             </span>
-        </div>
+            {surfaceLabel && (
+                <span className="perci-now-work-surface">
+                    {surfaceLabel}
+                    <ArrowUpRight size={12} />
+                </span>
+            )}
+        </button>
     );
 }
 

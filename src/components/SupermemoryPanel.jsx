@@ -31,15 +31,15 @@ const DEFAULT_CONFIG = {
 };
 
 const MODEL_PROVIDER_OPTIONS = [
-    { id: 'openrouter', label: 'OpenRouter', baseURL: 'https://openrouter.ai/api/v1', needsKey: true },
-    { id: 'openai', label: 'OpenAI', baseURL: 'https://api.openai.com/v1', needsKey: true },
-    { id: 'anthropic', label: 'Anthropic', baseURL: 'https://api.anthropic.com/v1', needsKey: true },
-    { id: 'mistral', label: 'Mistral', baseURL: 'https://api.mistral.ai/v1', needsKey: true },
-    { id: 'groq', label: 'Groq', baseURL: 'https://api.groq.com/openai/v1', needsKey: true },
-    { id: 'gemini', label: 'Gemini', baseURL: '', needsKey: true },
-    { id: 'ollama', label: 'Ollama', baseURL: 'http://localhost:11434/v1', needsKey: false },
-    { id: 'lmstudio', label: 'LM Studio', baseURL: 'http://localhost:1234/v1', needsKey: false },
-    { id: 'jan', label: 'Jan', baseURL: 'http://localhost:1337/v1', needsKey: false },
+    { id: 'openrouter', label: 'OpenRouter', baseURL: 'https://openrouter.ai/api/v1', model: 'anthropic/claude-sonnet-4', needsKey: true },
+    { id: 'openai', label: 'OpenAI', baseURL: 'https://api.openai.com/v1', model: 'gpt-4o-mini', needsKey: true },
+    { id: 'anthropic', label: 'Anthropic', baseURL: 'https://api.anthropic.com/v1', model: 'claude-sonnet-4-20250514', needsKey: true },
+    { id: 'mistral', label: 'Mistral', baseURL: 'https://api.mistral.ai/v1', model: 'mistral-small-latest', needsKey: true },
+    { id: 'groq', label: 'Groq', baseURL: 'https://api.groq.com/openai/v1', model: 'llama-3.3-70b-versatile', needsKey: true },
+    { id: 'gemini', label: 'Gemini', baseURL: '', model: 'gemini-2.0-flash', needsKey: true },
+    { id: 'ollama', label: 'Ollama', baseURL: 'http://localhost:11434/v1', model: 'llama3.2', needsKey: false },
+    { id: 'lmstudio', label: 'LM Studio', baseURL: 'http://localhost:1234/v1', model: 'local-model', needsKey: false },
+    { id: 'jan', label: 'Jan', baseURL: 'http://localhost:1337/v1', model: 'local-model', needsKey: false },
 ];
 
 function providerMeta(provider) {
@@ -334,7 +334,8 @@ export default function SupermemoryPanel({ onBackendChange = null }) {
                                     const nextProviderMeta = providerMeta(nextProvider);
                                     const patch = {
                                         provider: nextProvider,
-                                        modelBaseURL: nextProviderMeta.baseURL || config.modelBaseURL || '',
+                                        model: nextProviderMeta.model || '',
+                                        modelBaseURL: nextProviderMeta.baseURL || '',
                                     };
                                     setConfig(prev => ({ ...prev, ...patch }));
                                     void saveConfig(patch);
@@ -350,8 +351,8 @@ export default function SupermemoryPanel({ onBackendChange = null }) {
                             <input
                                 value={config.model || ''}
                                 onChange={event => setConfig(prev => ({ ...prev, model: event.target.value }))}
-                                onBlur={() => saveConfig({ model: config.model || '' })}
-                                placeholder="anthropic/claude-sonnet-4"
+                                onBlur={() => saveConfig({ model: config.model || selectedProvider.model || '' })}
+                                placeholder={selectedProvider.model || 'Model ID'}
                                 spellCheck={false}
                             />
                         </label>

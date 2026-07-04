@@ -11,6 +11,17 @@ const DEFAULT_PROVIDER = 'openrouter';
 const DEFAULT_MODEL = 'anthropic/claude-sonnet-4';
 const DEFAULT_CONTAINER_TAG = 'perci_memory';
 const LOCAL_MODEL_PROVIDERS = new Set(['ollama', 'lmstudio', 'jan']);
+const PROVIDER_DEFAULT_MODELS = {
+  openrouter: DEFAULT_MODEL,
+  openai: 'gpt-4o-mini',
+  anthropic: 'claude-sonnet-4-20250514',
+  mistral: 'mistral-small-latest',
+  groq: 'llama-3.3-70b-versatile',
+  gemini: 'gemini-2.0-flash',
+  ollama: 'llama3.2',
+  lmstudio: 'local-model',
+  jan: 'local-model',
+};
 
 let childProcess = null;
 let lastProgress = { step: 0, label: 'Idle', done: false };
@@ -59,6 +70,33 @@ function defaultModelBaseURL(provider = DEFAULT_PROVIDER) {
   }
 }
 
+function defaultModel(provider = DEFAULT_PROVIDER) {
+  return PROVIDER_DEFAULT_MODELS[provider] || DEFAULT_MODEL;
+}
+
+function isOpenRouterStyleModel(model) {
+  return /^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._:-]*$/i.test(String(model || '').trim());
+}
+
+function normalizeModel(provider, model) {
+  const value = String(model || '').trim();
+  if (!value) return defaultModel(provider);
+  if (LOCAL_MODEL_PROVIDERS.has(provider) && isOpenRouterStyleModel(value)) {
+    return defaultModel(provider);
+  }
+  return value;
+}
+
+function normalizeModelBaseURL(provider, modelBaseURL) {
+  const fallback = defaultModelBaseURL(provider);
+  const value = String(modelBaseURL || '').trim().replace(/\/+$/, '');
+  if (!value) return fallback;
+  if (LOCAL_MODEL_PROVIDERS.has(provider) && /^https:\/\/openrouter\.ai\/api\/v1\/?$/i.test(value)) {
+    return fallback;
+  }
+  return value;
+}
+
 function normalizeConfig(config = {}) {
   const port = Number.parseInt(config.port || DEFAULT_PORT, 10) || DEFAULT_PORT;
   const baseURL = (config.baseURL || `http://localhost:${port}`).replace(/\/+$/, '');
@@ -71,8 +109,8 @@ function normalizeConfig(config = {}) {
     provider,
     providerKey: config.providerKey || config.openrouterKey || '',
     openrouterKey: config.openrouterKey || '',
-    modelBaseURL: (config.modelBaseURL || defaultModelBaseURL(provider)).replace(/\/+$/, ''),
-    model: config.model || DEFAULT_MODEL,
+    modelBaseURL: normalizeModelBaseURL(provider, config.modelBaseURL),
+    model: normalizeModel(provider, config.model),
     dataDir: config.dataDir || defaultDataDir(),
     containerTag: config.containerTag || DEFAULT_CONTAINER_TAG,
     binaryPath: config.binaryPath || '',
@@ -473,6 +511,7 @@ module.exports = {
   DEFAULT_PROVIDER,
   DEFAULT_MODEL,
   DEFAULT_CONTAINER_TAG,
+  defaultModel,
   defaultModelBaseURL,
   defaultDataDir,
   normalizeConfig,

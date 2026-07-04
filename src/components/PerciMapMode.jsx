@@ -25,12 +25,12 @@ import {
     MAP_HEIGHT,
     MAP_WIDTH,
     Districts,
+    DistrictLabels,
     MapGrid,
     MapZoomBar,
     Station,
     buildOctilinearPath,
-    expandOctilinearPoints,
-    pointAlongPolyline,
+    placeRouteBadges,
     useMapZoom,
 } from './PerciSurfaceCanvas';
 import './PerciMapMode.css';
@@ -75,6 +75,17 @@ export default function PerciMapMode() {
         () => getSurfaceMapSummary(visibleRoutes),
         [visibleRoutes]
     );
+    const badgePositions = useMemo(() => {
+        const candidates = visibleRoutes
+            .map(route => {
+                const points = route.stationIds.map(id => stationById.get(id)).filter(Boolean);
+                if (points.length < 2) return null;
+                const routeType = SURFACE_ROUTE_TYPES[route.type];
+                return { id: route.id, points, width: routeType.shortLabel.length * 6.6 + 16 };
+            })
+            .filter(Boolean);
+        return placeRouteBadges(candidates, PERCI_SURFACE_STATIONS);
+    }, [visibleRoutes, stationById]);
     const selectedStation = stationById.get(selectedStationId) || PERCI_SURFACE_STATIONS[0];
     const selectedDistrict = getSurfaceDistrict(selectedStation);
     const selectedRoutes = visibleRoutes.filter(route => route.stationIds.includes(selectedStation.id));
@@ -177,6 +188,7 @@ export default function PerciMapMode() {
                                 routeIndex={index}
                                 stationById={stationById}
                                 selectedStationId={selectedStation.id}
+                                badgeAt={badgePositions.get(route.id)}
                             />
                         ))}
                         {PERCI_SURFACE_STATIONS.map(station => (
@@ -191,6 +203,7 @@ export default function PerciMapMode() {
                                 onOpen={() => openStation(station)}
                             />
                         ))}
+                        <DistrictLabels districts={SURFACE_MAP_DISTRICTS} />
                     </svg>
                 </section>
 
@@ -271,16 +284,14 @@ function Metric({ label, value }) {
     );
 }
 
-function RoutePath({ route, routeIndex, stationById, selectedStationId }) {
+function RoutePath({ route, routeIndex, stationById, selectedStationId, badgeAt }) {
     const routeType = SURFACE_ROUTE_TYPES[route.type];
     const points = route.stationIds
         .map(id => stationById.get(id))
         .filter(Boolean);
-    if (points.length < 2) return null;
+    if (points.length < 2 || !badgeAt) return null;
 
     const d = buildOctilinearPath(points);
-    const polyline = expandOctilinearPoints(points);
-    const badgeAt = pointAlongPolyline(polyline, 0.14 + (routeIndex % 4) * 0.22);
     const selectedOnRoute = route.stationIds.includes(selectedStationId);
     const offset = (routeIndex % 3 - 1) * 3;
     const badgeWidth = routeType.shortLabel.length * 6.6 + 16;

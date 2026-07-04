@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ArrowUpToLine, Minus, Maximize2, Minimize2, X } from 'lucide-react';
-import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, ARTIFACT_WINDOW_ID, RESEARCH_WINDOW_ID, COMPARE_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID } from '../../context/ModeContext';
+import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, ARTIFACT_WINDOW_ID, RESEARCH_WINDOW_ID, COMPARE_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, SIMPLEX_WINDOW_ID } from '../../context/ModeContext';
 import { readStringStorage, writeStringStorage } from '../../lib/persistentStore';
 import WindowContextMenu from './WindowContextMenu';
 import SirPerciLauncher from './SirPerciLauncher';
@@ -34,6 +34,7 @@ const GLYPHS = {
     [COMPARE_WINDOW_ID]: 'CP',
     [EIDOS_WINDOW_ID]: 'EI',
     [LOCALHOST_WINDOW_ID]: 'LH',
+    [SIMPLEX_WINDOW_ID]: 'SX',
 };
 
 // The bottom dock / taskbar. Chips animate in with a staggered "domino" spring

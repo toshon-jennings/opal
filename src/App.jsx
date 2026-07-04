@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, Component } from 'react';
 import perciLogo from './assets/perci-logo.png';
-import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, ARTIFACT_WINDOW_ID, RESEARCH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID, CLEANMAC_WINDOW_ID, PACKAGES_WINDOW_ID, AGENTMAIL_WINDOW_ID, AUTOFORGE_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID, IPTV_WINDOW_ID } from './context/ModeContext';
+import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, ARTIFACT_WINDOW_ID, RESEARCH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID, CLEANMAC_WINDOW_ID, PACKAGES_WINDOW_ID, AGENTMAIL_WINDOW_ID, AUTOFORGE_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID, IPTV_WINDOW_ID, SIMPLEX_WINDOW_ID } from './context/ModeContext';
 import ModeSwitcher from './components/ModeSwitcher';
 import ChatMode from './components/ChatMode';
 import CodeMode from './components/CodeMode';
@@ -34,6 +34,7 @@ import AgentMailMode from './components/AgentMailMode';
 import PackagesMode from './components/PackagesMode';
 import OpenNotebookMode from './components/OpenNotebookMode';
 import IptvMode from './components/IptvMode';
+import SimplexMode from './components/SimplexMode';
 import { SettingsModal } from './components/SettingsModal';
 import DesktopHost from './components/windows/DesktopHost';
 import Dock from './components/windows/Dock';
@@ -639,6 +640,7 @@ function AppContent() {
                 );
             case OPEN_NOTEBOOK_WINDOW_ID: return <OpenNotebookMode />;
             case IPTV_WINDOW_ID: return <IptvMode />;
+            case SIMPLEX_WINDOW_ID: return <SimplexMode />;
             default:
                 // PWA shortcut windows: id starts with 'pwa_'
                 if (typeof modeId === 'string' && modeId.startsWith('pwa_')) {

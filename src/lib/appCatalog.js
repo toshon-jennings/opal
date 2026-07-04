@@ -8,7 +8,7 @@ import {
     ChatIcon, CoworkIcon, CodeIcon, NotesIcon, AgentsIcon, ResearchIcon,
     OfficeIcon, MissionIcon, BuildIcon, ProjectsIcon, SkillsIcon, SurfaceMapIcon, PerciNowIcon, PerciDeskIcon, PackagesIcon, IptvIcon,
 } from '../components/ModeIcons';
-import { MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID, CLEANMAC_WINDOW_ID, PACKAGES_WINDOW_ID, AGENTMAIL_WINDOW_ID, AUTOFORGE_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID, IPTV_WINDOW_ID } from '../context/ModeContext';
+import { MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID, CLEANMAC_WINDOW_ID, PACKAGES_WINDOW_ID, AGENTMAIL_WINDOW_ID, AUTOFORGE_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID, IPTV_WINDOW_ID, SIMPLEX_WINDOW_ID } from '../context/ModeContext';
 import lhLogo from '../assets/lh-logo.png';
 import autoforgeLogo from '../assets/autoforge-logo.png';
 import hermesLogo from '../assets/nousresearch.png';
@@ -38,6 +38,8 @@ import autoforgeBg from '../assets/autoforge-bg.jpeg';
 import openNotebookBg from '../assets/open-notebook-bg.jpeg';
 import iptvLogo from '../assets/iptv-logo.png';
 import iptvBg from '../assets/iptv-bg.jpeg';
+import simplexLogo from '../assets/simplex-logo.png';
+import simplexBg from '../assets/simplex-bg.jpg';
 
 // Native Perci surfaces — first-class workspace modes.
 // Sorted alphabetically by title so the dashboard tile grid and Sir Perci
@@ -67,7 +69,7 @@ export const NATIVE_TILES = [
 // Perci launcher, so both render the same artwork (white backing vs.
 // edge-to-edge cover) instead of drifting apart.
 export const LOGO_WHITE_BOX_IDS = new Set([GDASH_WINDOW_ID, MODES.STUDIOOS, MODES.LIGHTHOUSE, HERMES_WINDOW_ID, CLEANMAC_WINDOW_ID]);
-export const LOGO_FILL_COVER_IDS = new Set([EIDOS_WINDOW_ID, KLIPIT_WINDOW_ID, MODES.BARS, MODES.MARKITDOWN, MODES.CONCERNS, AUTOFORGE_WINDOW_ID, AGENTMAIL_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID, IPTV_WINDOW_ID]);
+export const LOGO_FILL_COVER_IDS = new Set([EIDOS_WINDOW_ID, KLIPIT_WINDOW_ID, MODES.BARS, MODES.MARKITDOWN, MODES.CONCERNS, AUTOFORGE_WINDOW_ID, AGENTMAIL_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID, IPTV_WINDOW_ID, SIMPLEX_WINDOW_ID]);
 
 // OS-level tools and external runtimes. Bars belongs here when its Perci
 // surface is wired, not in the native Perci app group.
@@ -77,7 +79,7 @@ export const SYSTEM_TILES = [
     { id: HERMES_WINDOW_ID, icon: null, logo: hermesLogo, title: 'Hermes', desc: 'CLI agent — chat, console, sessions', hue: '#eab308', artwork: true },
     { id: GDASH_WINDOW_ID, icon: null, logo: gdashLogo, title: 'G-Dash', desc: 'Google Workspace dashboard', hue: '#4285f4', artwork: true, bgImage: gdashBg },
     { id: EIDOS_WINDOW_ID, icon: null, logo: eidosLogo, title: 'Eidos', desc: 'Persistent memory for AI agents', hue: '#6b7280', artwork: true, bgImage: eidosBg },
-    { id: KLIPIT_WINDOW_ID, icon: null, logo: klipitLogo, title: 'Klipit', desc: 'Securely klip the web', hue: '#ec4899', artwork: true, bgImage: klipitBg },
+    { id: KLIPIT_WINDOW_ID, icon: null, logo: klipitLogo, title: 'Klipit Browser', desc: 'Securely klip the web', hue: '#ec4899', artwork: true, bgImage: klipitBg },
     { id: MODES.BARS, icon: null, logo: barsLogo, title: 'BARS', desc: 'Idea notebook', hue: '#f59e0b', artwork: true, bgImage: barsBg },
     { id: MODES.MARKITDOWN, icon: null, logo: markitdownLogo, title: 'MarkItDownUI', desc: 'Convert files and URLs to Markdown', hue: '#0ea5e9', artwork: true, bgImage: markitdownBg },
     { id: MODES.CONCERNS, icon: null, logo: billboardLogo, title: 'Bill Board', desc: 'Services, keys & subscriptions', hue: '#06b6d4', artwork: true, bgImage: billboardBg },
@@ -87,4 +89,5 @@ export const SYSTEM_TILES = [
     { id: AGENTMAIL_WINDOW_ID, icon: null, logo: agentmailLogo, title: 'AgentMail', desc: 'Email via AgentMail web console', hue: '#6366f1', artwork: true, bgImage: agentmailBg },
     { id: OPEN_NOTEBOOK_WINDOW_ID, logo: cleanmacLogo, title: 'Open Notebook', desc: 'Embedded localhost notebook window', hue: '#10b981', artwork: true, bgImage: openNotebookBg },
     { id: IPTV_WINDOW_ID, icon: IptvIcon, logo: iptvLogo, title: 'IPTV', desc: 'Watch live TV channels from around the world', hue: '#8b5cf6', artwork: true, bgImage: iptvBg },
+    { id: SIMPLEX_WINDOW_ID, icon: null, logo: simplexLogo, title: 'SimpleX', desc: 'Sovereign and private chat client', hue: '#0197ff', artwork: true, bgImage: simplexBg },
 ];

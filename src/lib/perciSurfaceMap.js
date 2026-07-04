@@ -11,6 +11,7 @@ import {
     KLIPIT_WINDOW_ID,
     SKILLS_WINDOW_ID,
     OPEN_NOTEBOOK_WINDOW_ID,
+    SIMPLEX_WINDOW_ID,
 } from '../context/ModeContext';
 
 export const SURFACE_ROUTE_TYPES = {
@@ -180,21 +181,22 @@ export const PERCI_SURFACE_STATIONS = [
     { id: 'lighthouse', targetId: MODES.LIGHTHOUSE, label: 'Lighthouse', kind: 'system', districtId: 'local-systems-depot', x: 980, y: 510, description: 'Port scanning, active-process context, and conflict detection.' },
     { id: 'markitdown', targetId: MODES.MARKITDOWN, label: 'MarkItDownUI', kind: 'system', districtId: 'local-systems-depot', x: 1160, y: 690, description: 'Local file and URL conversion into Markdown.' },
     { id: 'studioos', targetId: MODES.STUDIOOS, label: 'StudioOS', kind: 'system', districtId: 'local-systems-depot', x: 1160, y: 510, description: 'Embedded StudioOS workspace view.' },
-    { id: 'klipit', targetId: KLIPIT_WINDOW_ID, label: 'Klipit', kind: 'system', districtId: 'local-systems-depot', x: 980, y: 690, description: 'Secure web clipping surface.' },
+    { id: 'klipit', targetId: KLIPIT_WINDOW_ID, label: 'Klipit Browser', kind: 'system', districtId: 'local-systems-depot', x: 980, y: 690, description: 'Secure web clipping surface.' },
     { id: 'bill-board', targetId: MODES.CONCERNS, label: 'Bill Board', kind: 'system', districtId: 'business-office', x: 510, y: 160, description: 'User expenses, bills, and subscription tracking.' },
     { id: 'gdash', targetId: GDASH_WINDOW_ID, label: 'G-Dash', kind: 'system', districtId: 'business-office', x: 610, y: 160, description: 'Google Workspace dashboard surface.' },
     { id: 'open-notebook', targetId: OPEN_NOTEBOOK_WINDOW_ID, label: 'Open Notebook', kind: 'system', districtId: 'local-systems-depot', x: 1070, y: 600, description: 'Dedicated localhost notebook window without address bar.' },
+    { id: 'simplex', targetId: SIMPLEX_WINDOW_ID, label: 'SimpleX', kind: 'system', districtId: 'local-systems-depot', x: 890, y: 600, description: 'Sovereign and private chat client running locally.' },
 ];
 
 export const PERCI_SURFACE_ROUTES = [
-    { id: 'circle-line', type: 'movement', label: 'Circle Line', stationIds: ['dashboard', 'perci-map', 'perci-now', 'perci-desk', 'workspace', 'chat', 'cowork', 'code', 'git-shells', 'lighthouse', 'mission', 'agents', 'office', 'dashboard'] },
-    { id: 'workspace-context', type: 'context', label: 'Workspace Context', stationIds: ['bars', 'notes', 'perci-desk', 'workspace', 'mission', 'cowork', 'code', 'git-shells', 'eidos'] },
+    { id: 'circle-line', type: 'movement', label: 'Circle Line', stationIds: ['dashboard', 'perci-map', 'perci-now', 'perci-desk', 'workspace', 'chat', 'ensemble', 'cowork', 'code', 'git-shells', 'lighthouse', 'mission', 'agents', 'office', 'dashboard'] },
+    { id: 'workspace-context', type: 'context', label: 'Workspace Context', stationIds: ['notes', 'bars', 'eidos', 'workspace', 'perci-desk', 'mission', 'cowork', 'code', 'git-shells'] },
     { id: 'agent-rail', type: 'automation', label: 'Agent Rail', stationIds: ['office', 'mission', 'perci-now', 'agents', 'openclaw', 'hermes', 'skills'] },
     { id: 'build-main', type: 'creation', label: 'Build Main', stationIds: ['chat', 'ensemble', 'compare', 'cowork', 'code', 'build', 'artifacts', 'localhost'] },
     { id: 'research-loop', type: 'research', label: 'Research Loop', stationIds: ['chat', 'research', 'research-results', 'notes', 'workspace'] },
-    { id: 'local-runtime', type: 'runtime', label: 'Runtime Connector', stationIds: ['markitdown', 'localhost', 'git-shells', 'lighthouse', 'openclaw', 'studioos', 'klipit'] },
-    { id: 'governance-line', type: 'governance', label: 'Governance Line', stationIds: ['skills', 'agents', 'mission', 'eidos', 'notes'] },
-    { id: 'expense-line', type: 'expenses', label: 'Expense Line', stationIds: ['bill-board', 'gdash', 'perci-desk', 'workspace', 'notes'] },
+    { id: 'local-runtime', type: 'runtime', label: 'Runtime Connector', stationIds: ['markitdown', 'localhost', 'git-shells', 'lighthouse', 'openclaw', 'studioos', 'open-notebook', 'klipit'] },
+    { id: 'governance-line', type: 'governance', label: 'Governance Line', stationIds: ['skills', 'agents', 'mission', 'perci-now', 'eidos', 'notes'] },
+    { id: 'expense-line', type: 'expenses', label: 'Expense Line', stationIds: ['bill-board', 'gdash', 'workspace', 'perci-desk', 'notes'] },
 ];
 
 export function filterSurfaceMapRoutes(routeTypeIds, routes = PERCI_SURFACE_ROUTES) {

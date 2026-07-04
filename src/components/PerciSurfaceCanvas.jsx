@@ -49,31 +49,51 @@ export function MapZoomBar({ zoom, onZoomOut, onZoomIn, onReset, onChange }) {
     );
 }
 
+function districtStyle(district, heatById) {
+    const heat = heatById?.get(district.id) || 0;
+    return {
+        className: `perci-map-district${heat > 0 ? ' is-active' : ''}`,
+        style: {
+            ...(district.color ? { '--district': district.color } : null),
+            ...(heat > 0 ? { '--heat': Math.min(1, heat) } : null),
+        },
+    };
+}
+
+// District backgrounds paint first (behind the grid, routes, and stations).
+// The title text is a separate layer — see DistrictLabels — so route lines
+// crossing a district's corner never draw over its name.
 export function Districts({ districts, heatById }) {
     return (
         <g className="perci-map-districts" aria-hidden="true">
             {districts.map(district => {
-                const heat = heatById?.get(district.id) || 0;
+                const { className, style } = districtStyle(district, heatById);
                 return (
-                    <g
+                    <rect
                         key={district.id}
-                        className={`perci-map-district${heat > 0 ? ' is-active' : ''}`}
-                        style={{
-                            ...(district.color ? { '--district': district.color } : null),
-                            ...(heat > 0 ? { '--heat': Math.min(1, heat) } : null),
-                        }}
-                    >
-                        <rect
-                            x={district.x}
-                            y={district.y}
-                            width={district.width}
-                            height={district.height}
-                            rx="12"
-                        />
-                        <text x={district.x + 14} y={district.y + 22}>
-                            {district.label}
-                        </text>
-                    </g>
+                        className={className}
+                        style={style}
+                        x={district.x}
+                        y={district.y}
+                        width={district.width}
+                        height={district.height}
+                        rx="12"
+                    />
+                );
+            })}
+        </g>
+    );
+}
+
+export function DistrictLabels({ districts, heatById }) {
+    return (
+        <g className="perci-map-district-labels" aria-hidden="true">
+            {districts.map(district => {
+                const { className, style } = districtStyle(district, heatById);
+                return (
+                    <text key={district.id} className={className} style={style} x={district.x + 14} y={district.y + 22}>
+                        {district.label}
+                    </text>
                 );
             })}
         </g>
@@ -139,35 +159,72 @@ export function buildOctilinearPath(points, radius = 15) {
     return d;
 }
 
-export function pointAlongPolyline(points, t) {
-    if (points.length === 0) return { x: 0, y: 0, angle: 0 };
-    if (points.length === 1) return { x: points[0].x, y: points[0].y, angle: 0 };
-    const lengths = [];
-    let total = 0;
-    for (let i = 1; i < points.length; i++) {
-        const len = Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
-        lengths.push(len);
-        total += len;
-    }
-    let target = Math.min(Math.max(t, 0), 1) * total;
-    for (let i = 0; i < lengths.length; i++) {
-        if (target <= lengths[i] || i === lengths.length - 1) {
-            const f = lengths[i] === 0 ? 0 : target / lengths[i];
-            const a = points[i];
-            const b = points[i + 1];
-            return {
-                x: a.x + (b.x - a.x) * f,
-                y: a.y + (b.y - a.y) * f,
-                angle: Math.atan2(b.y - a.y, b.x - a.x),
-            };
+const BADGE_HEIGHT = 18;
+const BADGE_MARGIN = 8;
+// Generous footprint around a station's dot + label, in any anchor direction —
+// approximate rather than exact text metrics, but wide enough that a badge
+// clearing it reads as clearly "off" the station, not just technically not touching it.
+const STATION_FOOTPRINT = { width: 92, height: 56 };
+
+function rectsOverlap(a, b) {
+    return !(
+        a.x + a.width / 2 <= b.x - b.width / 2 ||
+        a.x - a.width / 2 >= b.x + b.width / 2 ||
+        a.y + a.height / 2 <= b.y - b.height / 2 ||
+        a.y - a.height / 2 >= b.y + b.height / 2
+    );
+}
+
+// Places one label badge per route the way a hand-drawn transit map would:
+// on the longest straight run of the line (naturally the open space between
+// stations, since stations sit at the polyline's vertices), nudged sideways
+// off that run's centerline until it clears every station's footprint and
+// every badge already placed for an earlier route.
+export function placeRouteBadges(routeCandidates, stations) {
+    const stationRects = stations.map(station => ({ x: station.x, y: station.y, ...STATION_FOOTPRINT }));
+    const placedRects = [];
+    const positions = new Map();
+
+    routeCandidates.forEach(({ id, points, width }) => {
+        const polyline = expandOctilinearPoints(points);
+        if (polyline.length < 2) return;
+
+        const segments = [];
+        for (let i = 1; i < polyline.length; i++) {
+            const a = polyline[i - 1];
+            const b = polyline[i];
+            const length = Math.hypot(b.x - a.x, b.y - a.y);
+            if (length < 1) continue;
+            segments.push({
+                mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+                normal: { x: -(b.y - a.y) / length, y: (b.x - a.x) / length },
+                length,
+            });
         }
-        target -= lengths[i];
-    }
-    return { x: points[0].x, y: points[0].y, angle: 0 };
+        segments.sort((a, b) => b.length - a.length);
+
+        const rectAt = (point) => ({ x: point.x, y: point.y, width: width + BADGE_MARGIN, height: BADGE_HEIGHT + BADGE_MARGIN });
+        const clears = (rect) =>
+            stationRects.every(station => !rectsOverlap(rect, station)) &&
+            placedRects.every(other => !rectsOverlap(rect, other));
+
+        const candidates = segments.slice(0, 4).flatMap(segment =>
+            [0, 14, -14, 26, -26].map(nudge => ({
+                x: segment.mid.x + segment.normal.x * nudge,
+                y: segment.mid.y + segment.normal.y * nudge,
+            }))
+        );
+
+        const chosen = candidates.find(point => clears(rectAt(point))) || candidates[0] || polyline[0];
+        positions.set(id, chosen);
+        placedRects.push(rectAt(chosen));
+    });
+
+    return positions;
 }
 
 export function Station({ station, extraClassNames = [], selected, onOpen }) {
-    const label = station.label.length > 12 ? `${station.label.slice(0, 11)}…` : station.label;
+    const label = station.label;
     const labelProps = getLabelProps(station);
     const className = [
         'perci-map-station',
