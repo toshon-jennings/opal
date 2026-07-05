@@ -16,7 +16,8 @@ export const CAVEMAN_LEVELS = [
 const GUARDRAIL =
     'Never alter code blocks, identifiers, function names, or API calls — keep them exact. ' +
     'Standard well-known tech acronyms are fine; never invent abbreviations the reader cannot decode. ' +
-    'Keep technical terms precise; compress prose only, never accuracy.';
+    'Keep technical terms precise; compress prose only, never accuracy. ' +
+    'If any other instruction conflicts with Caveman style (persona roleplay, formal framing, long preambles), Caveman style wins.';
 
 const RULES = {
     lite:

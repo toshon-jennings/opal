@@ -7,7 +7,7 @@ import { LLMFactory } from '../lib/llm/clients';
 import FileExplorer from './FileExplorer';
 import { SecondaryModeNav } from './SecondaryModeNav';
 import { SettingsModal } from './SettingsModal';
-import { Settings, Plus, Send, Code, Terminal, Play, Layout, Users, ChevronRight, Save, Sidebar, Globe, RefreshCw, X, FileCode, MessageSquare, History, Search, FolderOpen } from 'lucide-react';
+import { Settings, Plus, Send, Code, Terminal, Play, Layout, Users, ChevronRight, Save, Sidebar, Globe, RefreshCw, X, FileCode, MessageSquare, History, Search, FolderOpen, Eye, EyeOff, Columns2 } from 'lucide-react';
 import { PermissionsDropdown } from './PermissionsDropdown';
 import { CavemanDropdown } from './CavemanDropdown';
 import { cavemanDirective } from '../lib/caveman';
@@ -90,6 +90,8 @@ export default function CodeMode() {
     const [showSidebar, setShowSidebar] = useState(true);
     const [showHistory, setShowHistory] = useState(true);
     const [previewKey, setPreviewKey] = useState(0);
+    const [showPreview, setShowPreview] = useState(false);
+    const [previewMode, setPreviewMode] = useState(null); // null | 'full' | 'split'
     const [permissionLevel, setPermissionLevel] = useState('full');
     const [cavemanLevel, setCavemanLevel] = useState(() => readStringStorage('caveman_level_code', 'off'));
     const handleCavemanChange = (level) => {
@@ -416,13 +418,13 @@ export default function CodeMode() {
                 buildRoutingPrompt(route),
                 buildBudgetPrompt(budgetRun),
                 memoryContext.prompt,
-                modePriorityPrompt,
                 permissionPrompt,
                 localToolsPrompt,
                 useToolsPrompt,
                 buildIntegrationToolsPrompt(apiKeys),
                 `Context: ${fileContext}`,
-                ...(tasteDirective(tasteConfig).trim() ? [tasteDirective(tasteConfig).trim()] : [])
+                ...(tasteDirective(tasteConfig).trim() ? [tasteDirective(tasteConfig).trim()] : []),
+                modePriorityPrompt
             ].filter(Boolean).join('\n\n');
             const messagesForLLM = [{ role: 'system', content: systemPrompt }, ...updatedMessages];
             appendMissionRunEvent(missionRunId, {
@@ -617,6 +619,18 @@ export default function CodeMode() {
                                     <div className="flex-1 text-sm text-[var(--text-primary)] leading-relaxed whitespace-pre-wrap">{streamingMessage}</div>
                                 </div>
                             )}
+                            {isLoading && !streamingMessage && (
+                                <div className="flex gap-3 animate-fade-in">
+                                    <div className="w-7 h-7 rounded-lg bg-[var(--bg-secondary)] flex items-center justify-center shrink-0 shadow-sm">
+                                        <Code size={16} className="text-[var(--accent)]" />
+                                    </div>
+                                    <div className="flex items-center gap-1.5 py-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-bounce" style={{ animationDelay: '0ms' }} />
+                                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-bounce" style={{ animationDelay: '150ms' }} />
+                                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-bounce" style={{ animationDelay: '300ms' }} />
+                                    </div>
+                                </div>
+                            )}
                             <div ref={messagesEndRef} />
                         </>
                     )}
@@ -692,6 +706,26 @@ export default function CodeMode() {
                         </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                        {isHtmlContent(codeState.activeFile, codeState.files[codeState.activeFile]) && (
+                            <>
+                                <button
+                                    onClick={() => setPreviewMode(prev => prev === 'full' ? null : 'full')}
+                                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${previewMode === 'full' ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'}`}
+                                    title={previewMode === 'full' ? 'Hide preview' : 'Full preview'}
+                                >
+                                    {previewMode === 'full' ? <EyeOff size={14} /> : <Eye size={14} />}
+                                    Preview
+                                </button>
+                                <button
+                                    onClick={() => setPreviewMode(prev => prev === 'split' ? null : 'split')}
+                                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${previewMode === 'split' ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'}`}
+                                    title={previewMode === 'split' ? 'Hide split' : 'Split view'}
+                                >
+                                    <Columns2 size={14} />
+                                    Split
+                                </button>
+                            </>
+                        )}
                         <button onClick={handleChooseFolder} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-all"><FolderOpen size={14} />{codeState.workingDirectory ? 'Change Folder' : 'Choose Folder'}</button>
                         <button onClick={handleSave} disabled={!codeState.unsavedChanges} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${codeState.unsavedChanges ? 'bg-[var(--accent)] text-white shadow-md hover:bg-[var(--accent-hover)]' : 'bg-[var(--bg-tertiary)] text-[var(--text-tertiary)]'}`}><Save size={14} />{codeState.unsavedChanges ? 'Save Changes' : 'Saved'}</button>
                     </div>
@@ -702,33 +736,52 @@ export default function CodeMode() {
                             <FileExplorer files={codeState.files} activeFile={codeState.activeFile} onFileSelect={handleFileSelect} />
                         </div>
                     )}
-                    <div className={`flex-1 min-h-0 relative ${isDarkMode ? 'bg-[var(--bg-primary)]' : 'bg-white'} min-w-0 overflow-hidden`}>
-                        {codeState.activeFile ? (
-                            <EditorErrorBoundary>
-                                <MonacoEditor
-                                    height="100%"
-                                    language={getLanguage(codeState.activeFile)}
-                                    value={codeState.files[codeState.activeFile] || ''}
-                                    onChange={(val) => setCodeState(prev => ({ ...prev, files: { ...prev.files, [prev.activeFile]: val }, unsavedChanges: true }))}
-                                    theme={isDarkMode ? "vs-dark" : "light"}
-                                    options={{
-                                        wordWrap: 'on',
-                                        wrappingIndent: 'indent',
-                                        automaticLayout: true,
-                                        minimap: { enabled: false },
-                                        fontSize: 13,
-                                        lineNumbers: 'on',
-                                        scrollBeyondLastLine: false,
-                                        padding: { top: 16, bottom: 16 },
-                                        fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
-                                        fontLigatures: true,
-                                        smoothScrolling: true,
-                                        cursorBlinking: 'smooth',
-                                        cursorSmoothCaretAnimation: 'on'
-                                    }}
+                    <div className={`flex-1 min-h-0 flex ${previewMode === 'split' ? 'flex-row' : 'flex-col'} min-w-0 overflow-hidden`}>
+                        {previewMode !== 'full' && (
+                            <div className={`${previewMode === 'split' ? 'w-1/2 border-r border-[var(--border)]' : 'flex-1'} min-h-0 relative ${isDarkMode ? 'bg-[var(--bg-primary)]' : 'bg-white'} overflow-hidden`}>
+                                {codeState.activeFile ? (
+                                    <EditorErrorBoundary>
+                                        <MonacoEditor
+                                            height="100%"
+                                            language={getLanguage(codeState.activeFile)}
+                                            value={codeState.files[codeState.activeFile] || ''}
+                                            onChange={(val) => setCodeState(prev => ({ ...prev, files: { ...prev.files, [prev.activeFile]: val }, unsavedChanges: true }))}
+                                            theme={isDarkMode ? "vs-dark" : "light"}
+                                            options={{
+                                                wordWrap: 'on',
+                                                wrappingIndent: 'indent',
+                                                automaticLayout: true,
+                                                minimap: { enabled: false },
+                                                fontSize: 13,
+                                                lineNumbers: 'on',
+                                                scrollBeyondLastLine: false,
+                                                padding: { top: 16, bottom: 16 },
+                                                fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
+                                                fontLigatures: true,
+                                                smoothScrolling: true,
+                                                cursorBlinking: 'smooth',
+                                                cursorSmoothCaretAnimation: 'on'
+                                            }}
+                                        />
+                                    </EditorErrorBoundary>
+                                ) : ( <div className="h-full flex items-center justify-center">Select a file</div> )}
+                            </div>
+                        )}
+                        {previewMode && (
+                            <div className={`${previewMode === 'split' ? 'w-1/2' : 'flex-1'} min-h-0 bg-white overflow-hidden flex flex-col`}>
+                                <div className="px-3 py-1.5 border-b border-[var(--border)] bg-[var(--bg-secondary)]/30 flex items-center gap-2 shrink-0">
+                                    <Globe size={12} className="text-[var(--text-tertiary)]" />
+                                    <span className="text-[11px] text-[var(--text-tertiary)] font-medium">Preview</span>
+                                </div>
+                                <iframe
+                                    key={previewKey}
+                                    srcDoc={codeState.files[codeState.activeFile] || ''}
+                                    className="flex-1 w-full border-none"
+                                    sandbox="allow-scripts allow-same-origin allow-forms allow-modals"
+                                    title="HTML Preview"
                                 />
-                            </EditorErrorBoundary>
-                        ) : ( <div className="h-full flex items-center justify-center">Select a file</div> )}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -741,4 +794,10 @@ function getLanguage(filePath) {
     const ext = filePath.split('.').pop();
     const langMap = { 'js': 'javascript', 'jsx': 'javascript', 'ts': 'typescript', 'tsx': 'typescript', 'css': 'css', 'html': 'html', 'json': 'json', 'md': 'markdown' };
     return langMap[ext] || 'javascript';
+}
+
+function isHtmlContent(filePath, content) {
+    if (filePath && /\.html?$/i.test(filePath)) return true;
+    if (!content) return false;
+    return /<(!DOCTYPE\s+html|html[\s>])/i.test(content.trim().slice(0, 200));
 }
