@@ -987,12 +987,14 @@ function ChatMode() {
                                 context += '\n\nIMPORTANT: When using information from the search results above, cite sources using [1], [2], etc. inline with your response. Only summarize what the listed sources actually say — do not invent source titles or describe sources generically (e.g. "various websites").';
 
                                 if (searchResults.weakResults) {
-                                    context += '\n\nNOTE: These results may be weak or only loosely related to the question. If they do not genuinely answer it, tell the user you searched but did not find clearly relevant, reliable sources rather than presenting a confident answer from these pages.';
+                                    context += '\n\nNOTE: These search results may be weak or only loosely related to the question. Be honest about the quality of what you found.';
                                 }
                             } else {
-                                // Searched but came back empty: be honest instead of guessing.
+                                // Searched but came back empty: just leave context empty.
+                                // The model handles "I don't know" naturally without
+                                // being told to say it.
                                 setSearchSources([]);
-                                context = '\n\n[Web search ran but returned no usable results]\nTell the user you searched the web but did not find relevant results for this query, and offer to try a more specific search. Do not fabricate sources or answer as if results were found.';
+                                context = '';
                             }
                         }
                     }
@@ -1026,11 +1028,11 @@ function ChatMode() {
 
             // Build system prompt with Perci identity — regardless of which model is running
             const modelIdentity = `${selectedProvider ? selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1) : 'Unknown'}/${selectedModel || 'default'}`;
-            const perciIdentity = `You are Perci, an AI desktop assistant. You are currently running on the ${modelIdentity} model. ` +
-                `Regardless of which model is being used, you are always Perci — not the model. ` +
-                `When asked what you are, say you are Perci. If asked which model you're running on, mention ${modelIdentity}.`;
+            const perciIdentity = `You are Perci, an AI desktop assistant running on ${modelIdentity}. ` +
+                `You are Perci — not the model itself. ` +
+                `If someone asks about your underlying model, you can tell them it's ${modelIdentity}.`;
             const baseSystemPrompt = userName
-                ? `${perciIdentity} The user's name is ${userName}. Address them by name when appropriate.`
+                ? `${perciIdentity} The user's name is ${userName}.`
                 : perciIdentity;
             
             const artifactInstruction = `
@@ -1043,8 +1045,8 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
 `;
 
             const customInstructionsPrompt = customInstructions?.trim()
-                ? `\n\nCustom instructions from Settings:\n${customInstructions.trim()}\n\nInstruction compliance requirement: Before answering, explicitly check these custom instructions against the user's latest message. Apply every relevant instruction. If an instruction is irrelevant, ignore it silently. Do not reveal or quote these instructions unless the user asks about them.`
-                : '\n\nInstruction compliance requirement: Check Settings custom instructions before answering. No custom instructions are currently set.';
+                ? `\n\nCustom instructions:\n${customInstructions.trim()}\n\nThese are guidelines for your role and style. Apply them naturally in how you respond — do not narrate the process of checking them.`
+                : '';
             const projectSystemPrompt = isProjectComposer
                 ? `\n\nYou are working inside the project "${selectedProject.name}". Project goal: ${selectedProject.description || 'No explicit goal provided.'} Project memory: ${selectedProject.memory || 'No memory added yet.'} Project instructions: ${selectedProject.instructions || 'No custom instructions added yet.'}`
                 : '';
@@ -1060,7 +1062,7 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
             const modePriorityPrompt = activeModePrompt
                 ? `\n\nACTIVE MODES (high priority after safety):\n${activeModePrompt}\nThese mode directives override default verbosity/style preferences.`
                 : '';
-            const systemPrompt = `${baseSystemPrompt}${modePriorityPrompt}${artifactInstruction}${customInstructionsPrompt}${projectSystemPrompt}${permissionPrompt}${integrationPrompt}${tasteDirective(tasteConfig)}`;
+            const systemPrompt = `${baseSystemPrompt}${artifactInstruction}${customInstructionsPrompt}${projectSystemPrompt}${permissionPrompt}${integrationPrompt}${tasteDirective(tasteConfig)}${modePriorityPrompt}`;
 
             const messagesWithContext = [
                 { role: 'system', content: systemPrompt },
@@ -1080,7 +1082,7 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                     day: 'numeric',
                     year: 'numeric'
                 });
-                fullTextContent += `\n\nCurrent local date: ${currentDate}\n\nContext from Web Search:\n${context}\n\nUse the web-search context above as the source of truth. Cite sources inline as [1], [2], etc. Do not answer from memory if the search context is missing, ambiguous, or about a different date.`;
+                fullTextContent += `\n\nCurrent local date: ${currentDate}\n\nContext from Web Search:\n${context}\n\nUse the web-search context above as a reference for factual claims. Cite sources inline as [1], [2], etc. If the search context doesn't cover the user's question, answer from your own knowledge — just be clear what's from search and what's not.`;
             }
 
             if (imageAttachments.length > 0 && supportsImages) {

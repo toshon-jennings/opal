@@ -3,6 +3,10 @@ import { ArrowUp, MessageSquare, Plus, RefreshCw, X } from 'lucide-react';
 import { ChatMessage } from './ChatMessage';
 import NousBadge from './NousBadge';
 import { useTheme } from '../context/ThemeContext';
+import {
+  getHermesChatState, pushHermesChatMessage, resetHermesChatState, setHermesChatMessages,
+  setHermesChatSessionId, setHermesChatStarted
+} from '../lib/hermesChatStore';
 import './ChatTab.css';
 
 const HERMES_TILE_BACKGROUND = '/artwork/design-01kv2y38zh-1781436378.png';
@@ -178,9 +182,10 @@ function ChatComposer({ onSend, onCancel, isRunning, disabled, isStarting }) {
 
 export default function ChatTab({ isDesktop }) {
   const { isDarkMode } = useTheme();
-  const [messages, setMessages] = useState([]);
-  const [sessionId, setSessionId] = useState(null);
-  const [started, setStarted] = useState(false);
+  const initial = getHermesChatState();
+  const [messages, setMessages] = useState(initial.messages);
+  const [sessionId, setSessionId] = useState(initial.sessionId);
+  const [started, setStarted] = useState(initial.started);
   const [isStarting, setIsStarting] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState(null);
@@ -219,17 +224,35 @@ export default function ChatTab({ isDesktop }) {
   useEffect(() => {
     if (!isDesktop || autoStartedRef.current) return;
     autoStartedRef.current = true;
+    // If we restored messages and a sessionId from the store, the session is
+    // still live on the backend — no need to start a new one.
+    if (initial.sessionId && initial.started) {
+      setMessages(initial.messages);
+      return;
+    }
     void startSession();
-  }, [isDesktop, startSession]);
+  }, [isDesktop, startSession, initial.messages, initial.sessionId, initial.started]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isRunning]);
 
+  // Sync state to the module-level store so it survives component remounts
+  useEffect(() => {
+    setHermesChatMessages(messages);
+  }, [messages]);
+  useEffect(() => {
+    setHermesChatSessionId(sessionId);
+  }, [sessionId]);
+  useEffect(() => {
+    setHermesChatStarted(started);
+  }, [started]);
+
   const startFreshChat = useCallback(async () => {
     if (!isDesktop || isStarting || isRunning) return;
     activeRunId.current = null;
     setError(null);
+    resetHermesChatState();
     setMessages([]);
     setStarted(false);
     setSessionId(null);

@@ -1,6 +1,8 @@
 import React from 'react';
 import { useMode } from '../../context/ModeContext';
-import { FileText, X, ExternalLink, Clock, Search } from 'lucide-react';
+import { FileText, ExternalLink, Clock, Search } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 // Displays the results of a Deep Research run in a dedicated floating window.
 // Data is passed via openResearchData() and includes the query, sources, and
@@ -21,6 +23,7 @@ export default function ResearchResultsWindow() {
     }
 
     const { query, answer, sources = [], elapsed, completedAt } = researchData;
+    const normalizedAnswer = normalizeResearchMarkdown(answer);
 
     return (
         <div className="flex h-full flex-col bg-[var(--bg-primary)]">
@@ -54,15 +57,10 @@ export default function ResearchResultsWindow() {
             <div className="flex-1 overflow-y-auto">
                 {answer && (
                     <div className="max-w-3xl mx-auto px-6 py-6">
-                        <div className="prose prose-sm max-w-none text-[var(--text-primary)] leading-relaxed">
-                            {answer.split('\n').map((line, i) => {
-                                if (!line.trim()) return <br key={i} />;
-                                if (line.startsWith('# ')) return <h1 key={i} className="text-xl font-semibold mb-3 mt-4" style={{ fontSize: '22px', fontWeight: 700 }}>{line.slice(2)}</h1>;
-                                if (line.startsWith('## ')) return <h2 key={i} className="text-lg font-semibold mb-2 mt-3" style={{ fontSize: '18px', fontWeight: 600 }}>{line.slice(3)}</h2>;
-                                if (line.startsWith('### ')) return <h3 key={i} className="text-base font-semibold mb-2 mt-2">{line.slice(4)}</h3>;
-                                if (line.startsWith('- ') || line.startsWith('* ')) return <li key={i} className="ml-4 mb-1 list-disc">{line.slice(2)}</li>;
-                                return <p key={i} className="mb-3 leading-7">{line}</p>;
-                            })}
+                        <div className="prose prose-sm md:prose-base max-w-none text-[var(--text-primary)]">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                {normalizedAnswer}
+                            </ReactMarkdown>
                         </div>
                     </div>
                 )}
@@ -104,4 +102,34 @@ export default function ResearchResultsWindow() {
             </div>
         </div>
     );
+}
+
+function normalizeResearchMarkdown(input) {
+    if (typeof input !== 'string') return '';
+    let text = input.trim();
+
+    if (
+        ((text.startsWith('"') && text.endsWith('"')) || (text.startsWith("'") && text.endsWith("'"))) &&
+        text.includes('\\n')
+    ) {
+        try {
+            text = JSON.parse(text);
+        } catch {
+            // Leave as-is if this isn't valid JSON text.
+        }
+    }
+
+    text = text.replace(/\r\n?/g, '\n');
+
+    const escapedNewlineCount = (text.match(/\\n/g) || []).length;
+    const realNewlineCount = (text.match(/\n/g) || []).length;
+    if (escapedNewlineCount > 3 && realNewlineCount <= 1) {
+        text = text.replace(/\\n/g, '\n');
+    }
+
+    text = text
+        .replace(/^```(?:markdown|md)?\s*\n?/i, '')
+        .replace(/\n?```$/, '');
+
+    return text;
 }

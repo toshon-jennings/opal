@@ -36,6 +36,10 @@ export function ArtifactPanel({ isOpen, onClose, artifact, onUpdateContent, widt
             return buildPreviewErrorDocument(error.message);
         }
     }, [artifact]);
+    const normalizedResearchMarkdown = useMemo(() => {
+        if (!artifact || artifact.type !== 'research_paper') return '';
+        return normalizeResearchMarkdown(artifact.content);
+    }, [artifact]);
 
     if (!isOpen || !artifact) return null;
 
@@ -213,7 +217,7 @@ export function ArtifactPanel({ isOpen, onClose, artifact, onUpdateContent, widt
                                         img: ({ node, ...props }) => <img style={{ maxHeight: '20px', marginLeft: '4px', verticalAlign: 'middle' }} {...props} />
                                     }}
                                 >
-                                    {artifact.content}
+                                    {normalizedResearchMarkdown}
                                 </ReactMarkdown>
                             </div>
                         )}
@@ -299,4 +303,34 @@ export function ArtifactPanel({ isOpen, onClose, artifact, onUpdateContent, widt
     // and the restore/close controls become unreachable. Portaling lifts it to the
     // app root where z-[60] correctly sits above the header.
     return isMaximized ? createPortal(panelContent, document.body) : panelContent;
+}
+
+function normalizeResearchMarkdown(input) {
+    if (typeof input !== 'string') return '';
+    let text = input.trim();
+
+    if (
+        ((text.startsWith('"') && text.endsWith('"')) || (text.startsWith("'") && text.endsWith("'"))) &&
+        text.includes('\\n')
+    ) {
+        try {
+            text = JSON.parse(text);
+        } catch {
+            // Leave as-is if this isn't valid JSON text.
+        }
+    }
+
+    text = text.replace(/\r\n?/g, '\n');
+
+    const escapedNewlineCount = (text.match(/\\n/g) || []).length;
+    const realNewlineCount = (text.match(/\n/g) || []).length;
+    if (escapedNewlineCount > 3 && realNewlineCount <= 1) {
+        text = text.replace(/\\n/g, '\n');
+    }
+
+    text = text
+        .replace(/^```(?:markdown|md)?\s*\n?/i, '')
+        .replace(/\n?```$/, '');
+
+    return text;
 }
