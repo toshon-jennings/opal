@@ -404,20 +404,26 @@ export default function CodeMode() {
                 : 'You have access to local tools: read_file, write_file, list_directory, run_command.';
             const useToolsPrompt = 'Use tools proactively to inspect the codebase, read files before editing them, and verify your changes.';
 
+            const cavemanPrompt = cavemanDirective(cavemanLevel).trim();
+            const ponytailPrompt = ponytailDirective(ponytailLevel).trim();
+            const activeModePrompt = [cavemanPrompt, ponytailPrompt].filter(Boolean).join('\n\n');
+            const modePriorityPrompt = activeModePrompt
+                ? `ACTIVE MODES (high priority after safety):\n${activeModePrompt}\nThese mode directives override default verbosity/style preferences.`
+                : null;
+
             const systemPrompt = [
                 'Expert software engineer.',
                 buildRoutingPrompt(route),
                 buildBudgetPrompt(budgetRun),
                 memoryContext.prompt,
+                modePriorityPrompt,
                 permissionPrompt,
                 localToolsPrompt,
                 useToolsPrompt,
                 buildIntegrationToolsPrompt(apiKeys),
                 `Context: ${fileContext}`,
-                ...(cavemanDirective(cavemanLevel).trim() ? [cavemanDirective(cavemanLevel).trim()] : []),
-                ...(ponytailDirective(ponytailLevel).trim() ? [ponytailDirective(ponytailLevel).trim()] : []),
                 ...(tasteDirective(tasteConfig).trim() ? [tasteDirective(tasteConfig).trim()] : [])
-            ].join('\n\n');
+            ].filter(Boolean).join('\n\n');
             const messagesForLLM = [{ role: 'system', content: systemPrompt }, ...updatedMessages];
             appendMissionRunEvent(missionRunId, {
                 type: 'info',

@@ -1054,7 +1054,13 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                 ? '\n\nPermission level: Read only — you may only read, summarize, or discuss information. Do not suggest or perform any actions that create, modify, or delete files or data.'
                 : '';
             const integrationPrompt = `\n\nTOOLS:\n${buildIntegrationToolsPrompt(apiKeys)}`;
-            const systemPrompt = `${baseSystemPrompt}${artifactInstruction}${customInstructionsPrompt}${projectSystemPrompt}${permissionPrompt}${integrationPrompt}${cavemanDirective(cavemanLevel)}${ponytailDirective(ponytailLevel)}${tasteDirective(tasteConfig)}`;
+            const cavemanPrompt = cavemanDirective(cavemanLevel).trim();
+            const ponytailPrompt = ponytailDirective(ponytailLevel).trim();
+            const activeModePrompt = [cavemanPrompt, ponytailPrompt].filter(Boolean).join('\n\n');
+            const modePriorityPrompt = activeModePrompt
+                ? `\n\nACTIVE MODES (high priority after safety):\n${activeModePrompt}\nThese mode directives override default verbosity/style preferences.`
+                : '';
+            const systemPrompt = `${baseSystemPrompt}${modePriorityPrompt}${artifactInstruction}${customInstructionsPrompt}${projectSystemPrompt}${permissionPrompt}${integrationPrompt}${tasteDirective(tasteConfig)}`;
 
             const messagesWithContext = [
                 { role: 'system', content: systemPrompt },
