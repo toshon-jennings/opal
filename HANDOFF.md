@@ -2,6 +2,274 @@
 
 ## Current Milestone
 
+- [x] pxpipe token-compression toggle + system-wide proxy (2026-07-07).
+      pxpipe (github.com/teamchong/pxpipe) is a local proxy on
+      127.0.0.1:47821 that re-renders bulky Anthropic request context
+      (system prompt, tool docs, older history, large tool_results) as
+      dense PNG pages, cutting input tokens ~60-70% on Fable 5; requests
+      only — responses stream through untouched, non-allowlisted models
+      pass through byte-identical. Perci side: new `src/lib/pxpipe.js`
+      (origin const, `perci_pxpipe_enabled` read/write via persistentStore,
+      two-stage reachability probe — opaque no-cors first, then a readable
+      unauthenticated POST through the /v1/messages passthrough because
+      some embedded browsers block opaque cross-origin fetches);
+      `fetchAnthropicMessages` helper in `src/lib/llm/clients.js` wraps
+      BOTH AnthropicClient call sites (streamChat + streamChatWithTools)
+      and falls back to api.anthropic.com on network error so a dead proxy
+      never breaks chat; Settings gained a "pxpipe · Token Compression"
+      section (Off/On cards + live proxy status + caveats copy) between
+      Models and GitHub. No Electron main/preload changes needed: CORS
+      works because pxpipe forwards non-POST/unknown paths to Anthropic,
+      which answers the preflight, and Perci already sends
+      `anthropic-dangerous-direct-browser-access` (verified: preflight 200
+      + readable 401 + SSE all pass browser-side through the proxy).
+      IntelligentSearchTool's Anthropic web-search call was deliberately
+      left direct (small single-shot requests, below pxpipe's
+      profitability gate). Validation: focused eslint clean (9 SettingsModal/
+      persistentStore errors pre-exist — verified identical via stash),
+      `test/clients.tools.test.js` 2/2, `npm run build` clean, live smoke
+      on new `perci-dev-smoke2` launch config port 5197 (5198/5199 held by
+      other sessions): toggle persists, status dot correct, real Chat send
+      appeared in the proxy log as `compressed 2534ch → 1img/11264B`, and
+      with the proxy killed the same send fell back to the direct API.
+      Smoke localStorage cleared, server stopped. System side (outside
+      repo): pxpipe-proxy installed globally (~/.hermes/node/bin), runs as
+      LaunchAgent `com.toshon.pxpipe-proxy` (KeepAlive verified, logs at
+      ~/Library/Logs/pxpipe-proxy.log), port 47821 registered in
+      PORTMASTER.md, and `ANTHROPIC_BASE_URL=http://127.0.0.1:47821` set
+      in ~/.claude/settings.json env so all Claude Code sessions route
+      through it (takes effect on next session start; remove that env line
+      to bypass — Claude Code has NO auto-fallback, unlike Perci).
+      Known limits: savings only on allowlisted models (claude-fable-5,
+      gpt-5.6 by default — Perci's older claude-sonnet default models pass
+      through uncompressed; dashboard chips or PXPIPE_MODELS widen scope);
+      imaged context is lossy for byte-exact strings (13/15 hex recall on
+      Fable 5) so byte-exact work should stay in recent turns/text. Not
+      committed — worktree already carried many unrelated pending changes;
+      version bump deferred to the next real commit.
+
+- [x] Shipyard — fix Perci claiming to create cards that never appear
+      (2026-07-06). Root cause: `_openAIStreamWithTools` in
+      `src/lib/llm/clients.js` (shared tools path for Groq/OpenAI/OpenRouter/
+      LM Studio/Jan/Mistral) had no SSE line buffer, so a `data:` line split
+      across network reads failed JSON.parse in both halves and was silently
+      dropped — corrupting streamed tool-call fragments (name/args), so
+      `create_card` executed with empty args or not at all while the model
+      narrated success. Same fix pattern already existed in AnthropicClient
+      and OpenRouter `streamChat` but was never applied to the tools helper;
+      now it is (`buffer + decode({stream:true}) + lines.pop()`). Second fix:
+      `runPmAgentTurn` toolEvents (previously discarded by both callers) now
+      carry `{name, ok, error}`, are persisted on the assistant chat message
+      (`msg.tools`) by ShipyardMode + PerciPet, and render as ✓/✗ chips under
+      the message (error text on hover) — so gated tools (Observer/Advisor
+      dial) and tool failures are visible instead of silently narrated over.
+      Validation: new `test/clients.tools.test.js` (split-line tool call +
+      split text content) 2/2; full vitest diffed against stashed HEAD —
+      identical 11 pre-existing failures (powerWorkspace/harnessMemory/
+      supaterm), none new; eslint clean except pre-existing
+      exhaustive-deps warning in ShipyardMode.
+
+- [x] Shipyard — in-app guide (2026-07-06). Added a `?` help button next to
+      project settings in the board header, plus a "How Shipyard works" link
+      on the empty (no-project) state, both opening a new `ShipyardGuide`
+      modal defined inline in `ShipyardMode.jsx` (reuses the existing
+      `.sy-modal`/`.sy-modal-backdrop` pattern from the card editor/settings
+      modals, new `.sy-modal-wide`/`.sy-guide-section` CSS). Covers: flow
+      columns + quick-add + drag, the GitHub rail (Stage/Commit/Push/Jules)
+      and its repo-folder/desktop-app requirements, the four assertiveness
+      levels and what each blocks, how to read the PM chat's ✓/✗ tool chips
+      (added alongside the streaming-buffer fix above), and Notes/Activity.
+      Verified live via preview_start (perci-dev-smoke, port 5198): opens
+      from both empty state and board header, full content scrolls, closes
+      cleanly, no new console errors. Eslint required `&rsquo;`-escaping
+      apostrophes in the new JSX text (react/no-unescaped-entities) —
+      direct-file eslint invocation surfaces this rule; the repo's own
+      `npm run lint` (`eslint .`) additionally sweeps the untracked
+      `timesfm-venv/` and `public/vendor/` dirs and reports ~150 unrelated
+      pre-existing problems there, so lint this project file-by-file rather
+      than trusting a clean full-repo run.
+
+- [x] Perci Brain — deterministic notes retrieval for the agent (2026-07-06).
+      Phases 1–2 of the "second brain" plan (RoboNuggets ARMS video): new
+      `src/lib/brain.js` indexes the Perci Notes vault in-memory once per
+      session (title/tags/headings/term-frequencies/wikilinks per note — no
+      content retained, 2-min TTL, encrypted `<!--ENC:v1-->` notes skipped),
+      scores queries against the index without re-reading files, reads ONLY
+      the winning note, returns ONLY its best-matching section, and follows
+      short "[[pointer]] stub" sections (max 2 hops). Exposed as read-only
+      agent tool `notes_lookup` via `integrationTools.js`
+      (`getIntegrationTools`/`executeIntegrationTool`/prompt line), so Chat,
+      Code, and Cowork all get it with zero mode-file changes; gated on
+      `window.electron?.listFiles` (desktop only). Shared tokenizer extracted
+      to `src/lib/relevance.js` (moved verbatim out of
+      `IntelligentSearchTool.js`, now imported by both). Folder resolution
+      mirrors NotesMode: `perci_notes_folder` from persistentStore (re-runs
+      `registerWorkspace` for custom folders) else `get-default-notes-path`.
+      Deviation from pitch: no persisted `brain-index.json` — `list-files`
+      IPC returns no mtimes, and full rebuild is sub-second at vault scale;
+      revisit if vaults hit thousands of notes (would need a stat IPC).
+      Validation: new `test/brain.test.js` 10/10 (index shape, ranking,
+      section pick, pointer hops, encrypted skip, no-electron error payload),
+      full vitest + eslint diffed against stashed HEAD (identical pre-existing
+      failures only), `npm run build` clean. Tool errors return `{error}`
+      payloads (never throw) because `runChatWithTools` has no try/catch
+      around `executeTool`.
+
+- [x] ARMS graph — phase 3 of the second-brain plan (2026-07-06). The Notes
+      knowledge graph (`NotesGraph3D.jsx`) can now render the full ARMS
+      structure. New `src/lib/armsGraph.js`: pure `buildArmsLayers` turns
+      surface-map stations into Application nodes (blue octahedra) with edges
+      from consecutive route stops, Mission Control runs into Routine nodes
+      (yellow, capped 12) and installed skills into Skill nodes (orange
+      boxes, capped 36) — each spoked to a per-layer hub on a central "Perci"
+      core; `loadArmsLayers` gathers live inputs (`skills:get-installed` IPC
+      + `readMissionRuns`). `buildGraphData` appends the layers when the new
+      "ARMS layers" toggle is on and weak-links the core to the 24 highest-
+      degree notes (Memory layer). New Layout segmented control:
+      Force / Rings / Circle — rings/circle compute deterministic planar
+      targets (`computeLayoutTargets`; ARMS ring order core→skills→routines→
+      memory→apps, cluster rings otherwise) that the frame loop lerps toward,
+      bypassing the force sim; drag pins still work. Graph search is now
+      brain-index-backed: NotesMode passes `filesMap`, the wrapper builds
+      `indexNote` entries and ranks with `scoreNote`+`tokenizeForRelevance`
+      (body/tag/heading matches, not just title substring), fly-to via the
+      existing selection focus. ARMS nodes carry `label`/`hue`/`type`; note
+      nodes stay type-less — editor open/dblclick gated on that; drawer
+      shows layer type; legend gains Apps/Routines/Skills chips. Validation:
+      `test/armsGraph.test.js` 3/3 + brain 10/10, full suite 79 pass/11
+      pre-existing fails (unchanged vs HEAD), `npm run build` clean, ESLint
+      delta vs HEAD is only 2 more react-three-fiber `args` false positives
+      (file already carries 2 on existing geometry JSX). Live preview smoke
+      on port 5198 (launch.json gained a `perci-dev-smoke` config since
+      another session held 5199) with a shimmed `window.electron` vault:
+      42-node rings rendered, core drawer showed Dashboard/Routines links +
+      note mention spokes, body-content search ("release script") found
+      Deploy Runbook and flew to it; smoke localStorage cleared, server
+      stopped. Known limits: Routines layer = recent Mission Control runs
+      (no dedicated scheduled-routines store exists yet); skills load once
+      per toggle, not live.
+
+- [x] Label declutter + aspect-aware auto-fit (2026-07-06). User report:
+      node titles near the view center stacked into an unreadable pile
+      (the far side of a 3D ring projects into the middle of the screen).
+      Fix in `NotesGraph3D.jsx`: every 5th frame, project labeled nodes to
+      screen space, greedily keep labels by priority (selected/hovered 3 >
+      core/hub/active-note 2 > degree-scaled 1..1.5) and hide any
+      lower-priority label whose estimated rect (char-count × world-size ×
+      px-per-world at node depth) overlaps a kept one; hidden labels
+      reappear on hover within ~83 ms. Implemented via `labelRefs` +
+      `Billboard.visible` toggling (no React re-render per frame); scratch
+      `_labelVec` avoids per-frame allocation. Also made the camera
+      auto-fit account for aspect ratio (fit against the narrower of the
+      vertical/horizontal view angles) so narrow windows don't clip the
+      formation's sides. Validation: live smoke with the real vault —
+      3D rings + ARMS shows only "Perci" at center with well-spaced labels
+      elsewhere (previously 3+ stacked); aspect fit holds in a narrow
+      window; brain+arms suites 13/13; build clean; ESLint unchanged.
+
+- [x] 2D force explosion fixed: velocity clamp + non-finite guard + camera
+      auto-fit (2026-07-06). User report: switching Rings → Force (2D, ARMS
+      on, 116 nodes) made almost the whole graph disappear. Reproduced with
+      the real vault: the integrator has no speed limit, so restarting force
+      from the compact rings state with ~107 nodes confined to a plane
+      produces huge 240/d² repulsion kicks — positions diverge to 1e3+ and
+      nodes leave the frustum (this also explains the very first
+      frozen-scattered-dots report: the sim had exploded, then alpha decayed
+      and froze the wreckage). Fixes in `NotesGraph3D.jsx`: (1) `MAX_STEP`
+      per-frame speed cap (10 units) in the integrate loop; (2) non-finite
+      position re-seed as self-healing; (3) camera auto-fit in useFrame —
+      keeps the whole cloud framed until the user drags/zooms (flag reset by
+      Recenter's Canvas remount, so Recenter now doubles as fit-to-view;
+      disabled while a fly-to focus is active). Validation: live smoke on
+      5198 with the real vault — 2D Force settles in frame (hub-spoke
+      clusters visible), Rings → Force no longer loses nodes, 3D regrows the
+      sphere from 2D-flat state; brain+arms suites 13/13; build clean;
+      ESLint unchanged (60 pre-existing R3F false positives).
+
+- [x] Graph freeze root-caused and fixed: stale geometry buffers on data
+      growth (2026-07-06). User report from the real app: 116-node graph
+      frozen (survived hard refresh + dev-server restart), and resizing the
+      window blanked the canvas. Diagnosis (browser repro with the real
+      vault at `~/opal/notes/notes` + shimmed IPC): the pulse/glow/ripple
+      geometries were wired ONCE at first mount via a `!getAttribute
+      ('position')` guard in inline ref callbacks, sized for the initial
+      notes-only data (~23 links). When the async ARMS load grew `data`
+      (23→132 links), sim buffers were reallocated bigger but the geometry
+      kept the small first-mount attributes; inline refs re-fire on every
+      render and re-attached `sim.current.pulseRef` unconditionally, so the
+      next `posAttr.array.set(s.pulsePos)` overflowed → RangeError every
+      frame → R3F render loop dead (frozen last frame; resize clears the
+      framebuffer → blank). Fix (landed via a parallel session):
+      `wirePulseRef`/`wireNodeGlowRef`/`wireRippleRef`/`wireHlLineRef`
+      useCallbacks that unconditionally swap in the current sim's buffers,
+      guarded by an expected-length check, used as the JSX refs AND
+      re-invoked at the end of the sim-init effect on every `data` change;
+      highlight lines also moved to a preallocated `hlLinePos` buffer
+      instead of per-frame allocation. Validation after the merge: brain +
+      armsGraph suites 13/13, `npm run build` clean, ESLint unchanged (60
+      pre-existing R3F `no-unknown-property` false positives), ringSpin/
+      z-jitter/layout features intact. Needs a user confirmation run in the
+      Electron app (was not reproducible in plain browser because the crash
+      required the hover/settings re-render path).
+
+- [x] Graph layout fixes: sphere regrowth + ring spin (2026-07-06). User
+      report: after Rings flattened the graph, switching back to Force never
+      regrew the sphere. Cause: planar layouts zero every z, and all three
+      force terms (repulsion/springs/gravity) derive their z component from
+      z *differences* — a flat cloud is a degenerate equilibrium. Fix in the
+      layout effect: on returning to Force in 3D, if all |z| < 1, jitter
+      free nodes' z by ±4 so repulsion has a seed (also cures the
+      pre-existing 2D→3D pancake). Second: rings/circle going fully static
+      was by design but felt dead — added a `ringSpin` setting (default
+      0.3, slider shown for non-force layouts) that rotates the layout
+      targets over time in the frame loop; drag pins unaffected. ARMS
+      itself never stops motion; Force still simulates with layers on.
+      Validation: build clean; eslint delta zero (60 errors in the file are
+      all the pre-existing react-three-fiber `no-unknown-property` false
+      positive); brain+arms suites 13/13; live smoke on 5198 — rings settle
+      and visibly rotate between screenshots, Force + auto-rotate shows a
+      volumetric cloud from multiple azimuths (no planar collapse), and
+      rings⇄force + ARMS-toggle orderings all render. One unreproduced
+      anomaly: a single black-canvas state occurred while toggling
+      rings/ARMS in a tiny just-spawned window; node positions were provably
+      valid (switching to Force showed them instantly) and five replay
+      attempts couldn't reproduce it — if seen, Recenter or a layout toggle
+      recovers. Smoke localStorage cleared, server stopped.
+
+- [x] Shipyard first slice landed (2026-07-06). New first-class
+      `MODES.SHIPYARD` surface: an AI project-management kanban where Perci is
+      the PM. `src/lib/shipyard.js` holds the store (`perci_shipyard:v1`),
+      per-project flow columns + fixed GitHub rail columns (Stage = git add,
+      Commit = add+commit, Push = add+commit+push) and a Jules column that
+      dispatches cards through the existing `jules:queue` IPC (source
+      `shipyard`), polling `agent-jobs:list` for status/PR URL. Git actions run
+      through the existing `run-local-command` + `registerWorkspace` IPC, so
+      NO Electron main/preload changes were needed (no app restart required).
+      The PM agent (`runPmAgentTurn`) reuses the Cowork-style
+      `streamChatWithTools` loop with 10 board tools and a pm-skills-derived
+      playbook prompt; a 4-stop assertiveness dial (Observer/Advisor/Manager/
+      Autopilot) gates agent-initiated mutations in `executePmTool` (manual
+      drags always execute; Manager needs `confirmed_by_user` for push/Jules).
+      `ShipyardMode.jsx/.css` renders board/notes/activity tabs + chat panel;
+      drag-drop carries the card id in `dataTransfer` (fixed a stale-closure
+      drop bug found during preview smoke). `PerciPet.jsx/.css` is the
+      MiniCPM-Desk-Pet-style floating companion mounted in `App.jsx`: draggable
+      (position in `perci_pet_pos`), speaks on Shipyard/git/Jules/window events
+      gated by the dial, quick-ask routes to the same PM agent, click-through
+      to Shipyard; toggled from the Shipyard header (`petEnabled` in the
+      store). Wired through `ModeContext`, `App.jsx`, `appCatalog`
+      (`ShipyardIcon`), `ModeSwitcher`, Dock glyph `SY`, and a `shipyard`
+      station in Creation Yard on circle-line + agent-rail. Jules caveat:
+      job records are in-memory in main, so tracked cards show their last
+      known status after an app restart. Validation: focused ESLint clean,
+      `npx vitest run test/perciSurfaceMap.test.js` 10/10, `npm run build`,
+      and a live preview smoke on port 5199 (project create, quick-add card,
+      real DragEvent flow + rail drops, pet popover reading live board state,
+      Perci Now showing Creation Yard activity). Smoke localStorage was
+      cleared afterward. Not yet built (candidate next slices): PR-status
+      column fed by `gh`, per-card commit-message editing before rail drops,
+      pet reactions to OpenClaw/Mission events.
+
 - [x] Supermemory provider/model mismatch fixed (2026-07-02). The remaining
       issue called out in the prior Supermemory handoff was a stale
       OpenRouter-style model ID surviving after switching the Supermemory

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
-import { ArrowLeft, ArrowRight, ArrowUp, ArrowDown, ExternalLink, Globe, Home, RefreshCw, Settings, Plus, X, PanelRight, Radar, Play, ChevronDown, ChevronUp, Bookmark, Star, Search, History, Trash2, Pin } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowUp, ArrowDown, ExternalLink, Globe, Home, RefreshCw, Settings, Plus, X, PanelRight, Radar, Play, ChevronDown, ChevronUp, Bookmark, Star, Search, History, Trash2, Pin, Server } from 'lucide-react';
 import { readStringStorage, writeStringStorage, removeStorageKey } from '../lib/persistentStore';
 import { useTheme } from '../context/ThemeContext';
 import { useMode, MODES } from '../context/ModeContext';
@@ -7,10 +7,12 @@ import klipitLogo from '../assets/klipit-logo.png';
 import localhostBg from '../assets/localhost-bg.jpeg';
 import lhLogo from '../assets/lh-logo.png';
 import lighthouseBg from '../assets/lighthouse-bg.jpg';
+import LocalhostManager from './LocalhostManager';
 
 const QUICK_PORTS = [3000, 5173, 8080, 4200];
 const MAX_HISTORY_ITEMS = 80;
 const MAX_PINNED_TABS = 24;
+const MANAGER_TAB_ID = '__manager__';
 
 const PROCESS_NAME_MAP = {
   'com.docke': 'Docker Desktop', 'Docker': 'Docker Desktop', 'docker': 'Docker',
@@ -940,9 +942,12 @@ export default function LocalhostMode({ isKlipit }) {
     const storageKeys = useMemo(() => getStorageKeys(isKlipit), [isKlipit]);
     const [tabs, setTabs] = useState(() => {
         const pinnedTabs = readPinnedTabs(storageKeys.PINNED_TABS);
-        if (pinnedTabs.length > 0) return pinnedTabs;
-        const savedUrl = readStringStorage(storageKeys.LAST_URL, '');
-        return [{ id: createTabId(), url: savedUrl, title: addressLabel(savedUrl) || 'New Tab', pinned: false }];
+        const regularTabs = pinnedTabs.length > 0
+            ? pinnedTabs
+            : [{ id: createTabId(), url: readStringStorage(storageKeys.LAST_URL, ''), title: 'New Tab', pinned: false }];
+        const managerTab = { id: MANAGER_TAB_ID, url: '', title: 'Manager', pinned: true, isManager: true };
+        if (regularTabs[0]?.id === MANAGER_TAB_ID) return regularTabs;
+        return [managerTab, ...regularTabs];
     });
     const [activeTabId, setActiveTabId] = useState(tabs[0].id);
     const [draggedTabId, setDraggedTabId] = useState(null);
@@ -1027,6 +1032,23 @@ export default function LocalhostMode({ isKlipit }) {
         const url = `http://localhost:${port}`;
         handleNewTab(url);
     }, [handleNewTab]);
+
+    // Open a port from the manager — creates a new webview tab and switches to it
+    const handleNavigateFromManager = useCallback((port) => {
+        const url = `http://localhost:${port}`;
+        const newId = createTabId();
+        setTabs(prev => {
+            // Don't duplicate if a tab with this URL already exists
+            const existing = prev.find(t => t.url === url && t.id !== MANAGER_TAB_ID);
+            if (existing) {
+                setActiveTabId(existing.id);
+                return prev;
+            }
+            const inserted = [...prev, { id: newId, url, title: addressLabel(url) || 'New Tab', pinned: false }];
+            return inserted;
+        });
+        setActiveTabId(newId);
+    }, []);
 
     if (!isElectron) {
         return (
@@ -1154,7 +1176,21 @@ export default function LocalhostMode({ isKlipit }) {
             </div>
 
             <div className="flex items-center gap-1 border-b border-[var(--border)] bg-[var(--bg-secondary)]/30 px-2 pt-2" style={{ WebkitAppRegion: 'no-drag' }}>
-                {tabs.map((tab) => {
+                {/* Manager tab — always first, always present */}
+                <button
+                    type="button"
+                    onClick={() => setActiveTabId(MANAGER_TAB_ID)}
+                    className={`group relative flex h-8 min-w-[80px] cursor-pointer items-center gap-1.5 rounded-t-lg border-x border-t px-2.5 text-xs transition-colors ${
+                        activeTabId === MANAGER_TAB_ID
+                            ? 'border-[var(--border)] bg-[var(--bg-primary)] text-[var(--accent)]'
+                            : 'border-transparent bg-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
+                    }`}
+                    title="Localhost Manager"
+                >
+                    <Server size={12} className={activeTabId === MANAGER_TAB_ID ? 'text-[var(--accent)]' : ''} />
+                    <span className="truncate font-medium">Manager</span>
+                </button>
+                {tabs.filter(t => t.id !== MANAGER_TAB_ID).map((tab) => {
                     const isActive = tab.id === activeTabId;
                     return (
                         <div
@@ -1178,10 +1214,10 @@ export default function LocalhostMode({ isKlipit }) {
                               const targetIndex = tabs.findIndex(t => t.id === tab.id);
                               if (draggedIndex >= 0 && targetIndex >= 0 && draggedIndex !== targetIndex) {
                                 setTabs(prev => {
-                                  const cloned = [...prev];
-                                  const [dragged] = cloned.splice(draggedIndex, 1);
-                                  cloned.splice(targetIndex, 0, dragged);
-                                  return cloned;
+                                  const cloned = [...prev.filter(t => t.id !== MANAGER_TAB_ID)];
+                                  const [dragged] = cloned.splice(draggedIndex - 1, 1);
+                                  cloned.splice(targetIndex - 1, 0, dragged);
+                                  return [prev.find(t => t.id === MANAGER_TAB_ID), ...cloned].filter(Boolean);
                                 });
                                 setActiveTabId(draggedTabId);
                               }
@@ -1208,16 +1244,17 @@ export default function LocalhostMode({ isKlipit }) {
                                 <Globe size={12} className={isActive ? 'text-[var(--accent)]' : 'text-[var(--text-tertiary)]'} />
                                 <span className="truncate">{tab.title}</span>
                             </div>
-                            {tabs.length > 1 && (
+                            {tabs.filter(t => t.id !== MANAGER_TAB_ID).length > 1 && (
                                 <button
                                     type="button"
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        const nextTabs = tabs.filter(t => t.id !== tab.id);
+                                        const otherTabs = tabs.filter(t => t.id !== MANAGER_TAB_ID);
+                                        const nextTabs = otherTabs.filter(t => t.id !== tab.id);
                                         if (tab.id === activeTabId) {
                                             setActiveTabId(nextTabs[nextTabs.length - 1].id);
                                         }
-                                        setTabs(nextTabs);
+                                        setTabs([tabs.find(t => t.id === MANAGER_TAB_ID), ...nextTabs].filter(Boolean));
                                     }}
                                     className="shrink-0 rounded-md p-0.5 text-[var(--text-tertiary)] opacity-0 transition-opacity hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] group-hover:opacity-100 focus:opacity-100"
                                     title="Close tab"
@@ -1244,19 +1281,23 @@ export default function LocalhostMode({ isKlipit }) {
             </div>
             
             <div className="relative min-h-0 flex-1">
-                {tabs.map((tab) => (
-                    <LocalhostTab
-                        key={tab.id}
-                        id={tab.id}
-                        initialUrl={tab.url}
-                        hidden={tab.id !== activeTabId}
-                        onTitleChange={handleTitleChange}
-                        onUrlChange={handleUrlChange}
-                        isKlipit={isKlipit}
-                        isDarkMode={isDarkMode}
-                        onNewTab={handleNewTab}
-                    />
-                ))}
+                {activeTabId === MANAGER_TAB_ID ? (
+                    <LocalhostManager onNavigate={handleNavigateFromManager} />
+                ) : (
+                    tabs.filter(t => t.id !== MANAGER_TAB_ID).map((tab) => (
+                        <LocalhostTab
+                            key={tab.id}
+                            id={tab.id}
+                            initialUrl={tab.url}
+                            hidden={tab.id !== activeTabId}
+                            onTitleChange={handleTitleChange}
+                            onUrlChange={handleUrlChange}
+                            isKlipit={isKlipit}
+                            isDarkMode={isDarkMode}
+                            onNewTab={handleNewTab}
+                        />
+                    ))
+                )}
             </div>
         </div>
     );

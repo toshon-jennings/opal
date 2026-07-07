@@ -43,3 +43,9 @@ export function cavemanDirective(level) {
     if (!rule) return '';
     return `\n\nCAVEMAN MODE — output compression ("${level}"). Compress your prose accordingly:\n${rule}\n${GUARDRAIL}`;
 }
+
+export function cavemanReminder(level) {
+    const rule = RULES[level];
+    if (!rule) return '';
+    return `\n\n[CAVEMAN STYLE ACTIVE: Respond using "${level}" compression style. ${rule}]`;
+}

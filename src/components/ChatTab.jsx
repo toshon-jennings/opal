@@ -107,6 +107,13 @@ function ChatComposer({ onSend, onCancel, isRunning, disabled, isStarting }) {
   const textareaRef = useRef(null);
   const canSend = text.trim().length > 0 && !disabled && !isRunning;
 
+  // Refocus textarea after a run completes so you can keep typing without clicking back in
+  useEffect(() => {
+    if (!isRunning && !disabled) {
+      textareaRef.current?.focus();
+    }
+  }, [isRunning, disabled]);
+
   const resetHeight = useCallback(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';

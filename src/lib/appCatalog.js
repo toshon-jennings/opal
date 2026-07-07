@@ -2,13 +2,13 @@
 // the Dashboard tile grid (DashboardMode.jsx) and the Sir Perci dock
 // launcher (SirPerciLauncher.jsx) so both stay in sync automatically.
 import {
-    Sparkles, Server, Radar, Layers, Globe, GitMerge, TerminalSquare,
+    Sparkles, Server, Radar, Layers, Globe, GitMerge, TerminalSquare, Zap,
 } from 'lucide-react';
 import {
     ChatIcon, CoworkIcon, CodeIcon, NotesIcon, AgentsIcon, ResearchIcon,
-    OfficeIcon, MissionIcon, BuildIcon, ProjectsIcon, SkillsIcon, SurfaceMapIcon, PerciNowIcon, PerciDeskIcon, PackagesIcon, IptvIcon,
+    OfficeIcon, MissionIcon, BuildIcon, ProjectsIcon, SkillsIcon, SurfaceMapIcon, PerciNowIcon, PerciDeskIcon, PackagesIcon, IptvIcon, ShipyardIcon,
 } from '../components/ModeIcons';
-import { MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID, CLEANMAC_WINDOW_ID, PACKAGES_WINDOW_ID, AGENTMAIL_WINDOW_ID, AUTOFORGE_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID, IPTV_WINDOW_ID, SIMPLEX_WINDOW_ID } from '../context/ModeContext';
+import { MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID, CLEANMAC_WINDOW_ID, PACKAGES_WINDOW_ID, AGENTMAIL_WINDOW_ID, AUTOFORGE_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID, IPTV_WINDOW_ID, SIMPLEX_WINDOW_ID, PXPIPE_WINDOW_ID } from '../context/ModeContext';
 import lhLogo from '../assets/lh-logo.png';
 import autoforgeLogo from '../assets/autoforge-logo.png';
 import hermesLogo from '../assets/nousresearch.png';
@@ -62,6 +62,7 @@ export const NATIVE_TILES = [
     { id: MODES.SURFACE_MAP, icon: SurfaceMapIcon, title: 'Perci Map', desc: 'Surface relationship map', hue: '#14b8a6' },
     { id: MODES.PERCI_NOW, icon: PerciNowIcon, title: 'Perci Now', desc: 'Live workspace state', hue: '#0891b2' },
     { id: MODES.POWER_WORKSPACE, icon: Sparkles, title: 'Power Workspace', desc: 'Ideas, runs & next action', hue: '#f97316' },
+    { id: MODES.SHIPYARD, icon: ShipyardIcon, title: 'Shipyard', desc: 'AI project manager & kanban board', hue: '#f97316' },
     { id: SKILLS_WINDOW_ID, icon: SkillsIcon, title: 'Skills', desc: 'Manage skills & agent CLIs', hue: '#f97316' },
 ];
 
@@ -83,11 +84,12 @@ export const SYSTEM_TILES = [
     { id: MODES.BARS, icon: null, logo: barsLogo, title: 'BARS', desc: 'Idea notebook', hue: '#f59e0b', artwork: true, bgImage: barsBg },
     { id: MODES.MARKITDOWN, icon: null, logo: markitdownLogo, title: 'MarkItDownUI', desc: 'Convert files and URLs to Markdown', hue: '#0ea5e9', artwork: true, bgImage: markitdownBg },
     { id: MODES.CONCERNS, icon: null, logo: billboardLogo, title: 'Bill Board', desc: 'Services, keys & subscriptions', hue: '#06b6d4', artwork: true, bgImage: billboardBg },
-    { id: MODES.STUDIOOS, icon: Layers, logo: studioosLogo, title: 'StudioOS Review', desc: 'View/manage your StudioOS workspace', hue: '#3b82f6', artwork: true, bgImage: studioosBg },
+    { id: MODES.STUDIOOS, icon: Layers, logo: studioosLogo, title: 'SOS-Glance', desc: 'View/manage your StudioOS workspace', hue: '#3b82f6', artwork: true, bgImage: studioosBg },
     { id: CLEANMAC_WINDOW_ID, icon: TerminalSquare, title: 'Cleanmac', desc: 'Clean developer caches on macOS', hue: '#10b981', artwork: true, bgImage: cleanmacBg, iconSize: 34 },
     { id: AUTOFORGE_WINDOW_ID, icon: null, logo: autoforgeLogo, title: 'AutoForge', desc: 'Autonomous coding agent', hue: '#f97316', artwork: true, bgImage: autoforgeBg },
     { id: AGENTMAIL_WINDOW_ID, icon: null, logo: agentmailLogo, title: 'AgentMail', desc: 'Email via AgentMail web console', hue: '#6366f1', artwork: true, bgImage: agentmailBg },
     { id: OPEN_NOTEBOOK_WINDOW_ID, logo: cleanmacLogo, title: 'Open Notebook', desc: 'Embedded localhost notebook window', hue: '#10b981', artwork: true, bgImage: openNotebookBg },
     { id: IPTV_WINDOW_ID, icon: IptvIcon, logo: iptvLogo, title: 'IPTV', desc: 'Watch live TV channels from around the world', hue: '#8b5cf6', artwork: true, bgImage: iptvBg },
     { id: SIMPLEX_WINDOW_ID, icon: null, logo: simplexLogo, title: 'SimpleX', desc: 'Sovereign and private chat client', hue: '#0197ff', artwork: true, bgImage: simplexBg },
+    { id: PXPIPE_WINDOW_ID, icon: Zap, title: 'pxpipe', desc: 'Token-compression proxy dashboard', hue: '#a855f7' },
 ];

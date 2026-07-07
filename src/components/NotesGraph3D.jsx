@@ -5,6 +5,10 @@ import { OrbitControls, Text, Billboard } from '@react-three/drei';
 import { Settings, X, Share2, Link2, Crosshair, FileText, ArrowUpRight, Palette } from 'lucide-react';
 import { readStringStorage, writeStringStorage } from '../lib/persistentStore';
 import { useTheme } from '../context/ThemeContext';
+import { indexNote, scoreNote } from '../lib/brain';
+import { tokenizeForRelevance } from '../lib/relevance';
+import { isEncrypted } from '../utils/note-crypto';
+import { loadArmsLayers, ARMS_CORE_KEY, ARMS_LAYER_COLORS } from '../lib/armsGraph';
 
 /* Perci Notes — 3D knowledge graph.
  * Renders every note as a node and every [[wikilink]] / md-link as an edge,
@@ -19,6 +23,7 @@ const SAMPLES = 12;     // points sampled per bezier edge
 const MAX_PULSES = 3;   // buffer sized for max; we only fill pulsesPerEdge
 const TRAIL_LENGTH = 3; // particle trail length for pulses
 const MAX_RIPPLE_POINTS = 200; // max concurrent interactive ripple pulses
+const MAX_STEP = 10; // per-frame speed cap — dense/planar graphs explode without it
 
 const DEFAULT_SETTINGS = {
     dimensions: '3d',      // '2d' | '3d'
@@ -50,6 +55,9 @@ const DEFAULT_SETTINGS = {
     colorMatchedPulses: true, // pulses inherit cluster color
     pulseTails: true,      // shooting star trails
     edgeTension: true,     // stress color shifts on edges
+    layout: 'force',       // 'force' | 'rings' | 'circle'
+    ringSpin: 0.3,         // 0 = static rings, 1 = fast rotation
+    armsLayers: false,     // add Applications/Routines/Skills layers around the notes
 };
 
 const CLUSTER_PALETTE = [
@@ -60,12 +68,25 @@ const CLUSTER_PALETTE = [
 function loadSettings() {
     try {
         const raw = readStringStorage(SETTINGS_KEY, '{}');
-        if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            const merged = { ...DEFAULT_SETTINGS };
+            for (const key of Object.keys(DEFAULT_SETTINGS)) {
+                if (parsed[key] !== undefined && parsed[key] !== null && !Number.isNaN(parsed[key])) {
+                    if (typeof DEFAULT_SETTINGS[key] === typeof parsed[key]) {
+                        merged[key] = parsed[key];
+                    }
+                }
+            }
+            return merged;
+        }
     } catch { /* ignore */ }
     return { ...DEFAULT_SETTINGS };
 }
 
 const lerp = (a, b, t) => a + (b - a) * t;
+
+const _labelVec = new THREE.Vector3(); // scratch for label screen projection
 
 // Quadratic bezier evaluator — writes into out at offset o.
 function bezierInto(out, o, ax, ay, az, cx, cy, cz, bx, by, bz, t) {
@@ -85,8 +106,10 @@ function hexToRgb(hex) {
     };
 }
 
-// Build node / undirected-edge data from the notes graph.
-function buildGraphData(noteIds, graph, includeUnlinked, includeSharedTags) {
+// Build node / undirected-edge data from the notes graph. `arms` optionally
+// appends the Applications/Routines/Skills layers (see lib/armsGraph.js);
+// note nodes carry no `type`, ARMS nodes carry {type, label, hue}.
+function buildGraphData(noteIds, graph, includeUnlinked, includeSharedTags, arms) {
     const idIndex = new Map();
     noteIds.forEach((id, i) => idIndex.set(id, i));
 
@@ -135,6 +158,24 @@ function buildGraphData(noteIds, graph, includeUnlinked, includeSharedTags) {
         });
     }
 
+    if (arms?.nodes?.length) {
+        // Memory layer: spoke the core to the most-connected notes so the
+        // vault hangs off the center without drowning it in edges.
+        const noteDeg = new Array(nodes.length).fill(0);
+        linkMap.forEach(l => { noteDeg[l.s]++; noteDeg[l.t]++; });
+        const keyIndex = new Map();
+        arms.nodes.forEach(n => {
+            keyIndex.set(n.key, nodes.length);
+            nodes.push({ id: n.key, label: n.label, type: n.type, hue: n.hue, idx: nodes.length, deg: 0, cluster: 0 });
+        });
+        arms.links.forEach(l => addLink(keyIndex.get(l.a), keyIndex.get(l.b), l.weak));
+        const coreIdx = keyIndex.get(ARMS_CORE_KEY);
+        noteDeg.map((deg, i) => ({ deg, i }))
+            .sort((a, b) => b.deg - a.deg)
+            .slice(0, 24)
+            .forEach(({ i }) => addLink(i, coreIdx, true));
+    }
+
     const links = Array.from(linkMap.values());
 
     // Degree + connected-component clustering (union-find over solid links).
@@ -155,12 +196,82 @@ function buildGraphData(noteIds, graph, includeUnlinked, includeSharedTags) {
     return { nodes, links, maxDeg };
 }
 
+// ARMS ring order (center → out): core, Skills, Routines, Memory (notes), Applications.
+function ringIndexFor(node) {
+    if (node.type === 'core') return 0;
+    if (node.id === 'hub:skills' || node.type === 'skill') return 1;
+    if (node.id === 'hub:routines' || node.type === 'routine') return 2;
+    if (node.type === 'app') return 4;
+    return 3;
+}
+
+// Deterministic target positions for the 'rings' / 'circle' layouts. Rings
+// group by ARMS layer when it's on, by cluster otherwise; circle is one ring
+// of everything. In 2D mode the layout is planar (z=0). In 3D mode each ring
+// is a latitude band on a sphere so the full graph is always visible head-on
+// as it rotates.
+function computeLayoutTargets(data, settings) {
+    const targets = new Float32Array(data.nodes.length * 3);
+    const is3d = settings.dimensions === '3d';
+    const groups = new Map();
+    data.nodes.forEach(node => {
+        const g = settings.layout === 'circle' ? 1
+            : settings.armsLayers ? ringIndexFor(node)
+            : (node.cluster % 9) + 1;
+        if (!groups.has(g)) groups.set(g, []);
+        groups.get(g).push(node);
+    });
+    const sortedKeys = [...groups.keys()].sort((a, b) => a - b);
+    const numRings = sortedKeys.length;
+    const sphereR = Math.max(numRings * 10, (data.nodes.length * 2.4) / (2 * Math.PI), 12);
+
+    if (is3d) {
+        // Spherical layout: each ring is a latitude band on a sphere.
+        sortedKeys.forEach((g, ringPos) => {
+            const members = groups.get(g)
+                .sort((a, b) => a.cluster - b.cluster || (a.id < b.id ? -1 : 1));
+            // Phi (latitude): spread rings from top to bottom of sphere.
+            const phi = numRings > 1
+                ? Math.PI * (ringPos / (numRings - 1))   // 0 (north pole) → π (south pole)
+                : Math.PI / 2;                             // single ring → equator
+            const sinPhi = Math.sin(phi);
+            const cosPhi = Math.cos(phi);
+            const bandR = sphereR * sinPhi;  // radius of the latitude circle
+            members.forEach((node, i) => {
+                const theta = (i / members.length) * Math.PI * 2 + ringPos * 0.5;
+                const o = node.idx * 3;
+                targets[o]     = bandR * Math.cos(theta);   // x
+                targets[o + 1] = bandR * Math.sin(theta);   // y
+                targets[o + 2] = sphereR * cosPhi;           // z (latitude)
+            });
+        });
+    } else {
+        // Planar layout (2D): concentric rings on the XY plane.
+        let prevR = 0;
+        sortedKeys.forEach((g, ringPos) => {
+            const members = groups.get(g)
+                .sort((a, b) => a.cluster - b.cluster || (a.id < b.id ? -1 : 1));
+            const r = g === 0 ? 0 : Math.max(prevR + 10, (members.length * 2.4) / (2 * Math.PI), 12);
+            prevR = Math.max(prevR, r);
+            members.forEach((node, i) => {
+                const a = (i / members.length) * Math.PI * 2 + ringPos * 0.5;
+                const o = node.idx * 3;
+                targets[o] = Math.cos(a) * r;
+                targets[o + 1] = Math.sin(a) * r;
+                targets[o + 2] = 0;
+            });
+        });
+    }
+    return targets;
+}
+
 function nodeRadius(node, settings) {
     const base = settings.sizeByDegree ? 0.75 + Math.sqrt(node.deg) * 0.45 : 1.2;
     return base * settings.nodeSize;
 }
 
 function nodeColor(node, data, settings, theme) {
+    if (node.hue) return node.hue; // ARMS layer nodes keep their layer color
     if (settings.colorMode === 'accent') return theme.accent;
     if (settings.colorMode === 'degree') {
         const t = data.maxDeg ? node.deg / data.maxDeg : 0;
@@ -408,10 +519,11 @@ function Starfield({ settings, theme }) {
 /* ----------------------------- 3D scene ----------------------------- */
 
 function GraphScene({ data, settings, theme, hovered, setHovered, neighbors, activeNoteId, onOpenNote, selectedNodeId, setSelectedNodeId, onUpdateCoords }) {
-    const { gl, camera } = useThree();
+    const { gl, camera, size } = useThree();
     const controlsRef = useRef();
     const groupRefs = useRef([]);
     const matRefs = useRef([]);
+    const labelRefs = useRef([]);
     const lineRef = useRef();
     const hlLineRef = useRef();
     const pulseRef = useRef();
@@ -419,6 +531,62 @@ function GraphScene({ data, settings, theme, hovered, setHovered, neighbors, act
     const rippleRef = useRef();
     const sim = useRef(null);
     const dragRef = useRef(null);
+    // True once the user drags/zooms the camera or drags a node; gates auto-fit.
+    const userInteracted = useRef(false);
+
+    const wirePulseRef = useCallback((el) => {
+        pulseRef.current = el;
+        if (sim.current) {
+            sim.current.pulseRef = el;
+            if (el) {
+                const geo = el.geometry;
+                const expectedLen = data.links.length * MAX_PULSES * TRAIL_LENGTH * 3;
+                if (sim.current.pulsePos.length === expectedLen) {
+                    geo.setAttribute('position', new THREE.BufferAttribute(sim.current.pulsePos, 3));
+                    geo.setAttribute('color', new THREE.BufferAttribute(sim.current.pulseColors, 3));
+                    geo.setAttribute('aAlpha', new THREE.BufferAttribute(sim.current.pulseAlphas, 1));
+                    geo.setAttribute('aScale', new THREE.BufferAttribute(sim.current.pulseScales, 1));
+                    const trailLen = settings.pulseTails ? TRAIL_LENGTH : 1;
+                    geo.setDrawRange(0, data.links.length * Math.min(settings.pulsesPerEdge, MAX_PULSES) * trailLen);
+                }
+            }
+        }
+    }, [data.links.length, settings.pulseTails, settings.pulsesPerEdge]);
+
+    const wireNodeGlowRef = useCallback((el) => {
+        nodeGlowRef.current = el;
+        if (sim.current && el) {
+            sim.current.nodeGlowRef = el;
+            const expectedLen = data.nodes.length * 3;
+            if (sim.current.nodeGlowPos.length === expectedLen) {
+                el.geometry.setAttribute('position',
+                    new THREE.BufferAttribute(sim.current.nodeGlowPos, 3));
+            }
+        }
+    }, [data.nodes.length]);
+
+    const wireRippleRef = useCallback((el) => {
+        rippleRef.current = el;
+        if (sim.current) {
+            sim.current.rippleRef = el;
+            if (el) {
+                el.geometry.setAttribute('position',
+                    new THREE.BufferAttribute(sim.current.ripplePos, 3));
+            }
+        }
+    }, []);
+
+    const wireHlLineRef = useCallback((el) => {
+        hlLineRef.current = el;
+        if (sim.current && el) {
+            sim.current.hlLineRef = el;
+            const expectedLen = data.links.length * (SAMPLES - 1) * 2 * 3;
+            if (sim.current.hlLinePos.length === expectedLen) {
+                el.geometry.setAttribute('position',
+                    new THREE.BufferAttribute(sim.current.hlLinePos, 3));
+            }
+        }
+    }, [data.links.length]);
 
     const focusNodeIdx = useRef(null);
 
@@ -454,16 +622,7 @@ function GraphScene({ data, settings, theme, hovered, setHovered, neighbors, act
         }
     }, [selectedNodeId, data, onUpdateCoords]);
 
-    // Background click on Canvas to deselect selected node
-    useEffect(() => {
-        const handler = (e) => {
-            if (e.target === gl.domElement) {
-                setSelectedNodeId(null);
-            }
-        };
-        gl.domElement.addEventListener('click', handler);
-        return () => gl.domElement.removeEventListener('click', handler);
-    }, [gl, setSelectedNodeId]);
+
 
     // (Re)initialise the simulation whenever the node/edge set changes.
     useEffect(() => {
@@ -485,6 +644,7 @@ function GraphScene({ data, settings, theme, hovered, setHovered, neighbors, act
             alpha: 1,
             linePos: new Float32Array(data.links.length * (SAMPLES - 1) * 2 * 3),
             lineColors: new Float32Array(data.links.length * (SAMPLES - 1) * 2 * 3),
+            hlLinePos: new Float32Array(data.links.length * (SAMPLES - 1) * 2 * 3),
             pulsePos: new Float32Array(data.links.length * MAX_PULSES * TRAIL_LENGTH * 3),
             pulseColors: new Float32Array(data.links.length * MAX_PULSES * TRAIL_LENGTH * 3),
             pulseAlphas: new Float32Array(data.links.length * MAX_PULSES * TRAIL_LENGTH),
@@ -494,6 +654,7 @@ function GraphScene({ data, settings, theme, hovered, setHovered, neighbors, act
             edgeSeed: data.links.map(() => Math.random()),
             pulseRef: null,
             nodeGlowRef: null,
+            hlLineRef: null,
             
             // Interactive ripple wave state
             ripplePos: new Float32Array(MAX_RIPPLE_POINTS * 3),
@@ -502,26 +663,10 @@ function GraphScene({ data, settings, theme, hovered, setHovered, neighbors, act
             rippleStartTime: 0,
         };
         // Wire up geometry for pulse + glow points (refs may have already fired).
-        if (pulseRef.current && !pulseRef.current.geometry.getAttribute('position')) {
-            const geo = pulseRef.current.geometry;
-            geo.setAttribute('position', new THREE.BufferAttribute(sim.current.pulsePos, 3));
-            geo.setAttribute('color', new THREE.BufferAttribute(sim.current.pulseColors, 3));
-            geo.setAttribute('aAlpha', new THREE.BufferAttribute(sim.current.pulseAlphas, 1));
-            geo.setAttribute('aScale', new THREE.BufferAttribute(sim.current.pulseScales, 1));
-            const trailLen = settings.pulseTails ? TRAIL_LENGTH : 1;
-            geo.setDrawRange(0, data.links.length * Math.min(settings.pulsesPerEdge, MAX_PULSES) * trailLen);
-            sim.current.pulseRef = pulseRef.current;
-        }
-        if (nodeGlowRef.current && !nodeGlowRef.current.geometry.getAttribute('position')) {
-            nodeGlowRef.current.geometry.setAttribute('position',
-                new THREE.BufferAttribute(sim.current.nodeGlowPos, 3));
-            sim.current.nodeGlowRef = nodeGlowRef.current;
-        }
-        if (rippleRef.current && !rippleRef.current.geometry.getAttribute('position')) {
-            rippleRef.current.geometry.setAttribute('position',
-                new THREE.BufferAttribute(sim.current.ripplePos, 3));
-            sim.current.rippleRef = rippleRef.current;
-        }
+        if (pulseRef.current) wirePulseRef(pulseRef.current);
+        if (nodeGlowRef.current) wireNodeGlowRef(nodeGlowRef.current);
+        if (rippleRef.current) wireRippleRef(rippleRef.current);
+        if (hlLineRef.current) wireHlLineRef(hlLineRef.current);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [data]);
 
@@ -530,11 +675,32 @@ function GraphScene({ data, settings, theme, hovered, setHovered, neighbors, act
         if (sim.current) sim.current.alpha = Math.max(sim.current.alpha, 0.5);
     }, [settings.linkDistance, settings.repulsion, settings.centerGravity, settings.dimensions]);
 
+    // Deterministic layout targets — null hands control back to the force sim.
+    useEffect(() => {
+        const s = sim.current;
+        if (!s) return;
+        if (settings.layout === 'force') {
+            s.targets = null;
+            // Re-break z symmetry: a planar layout (rings/circle, or time in
+            // 2D) leaves every z at 0, and the force sim computes its z
+            // component from z differences — a flat graph would stay flat
+            // forever. Jitter gives repulsion a seed to regrow the sphere.
+            if (settings.dimensions === '3d' && s.pts.every(p => Math.abs(p.z) < 1)) {
+                s.pts.forEach(p => { if (p.fx == null) p.z += (Math.random() - 0.5) * 8; });
+            }
+            s.alpha = Math.max(s.alpha, 0.5);
+        } else {
+            s.targets = computeLayoutTargets(data, settings);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [data, settings.layout, settings.armsLayers, settings.dimensions]);
+
     // Pointer drag — move a node in the camera-facing plane.
     const onNodeDown = useCallback((i, e) => {
         e.stopPropagation();
         if (!sim.current) return;
         dragRef.current = { i };
+        userInteracted.current = true;
         if (controlsRef.current) controlsRef.current.enabled = false;
         const el = gl.domElement;
         const ndc = new THREE.Vector2();
@@ -577,12 +743,30 @@ function GraphScene({ data, settings, theme, hovered, setHovered, neighbors, act
     useFrame((state) => {
         const s = sim.current;
         if (!s) return;
+        if (s.pts.length !== data.nodes.length) return;
+        if (s.linePos.length !== data.links.length * (SAMPLES - 1) * 2 * 3) return;
+        if (s.hlLinePos.length !== data.links.length * (SAMPLES - 1) * 2 * 3) return;
         const pts = s.pts;
         const n = pts.length;
         const is2d = settings.dimensions === '2d';
         const time = state.clock.elapsedTime;
 
-        if (s.alpha > 0.005) {
+        if (s.targets) {
+            // Rings/circle layout: glide every free node to its target slot,
+            // slowly rotating the slots themselves when ring spin is on.
+            const spinAng = time * settings.ringSpin * 0.12;
+            const spinCos = Math.cos(spinAng), spinSin = Math.sin(spinAng);
+            for (let i = 0; i < n; i++) {
+                const p = pts[i];
+                if (p.fx != null) { p.x = p.fx; p.y = p.fy; p.z = p.fz; continue; }
+                const o = i * 3;
+                const tx = s.targets[o], ty = s.targets[o + 1];
+                p.x = lerp(p.x, tx * spinCos - ty * spinSin, 0.08);
+                p.y = lerp(p.y, tx * spinSin + ty * spinCos, 0.08);
+                p.z = is2d ? 0 : lerp(p.z, s.targets[o + 2], 0.08);
+                p.vx = p.vy = p.vz = 0;
+            }
+        } else if (s.alpha > 0.005) {
             const a = s.alpha;
             const rep = settings.repulsion;
             // Repulsion (O(n^2) — fine for typical vaults).
@@ -592,7 +776,7 @@ function GraphScene({ data, settings, theme, hovered, setHovered, neighbors, act
                     const pj = pts[j];
                     let dx = pi.x - pj.x, dy = pi.y - pj.y, dz = pi.z - pj.z;
                     let d2 = dx * dx + dy * dy + dz * dz;
-                    if (d2 < 0.01) { dx = (Math.random() - 0.5); dy = (Math.random() - 0.5); d2 = 0.01; }
+                    if (d2 < 0.01) { dx = (Math.random() - 0.5); dy = (Math.random() - 0.5); dz = (is2d ? 0 : Math.random() - 0.5); d2 = 0.01; }
                     const f = (rep * a) / d2;
                     const inv = 1 / Math.sqrt(d2);
                     const fx = dx * inv * f, fy = dy * inv * f, fz = dz * inv * f;
@@ -621,9 +805,21 @@ function GraphScene({ data, settings, theme, hovered, setHovered, neighbors, act
                 if (p.fx != null) { p.x = p.fx; p.y = p.fy; p.z = p.fz; p.vx = p.vy = p.vz = 0; }
                 else {
                     p.vx *= 0.6; p.vy *= 0.6; p.vz *= 0.6;
+                    const speed = Math.hypot(p.vx, p.vy, p.vz);
+                    if (speed > MAX_STEP) {
+                        const cap = MAX_STEP / speed;
+                        p.vx *= cap; p.vy *= cap; p.vz *= cap;
+                    }
                     p.x += p.vx; p.y += p.vy; p.z += (is2d ? 0 : p.vz);
                 }
                 if (is2d) { p.z = 0; p.vz = 0; }
+                // Self-heal: re-seed anything that still went non-finite.
+                if (!Number.isFinite(p.x + p.y + p.z)) {
+                    p.x = (Math.random() - 0.5) * 20;
+                    p.y = (Math.random() - 0.5) * 20;
+                    p.z = is2d ? 0 : (Math.random() - 0.5) * 20;
+                    p.vx = p.vy = p.vz = 0;
+                }
             }
             s.alpha *= 0.985;
             if (s.alpha < 0.005) s.alpha = 0;
@@ -833,9 +1029,9 @@ function GraphScene({ data, settings, theme, hovered, setHovered, neighbors, act
         }
 
         // Highlighted edges for the hovered node (also curved).
-        if (hlLineRef.current) {
+        if (s.hlLineRef) {
             if (hovered != null) {
-                const inc = [];
+                let writeIdx = 0;
                 for (let k = 0; k < data.links.length; k++) {
                     const l = data.links[k];
                     if (l.s === hovered || l.t === hovered) {
@@ -847,21 +1043,21 @@ function GraphScene({ data, settings, theme, hovered, setHovered, neighbors, act
                         const cx = mx + (mx / ml) * kk, cy = my + (my / ml) * kk, cz = mz + (mz / ml) * kk;
                         for (let sIdx = 0; sIdx < seg; sIdx++) {
                             const t0 = sIdx / seg, t1 = (sIdx + 1) / seg;
-                            const o0 = inc.length;
-                            inc.push(0, 0, 0);
-                            bezierInto(inc, o0, pa.x, pa.y, pa.z, cx, cy, cz, pb.x, pb.y, pb.z, t0);
-                            const o1 = inc.length;
-                            inc.push(0, 0, 0);
-                            bezierInto(inc, o1, pa.x, pa.y, pa.z, cx, cy, cz, pb.x, pb.y, pb.z, t1);
+                            bezierInto(s.hlLinePos, writeIdx, pa.x, pa.y, pa.z, cx, cy, cz, pb.x, pb.y, pb.z, t0);
+                            writeIdx += 3;
+                            bezierInto(s.hlLinePos, writeIdx, pa.x, pa.y, pa.z, cx, cy, cz, pb.x, pb.y, pb.z, t1);
+                            writeIdx += 3;
                         }
                     }
                 }
-                const arr = new Float32Array(inc);
-                hlLineRef.current.geometry.setAttribute('position', new THREE.BufferAttribute(arr, 3));
-                hlLineRef.current.geometry.setDrawRange(0, inc.length / 3);
-                hlLineRef.current.visible = inc.length > 0;
+                const posAttr = s.hlLineRef.geometry.getAttribute('position');
+                if (posAttr) {
+                    posAttr.needsUpdate = true;
+                }
+                s.hlLineRef.geometry.setDrawRange(0, writeIdx / 3);
+                s.hlLineRef.visible = writeIdx > 0;
             } else {
-                hlLineRef.current.visible = false;
+                s.hlLineRef.visible = false;
             }
         }
 
@@ -874,9 +1070,85 @@ function GraphScene({ data, settings, theme, hovered, setHovered, neighbors, act
             target.z = lerp(target.z, p.z, 0.08);
             controlsRef.current.update();
         }
+
+        // Auto-fit: keep the whole cloud in frame until the user takes the
+        // controls (drag/zoom or node drag). Recenter remounts the Canvas,
+        // which resets the flag — so Recenter doubles as fit-to-view.
+        if (!userInteracted.current && focusNodeIdx.current === null && controlsRef.current) {
+            let maxR = 0;
+            for (let i = 0; i < n; i++) {
+                const p = pts[i];
+                const rr = Math.hypot(p.x, p.y, p.z);
+                if (rr > maxR) maxR = rr;
+            }
+            if (maxR > 0) {
+                const fov = (camera.fov * Math.PI) / 180;
+                // Fit against the narrower of the vertical/horizontal view angles.
+                const tanEff = Math.tan(fov / 2) * Math.min(1, size.width / size.height);
+                const fitDist = Math.min(2000, Math.max(60, (maxR * 1.25) / tanEff));
+                const target = controlsRef.current.target;
+                const dx = camera.position.x - target.x;
+                const dy = camera.position.y - target.y;
+                const dz = camera.position.z - target.z;
+                const len = Math.hypot(dx, dy, dz) || 1;
+                // A freshly-spawned graph is a wide, unclustered random sphere —
+                // lerping from the fixed initial camera distance takes ~1s to
+                // catch up, so the very first render looks broken/clipped.
+                // Snap straight to the correct distance on the first fit for
+                // this sim, then lerp smoothly as the layout settles.
+                const next = (s.fitInitialized ? lerp(len, fitDist, 0.06) : fitDist) / len;
+                s.fitInitialized = true;
+                camera.position.set(target.x + dx * next, target.y + dy * next, target.z + dz * next);
+                controlsRef.current.update();
+            }
+        }
+
+        // Screen-space label declutter. The far side of a ring projects into
+        // the middle of the view, stacking labels into an unreadable pile —
+        // so labels are greedily kept by priority (selection/hover > hubs >
+        // degree) and any lower-priority label that would overlap is hidden.
+        s.frame = (s.frame || 0) + 1;
+        if (s.frame % 5 === 0) {
+            const fovScale = (size.height / 2) / Math.tan((camera.fov * Math.PI) / 360);
+            const order = [];
+            for (let i = 0; i < n; i++) {
+                if (!labelRefs.current[i]) continue;
+                const node = data.nodes[i];
+                const prio = (node.id === selectedNodeId || i === hovered) ? 3
+                    : (node.type === 'core' || node.type === 'hub' || node.id === activeNoteId) ? 2
+                    : 1 + Math.min(node.deg, 20) / 40;
+                order.push({ i, prio });
+            }
+            order.sort((a, b) => b.prio - a.prio);
+            const kept = [];
+            for (const { i } of order) {
+                const bb = labelRefs.current[i];
+                const p = pts[i];
+                _labelVec.set(p.x, p.y, p.z).project(camera);
+                if (_labelVec.z > 1 || _labelVec.z < -1) { bb.visible = false; continue; }
+                const node = data.nodes[i];
+                const dist = Math.hypot(p.x - camera.position.x, p.y - camera.position.y, p.z - camera.position.z) || 1;
+                const pxPerWorld = fovScale / dist;
+                const sx = (_labelVec.x + 1) * 0.5 * size.width;
+                const sy = (1 - _labelVec.y) * 0.5 * size.height
+                    - (nodeRadius(node, settings) + 2.6) * pxPerWorld; // label sits above the node
+                const w = Math.min((node.label || node.id).length * 1.15, 26) * pxPerWorld;
+                const h = 3 * pxPerWorld;
+                let collides = false;
+                for (const k of kept) {
+                    if (Math.abs(sx - k.sx) < (w + k.w) / 2 && Math.abs(sy - k.sy) < (h + k.h) / 2) {
+                        collides = true;
+                        break;
+                    }
+                }
+                bb.visible = !collides;
+                if (!collides) kept.push({ sx, sy, w, h });
+            }
+        }
     });
 
     const shouldLabel = (node) => {
+        if (node.type === 'core' || node.type === 'hub') return true;
         if (settings.labelMode === 'all') return true;
         if (neighbors && neighbors.has(node.idx)) return true;
         if (node.id === activeNoteId) return true;
@@ -893,7 +1165,7 @@ function GraphScene({ data, settings, theme, hovered, setHovered, neighbors, act
             <pointLight position={[40, 60, 60]} intensity={1.1} />
             <pointLight position={[-50, -30, -40]} intensity={0.5} color={theme.cyan} />
 
-            <lineSegments ref={lineRef} frustumCulled={false}>
+            <lineSegments ref={lineRef} key={`lines-${data.links.length}`} frustumCulled={false}>
                 <bufferGeometry>
                     <bufferAttribute
                         attach="attributes-position"
@@ -911,28 +1183,20 @@ function GraphScene({ data, settings, theme, hovered, setHovered, neighbors, act
                 <lineBasicMaterial vertexColors transparent opacity={settings.linkOpacity} depthWrite={false} />
             </lineSegments>
 
-            <lineSegments ref={hlLineRef} frustumCulled={false} visible={false}>
+            <lineSegments
+                ref={wireHlLineRef}
+                key={`hllines-${data.links.length}`}
+                frustumCulled={false}
+                visible={false}
+            >
                 <bufferGeometry />
                 <lineBasicMaterial color={theme.accent} transparent opacity={0.9} depthWrite={false} />
             </lineSegments>
 
             {settings.pulses && (
                 <points
-                    ref={(el) => {
-                        pulseRef.current = el;
-                        if (sim.current) {
-                            sim.current.pulseRef = el;
-                            if (el && !el.geometry.getAttribute('position')) {
-                                const geo = el.geometry;
-                                geo.setAttribute('position', new THREE.BufferAttribute(sim.current.pulsePos, 3));
-                                geo.setAttribute('color', new THREE.BufferAttribute(sim.current.pulseColors, 3));
-                                geo.setAttribute('aAlpha', new THREE.BufferAttribute(sim.current.pulseAlphas, 1));
-                                geo.setAttribute('aScale', new THREE.BufferAttribute(sim.current.pulseScales, 1));
-                                const trailLen = settings.pulseTails ? TRAIL_LENGTH : 1;
-                                geo.setDrawRange(0, data.links.length * Math.min(settings.pulsesPerEdge, MAX_PULSES) * trailLen);
-                            }
-                        }
-                    }}
+                    key={`pulses-${data.links.length}`}
+                    ref={wirePulseRef}
                     frustumCulled={false}
                 >
                     <bufferGeometry />
@@ -972,16 +1236,8 @@ function GraphScene({ data, settings, theme, hovered, setHovered, neighbors, act
 
             {settings.rippleWave && (
                 <points
-                    ref={(el) => {
-                        rippleRef.current = el;
-                        if (sim.current) {
-                            sim.current.rippleRef = el;
-                            if (el && !el.geometry.getAttribute('position')) {
-                                el.geometry.setAttribute('position',
-                                    new THREE.BufferAttribute(sim.current.ripplePos, 3));
-                            }
-                        }
-                    }}
+                    key="ripple"
+                    ref={wireRippleRef}
                     frustumCulled={false}
                 >
                     <bufferGeometry />
@@ -1016,16 +1272,8 @@ function GraphScene({ data, settings, theme, hovered, setHovered, neighbors, act
 
             {settings.nodeGlow && (
                 <points
-                    ref={(el) => {
-                        nodeGlowRef.current = el;
-                        if (sim.current) {
-                            sim.current.nodeGlowRef = el;
-                            if (el && !el.geometry.getAttribute('position')) {
-                                el.geometry.setAttribute('position',
-                                    new THREE.BufferAttribute(sim.current.nodeGlowPos, 3));
-                            }
-                        }
-                    }}
+                    key={`glow-${data.nodes.length}`}
+                    ref={wireNodeGlowRef}
                     frustumCulled={false}
                 >
                     <bufferGeometry />
@@ -1075,10 +1323,12 @@ function GraphScene({ data, settings, theme, hovered, setHovered, neighbors, act
                             }}
                             onDoubleClick={(e) => {
                                 e.stopPropagation();
-                                onOpenNote(node.id);
+                                if (!node.type) onOpenNote(node.id); // only notes open in the editor
                             }}
                         >
-                            <sphereGeometry args={[1, 18, 18]} />
+                            {node.type === 'app' ? <octahedronGeometry args={[1, 0]} />
+                                : node.type === 'skill' ? <boxGeometry args={[1.3, 1.3, 1.3]} />
+                                : <sphereGeometry args={[1, 18, 18]} />}
                             <meshStandardMaterial
                                 ref={el => (matRefs.current[i] = el)}
                                 color={color}
@@ -1097,7 +1347,7 @@ function GraphScene({ data, settings, theme, hovered, setHovered, neighbors, act
                             </mesh>
                         )}
                         {shouldLabel(node) && (
-                            <Billboard position={[0, r + 1.6, 0]}>
+                            <Billboard ref={el => (labelRefs.current[i] = el)} position={[0, r + 1.6, 0]}>
                                 <Text
                                     fontSize={2.1}
                                     color={theme.text}
@@ -1107,7 +1357,7 @@ function GraphScene({ data, settings, theme, hovered, setHovered, neighbors, act
                                     outlineColor="#000000"
                                     maxWidth={26}
                                 >
-                                    {node.id}
+                                    {node.label || node.id}
                                 </Text>
                             </Billboard>
                         )}
@@ -1123,7 +1373,7 @@ function GraphScene({ data, settings, theme, hovered, setHovered, neighbors, act
                 autoRotate={settings.autoRotate}
                 autoRotateSpeed={settings.rotateSpeed}
                 makeDefault
-                onStart={() => { focusNodeIdx.current = null; }}
+                onStart={() => { focusNodeIdx.current = null; userInteracted.current = true; }}
             />
         </>
     );
@@ -1186,7 +1436,7 @@ function Segmented({ label, value, options, onChange }) {
 
 /* ------------------------------ wrapper ------------------------------ */
 
-export default function NotesGraph3D({ noteIds, graph, activeNoteId, onOpenNote, onClose }) {
+export default function NotesGraph3D({ noteIds, graph, filesMap, activeNoteId, onOpenNote, onClose }) {
     const containerRef = useRef(null);
     const [settings, setSettings] = useState(loadSettings);
     const [showSettings, setShowSettings] = useState(false);
@@ -1201,9 +1451,18 @@ export default function NotesGraph3D({ noteIds, graph, activeNoteId, onOpenNote,
     const [showExplore, setShowExplore] = useState(true);
     const [showLegend, setShowLegend] = useState(true);
 
+    // ARMS layers load lazily when toggled on (skills come over async IPC).
+    const [arms, setArms] = useState(null);
+    useEffect(() => {
+        if (!settings.armsLayers) { setArms(null); return undefined; }
+        let alive = true;
+        loadArmsLayers().then(a => { if (alive) setArms(a); }).catch(() => {});
+        return () => { alive = false; };
+    }, [settings.armsLayers]);
+
     const data = useMemo(
-        () => buildGraphData(noteIds, graph, settings.includeUnlinked, settings.includeSharedTags),
-        [noteIds, graph, settings.includeUnlinked, settings.includeSharedTags]
+        () => buildGraphData(noteIds, graph, settings.includeUnlinked, settings.includeSharedTags, settings.armsLayers ? arms : null),
+        [noteIds, graph, settings.includeUnlinked, settings.includeSharedTags, settings.armsLayers, arms]
     );
 
     const neighbors = useMemo(() => {
@@ -1225,20 +1484,45 @@ export default function NotesGraph3D({ noteIds, graph, activeNoteId, onOpenNote,
             const targetNode = data.nodes[l.t];
             if (sourceNode && targetNode) {
                 if (sourceNode.id === selectedNodeId) {
-                    nList.push({ id: targetNode.id, type: l.weak ? 'Mention' : 'Link' });
+                    nList.push({ id: targetNode.id, label: targetNode.label || targetNode.id, type: l.weak ? 'Mention' : 'Link' });
                 } else if (targetNode.id === selectedNodeId) {
-                    nList.push({ id: sourceNode.id, type: l.weak ? 'Mention' : 'Link' });
+                    nList.push({ id: sourceNode.id, label: sourceNode.label || sourceNode.id, type: l.weak ? 'Mention' : 'Link' });
                 }
             }
         });
         return nList;
     }, [selectedNodeId, data]);
 
-    // Search filter
+    // Brain index over note contents — the same scoring the notes_lookup
+    // agent tool uses, so graph search matches tags/headings/body, not just titles.
+    const brainEntries = useMemo(() => {
+        const entries = new Map();
+        Object.entries(filesMap || {}).forEach(([file, content]) => {
+            if (isEncrypted(content)) return;
+            const entry = indexNote(file, content);
+            entries.set(entry.id, entry);
+        });
+        return entries;
+    }, [filesMap]);
+
+    // Search: index score for notes + title/label substring for everything.
     const filteredNodes = useMemo(() => {
-        if (!searchQuery.trim()) return [];
-        return data.nodes.filter(n => n.id.toLowerCase().includes(searchQuery.toLowerCase()));
-    }, [searchQuery, data.nodes]);
+        const q = searchQuery.trim();
+        if (!q) return [];
+        const tokens = tokenizeForRelevance(q);
+        const qLower = q.toLowerCase();
+        return data.nodes
+            .map(node => {
+                const entry = !node.type && tokens.length ? brainEntries.get(node.id) : null;
+                let score = entry ? scoreNote(entry, tokens) : 0;
+                if ((node.label || node.id).toLowerCase().includes(qLower)) score += 8;
+                return { node, score };
+            })
+            .filter(x => x.score > 0)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 10)
+            .map(x => x.node);
+    }, [searchQuery, data.nodes, brainEntries]);
 
     const { isDarkMode } = useTheme();
 
@@ -1261,6 +1545,7 @@ export default function NotesGraph3D({ noteIds, graph, activeNoteId, onOpenNote,
 
     const set = (patch) => setSettings(s => ({ ...s, ...patch }));
     const hoveredNode = hovered != null ? data.nodes[hovered] : null;
+    const selectedNode = selectedNodeId != null ? data.nodes.find(n => n.id === selectedNodeId) : null;
 
     return (
         <div
@@ -1274,6 +1559,7 @@ export default function NotesGraph3D({ noteIds, graph, activeNoteId, onOpenNote,
                     camera={{ position: [0, 0, 90], fov: 55, near: 0.1, far: 4000 }}
                     gl={{ alpha: true, antialias: true }}
                     dpr={[1, 2]}
+                    onPointerMissed={() => setSelectedNodeId(null)}
                 >
                     <GraphScene
                         data={data}
@@ -1301,7 +1587,7 @@ export default function NotesGraph3D({ noteIds, graph, activeNoteId, onOpenNote,
                     <Share2 size={13} className="text-[var(--accent)]" />
                     <span className="font-semibold text-[var(--text-primary)]">Knowledge Graph</span>
                     <span className="text-[var(--text-tertiary)]">·</span>
-                    <span className="text-[var(--text-secondary)]">{data.nodes.length} notes</span>
+                    <span className="text-[var(--text-secondary)]">{data.nodes.length} {settings.armsLayers ? 'nodes' : 'notes'}</span>
                     <span className="text-[var(--text-tertiary)] flex items-center gap-1"><Link2 size={11} />{data.links.length}</span>
                 </div>
                 <div className="flex items-center gap-1.5 pointer-events-auto">
@@ -1329,6 +1615,16 @@ export default function NotesGraph3D({ noteIds, graph, activeNoteId, onOpenNote,
                                 <div className="flex items-center gap-2 border-r border-[var(--border)]/40 pr-3">
                                     <div className="w-2.5 h-2.5 rounded-full bg-[var(--accent)]" />
                                     <span className="text-[10px] text-[var(--text-secondary)]">All Note Nodes</span>
+                                </div>
+                            )}
+                            {settings.armsLayers && (
+                                <div className="flex items-center gap-3 border-r border-[var(--border)]/40 pr-3">
+                                    {[['Apps', ARMS_LAYER_COLORS.app], ['Routines', ARMS_LAYER_COLORS.routine], ['Skills', ARMS_LAYER_COLORS.skill]].map(([label, color]) => (
+                                        <div key={label} className="flex items-center gap-1.5 shrink-0">
+                                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
+                                            <span className="text-[10px] text-[var(--text-secondary)] font-medium">{label}</span>
+                                        </div>
+                                    ))}
                                 </div>
                             )}
                             <div className="flex items-center gap-2">
@@ -1397,8 +1693,8 @@ export default function NotesGraph3D({ noteIds, graph, activeNoteId, onOpenNote,
                                     }}
                                     className="w-full text-left px-3 py-2 hover:bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs rounded-md transition-colors font-mono flex items-center gap-2"
                                 >
-                                    <span className="text-[var(--accent)] text-[8px]">●</span>
-                                    {n.id}
+                                    <span className="text-[8px]" style={{ color: n.hue || 'var(--accent)' }}>●</span>
+                                    {n.label || n.id}
                                 </button>
                             ))}
                         </div>
@@ -1411,20 +1707,22 @@ export default function NotesGraph3D({ noteIds, graph, activeNoteId, onOpenNote,
                 <div className="absolute bottom-3 right-3 w-80 bg-[var(--bg-secondary)]/95 border border-[var(--border)] rounded-xl p-4 shadow-2xl space-y-3.5 backdrop-blur-md max-h-[calc(100%-8rem)] overflow-y-auto pointer-events-auto z-20 animate-in fade-in slide-in-from-bottom-4 duration-300">
                     <div className="flex justify-between items-start">
                         <div className="min-w-0 pr-2">
-                            <h3 className="text-xs font-bold text-[var(--text-primary)] font-mono truncate flex items-center gap-1.5" title={selectedNodeId}>
-                                <Share2 size={12} className="text-[var(--accent)] shrink-0" />
-                                {selectedNodeId}
+                            <h3 className="text-xs font-bold text-[var(--text-primary)] font-mono truncate flex items-center gap-1.5" title={selectedNode?.label || selectedNodeId}>
+                                <Share2 size={12} className="shrink-0" style={{ color: selectedNode?.hue || 'var(--accent)' }} />
+                                {selectedNode?.label || selectedNodeId}
                             </h3>
-                            <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">Node Details</p>
+                            <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5 capitalize">{selectedNode?.type ? `${selectedNode.type} node` : 'Node Details'}</p>
                         </div>
                         <div className="flex items-center gap-1">
-                            <button
-                                onClick={() => onOpenNote(selectedNodeId)}
-                                title="Open in Editor"
-                                className="p-1 rounded bg-[var(--bg-primary)] hover:bg-[var(--bg-tertiary)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--accent)] transition-all"
-                            >
-                                <ArrowUpRight size={12} />
-                            </button>
+                            {!selectedNode?.type && (
+                                <button
+                                    onClick={() => onOpenNote(selectedNodeId)}
+                                    title="Open in Editor"
+                                    className="p-1 rounded bg-[var(--bg-primary)] hover:bg-[var(--bg-tertiary)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--accent)] transition-all"
+                                >
+                                    <ArrowUpRight size={12} />
+                                </button>
+                            )}
                             <button
                                 onClick={() => setSelectedNodeId(null)}
                                 className="p-1 rounded bg-[var(--bg-primary)] hover:bg-[var(--bg-tertiary)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-rose-400 transition-all"
@@ -1438,7 +1736,7 @@ export default function NotesGraph3D({ noteIds, graph, activeNoteId, onOpenNote,
                         <div className="border-t border-[var(--border)]/65 pt-3">
                             <h4 className="text-[10px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2 flex items-center gap-1.5">
                                 <span className="w-1.5 h-1.5 bg-[var(--accent)] rounded-full" />
-                                Connected Notes ({selectedNodeNeighbors.length})
+                                Connections ({selectedNodeNeighbors.length})
                             </h4>
                             <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
                                 {selectedNodeNeighbors.map((neighbor, idx) => (
@@ -1447,7 +1745,7 @@ export default function NotesGraph3D({ noteIds, graph, activeNoteId, onOpenNote,
                                         onClick={() => setSelectedNodeId(neighbor.id)}
                                         className="w-full text-left text-[11px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] bg-[var(--bg-primary)]/50 hover:bg-[var(--bg-tertiary)] p-2 rounded border border-[var(--border)]/40 hover:border-[var(--accent)]/50 transition-all flex items-center justify-between font-mono"
                                     >
-                                        <span className="truncate pr-2">{neighbor.id}</span>
+                                        <span className="truncate pr-2">{neighbor.label}</span>
                                         <span className="text-[9px] text-[var(--text-tertiary)] uppercase px-1 py-0.5 rounded bg-[var(--bg-secondary)] border border-[var(--border)]/30 shrink-0">
                                             {neighbor.type}
                                         </span>
@@ -1519,7 +1817,7 @@ export default function NotesGraph3D({ noteIds, graph, activeNoteId, onOpenNote,
             {/* Hover chip */}
             {hoveredNode && !selectedNodeId && (
                 <div className="absolute bottom-3 left-3 px-3 py-2 rounded-lg bg-[var(--bg-secondary)]/90 backdrop-blur border border-[var(--border)] text-xs pointer-events-none z-10">
-                    <div className="font-semibold text-[var(--text-primary)] font-mono">{hoveredNode.id}</div>
+                    <div className="font-semibold text-[var(--text-primary)] font-mono">{hoveredNode.label || hoveredNode.id}</div>
                     <div className="text-[10px] text-[var(--text-tertiary)] mt-0.5">
                         {hoveredNode.deg} link{hoveredNode.deg === 1 ? '' : 's'} · click to focus
                     </div>
@@ -1547,6 +1845,17 @@ export default function NotesGraph3D({ noteIds, graph, activeNoteId, onOpenNote,
                         onChange={(v) => set({ dimensions: v })}
                         options={[{ value: '3d', label: '3D' }, { value: '2d', label: '2D' }]}
                     />
+
+                    <Segmented
+                        label="Layout"
+                        value={settings.layout}
+                        onChange={(v) => set({ layout: v })}
+                        options={[{ value: 'force', label: 'Force' }, { value: 'rings', label: 'Rings' }, { value: 'circle', label: 'Circle' }]}
+                    />
+                    {settings.layout !== 'force' && (
+                        <SliderRow label="Ring spin" value={settings.ringSpin} min={0} max={1} step={0.05} onChange={(v) => set({ ringSpin: v })} format={(v) => v.toFixed(2)} />
+                    )}
+                    <ToggleRow label="ARMS layers (apps · routines · skills)" checked={settings.armsLayers} onChange={(v) => set({ armsLayers: v })} />
 
                     <div className="pt-1 border-t border-[var(--border)] space-y-2.5">
                         <div className="text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">Physics</div>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, Component } from 'react';
 import perciLogo from './assets/perci-logo.png';
-import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, ARTIFACT_WINDOW_ID, RESEARCH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID, CLEANMAC_WINDOW_ID, PACKAGES_WINDOW_ID, AGENTMAIL_WINDOW_ID, AUTOFORGE_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID, IPTV_WINDOW_ID, SIMPLEX_WINDOW_ID } from './context/ModeContext';
+import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, ARTIFACT_WINDOW_ID, RESEARCH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID, CLEANMAC_WINDOW_ID, PACKAGES_WINDOW_ID, AGENTMAIL_WINDOW_ID, AUTOFORGE_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID, IPTV_WINDOW_ID, SIMPLEX_WINDOW_ID, PXPIPE_WINDOW_ID } from './context/ModeContext';
 import ModeSwitcher from './components/ModeSwitcher';
 import ChatMode from './components/ChatMode';
 import CodeMode from './components/CodeMode';
@@ -35,6 +35,9 @@ import PackagesMode from './components/PackagesMode';
 import OpenNotebookMode from './components/OpenNotebookMode';
 import IptvMode from './components/IptvMode';
 import SimplexMode from './components/SimplexMode';
+import PxpipeMode from './components/PxpipeMode';
+import ShipyardMode from './components/ShipyardMode';
+import PerciPet from './components/PerciPet';
 import { SettingsModal } from './components/SettingsModal';
 import DesktopHost from './components/windows/DesktopHost';
 import Dock from './components/windows/Dock';
@@ -589,6 +592,7 @@ function AppContent() {
             case MODES.STUDIOOS: return <StudioOSMode />;
             case MODES.PROJECTS: return <ProjectsMode />;
             case MODES.ENSEMBLE: return <EnsembleMode />;
+            case MODES.SHIPYARD: return <ShipyardMode openClawStatus={openClawStatus} />;
             case MODES.MISSION:
                 return (
                     <MissionControl
@@ -641,6 +645,7 @@ function AppContent() {
             case OPEN_NOTEBOOK_WINDOW_ID: return <OpenNotebookMode />;
             case IPTV_WINDOW_ID: return <IptvMode />;
             case SIMPLEX_WINDOW_ID: return <SimplexMode />;
+            case PXPIPE_WINDOW_ID: return <PxpipeMode />;
             default:
                 // PWA shortcut windows: id starts with 'pwa_'
                 if (typeof modeId === 'string' && modeId.startsWith('pwa_')) {
@@ -1165,6 +1170,7 @@ function AppContent() {
 
                     <DesktopHost renderContent={renderWindowContent} />
                     <Dock onOpenSettings={() => setIsSettingsOpen(true)} onAutoHideChange={setDockAutoHide} />
+                    <PerciPet openClawStatus={openClawStatus} />
 
                     <ModeGuideModal isOpen={showModeGuide} onClose={() => setShowModeGuide(false)} />
                     <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />

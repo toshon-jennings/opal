@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Key, Globe, RefreshCw, ChevronDown, Check, Wifi, WifiOff, User, ScrollText, Search, Server, Plus, Trash2, Monitor, Moon, Sun, Bot, Database, Keyboard, Palette } from 'lucide-react';
+import { X, Key, Globe, RefreshCw, ChevronDown, Check, Wifi, WifiOff, User, ScrollText, Search, Server, Plus, Trash2, Monitor, Moon, Sun, Bot, Database, Keyboard, Palette, Zap, ExternalLink } from 'lucide-react';
 import { useChat } from '../context/ChatContext';
-import { useMode } from '../context/ModeContext';
+import { useMode, PXPIPE_WINDOW_ID } from '../context/ModeContext';
 import { useTheme } from '../context/ThemeContext';
 
 import openclawLogo from '../assets/openclaw-color.png';
 import TasteSkillDial from './TasteSkillDial';
+import { isPxpipeEnabled, setPxpipeEnabled, checkPxpipeAlive, PXPIPE_ORIGIN } from '../lib/pxpipe';
 
 const LOCAL_IMAGE_PATHS = {
     openclaw: openclawLogo,
@@ -94,6 +95,7 @@ export function SettingsModal({ isOpen, onClose }) {
         setCycleOrder,
         cycleScope,
         setCycleScope,
+        openWindow,
     } = useMode();
     const { themeMode, setThemeMode, resolvedTheme } = useTheme();
 
@@ -108,6 +110,8 @@ export function SettingsModal({ isOpen, onClose }) {
     const [isDiscoveringProviders, setIsDiscoveringProviders] = useState(false);
     const [startingJanModel, setStartingJanModel] = useState(null);
     const [setupMessage, setSetupMessage] = useState('');
+    const [pxpipeOn, setPxpipeOn] = useState(() => isPxpipeEnabled());
+    const [pxpipeAlive, setPxpipeAlive] = useState(null);
 
     // Local OpenClaw Gateway Config & Sandbox/Dreaming States
     const [localOpenClawConfig, setLocalOpenClawConfig] = useState(null);
@@ -405,6 +409,17 @@ export function SettingsModal({ isOpen, onClose }) {
             loadProviderDiscovery();
         }
     }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    useEffect(() => {
+        if (!isOpen) return undefined;
+        setPxpipeOn(isPxpipeEnabled());
+        setPxpipeAlive(null);
+        let cancelled = false;
+        checkPxpipeAlive().then(alive => {
+            if (!cancelled) setPxpipeAlive(alive);
+        });
+        return () => { cancelled = true; };
+    }, [isOpen]);
 
     if (!isOpen) return null;
 
@@ -1355,6 +1370,84 @@ export function SettingsModal({ isOpen, onClose }) {
                                 </div>
                             </div>
                         )}
+                    </Section>
+
+                    <Section title="pxpipe · Token Compression" icon={Zap} defaultOpen={false}>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                            {[
+                                {
+                                    id: false,
+                                    label: 'Off',
+                                    detail: 'Anthropic requests go directly to api.anthropic.com.',
+                                },
+                                {
+                                    id: true,
+                                    label: 'On',
+                                    detail: 'Route Anthropic requests through the local pxpipe proxy — bulky context is rendered as images to cut input tokens.',
+                                },
+                            ].map(option => {
+                                const selected = pxpipeOn === option.id;
+                                return (
+                                    <button
+                                        key={String(option.id)}
+                                        type="button"
+                                        onClick={() => {
+                                            setPxpipeEnabled(option.id);
+                                            setPxpipeOn(option.id);
+                                        }}
+                                        className={`rounded-xl border p-3.5 text-left transition-colors ${
+                                            selected
+                                                ? 'border-[var(--accent)] bg-[var(--accent)]/6'
+                                                : 'border-[var(--border)] bg-[var(--bg-tertiary)]/40 hover:bg-[var(--bg-hover)]'
+                                        }`}
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div>
+                                                <div className="text-sm font-semibold text-[var(--text-primary)]">{option.label}</div>
+                                                <p className="mt-1 text-xs text-[var(--text-tertiary)]">{option.detail}</p>
+                                            </div>
+                                            {selected && (
+                                                <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[var(--accent)] text-white">
+                                                    <Check size={12} />
+                                                </span>
+                                            )}
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-tertiary)]/30 p-4 space-y-2">
+                            <div className="flex items-center gap-2 text-xs">
+                                {pxpipeAlive ? (
+                                    <Wifi size={13} className="text-emerald-500" />
+                                ) : (
+                                    <WifiOff size={13} className="text-[var(--text-tertiary)]" />
+                                )}
+                                <span className="text-[var(--text-secondary)]">
+                                    {pxpipeAlive === null
+                                        ? 'Checking for the pxpipe proxy…'
+                                        : pxpipeAlive
+                                            ? `Proxy running — dashboard at ${PXPIPE_ORIGIN}`
+                                            : 'Proxy not detected. Start it with: npx pxpipe-proxy'}
+                                </span>
+                            </div>
+                            {pxpipeAlive && (
+                                <button
+                                    type="button"
+                                    onClick={() => { openWindow(PXPIPE_WINDOW_ID); }}
+                                    className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--accent)] hover:text-[var(--accent-hover)] transition-colors"
+                                >
+                                    <ExternalLink size={12} />
+                                    Open Dashboard
+                                </button>
+                            )}
+                            <p className="text-[11px] text-[var(--text-tertiary)]">
+                                Compression only applies to models pxpipe allowlists (Fable 5 by default); other
+                                Anthropic models pass through byte-identical. Imaged context is lossy for byte-exact
+                                strings such as IDs and hashes — recent turns always stay text. If the proxy is
+                                unreachable, Perci falls back to the direct API automatically.
+                            </p>
+                        </div>
                     </Section>
 
                     {/* GitHub access token (not a model provider) */}

@@ -26,6 +26,7 @@
       "output": "dist_electron"
     },
     "icon": "public/perci-icon.png",
+    "npmRebuild": false,
     "files": [
       "dist/**/*",
       "electron/**/*",
@@ -44,12 +45,14 @@
     "win": {
       "target": [
         "nsis"
-      ]
+      ],
+      "icon": "public/perci-icon.ico"
     },
     "linux": {
       "target": [
         "AppImage"
-      ]
+      ],
+      "icon": "public/perci-icon.png"
     },
     "publish": [
       {

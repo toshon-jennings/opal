@@ -22,7 +22,7 @@ import { Copy, Check } from 'lucide-react';
 import PerciMascot from './PerciMascot';
 import { PermissionsDropdown } from './PermissionsDropdown';
 import { CavemanDropdown } from './CavemanDropdown';
-import { cavemanDirective } from '../lib/caveman';
+import { cavemanDirective, cavemanReminder } from '../lib/caveman';
 import { PonytailDropdown } from './PonytailDropdown';
 import { ponytailDirective } from '../lib/ponytail';
 import { tasteDirective } from '../lib/taste';
@@ -640,6 +640,17 @@ function ChatMode() {
         setPonytailLevel(level);
         writeStringStorage('ponytail_level_chat', level);
     };
+
+    useEffect(() => {
+        const handleStorage = () => {
+            setCavemanLevel(readStringStorage('caveman_level_chat', 'off'));
+            setPonytailLevel(readStringStorage('ponytail_level_chat', 'off'));
+        };
+        window.addEventListener('storage', handleStorage);
+        // Sync in case hydration completed between render and effect
+        handleStorage();
+        return () => window.removeEventListener('storage', handleStorage);
+    }, []);
     const [tasteConfig, setTasteConfig] = useState(() => {
         try {
             const stored = readStringStorage('perci_taste_config', '');
@@ -854,21 +865,12 @@ function ChatMode() {
                 fullTextContent += `\n\n[Local runtime fact — no web search needed]\n${searchPlan.directAnswer}\nAnswer the user's question directly using this fact, and briefly mention that no web search was necessary because it comes from the device's clock/calendar.`;
             }
 
+            const plannerSaysNoSearch = searchPlan?.intent === 'no_search';
             const planWantsSearch = Boolean(searchPlan && !['local_runtime_fact', 'no_search'].includes(searchPlan.intent));
-            const shouldUseSearch = !isLocalRuntimeFact && (isSearchEnabled || planWantsSearch);
-
-            // User explicitly enabled web search but the planner saw no need: honor the
-            // toggle with a general web search (local runtime facts are still answered directly).
-            if (shouldUseSearch && !isLocalRuntimeFact && (!searchPlan || searchPlan.intent === 'no_search')) {
-                searchPlan = {
-                    intent: 'web_search',
-                    reason: 'User enabled web search',
-                    searchQueries: [],
-                    freshness: 'any',
-                    expectedSourceTypes: [],
-                    directAnswer: null
-                };
-            }
+            // If search is enabled in the UI but the planner explicitly marks this as
+            // conversational/no-search, trust the planner and skip web lookup.
+            // Only force search from the toggle when planning failed entirely.
+            const shouldUseSearch = !isLocalRuntimeFact && !plannerSaysNoSearch && (planWantsSearch || (isSearchEnabled && !searchPlan));
 
             if (shouldUseSearch && !canUseLiveWebSearch && !isDeepResearch) {
                 addMessage('assistant', 'This question needs web search, but no live web provider is available. Fully restart the Perci desktop dev app for local no-key search, or use OpenAI/Anthropic with an API key for native web search.');
@@ -1085,16 +1087,22 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                 fullTextContent += `\n\nCurrent local date: ${currentDate}\n\nContext from Web Search:\n${context}\n\nUse the web-search context above as a reference for factual claims. Cite sources inline as [1], [2], etc. If the search context doesn't cover the user's question, answer from your own knowledge — just be clear what's from search and what's not.`;
             }
 
+            let finalUserText = fullTextContent;
+            const reminder = cavemanReminder(cavemanLevel);
+            if (reminder) {
+                finalUserText += reminder;
+            }
+
             if (imageAttachments.length > 0 && supportsImages) {
                 userContent = [
-                    { type: 'text', text: fullTextContent },
+                    { type: 'text', text: finalUserText },
                     ...imageAttachments.map(img => ({
                         type: 'image_url',
                         image_url: { url: img.content }
                     }))
                 ];
             } else {
-                userContent = fullTextContent;
+                userContent = finalUserText;
             }
 
             messagesWithContext.push({
