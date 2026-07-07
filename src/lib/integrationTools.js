@@ -1,3 +1,5 @@
+import { lookupNotes } from './brain';
+
 const DEFAULT_MAX_RESULTS = 10;
 
 function clampMaxResults(value, fallback = DEFAULT_MAX_RESULTS) {
@@ -170,7 +172,22 @@ export const INTEGRATION_TOOLS = [
     }
 ];
 
+const NOTES_TOOLS = [
+    {
+        name: 'notes_lookup',
+        description: 'Look up the user\'s personal Perci Notes vault through a local deterministic index. Returns only the single most relevant note section (never whole files) plus runner-up note titles.',
+        parameters: {
+            query: 'Topic or question to find in the notes.',
+            note: 'Optional exact note title to read directly instead of searching.'
+        }
+    }
+];
+
 const WRITE_TOOL_NAMES = new Set(['github_create_issue']);
+
+function hasNotesVault() {
+    return typeof window !== 'undefined' && Boolean(window.electron?.listFiles);
+}
 
 export function getIntegrationTools({ allowWrites = true, apiKeys = null } = {}) {
     const timesfmTools = [
@@ -196,7 +213,7 @@ export function getIntegrationTools({ allowWrites = true, apiKeys = null } = {})
         ? (apiKeys.github ? INTEGRATION_TOOLS : [])
         : INTEGRATION_TOOLS;
 
-    const availableTools = [...githubTools, ...timesfmTools];
+    const availableTools = [...githubTools, ...timesfmTools, ...(hasNotesVault() ? NOTES_TOOLS : [])];
 
     return allowWrites
         ? availableTools
@@ -210,11 +227,13 @@ export function hasConfiguredIntegrationTools(apiKeys = {}) {
 export function buildIntegrationToolsPrompt(apiKeys = {}) {
     const enabled = ['TimesFM (Local)'];
     if (apiKeys.github) enabled.push('GitHub');
+    if (hasNotesVault()) enabled.push('Perci Notes');
 
     return [
         `External integration tools: ${enabled.length ? enabled.join('; ') : 'none configured'}.`,
         'Use TimesFM tools (timesfm_forecast, timesfm_plot) when the user asks for time-series forecasting, predictions, or trend analysis.',
         'Use GitHub tools when the user asks for repository, issue, pull request, or GitHub code information.',
+        'Use notes_lookup whenever the user references their notes or personal knowledge base ("my notes", "what did I write about…") — it returns only the relevant section, so prefer it over asking the user to paste note content.',
         'If the GitHub token is missing, tell the user it needs to be configured in Settings instead of guessing.',
         'For external write actions, confirm the intended change in your final response.'
     ].join('\n');
@@ -349,6 +368,8 @@ export async function executeIntegrationTool(name, params = {}, apiKeys = {}) {
             
             return { plot_markdown: (run.output || '').trim() };
         }
+        case 'notes_lookup':
+            return lookupNotes(params);
         default:
             return { error: `Unknown integration tool: "${name}"` };
     }

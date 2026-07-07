@@ -1446,6 +1446,7 @@ export default function NotesMode() {
                     <NotesGraph3D
                         noteIds={noteIds}
                         graph={graph}
+                        filesMap={filesMap}
                         activeNoteId={activeNoteId}
                         onOpenNote={(noteId) => {
                             const fileName = findNoteFileById(noteId);

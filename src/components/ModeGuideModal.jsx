@@ -11,6 +11,7 @@ import {
     Hammer,
     MessageSquare,
     ShieldCheck,
+    Ship,
     Sparkles,
     TerminalSquare,
     Users,
@@ -31,6 +32,7 @@ const STATIONS = [
     { id: 'agents', label: 'Agents', icon: Bot, accent: '#4ade80' },
     { id: 'build', label: 'Build', icon: Hammer, accent: '#fb7185' },
     { id: 'mission', label: 'Mission', icon: ActivitySquare, accent: '#60a5fa' },
+    { id: 'shipyard', label: 'Shipyard', icon: Ship, accent: '#f59e0b' },
 ];
 
 const modeCards = [
@@ -95,6 +97,18 @@ const modeCards = [
         ]
     },
     {
+        id: 'shipyard',
+        label: 'Shipyard',
+        icon: Ship,
+        accent: '#f59e0b',
+        summary: 'Best for organizing work into a kanban board, managing project scope, and chatting with the Perci PM agent about your workspace.',
+        details: [
+            'Kanban project board with flow columns, priority tracking, and acceptance criteria.',
+            'Includes the Perci PM agent — a workspace-aware assistant who can see open windows, active runs, and chats.',
+            'GitHub rail: Stage → Commit → Push cards directly, or dispatch to Jules (cloud coding agent) for PRs.'
+        ]
+    },
+    {
         id: 'build',
         label: 'Build',
         icon: Hammer,
@@ -137,7 +151,7 @@ function OrbitHero() {
             className="mgfm-orbit"
             viewBox="0 0 720 300"
             role="img"
-            aria-label="Perci Modes loop: a central Perci core orbited by six modes — Chat, Cowork, Code, Agents, Build, and Mission."
+            aria-label="Perci Modes loop: a central Perci core orbited by seven modes — Chat, Cowork, Code, Agents, Build, Mission, and Shipyard."
         >
             <defs>
                 <radialGradient id="mgfm-core" cx="50%" cy="42%" r="65%">
@@ -357,7 +371,7 @@ export function ModeGuideModal({ isOpen, onClose }) {
                         <Eyebrow>Operator&rsquo;s manual</Eyebrow>
                         <h2 id="mgfm-title" className="mgfm-title">Perci Modes</h2>
                         <p className="mgfm-subtitle">
-                            Six specialized surfaces optimized for conversation, execution, code editing, CLI agent routing, generated preview loops, and validation.
+                            Seven specialized surfaces optimized for conversation, execution, code editing, CLI agent routing, kanban project management, generated preview loops, and validation.
                         </p>
                     </div>
                     <GripHorizontal size={15} className="mgfm-grip" aria-hidden="true" />
@@ -394,7 +408,7 @@ export function ModeGuideModal({ isOpen, onClose }) {
                                 id="overview"
                                 no="01"
                                 title="What the modes are"
-                                lede="Six interaction decks, each built to optimize a specific part of your project lifecycle."
+                                lede="Seven interaction decks, each built to optimize a specific part of your project lifecycle."
                                 refMap={sectionRefs}
                             >
                                 <div className="mgfm-hero">
@@ -418,8 +432,8 @@ export function ModeGuideModal({ isOpen, onClose }) {
                             <Section
                                 id="surfaces"
                                 no="02"
-                                title="The six surfaces"
-                                lede="Detailed breakdown of Chat, Cowork, Code, Agents, Mission, and Build."
+                                title="The seven surfaces"
+                                lede="Detailed breakdown of Chat, Cowork, Code, Agents, Mission, Shipyard, and Build."
                                 refMap={sectionRefs}
                             >
                                 <div className="mgfm-surfaces">
@@ -457,13 +471,21 @@ export function ModeGuideModal({ isOpen, onClose }) {
                                     <li className="mgfm-step">
                                         <span className="mgfm-step-no">1</span>
                                         <div>
-                                            <div className="mgfm-step-name">Brainstorm & Chat</div>
-                                            <p className="mgfm-step-body">Start in <strong>Chat</strong> if you have a quick question, need to flesh out a plan, or want lightweight conversational help.</p>
+                                            <div className="mgfm-step-name">Plan & Organize the Board</div>
+                                            <p className="mgfm-step-body">Start in <strong>Shipyard</strong> to lay out the work as cards on a kanban board. Break tasks into vertical slices, set priorities, and chat with Perci PM about your workspace.</p>
                                         </div>
                                         <ArrowRight size={14} className="mgfm-step-arrow" />
                                     </li>
                                     <li className="mgfm-step">
                                         <span className="mgfm-step-no">2</span>
+                                        <div>
+                                            <div className="mgfm-step-name">Brainstorm & Chat</div>
+                                            <p className="mgfm-step-body">Use <strong>Chat</strong> if you have a quick question, need to flesh out a plan, or want lightweight conversational help.</p>
+                                        </div>
+                                        <ArrowRight size={14} className="mgfm-step-arrow" />
+                                    </li>
+                                    <li className="mgfm-step">
+                                        <span className="mgfm-step-no">3</span>
                                         <div>
                                             <div className="mgfm-step-name">Execute Tasks</div>
                                             <p className="mgfm-step-body">Move to <strong>Cowork</strong> when the task requires autonomous step-by-step file inspection, editing, and tool usage.</p>
@@ -471,7 +493,7 @@ export function ModeGuideModal({ isOpen, onClose }) {
                                         <ArrowRight size={14} className="mgfm-step-arrow" />
                                     </li>
                                     <li className="mgfm-step">
-                                        <span className="mgfm-step-no">3</span>
+                                        <span className="mgfm-step-no">4</span>
                                         <div>
                                             <div className="mgfm-step-name">Code Directly</div>
                                             <p className="mgfm-step-body">Use <strong>Code</strong> when you want to work side-by-side with an editor, staying close to active files and editor state.</p>
@@ -479,7 +501,7 @@ export function ModeGuideModal({ isOpen, onClose }) {
                                         <ArrowRight size={14} className="mgfm-step-arrow" />
                                     </li>
                                     <li className="mgfm-step">
-                                        <span className="mgfm-step-no">4</span>
+                                        <span className="mgfm-step-no">5</span>
                                         <div>
                                             <div className="mgfm-step-name">Dispatch CLI Agents</div>
                                             <p className="mgfm-step-body">Use <strong>Agents</strong> if you want to run a dedicated external coding CLI like Claude Code, Aider, or Copilot on a job.</p>
@@ -487,7 +509,7 @@ export function ModeGuideModal({ isOpen, onClose }) {
                                         <ArrowRight size={14} className="mgfm-step-arrow" />
                                     </li>
                                     <li className="mgfm-step">
-                                        <span className="mgfm-step-no">5</span>
+                                        <span className="mgfm-step-no">6</span>
                                         <div>
                                             <div className="mgfm-step-name">Generate & Preview UI</div>
                                             <p className="mgfm-step-body">Choose <strong>Build</strong> when you are generating web apps or components and need an instant visual preview feedback loop.</p>
@@ -495,7 +517,7 @@ export function ModeGuideModal({ isOpen, onClose }) {
                                         <ArrowRight size={14} className="mgfm-step-arrow" />
                                     </li>
                                     <li className="mgfm-step">
-                                        <span className="mgfm-step-no">6</span>
+                                        <span className="mgfm-step-no">7</span>
                                         <div>
                                             <div className="mgfm-step-name">Supervise & Validate</div>
                                             <p className="mgfm-step-body">Check in on <strong>Mission</strong> to verify runs, review terminal histories, check validation status, or capture memories.</p>
@@ -504,7 +526,7 @@ export function ModeGuideModal({ isOpen, onClose }) {
                                 </ol>
                                 <div className="mgfm-callout mgfm-callout--quiet">
                                     <Sparkles size={16} />
-                                    <span><strong>Quick Triage:</strong> Chat is for talking. Cowork, Code, Agents, and Build are for producing work. Mission is for reviewing and auditing that work.</span>
+                                    <span><strong>Quick Triage:</strong> Shipyard is for planning and tracking. Chat is for talking. Cowork, Code, Agents, and Build are for producing work. Mission is for reviewing and auditing that work.</span>
                                 </div>
                             </Section>
 
@@ -518,7 +540,7 @@ export function ModeGuideModal({ isOpen, onClose }) {
                             >
                                 <div className="mgfm-fields">
                                     <FieldRow icon={TerminalSquare} term="Execution modes">
-                                        Chat, Cowork, Code, Agents, and Build are primarily work-producing surfaces. They are where you type prompts, write code, run compilers, and generate artifacts.
+                                        Chat, Cowork, Code, Agents, and Build are primarily work-producing surfaces. Shipyard is the planning and organizing layer where you lay out cards on a kanban board and track progress.
                                     </FieldRow>
                                     <FieldRow icon={ActivitySquare} term="Oversight (Mission)">
                                         Mission is the operational deck. It does not produce files itself; instead, it observes what happens in the other modes. Run statuses, command logs, memory suggestions, and system checks all gather in Mission so you can evaluate the results.
@@ -539,8 +561,8 @@ export function ModeGuideModal({ isOpen, onClose }) {
                                 refMap={sectionRefs}
                             >
                                 <div className="mgfm-fields">
-                                    <FieldRow icon={Users} term="Cowork vs Agents vs Code">
-                                        Use <strong>Cowork</strong> for Perci&rsquo;s native, browser-driven agentic flow. Use <strong>Code</strong> when you want to edit files with active editor context. Use <strong>Agents</strong> when you want to dispatch a specific named external CLI agent (e.g., Claude Code) to run a background job.
+                                    <FieldRow icon={Users} term="Cowork vs Agents vs Code vs Shipyard">
+                                        Use <strong>Shipyard</strong> to plan and track work on a kanban board with the Perci PM agent. Use <strong>Cowork</strong> for Perci&rsquo;s native, browser-driven agentic flow. Use <strong>Code</strong> when you want to edit files with active editor context. Use <strong>Agents</strong> when you want to dispatch a specific named external CLI agent (e.g., Claude Code) to run a background job.
                                     </FieldRow>
                                     <FieldRow icon={Hammer} term="Build vs Code">
                                         Use <strong>Code</strong> when you are navigating or manually modifying a complex codebase. Use <strong>Build</strong> when you want the AI to write a self-contained component or app, spin it up, and display a live visual preview frame.
@@ -559,27 +581,34 @@ export function ModeGuideModal({ isOpen, onClose }) {
                                 <ol className="mgfm-ladder">
                                     <li className="mgfm-rung">
                                         <span className="mgfm-rung-no">01</span>
+                                        <span className="mgfm-rung-dot" style={{ background: '#f59e0b' }} />
+                                        <span className="mgfm-rung-when">Plan & Organize</span>
+                                        <ArrowRight size={13} className="mgfm-rung-arrow" />
+                                        <span className="mgfm-rung-then">Use Shipyard to lay out the kanban board</span>
+                                    </li>
+                                    <li className="mgfm-rung">
+                                        <span className="mgfm-rung-no">02</span>
                                         <span className="mgfm-rung-dot" style={{ background: '#f97316' }} />
-                                        <span className="mgfm-rung-when">Brainstorming & Planning</span>
+                                        <span className="mgfm-rung-when">Brainstorming & Research</span>
                                         <ArrowRight size={13} className="mgfm-rung-arrow" />
                                         <span className="mgfm-rung-then">Use Chat to map the architecture</span>
                                     </li>
                                     <li className="mgfm-rung">
-                                        <span className="mgfm-rung-no">02</span>
+                                        <span className="mgfm-rung-no">03</span>
                                         <span className="mgfm-rung-dot" style={{ background: '#22d3ee' }} />
                                         <span className="mgfm-rung-when">Autonomous Implementation</span>
                                         <ArrowRight size={13} className="mgfm-rung-arrow" />
                                         <span className="mgfm-rung-then">Use Cowork to run multi-file edits</span>
                                     </li>
                                     <li className="mgfm-rung">
-                                        <span className="mgfm-rung-no">03</span>
+                                        <span className="mgfm-rung-no">04</span>
                                         <span className="mgfm-rung-dot" style={{ background: '#fb7185' }} />
                                         <span className="mgfm-rung-when">Interface & UI Iteration</span>
                                         <ArrowRight size={13} className="mgfm-rung-arrow" />
                                         <span className="mgfm-rung-then">Use Build to polish the visual outcome</span>
                                     </li>
                                     <li className="mgfm-rung">
-                                        <span className="mgfm-rung-no">04</span>
+                                        <span className="mgfm-rung-no">05</span>
                                         <span className="mgfm-rung-dot" style={{ background: '#60a5fa' }} />
                                         <span className="mgfm-rung-when">Supervision & Validation</span>
                                         <ArrowRight size={13} className="mgfm-rung-arrow" />

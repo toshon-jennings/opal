@@ -10,7 +10,7 @@ import { SettingsModal } from './SettingsModal';
 import { Settings, Plus, Send, Code, Terminal, Play, Layout, Users, ChevronRight, Save, Sidebar, Globe, RefreshCw, X, FileCode, MessageSquare, History, Search, FolderOpen, Eye, EyeOff, Columns2 } from 'lucide-react';
 import { PermissionsDropdown } from './PermissionsDropdown';
 import { CavemanDropdown } from './CavemanDropdown';
-import { cavemanDirective } from '../lib/caveman';
+import { cavemanDirective, cavemanReminder } from '../lib/caveman';
 import { PonytailDropdown } from './PonytailDropdown';
 import { ponytailDirective } from '../lib/ponytail';
 import { tasteDirective } from '../lib/taste';
@@ -103,6 +103,16 @@ export default function CodeMode() {
         setPonytailLevel(level);
         writeStringStorage('ponytail_level_code', level);
     };
+
+    useEffect(() => {
+        const handleStorage = () => {
+            setCavemanLevel(readStringStorage('caveman_level_code', 'off'));
+            setPonytailLevel(readStringStorage('ponytail_level_code', 'off'));
+        };
+        window.addEventListener('storage', handleStorage);
+        handleStorage();
+        return () => window.removeEventListener('storage', handleStorage);
+    }, []);
     const [tasteConfig, setTasteConfig] = useState(() => {
         try {
             const stored = readStringStorage('perci_taste_config', '');
@@ -407,6 +417,7 @@ export default function CodeMode() {
             const useToolsPrompt = 'Use tools proactively to inspect the codebase, read files before editing them, and verify your changes.';
 
             const cavemanPrompt = cavemanDirective(cavemanLevel).trim();
+            const reminder = cavemanReminder(cavemanLevel);
             const ponytailPrompt = ponytailDirective(ponytailLevel).trim();
             const activeModePrompt = [cavemanPrompt, ponytailPrompt].filter(Boolean).join('\n\n');
             const modePriorityPrompt = activeModePrompt
@@ -426,7 +437,20 @@ export default function CodeMode() {
                 ...(tasteDirective(tasteConfig).trim() ? [tasteDirective(tasteConfig).trim()] : []),
                 modePriorityPrompt
             ].filter(Boolean).join('\n\n');
+            
             const messagesForLLM = [{ role: 'system', content: systemPrompt }, ...updatedMessages];
+            
+            // Append the caveman reminder ONLY to the last user message sent to the LLM
+            if (reminder && messagesForLLM.length > 0) {
+                const lastMsgIndex = messagesForLLM.length - 1;
+                const lastMsg = messagesForLLM[lastMsgIndex];
+                if (lastMsg && lastMsg.role === 'user' && typeof lastMsg.content === 'string') {
+                    messagesForLLM[lastMsgIndex] = {
+                        ...lastMsg,
+                        content: lastMsg.content + reminder
+                    };
+                }
+            }
             appendMissionRunEvent(missionRunId, {
                 type: 'info',
                 title: 'Durable memory loaded',

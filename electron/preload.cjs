@@ -97,6 +97,11 @@ contextBridge.exposeInMainWorld('electron', {
   lighthouseKillProcess: (pid) => ipcRenderer.invoke('lighthouse:kill-process', { pid }),
   lighthouseFindReferences: (oldPort, newPort) => ipcRenderer.invoke('lighthouse:find-references', { oldPort, newPort }),
   lighthouseApplyFix: (filePath, lineNumber, newLine, oldLine) => ipcRenderer.invoke('lighthouse:apply-fix', { filePath, lineNumber, newLine, oldLine }),
+  // Localhost Manager — launchctl wrappers
+  localhostEnableAutostart: (opts) => ipcRenderer.invoke('localhost:enable-autostart', opts),
+  localhostDisableAutostart: (opts) => ipcRenderer.invoke('localhost:disable-autostart', opts),
+  localhostStartNow: (opts) => ipcRenderer.invoke('localhost:start-now', opts),
+  getHomeDir: () => ipcRenderer.invoke('get-home-dir'),
   // G-Dash (Google Workspace dashboard) — BYO OAuth client; tokens stay in main.
   gdashStatus: () => ipcRenderer.invoke('gdash:status'),
   gdashConnect: () => ipcRenderer.invoke('gdash:connect'),

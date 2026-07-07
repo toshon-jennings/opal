@@ -33,6 +33,7 @@ export const MODES = {
     STUDIOOS: 'studioos', // StudioOS Lite — view/manage StudioOS workspace
     PROJECTS: 'projects', // Project-based terminal command center
     ENSEMBLE: 'ensemble', // Multi-model deliberation (panel → judge → synthesis)
+    SHIPYARD: 'shipyard', // AI project manager — kanban board with GitHub rail + Jules
 };
 
 // Non-mode windows (surfaces that open as windows but aren't in the MODES enum).
@@ -54,6 +55,7 @@ export const AUTOFORGE_WINDOW_ID = 'autoforge';
 export const OPEN_NOTEBOOK_WINDOW_ID = 'open-notebook';
 export const IPTV_WINDOW_ID = 'iptv';
 export const SIMPLEX_WINDOW_ID = 'simplex';
+export const PXPIPE_WINDOW_ID = 'pxpipe';
 
 // Titles shown in window headers and dock chips for each windowed surface.
 export const WINDOW_TITLES = {
@@ -77,6 +79,7 @@ export const WINDOW_TITLES = {
     [MODES.STUDIOOS]: 'StudioOS',
     [MODES.PROJECTS]: 'Git Shells',
     [MODES.ENSEMBLE]: 'Ensemble',
+    [MODES.SHIPYARD]: 'Shipyard',
     [OPENCLAW_WINDOW_ID]: 'OpenClaw',
     [HERMES_WINDOW_ID]: 'Hermes',
     [YOUTUBE_WINDOW_ID]: 'YouTube',
@@ -95,12 +98,13 @@ export const WINDOW_TITLES = {
     [OPEN_NOTEBOOK_WINDOW_ID]: 'Open Notebook',
     [IPTV_WINDOW_ID]: 'IPTV',
     [SIMPLEX_WINDOW_ID]: 'SimpleX',
+    [PXPIPE_WINDOW_ID]: 'pxpipe',
 };
 
 // Windows whose content is an embedded <webview>/<iframe>; CSS transforms can make
 // embedded frames flicker (and reload), so these minimize with a plain fade instead
 // of the whirlpool spin.
-const NO_WHIRLPOOL_IDS = new Set([OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, AUTOFORGE_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID, SIMPLEX_WINDOW_ID]);
+const NO_WHIRLPOOL_IDS = new Set([OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, AUTOFORGE_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID, SIMPLEX_WINDOW_ID, PXPIPE_WINDOW_ID]);
 
 const WINDOW_DEFAULTS = { width: 960, height: 640, minWidth: 420, minHeight: 300, cascade: 34 };
 const DOCK_RESERVED_HEIGHT = 64;

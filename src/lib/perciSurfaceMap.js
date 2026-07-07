@@ -12,6 +12,7 @@ import {
     SKILLS_WINDOW_ID,
     OPEN_NOTEBOOK_WINDOW_ID,
     SIMPLEX_WINDOW_ID,
+    PXPIPE_WINDOW_ID,
 } from '../context/ModeContext';
 
 export const SURFACE_ROUTE_TYPES = {
@@ -162,6 +163,7 @@ export const PERCI_SURFACE_STATIONS = [
     { id: 'ensemble', targetId: MODES.ENSEMBLE, label: 'Ensemble', kind: 'native', districtId: 'creation-yard', x: 385, y: 570, description: 'Multi-model panel, judge, and synthesis surface.' },
     { id: 'cowork', targetId: MODES.COWORK, label: 'Cowork', kind: 'native', districtId: 'creation-yard', x: 495, y: 570, description: 'Session-based deep work with task handoffs.' },
     { id: 'code', targetId: MODES.CODE, label: 'Code', kind: 'native', districtId: 'creation-yard', x: 605, y: 570, description: 'Repository-aware coding assistant surface.' },
+    { id: 'shipyard', targetId: MODES.SHIPYARD, label: 'Shipyard', kind: 'native', districtId: 'creation-yard', x: 275, y: 710, description: 'AI project manager: kanban board, GitHub rail, and Jules dispatch.' },
     { id: 'build', targetId: MODES.BUILD, label: 'Build', kind: 'native', districtId: 'creation-yard', x: 385, y: 710, description: 'Project generation and shipping surface.' },
     { id: 'compare', targetId: COMPARE_WINDOW_ID, label: 'Compare', kind: 'utility', districtId: 'creation-yard', x: 495, y: 710, description: 'Prompt comparison and multi-output review window.' },
     { id: 'artifacts', targetId: ARTIFACT_WINDOW_ID, label: 'Artifacts', kind: 'utility', districtId: 'creation-yard', x: 605, y: 710, description: 'Generated artifact preview and inspection window.' },
@@ -186,15 +188,16 @@ export const PERCI_SURFACE_STATIONS = [
     { id: 'gdash', targetId: GDASH_WINDOW_ID, label: 'G-Dash', kind: 'system', districtId: 'business-office', x: 610, y: 160, description: 'Google Workspace dashboard surface.' },
     { id: 'open-notebook', targetId: OPEN_NOTEBOOK_WINDOW_ID, label: 'Open Notebook', kind: 'system', districtId: 'local-systems-depot', x: 1070, y: 600, description: 'Dedicated localhost notebook window without address bar.' },
     { id: 'simplex', targetId: SIMPLEX_WINDOW_ID, label: 'SimpleX', kind: 'system', districtId: 'local-systems-depot', x: 890, y: 600, description: 'Sovereign and private chat client running locally.' },
+    { id: 'pxpipe', targetId: PXPIPE_WINDOW_ID, label: 'pxpipe', kind: 'system', districtId: 'local-systems-depot', x: 980, y: 600, description: 'Local token-compression proxy for LLM requests.' },
 ];
 
 export const PERCI_SURFACE_ROUTES = [
-    { id: 'circle-line', type: 'movement', label: 'Circle Line', stationIds: ['dashboard', 'perci-map', 'perci-now', 'perci-desk', 'workspace', 'chat', 'ensemble', 'cowork', 'code', 'git-shells', 'lighthouse', 'mission', 'agents', 'office', 'dashboard'] },
+    { id: 'circle-line', type: 'movement', label: 'Circle Line', stationIds: ['dashboard', 'perci-map', 'perci-now', 'perci-desk', 'workspace', 'chat', 'ensemble', 'cowork', 'code', 'shipyard', 'git-shells', 'lighthouse', 'mission', 'agents', 'office', 'dashboard'] },
     { id: 'workspace-context', type: 'context', label: 'Workspace Context', stationIds: ['notes', 'bars', 'eidos', 'workspace', 'perci-desk', 'mission', 'cowork', 'code', 'git-shells'] },
-    { id: 'agent-rail', type: 'automation', label: 'Agent Rail', stationIds: ['office', 'mission', 'perci-now', 'agents', 'openclaw', 'hermes', 'skills'] },
+    { id: 'agent-rail', type: 'automation', label: 'Agent Rail', stationIds: ['office', 'mission', 'perci-now', 'agents', 'openclaw', 'hermes', 'skills', 'shipyard'] },
     { id: 'build-main', type: 'creation', label: 'Build Main', stationIds: ['chat', 'ensemble', 'compare', 'cowork', 'code', 'build', 'artifacts', 'localhost'] },
     { id: 'research-loop', type: 'research', label: 'Research Loop', stationIds: ['chat', 'research', 'research-results', 'notes', 'workspace'] },
-    { id: 'local-runtime', type: 'runtime', label: 'Runtime Connector', stationIds: ['markitdown', 'localhost', 'git-shells', 'lighthouse', 'openclaw', 'studioos', 'open-notebook', 'klipit'] },
+    { id: 'local-runtime', type: 'runtime', label: 'Runtime Connector', stationIds: ['markitdown', 'localhost', 'git-shells', 'lighthouse', 'openclaw', 'studioos', 'open-notebook', 'klipit', 'pxpipe'] },
     { id: 'governance-line', type: 'governance', label: 'Governance Line', stationIds: ['skills', 'agents', 'mission', 'perci-now', 'eidos', 'notes'] },
     { id: 'expense-line', type: 'expenses', label: 'Expense Line', stationIds: ['bill-board', 'gdash', 'workspace', 'perci-desk', 'notes'] },
 ];

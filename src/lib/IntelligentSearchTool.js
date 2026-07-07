@@ -2,6 +2,7 @@
 // Automatically decides when to search, reformulates queries, and manages citations
 
 import { LLMFactory } from './llm/clients';
+import { tokenizeForRelevance } from './relevance';
 
 const LOCAL_MODEL_PROVIDERS = new Set(['ollama', 'lmstudio', 'jan']);
 
@@ -28,21 +29,6 @@ function resolveRelativeDateQuery(query) {
 
     resolved = resolved.replace(/\btoday'?s?\b/gi, fullDate);
     return resolved;
-}
-
-const RELEVANCE_STOPWORDS = new Set([
-    'the', 'a', 'an', 'of', 'to', 'in', 'on', 'for', 'and', 'or', 'is', 'are', 'was', 'were',
-    'what', 'whats', 'who', 'whos', 'when', 'where', 'how', 'why', 'do', 'does', 'did',
-    'i', 'my', 'me', 'this', 'that', 'with', 'about', 'your', 'you', 'can', 'could', 'would',
-    'please', 'search', 'find', 'tell', 'give', 'show', 'get', 'lookup', 'look', 'up'
-]);
-
-function tokenizeForRelevance(text) {
-    return String(text || '')
-        .toLowerCase()
-        .replace(/[^a-z0-9\s]/g, ' ')
-        .split(/\s+/)
-        .filter(token => token.length > 2 && !RELEVANCE_STOPWORDS.has(token));
 }
 
 // Deterministic detector for facts answerable from the local system clock/calendar.
@@ -177,7 +163,27 @@ export class IntelligentSearchTool {
      * @returns {Object} - { shouldSearch: boolean, reason: string, confidence: number }
      */
     shouldPerformWebSearch(userQuery) {
-        const query = userQuery.toLowerCase();
+        const query = String(userQuery || '').toLowerCase().trim();
+        if (!query) {
+            return {
+                shouldSearch: false,
+                reason: 'Empty message',
+                confidence: 1
+            };
+        }
+
+        // Keep chat-like pings out of web search, even when search is enabled.
+        // These are conversational acknowledgements, not factual lookups.
+        if (
+            /^(hi|hey|hello|yo|sup|what'?s up|you there|you here|are you there|are you here|ping|test|ok|okay)\b/.test(query) ||
+            /^(hi|hey|hello|yo|sup)[!.?]*$/.test(query)
+        ) {
+            return {
+                shouldSearch: false,
+                reason: 'Conversational check-in / greeting',
+                confidence: 0.98
+            };
+        }
 
         // ALWAYS SEARCH indicators (current/recent information)
         const alwaysSearchKeywords = [

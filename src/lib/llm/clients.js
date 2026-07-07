@@ -1,6 +1,8 @@
 // LLM Client Factory with Industry-Standard Thinking Detection
 // Based on Open-WebUI and LobeChat implementations
 
+import { isPxpipeEnabled, PXPIPE_MESSAGES_URL } from '../pxpipe';
+
 // UNIVERSAL Configuration - Works across ALL providers and models
 const THINKING_CONFIG = {
     // Universal standard: <think> tags (de-facto industry standard)
@@ -356,12 +358,22 @@ class BaseClient {
         let content = '';
         // index → { id, name, argumentsStr }
         const acc = {};
+        // Buffer partial SSE lines across reads: a `data:` line split mid-JSON
+        // by a network chunk boundary fails JSON.parse in both halves and gets
+        // silently dropped — eating tool-call fragments (mangled names,
+        // unparseable args) so tools never execute even though the model
+        // believes they did. Mirrors the AnthropicClient stream loop.
+        let buffer = '';
 
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
 
-            for (const line of decoder.decode(value).split('\n')) {
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
                 if (!line.startsWith('data: ') || line === 'data: [DONE]') continue;
                 try {
                     const data = JSON.parse(line.slice(6));
@@ -1185,6 +1197,23 @@ export class OpenRouterClient extends BaseClient {
 
 // ── Anthropic Client ──────────────────────────────────────────────────────────
 // Uses Anthropic's Messages API with streaming. Handles extended thinking blocks.
+
+const ANTHROPIC_MESSAGES_URL = 'https://api.anthropic.com/v1/messages';
+
+// Routes through the local pxpipe proxy when the Settings toggle is on; a
+// dead proxy falls back to the direct API instead of breaking chat.
+async function fetchAnthropicMessages(init) {
+    if (isPxpipeEnabled()) {
+        try {
+            return await fetch(PXPIPE_MESSAGES_URL, init);
+        } catch (err) {
+            if (init.signal?.aborted) throw err;
+            console.warn('[pxpipe] proxy unreachable, using direct Anthropic API', err);
+        }
+    }
+    return fetch(ANTHROPIC_MESSAGES_URL, init);
+}
+
 export class AnthropicClient extends BaseClient {
     async streamChat(messages, onChunk, modelId = 'claude-sonnet-4-5', options = {}) {
         if (!this.apiKey) throw new Error('Anthropic API Key missing');
@@ -1222,7 +1251,7 @@ export class AnthropicClient extends BaseClient {
         };
         if (systemPrompt) body.system = systemPrompt;
 
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
+        const response = await fetchAnthropicMessages({
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1333,7 +1362,7 @@ export class AnthropicClient extends BaseClient {
         const body = { model: modelId, max_tokens: 8192, stream: true, messages: conversation, tools: anthropicTools };
         if (systemPrompt) body.system = systemPrompt;
 
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
+        const response = await fetchAnthropicMessages({
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

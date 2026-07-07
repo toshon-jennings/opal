@@ -256,6 +256,20 @@ export function PerciDeskIcon(props) {
     );
 }
 
+/* Shipyard — kanban columns with a card ready to ship. */
+export function ShipyardIcon(props) {
+    return (
+        <Svg {...props}>
+            <rect x="3.5" y="4" width="5" height="13" rx="1.6" {...shell} />
+            <rect x="10" y="4" width="5" height="9" rx="1.6" {...shell} />
+            <rect x="16.5" y="4" width="4" height="6.5" rx="1.6" {...shell} />
+            <path d="M12.5 16.5v3.5" />
+            <path d="M10.5 18.5l2-2 2 2" />
+            <circle cx="6" cy="8" r="1.1" {...ink} />
+        </Svg>
+    );
+}
+
 /* Ports — radar with sweep wedge and a blip. */
 export function PortsIcon(props) {
     return (

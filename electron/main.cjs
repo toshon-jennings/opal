@@ -4264,6 +4264,14 @@ ipcMain.handle('run-terminal-command', async (event, command) => {
       if (result.error) throw result.error;
       if (result.status !== 0) throw new Error(result.stderr || 'osascript failed');
       return { ok: true, message: `Opened in Terminal: ${trimmed}` };
+    } else if (process.platform === 'win32') {
+      // Windows: open in a new Command Prompt window
+      const child = spawn('cmd.exe', ['/c', 'start', '"Perci Terminal"', 'cmd.exe', '/k', trimmed], {
+        detached: true,
+        stdio: 'ignore',
+      });
+      child.unref();
+      return { ok: true, message: `Opened in Command Prompt: ${trimmed}` };
     } else {
       // Linux: try common terminal emulators
       const termCmd = process.env.TERMINAL || 'x-terminal-emulator';
@@ -4321,6 +4329,95 @@ ipcMain.handle('run-local-command', async (event, { command, args = [], cwd } = 
     child.on('error', err => finish({ error: err.message, output: stdout, stderr, exitCode: null }));
     child.on('close', exitCode => finish({ output: stdout, stderr, exitCode }));
   });
+});
+
+// ── Localhost Manager: launchctl / registry wrappers ────────────────────
+ipcMain.handle('localhost:enable-autostart', async (event, { label, plistContent, plistPath, command, cwd } = {}) => {
+  try {
+    if (process.platform === 'darwin') {
+      await fs.writeFile(plistPath, plistContent, 'utf-8');
+      const { execSync } = require('child_process');
+      execSync(`launchctl load -w "${plistPath}"`, { stdio: 'pipe', timeout: 10000 });
+    } else if (process.platform === 'win32') {
+      // Windows: write to HKCU Run registry key for autostart
+      const { execSync } = require('child_process');
+      const safeLabel = (label || 'perci_app').replace(/[^a-zA-Z0-9_]/g, '_');
+      const exePath = process.execPath;
+      const regCmd = `reg add "HKCU\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run" /v "${safeLabel}" /t REG_SZ /d "\\\\"${exePath}\\\\"" /f`;
+      execSync(regCmd, { stdio: 'pipe', timeout: 10000 });
+    } else if (process.platform === 'linux') {
+      // Linux: create a .desktop file in ~/.config/autostart/
+      const { execSync } = require('child_process');
+      const safeLabel = (label || 'perci_app').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const autostartDir = path.join(require('os').homedir(), '.config', 'autostart');
+      const desktopPath = path.join(autostartDir, `${safeLabel}.desktop`);
+      const desktopContent = [
+        '[Desktop Entry]',
+        'Type=Application',
+        `Name=${label || 'Perci'}`,
+        `Exec=${process.execPath}`,
+        'X-GNOME-Autostart-enabled=true',
+        'Terminal=false',
+        'NoDisplay=true',
+      ].join('\\n');
+      await fs.mkdir(autostartDir, { recursive: true });
+      await fs.writeFile(desktopPath, desktopContent, 'utf-8');
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.stderr?.toString() || err.message };
+  }
+});
+
+ipcMain.handle('localhost:disable-autostart', async (event, { plistPath, label } = {}) => {
+  try {
+    if (process.platform === 'darwin') {
+      const { execSync } = require('child_process');
+      execSync(`launchctl unload -w "${plistPath}"`, { stdio: 'pipe', timeout: 10000, ignoreStderr: true });
+      try { await fs.unlink(plistPath); } catch (_) { /* already gone */ }
+    } else if (process.platform === 'win32') {
+      // Windows: remove from HKCU Run registry key
+      const { execSync } = require('child_process');
+      const safeLabel = (label || 'perci_app').replace(/[^a-zA-Z0-9_]/g, '_');
+      execSync(`reg delete "HKCU\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run" /v "${safeLabel}" /f`, { stdio: 'pipe', timeout: 10000 });
+    } else if (process.platform === 'linux') {
+      // Linux: remove the .desktop file from ~/.config/autostart/
+      const safeLabel = (label || 'perci_app').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const desktopPath = path.join(require('os').homedir(), '.config', 'autostart', `${safeLabel}.desktop`);
+      try { await fs.unlink(desktopPath); } catch (_) { /* already gone */ }
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.stderr?.toString() || err.message };
+  }
+});
+
+ipcMain.handle('localhost:start-now', async (event, { cwd, command } = {}) => {
+  try {
+    const { spawn } = require('child_process');
+    if (process.platform === 'win32') {
+      const child = spawn('cmd.exe', ['/c', command], {
+        cwd: cwd || process.env.USERPROFILE || process.env.HOME,
+        detached: true,
+        stdio: 'ignore',
+      });
+      child.unref();
+    } else {
+      const child = spawn('/bin/bash', ['-c', command], {
+        cwd: cwd || process.env.HOME,
+        detached: true,
+        stdio: 'ignore',
+      });
+      child.unref();
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle('get-home-dir', async () => {
+  return process.env.HOME || require('os').homedir();
 });
 
 ipcMain.handle('list-files', async (event, dirPath) => {
@@ -4393,6 +4490,13 @@ ipcMain.handle('rename-file', async (event, { oldPath, newPath }) => {
 
 function execCmd(cmd, timeout = 10000) {
   try {
+    if (process.platform === 'win32') {
+      return spawnSync('cmd.exe', ['/c', cmd], {
+        timeout,
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+      }).stdout || '';
+    }
     return spawnSync('/bin/sh', ['-c', cmd], {
       timeout,
       encoding: 'utf8',
@@ -4416,8 +4520,44 @@ function normalizeBind(host, family) {
   return host;
 }
 
-// Single lsof pass over TCP+UDP, IPv4+IPv6, all states. Returns { listeners, all }.
+// Windows: parse netstat -ano output into the same shape as lsof parser.
+function scanSocketsWin32() {
+  const output = execCmd('netstat -ano | findstr LISTENING', 15000);
+  const all = [];
+  const lineRe = /^\s*(TCP|UDP)\s+(\S+):(\d+)\s+\S+\s+LISTENING\s+(\d+)/;
+  for (const line of output.split('\n')) {
+    const m = lineRe.exec(line);
+    if (!m) continue;
+    const proto = m[1], bindAddr = m[2], port = parseInt(m[3], 10), pid = parseInt(m[4], 10);
+    if (isNaN(port) || port <= 0 || port > 65535) continue;
+    // Resolve process name from PID (best-effort)
+    let processName = '';
+    try {
+      const tasklist = require('child_process').execSync(`tasklist /FI "PID eq ${pid}" /FO CSV /NH`, { encoding: 'utf8', timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] });
+      const nameMatch = /^"([^"]+)"/.exec(tasklist);
+      if (nameMatch) processName = nameMatch[1].replace(/\.exe$/i, '');
+    } catch { /* pid may have exited */ }
+    all.push({
+      pid: pid || null, process_name: processName,
+      protocol: proto, family: bindAddr.includes(':') ? 'IPv6' : 'IPv4',
+      bind_address: bindAddr, port,
+      state: 'LISTEN', conn: false,
+    });
+  }
+  const listeners = all; // netstat already filters to LISTENING
+  const seen = new Set();
+  const deduped = listeners.filter(s => {
+    const k = `${s.port}-${s.protocol}-${s.bind_address}-${s.pid}`;
+    if (seen.has(k)) return false; seen.add(k); return true;
+  });
+  deduped.sort((a, b) => a.port - b.port || String(a.bind_address).localeCompare(String(b.bind_address)));
+  return { listeners: deduped, all };
+}
+
+// Scan listening sockets (lsof on macOS/Linux, netstat on Windows).
+// Returns { listeners, all }.
 function scanSockets() {
+  if (process.platform === 'win32') return scanSocketsWin32();
   const output = execCmd('lsof -nP -iTCP -iUDP -F pcftPnT');
   const all = [];
   let pid = null, cmd = '';

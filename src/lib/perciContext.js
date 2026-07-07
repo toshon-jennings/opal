@@ -411,3 +411,63 @@ function safeJson(value, fallback) {
         return fallback;
     }
 }
+
+export function getWorkspaceContextSummary({
+    windows = [],
+    missionRuns = [],
+    agentJobs = [],
+    openClawStatus = {},
+    codeState = {},
+    chats = [],
+    project = null,
+} = {}) {
+    const snapshot = createPerciContextSnapshot({
+        windows,
+        missionRuns,
+        agentJobs,
+        openClawStatus
+    });
+
+    const lines = [];
+
+    // 1. Working Directory & Active Project
+    if (project) {
+        lines.push(`Active Project: "${project.name}" on branch "${project.branch || 'main'}"`);
+        if (project.repoFullName) {
+            lines.push(`Linked GitHub Repo: ${project.repoFullName}`);
+        }
+        if (project.repoPath) {
+            lines.push(`Local Path: ${project.repoPath}`);
+        }
+    }
+    if (codeState?.workingDirectory && (!project || codeState.workingDirectory !== project.repoPath)) {
+        lines.push(`Active Code Directory: ${codeState.workingDirectory}`);
+    }
+
+    // 2. Open Windows
+    const openWins = snapshot.live?.openWindows || [];
+    if (openWins.length > 0) {
+        const list = openWins.map(w => `${w.title} (${w.state})`).join(', ');
+        lines.push(`Open Windows: ${list}`);
+    } else {
+        lines.push(`Open Windows: none (showing Dashboard desktop)`);
+    }
+
+    // 3. Active runs & missions
+    const activeMissions = snapshot.obligations?.filter(o => o.status === 'now' || o.status === 'blocked' || o.status === 'overdue') || [];
+    if (activeMissions.length > 0) {
+        lines.push('Active Tasks & Statuses:');
+        activeMissions.slice(0, 10).forEach(m => {
+            lines.push(`- [${m.sourceLabel} / Status: ${m.status}] ${m.title} (${m.reason})`);
+        });
+    }
+
+    // 4. Recent Chats
+    const activeChats = chats?.slice(0, 3) || [];
+    if (activeChats.length > 0) {
+        const chatList = activeChats.map(c => `"${c.title}"`).join(', ');
+        lines.push(`Recent Chat Sessions: ${chatList}`);
+    }
+
+    return lines.join('\n');
+}
