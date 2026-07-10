@@ -661,8 +661,8 @@ function createSplashWindow() {
     alwaysOnTop: true,
     backgroundColor: '#1c1c1c',
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
+      nodeIntegration: false,
+      contextIsolation: true,
     },
   });
   splashWindow.loadFile(path.join(__dirname, 'splash.html'));
