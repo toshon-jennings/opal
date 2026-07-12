@@ -23,8 +23,29 @@ function buildPlayerUrl(streamUrl) {
   return `${PLAYER_HTML}?${params.toString()}`;
 }
 
+function canUseWebview() {
+  return typeof window !== 'undefined' && !!window.electron;
+}
+
+// The YouTube <webview> guest is a separate top-level browsing context, not a
+// child iframe, so the postMessage-based IFrame Player API (which relies on a
+// parent/child window relationship) doesn't reach it. Its embed page still
+// exposes the player instance's controls directly on the #movie_player element
+// though, so drive mute/volume by running them inside the guest via
+// executeJavaScript.
+function runYouTubePlayerCommand(webview, expr) {
+  webview?.executeJavaScript(`
+    (function() {
+      var p = document.getElementById('movie_player');
+      if (p) { ${expr} }
+    })();
+  `, true).catch(() => {});
+}
+
 export default function RetroTvPlayer({
   streamUrl,
+  youtubeUrl = null,
+  videoProvider = 'youtube',
   channelName = '',
   isFavorite = false,
   onToggleFavorite,
@@ -33,18 +54,25 @@ export default function RetroTvPlayer({
   className = '',
 }) {
   const iframeRef = useRef(null);
+  const youtubeWebviewRef = useRef(null);
   const [powered, setPowered] = useState(true);
   const [muted, setMuted] = useState(true);
   const [volume, setVolume] = useState(50); // 0–100
   const prevVolumeRef = useRef(50);
 
+  const isEmbeddedVideo = !!youtubeUrl;
+  const isYouTube = isEmbeddedVideo && videoProvider === 'youtube';
+  const useWebview = isEmbeddedVideo && canUseWebview();
+
   // Reset mute on stream change
   useEffect(() => {
     setMuted(true);
-  }, [streamUrl]);
+  }, [streamUrl, youtubeUrl]);
 
   // Sync volume/mute to iframe when it mounts (new stream URL → new iframe)
+  // Skip for YouTube: it manages its own audio inside the iframe.
   useEffect(() => {
+    if (isEmbeddedVideo) return;
     // iframe won't be available until next paint — delay slightly
     const timer = setTimeout(() => {
       if (iframeRef.current?.contentWindow) {
@@ -65,20 +93,28 @@ export default function RetroTvPlayer({
   }, [streamUrl]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const postMuteState = useCallback((nextMuted) => {
+    if (isYouTube) {
+      runYouTubePlayerCommand(youtubeWebviewRef.current, nextMuted ? 'p.mute();' : 'p.unMute();');
+      return;
+    }
     iframeRef.current?.contentWindow?.postMessage({
       source: 'perci-iptv-host',
       type: 'set-muted',
       muted: nextMuted,
     }, '*');
-  }, []);
+  }, [isYouTube]);
 
   const postVolumeState = useCallback((nextVolume) => {
+    if (isYouTube) {
+      runYouTubePlayerCommand(youtubeWebviewRef.current, `p.setVolume(${nextVolume});`);
+      return;
+    }
     iframeRef.current?.contentWindow?.postMessage({
       source: 'perci-iptv-host',
       type: 'set-volume',
       volume: nextVolume / 100,
     }, '*');
-  }, []);
+  }, [isYouTube]);
 
   const handlePower = useCallback(() => {
     setPowered((p) => !p);
@@ -112,7 +148,7 @@ export default function RetroTvPlayer({
     }
   }, [muted, postMuteState, postVolumeState]);
 
-  const showNoSignal = powered && !streamUrl;
+  const showNoSignal = powered && !streamUrl && !isEmbeddedVideo;
   const playerUrl = buildPlayerUrl(streamUrl);
 
   return (
@@ -128,6 +164,29 @@ export default function RetroTvPlayer({
                 </div>
                 <div className="retro-tv__scanlines" />
               </div>
+            ) : youtubeUrl ? (
+              useWebview ? (
+                React.createElement('webview', {
+                  key: `${videoProvider}-webview-${youtubeUrl}`,
+                  ref: youtubeWebviewRef,
+                  src: youtubeUrl,
+                  className: 'retro-tv__iframe',
+                  partition: `persist:perci-${videoProvider}`,
+                  useragent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                  style: { width: '100%', height: '100%' },
+                })
+              ) : (
+                <iframe
+                  ref={iframeRef}
+                  className="retro-tv__iframe"
+                  key={`youtube-iframe-${youtubeUrl}`}
+                  src={youtubeUrl}
+                  title={`${videoProvider === 'vimeo' ? 'Vimeo' : 'YouTube'} Player`}
+                  allow="autoplay; encrypted-media; picture-in-picture"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  allowFullScreen
+                />
+              )
             ) : (
               <iframe
                 ref={iframeRef}
@@ -158,25 +217,29 @@ export default function RetroTvPlayer({
           >
             <Power size={14} />
           </button>
-          <button
-            type="button"
-            onClick={muted ? handleUnmute : handleMute}
-            disabled={!powered}
-            title={muted ? 'Unmute' : 'Mute'}
-          >
-            {muted || volume === 0 ? <VolumeX size={14} /> : <Volume2 size={14} />}
-          </button>
-          <input
-            type="range"
-            className="retro-tv__volume-slider"
-            min="0"
-            max="100"
-            value={muted ? 0 : volume}
-            onChange={handleVolumeChange}
-            disabled={!powered}
-            title={`Volume ${muted ? 0 : volume}%`}
-            aria-label="Volume"
-          />
+          {(!isEmbeddedVideo || (isYouTube && useWebview)) && (
+            <>
+              <button
+                type="button"
+                onClick={muted ? handleUnmute : handleMute}
+                disabled={!powered}
+                title={muted ? 'Unmute' : 'Mute'}
+              >
+                {muted || volume === 0 ? <VolumeX size={14} /> : <Volume2 size={14} />}
+              </button>
+              <input
+                type="range"
+                className="retro-tv__volume-slider"
+                min="0"
+                max="100"
+                value={muted ? 0 : volume}
+                onChange={handleVolumeChange}
+                disabled={!powered}
+                title={`Volume ${muted ? 0 : volume}%`}
+                aria-label="Volume"
+              />
+            </>
+          )}
           {onChannelUp && (
             <button type="button" onClick={onChannelUp} disabled={!powered} title="Channel Up">
               <ChevronUp size={14} />

@@ -109,21 +109,24 @@ function InsightsDashboard({ text, insightDays }) {
             if (idx === 0) return;
             const parts = line.split(/\s{2,}/);
             if (parts.length >= 2) {
-                let sessions, tokens;
-                // When only 2 parts, the second part has both sessions and tokens
+                let sessions, tokens, cost;
+                // When only 2 parts, the second part has both sessions, tokens, and possibly cost
                 // (happens when a long token value leaves only 1 space between columns)
                 if (parts.length === 2) {
                     const vals = parts[1].trim().split(/\s+/);
                     sessions = vals[0] || '0';
                     tokens = vals.slice(1).join('') || '0';
+                    cost = '';
                 } else {
                     sessions = parts[1];
                     tokens = parts[2] || '0';
+                    cost = parts[3] || '';
                 }
                 models.push({
                     name: parts[0],
                     sessions,
-                    tokens
+                    tokens,
+                    cost: cost.replace('$', '')
                 });
             }
         });
@@ -199,6 +202,7 @@ function InsightsDashboard({ text, insightDays }) {
     const statMessages = overview['Messages'] || '0';
     const statTools = overview['Tool calls'] || '0';
     const statTokens = overview['Total tokens'] || overview['Total Tokens'] || '0';
+    const statCost = overview['Cost'] || '';
     const statActiveTime = overview['Active time'] || '0';
     const statAvgSession = overview['Avg session'] || '0';
     
@@ -270,8 +274,8 @@ function InsightsDashboard({ text, insightDays }) {
                         </div>
                     </div>
                     <div className="mt-3 flex justify-between text-[11px] text-[var(--text-secondary)] border-t border-[var(--border)] pt-2.5">
-                        <span>Avg Session</span>
-                        <span className="font-medium">{statAvgSession}</span>
+                        <span>{statCost ? 'Cost' : 'Avg Session'}</span>
+                        <span className="font-medium">{statCost || statAvgSession}</span>
                     </div>
                 </div>
             </div>
@@ -375,6 +379,7 @@ function InsightsDashboard({ text, insightDays }) {
                                             <th className="pb-2 font-semibold">Model</th>
                                             <th className="pb-2 text-right font-semibold">Sessions</th>
                                             <th className="pb-2 text-right font-semibold">Tokens</th>
+                                            <th className="pb-2 text-right font-semibold">Cost</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-[var(--border)]/40">
@@ -383,6 +388,7 @@ function InsightsDashboard({ text, insightDays }) {
                                                 <td className="py-2.5 font-mono text-[11px] text-[var(--text-primary)]">{m.name}</td>
                                                 <td className="py-2.5 text-right text-[var(--text-secondary)]">{m.sessions}</td>
                                                 <td className="py-2.5 text-right text-[var(--text-secondary)] font-mono text-[11px]">{m.tokens}</td>
+                                                <td className="py-2.5 text-right text-[var(--text-secondary)] font-mono text-[11px]">{m.cost ? `$${m.cost}` : ''}</td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -1032,28 +1038,39 @@ export default function HermesMode() {
                         </button>
                     </div>
                     <div className="min-h-0 flex-1 overflow-y-auto p-3">
-                        {sessions.state === 'error' ? (
-                            <p className="px-1 font-mono text-xs text-red-400">{sessions.error}</p>
-                        ) : sessions.state !== 'ready' ? (
-                            <p className="px-1 text-xs text-[var(--text-tertiary)]">Loading sessions…</p>
-                        ) : sessions.sessions.length === 0 ? (
-                            <p className="px-1 text-xs text-[var(--text-tertiary)]">No sessions yet.</p>
-                        ) : (
-                            <div className="space-y-1.5">
-                                {sessions.sessions.map(s => (
-                                    <div key={s.id} className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2 transition-colors hover:border-amber-500/35">
-                                        <div className="flex items-center justify-between gap-3">
-                                            <span className="min-w-0 truncate text-[13px] font-medium text-[var(--text-primary)]">
-                                                {s.title && s.title !== '—' ? s.title : 'Untitled session'}
-                                            </span>
-                                            <span className="shrink-0 text-[10px] text-[var(--text-tertiary)]">{s.lastActive}</span>
-                                        </div>
-                                        <p className="mt-0.5 truncate text-xs text-[var(--text-secondary)]">{s.preview}</p>
-                                        <p className="mt-1 font-mono text-[10px] text-[var(--text-tertiary)]">{s.id}</p>
+                        <div className="flex gap-3">
+                            <div className="flex-1 min-w-0">
+                                {sessions.state === 'error' ? (
+                                    <p className="px-1 font-mono text-xs text-red-400">{sessions.error}</p>
+                                ) : sessions.state !== 'ready' ? (
+                                    <p className="px-1 text-xs text-[var(--text-tertiary)]">Loading sessions…</p>
+                                ) : sessions.sessions.length === 0 ? (
+                                    <p className="px-1 text-xs text-[var(--text-tertiary)]">No sessions yet.</p>
+                                ) : (
+                                    <div className="space-y-1.5">
+                                        {sessions.sessions.map(s => (
+                                            <div key={s.id} className="rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2 transition-colors hover:border-amber-500/35">
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <span className="min-w-0 truncate text-[13px] font-medium text-[var(--text-primary)]">
+                                                        {s.title && s.title !== '—' ? s.title : 'Untitled session'}
+                                                    </span>
+                                                    <span className="shrink-0 text-[10px] text-[var(--text-tertiary)]">{s.lastActive}</span>
+                                                </div>
+                                                <p className="mt-0.5 truncate text-xs text-[var(--text-secondary)]">{s.preview}</p>
+                                                <p className="mt-1 font-mono text-[10px] text-[var(--text-tertiary)]">{s.id}</p>
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
+                                )}
                             </div>
-                        )}
+                            {sessions.state === 'ready' && sessions.sessions.length > 0 && (
+                                <div className="flex-1 max-w-[300px] min-w-[160px]">
+                                    <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-2 shadow-sm overflow-hidden">
+                                        <img src="/artwork/primavera.jpg" alt="" className="w-full h-auto rounded-lg object-cover" />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}

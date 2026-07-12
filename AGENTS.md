@@ -68,6 +68,16 @@ Rules:
   The Perci version is the leading development target. The standalone Eidos repo
   (`~/eidos`) lags behind — see `~/eidos/CLAUDE.md` for the divergence note.
   Eidos-related changes should be made in this repo, not in `~/eidos`.
+- **KeySafe integration:** KeySafe (`~/keysafe`) is embedded in Perci as a first-class
+  window (`KEYSAFE_WINDOW_ID`). Perci monitors port 4100 to check if KeySafe is active,
+  renders it inside a `<webview>`, and can launch its Vite dev server (`npm run dev`)
+  using Electron's `localhost:start-now` IPC handler. KeySafe remains a standalone app;
+  updates/changes to KeySafe's source code should be made in `~/keysafe` directly.
+- **Apfel Harness integration:** Apfel Harness (`~/apfel-harness`) is embedded in Perci as a first-class
+  window (`APFEL_WINDOW_ID`). Perci checks `http://127.0.0.1:6271/api/health` to monitor if the harness
+  is active, renders it inside a `<webview>`, and can launch its Node server (`node server.js`)
+  using Electron's `localhost:start-now` IPC handler. Note that updates should be made to both the
+  standalone (`~/apfel-harness`) and Perci versions.
 - **Wiki (second brain):** `~/wiki/` is a Karpathy-style interlinked markdown wiki
   serving as the project's queryable knowledge base. Contains decision rationale,
   architecture explanations, and cross-linked concepts/entities. Read `SCHEMA.md`

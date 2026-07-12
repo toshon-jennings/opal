@@ -403,6 +403,17 @@ export const PM_AGENT_TOOLS = [
     { name: 'dispatch_to_jules', description: 'Send a card to Jules (Google\'s cloud coding agent) to implement asynchronously; Jules opens a PR when done.', parameters: { card_id: 'Card id.', prompt: 'Task brief for Jules. Defaults to the card title + description.', confirmed_by_user: 'Set true ONLY if the user explicitly approved dispatching this card in the conversation.' } },
 ];
 
+// Tools the agent is allowed to call at a given assertiveness level. Mirrors
+// gateTool: Observer gets read-only tools, Advisor loses git/Jules execution.
+// Keeping gated tools out of the request entirely stops small models from
+// calling them, getting an error, and then claiming success anyway.
+export function toolsForAssertiveness(level) {
+    const readOnly = ['list_board', 'git_status'];
+    if (level === 0) return PM_AGENT_TOOLS.filter(t => readOnly.includes(t.name));
+    if (level === 1) return PM_AGENT_TOOLS.filter(t => !['git_action', 'dispatch_to_jules'].includes(t.name));
+    return PM_AGENT_TOOLS;
+}
+
 function describeBoard(project) {
     return {
         project: { name: project.name, repoPath: project.repoPath, repo: project.repoFullName, branch: project.branch },
@@ -542,9 +553,10 @@ export async function runPmAgentTurn({ projectId, client, model, history = [], u
     ];
     const toolEvents = [];
     const textChunk = (chunk, meta) => { if (!meta?.isThinking) onChunk(chunk); };
+    const allowedTools = toolsForAssertiveness(project.assertiveness);
 
     for (let iteration = 0; iteration < 8; iteration++) {
-        const { content, toolCalls } = await client.streamChatWithTools(messages, PM_AGENT_TOOLS, textChunk, model, { signal });
+        const { content, toolCalls } = await client.streamChatWithTools(messages, allowedTools, textChunk, model, { signal });
         if (!toolCalls || toolCalls.length === 0) return { content: content || '', toolEvents };
 
         messages = [...messages, {
@@ -560,7 +572,7 @@ export async function runPmAgentTurn({ projectId, client, model, history = [], u
     }
 
     messages.push({ role: 'user', content: 'Tool budget reached. Summarize the board changes so far and what remains.' });
-    const { content } = await client.streamChatWithTools(messages, PM_AGENT_TOOLS, textChunk, model, { signal });
+    const { content } = await client.streamChatWithTools(messages, allowedTools, textChunk, model, { signal });
     return { content: content || '', toolEvents };
 }
 
@@ -581,6 +593,8 @@ export function buildPmSystemPrompt(project) {
         `Assertiveness dial: ${level.label} — ${level.desc} Operate strictly inside that authority; if a useful action is beyond it, propose it crisply instead.`,
         '',
         'Always call list_board before changing anything. After tool calls, reply with a short human summary of what changed — never dump raw JSON.',
+        '',
+        'If a tool returns an error, report that error to the user verbatim and stop — NEVER claim an action succeeded when its tool call failed or was never made. Only say a card/board change happened after the tool result confirms it.',
         '',
         `Board snapshot:\n${JSON.stringify(describeBoard(project))}`,
     ].join('\n');

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu, shell, safeStorage, session, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, shell, safeStorage, session, nativeImage, webContents } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const { installRedactedConsole, redactSecrets } = require('./redact-console.cjs');
 const supermemoryProcess = require('./lib/supermemory-process.cjs');
@@ -671,7 +671,10 @@ function createSplashWindow() {
 
 function startTerminalServer() {
   const isPackaged = app.isPackaged;
-  const terminalPort = process.env.OPAL_TERMINAL_PORT || (isDev ? '3002' : '3001');
+  // Keep the terminal port independent from Electron's dev process. Older
+  // dev sessions used 3002, which can leave an orphaned authenticated server
+  // that rejects the current process token after a restart.
+  const terminalPort = process.env.OPAL_TERMINAL_PORT || '3001';
   const serverPath = isPackaged 
     ? path.join(process.resourcesPath, 'app.asar', 'terminal-server.cjs')
     : path.join(__dirname, '..', 'terminal-server.cjs');
@@ -778,8 +781,34 @@ function createMenu() {
           }
         },
         { type: 'separator' },
-        { role: 'reload' },
-        { role: 'forceReload' },
+        {
+          label: 'Reload',
+          accelerator: 'CmdOrCtrl+R',
+          click: (menuItem, browserWindow) => {
+            const focusedContents = webContents.getFocusedWebContents();
+            if (focusedContents) {
+              focusedContents.reload();
+            } else if (browserWindow) {
+              browserWindow.webContents.reload();
+            } else if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.reload();
+            }
+          }
+        },
+        {
+          label: 'Force Reload',
+          accelerator: 'CmdOrCtrl+Shift+R',
+          click: (menuItem, browserWindow) => {
+            const focusedContents = webContents.getFocusedWebContents();
+            if (focusedContents) {
+              focusedContents.reloadIgnoringCache();
+            } else if (browserWindow) {
+              browserWindow.webContents.reloadIgnoringCache();
+            } else if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.reloadIgnoringCache();
+            }
+          }
+        },
         ...(isDev ? [{ role: 'toggleDevTools' }] : []),
         { type: 'separator' },
         { role: 'resetZoom' },
@@ -956,8 +985,32 @@ function cleanedDesktopUserAgent(rawUa) {
     .trim();
 }
 
+const YOUTUBE_WEBVIEW_REFERRER = 'https://com.perci.ai/';
+
+function configureYouTubeWebviewSession() {
+  const youtubeSession = session.fromPartition('persist:perci-youtube');
+  youtubeSession.webRequest.onBeforeSendHeaders(
+    {
+      urls: [
+        'https://www.youtube.com/embed/*',
+        'https://www.youtube-nocookie.com/embed/*',
+      ],
+    },
+    (details, callback) => {
+      callback({
+        requestHeaders: {
+          ...(details.requestHeaders || {}),
+          Referer: YOUTUBE_WEBVIEW_REFERRER,
+        },
+      });
+    }
+  );
+}
+
 app.whenReady().then(() => {
   try {
+    configureYouTubeWebviewSession();
+
     const localhostSession = session.fromPartition('persist:perci-localhost');
     const klipitPath = path.join(app.getPath('home'), 'klippit');
     const klipitLoadPromise = localhostSession.loadExtension(klipitPath, { allowFileAccess: true }).catch(err => {
@@ -1031,6 +1084,22 @@ app.whenReady().then(() => {
   }
 
   app.on('web-contents-created', (_event, contents) => {
+    // Intercept reload and force reload shortcuts globally (including in webviews)
+    contents.on('before-input-event', (event, input) => {
+      if (input.type !== 'keyDown') return;
+
+      const isCmdOrCtrl = process.platform === 'darwin' ? input.meta : input.control;
+      if (isCmdOrCtrl && input.key.toLowerCase() === 'r') {
+        if (input.shift) {
+          event.preventDefault();
+          contents.reloadIgnoringCache();
+        } else {
+          event.preventDefault();
+          contents.reload();
+        }
+      }
+    });
+
     // Google's GIS popup (allowed below) is created with the default UA, which
     // Google rejects. Reload it with a clean Chrome UA so consent can proceed.
     if (contents.getType() === 'webview') {
@@ -1064,6 +1133,19 @@ app.whenReady().then(() => {
         return { action: 'allow' };
       }
 
+      // target="_blank"/window.open popups from a webview land here. Route
+      // the URL to the renderer via IPC (LocalhostMode's onWebviewOpenInTab
+      // -> handleNewTab) so a new Perci tab is created instead of opening
+      // the system browser. Plain <a> links are handled by the will-navigate
+      // branch below, since they navigate in place rather than opening a window.
+      if (contents.getType() === 'webview') {
+        appendRendererLog(`webview-new-window-routed-to-tab url=${url}`);
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('webview:open-in-tab', url);
+        }
+        return { action: 'deny' };
+      }
+
       try {
         const parsed = new URL(url);
         if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
@@ -1080,6 +1162,20 @@ app.whenReady().then(() => {
       if (!isDev && isBundledAssetDocumentUrl(url)) {
         event.preventDefault();
         appendRendererLog(`blocked-global-bundled-asset-navigation url=${url}`);
+        return;
+      }
+
+      // Plain <a href> clicks (no target="_blank") navigate the webview's
+      // existing frame rather than requesting a new window, so they never
+      // reach setWindowOpenHandler above. Route them to a new Perci tab too
+      // — except Google OAuth, which needs to redirect in place to keep its
+      // callback tied to this frame.
+      if (contents.getType() === 'webview' && !isGoogleOAuthUrl(url)) {
+        event.preventDefault();
+        appendRendererLog(`webview-navigation-routed-to-tab url=${url}`);
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('webview:open-in-tab', url);
+        }
       }
     });
   });
@@ -1365,6 +1461,11 @@ ipcMain.handle('app-data:set', async (event, data) => {
 const GDASH_CLIENT_ID_KEY = 'gdash_google_client_id';
 const GDASH_CLIENT_SECRET_KEY = 'gdash_google_client_secret';
 const GDASH_TOKENS_KEY = 'gdash_google_tokens';
+// In-memory cache of the last successful dashboard build so reopening G-Dash
+// (or the Dashboard tile summary) paints instantly instead of refetching ~10
+// Google endpoints. Freshness is decided per-call via opts.maxAgeMs.
+const GDASH_CACHE_TTL_MS = 2 * 60 * 1000;
+let gdashCache = { data: null, fetchedAt: 0 };
 const GDASH_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GDASH_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
 const GDASH_SCOPES = [
@@ -1552,7 +1653,9 @@ async function gdashSettle(fn, fallback) {
 }
 
 // Assemble the same dashboard shape the old /api/google-connect/dashboard returned,
-// so the reused renderer code works unchanged. Each sub-fetch degrades gracefully.
+// so the reused renderer code works unchanged. Each sub-fetch degrades gracefully:
+// a failed section resolves to null (rendered as an error in the UI), which keeps
+// failure distinguishable from a genuinely empty result like [].
 async function gdashBuildDashboard(accessToken) {
   const driveFiles = async (mimeType) => {
     const q = encodeURIComponent(mimeType ? `mimeType = '${mimeType}' and trashed = false` : 'trashed = false');
@@ -1567,29 +1670,30 @@ async function gdashBuildDashboard(accessToken) {
       const d = await gdashApiGet(GDASH_USERINFO_URL, accessToken);
       return { email: d.email || null, name: d.name || null, givenName: d.given_name || null };
     }, { email: null, name: null, givenName: null }),
-    gdashSettle(() => driveFiles(), []),
-    gdashSettle(() => driveFiles('application/vnd.google-apps.document'), []),
-    gdashSettle(() => driveFiles('application/vnd.google-apps.spreadsheet'), []),
-    gdashSettle(() => driveFiles('application/vnd.google-apps.presentation'), []),
+    gdashSettle(() => driveFiles(), null),
+    gdashSettle(() => driveFiles('application/vnd.google-apps.document'), null),
+    gdashSettle(() => driveFiles('application/vnd.google-apps.spreadsheet'), null),
+    gdashSettle(() => driveFiles('application/vnd.google-apps.presentation'), null),
     gdashSettle(async () => {
       const d = await gdashApiGet('https://www.googleapis.com/drive/v3/about?fields=storageQuota', accessToken);
       return d.storageQuota || null;
     }, null),
     gdashSettle(async () => {
       const timeMin = encodeURIComponent(new Date().toISOString());
-      const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${timeMin}&maxResults=3&orderBy=startTime&singleEvents=true`;
+      const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${timeMin}&maxResults=5&orderBy=startTime&singleEvents=true`;
       const d = await gdashApiGet(url, accessToken);
       return d.items || [];
-    }, []),
+    }, null),
     gdashSettle(async () => {
+      // Pending tasks only — completed ones would crowd the 5-item widget.
       const lists = await gdashApiGet('https://tasks.googleapis.com/tasks/v1/users/@me/lists?maxResults=1', accessToken);
       const listId = lists.items && lists.items[0] && lists.items[0].id;
       if (!listId) return [];
-      const d = await gdashApiGet(`https://tasks.googleapis.com/tasks/v1/lists/${encodeURIComponent(listId)}/tasks?maxResults=5&showCompleted=true&showHidden=true`, accessToken);
+      const d = await gdashApiGet(`https://tasks.googleapis.com/tasks/v1/lists/${encodeURIComponent(listId)}/tasks?maxResults=5&showCompleted=false`, accessToken);
       return d.items || [];
-    }, []),
+    }, null),
     gdashSettle(async () => {
-      const list = await gdashApiGet('https://gmail.googleapis.com/gmail/v1/users/me/messages?q=is:unread&maxResults=2', accessToken);
+      const list = await gdashApiGet('https://gmail.googleapis.com/gmail/v1/users/me/messages?q=is:unread&maxResults=5', accessToken);
       const unreadCount = list.resultSizeEstimate || 0;
       const messages = await Promise.all((list.messages || []).map(async (m) => {
         const detail = await gdashApiGet(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject`, accessToken);
@@ -1598,12 +1702,13 @@ async function gdashBuildDashboard(accessToken) {
         return { id: detail.id, subject: getH('Subject') || '(No Subject)', from: getH('From') || 'Unknown' };
       }));
       return { unreadCount, messages };
-    }, { unreadCount: 0, messages: [] }),
+    }, null),
   ]);
 
   return {
     connected: true,
     hasClientId: true,
+    fetchedAt: Date.now(),
     profile,
     drive: { recentFiles, storageQuota },
     docs,
@@ -1628,6 +1733,7 @@ ipcMain.handle('gdash:connect', async () => {
     const clientSecret = await gdashReadClientSecret();
     if (!clientSecret) return { ok: false, error: 'no-client-secret' };
     const tokens = await gdashRunOAuth(clientId, clientSecret);
+    gdashCache = { data: null, fetchedAt: 0 }; // possibly a different account now
     let profile = null;
     try {
       const d = await gdashApiGet(GDASH_USERINFO_URL, tokens.access_token);
@@ -1641,13 +1747,22 @@ ipcMain.handle('gdash:connect', async () => {
 });
 
 ipcMain.handle('gdash:disconnect', async () => {
+  gdashCache = { data: null, fetchedAt: 0 };
   try { await gdashClearTokens(); } catch (err) { console.error('[gdash] disconnect failed:', err.message); }
   return { ok: true };
 });
 
-ipcMain.handle('gdash:dashboard', async () => {
+// opts: { forceRefresh } bypasses the cache; { cacheOnly } never hits the network
+// (returns cacheMiss when empty, for stale-while-revalidate instant paints);
+// { maxAgeMs } overrides the default TTL (the Dashboard tile passes a lax one).
+ipcMain.handle('gdash:dashboard', async (event, opts) => {
+  const { forceRefresh = false, cacheOnly = false, maxAgeMs = GDASH_CACHE_TTL_MS } = opts || {};
   const clientId = await gdashReadClientId();
   if (!clientId) return { connected: false, hasClientId: false };
+  if (!forceRefresh && gdashCache.data && (cacheOnly || Date.now() - gdashCache.fetchedAt < maxAgeMs)) {
+    return { ...gdashCache.data, fromCache: true };
+  }
+  if (cacheOnly) return { connected: false, hasClientId: true, cacheMiss: true };
   let accessToken;
   try {
     accessToken = await gdashEnsureAccessToken(clientId);
@@ -1657,7 +1772,9 @@ ipcMain.handle('gdash:dashboard', async () => {
   }
   if (!accessToken) return { connected: false, hasClientId: true };
   try {
-    return await gdashBuildDashboard(accessToken);
+    const data = await gdashBuildDashboard(accessToken);
+    gdashCache = { data, fetchedAt: data.fetchedAt };
+    return data;
   } catch (err) {
     console.error('[gdash] dashboard build failed:', err.message);
     return { connected: false, hasClientId: true };
@@ -3785,6 +3902,15 @@ ipcMain.handle('agent-jobs:list', async (event, options = {}) => {
   // Sort by created_at descending, then slice
   allJobs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   return allJobs.slice(0, limit);
+});
+
+// Slim status lookup for a single job — lets panels track a launched run
+// without pulling every job (and its full output) on each poll.
+ipcMain.handle('agent-jobs:get', async (event, jobId) => {
+  const entry = agentJobs.get(jobId);
+  if (!entry) return null;
+  const { id, agent, status, created_at, started_at, completed_at, exit_code } = entry.job;
+  return { id, agent, status, created_at, started_at, completed_at, exit_code };
 });
 
 // ─── Agent Activity Summary ─────────────────────────────────────────────────
@@ -6024,6 +6150,212 @@ ipcMain.handle('docker:start-orbstack', async () => {
     return { state: recheck.ok ? 'running' : 'error', runtime: recheck.runtime, error: recheck.error };
   } catch (err) {
     return { state: 'error', error: err.message };
+  }
+});
+
+// — Docker dashboard — live containers/images/volumes, gated destructive actions —
+function parseDockerJsonLines(stdout) {
+  return stdout
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean)
+    .map(line => {
+      try { return JSON.parse(line); } catch { return null; }
+    })
+    .filter(Boolean);
+}
+
+ipcMain.handle('docker:list', async () => {
+  const dockerPath = eidosDockerPath();
+  if (!dockerPath) {
+    return { ok: true, available: false, containers: [], images: [], volumes: [], error: 'Docker CLI not found.' };
+  }
+
+  const [psResult, imagesResult, volumesResult, dfResult] = await Promise.all([
+    runCli(dockerPath, ['ps', '-a', '--format', '{{json .}}'], 8000),
+    runCli(dockerPath, ['images', '--format', '{{json .}}'], 8000),
+    runCli(dockerPath, ['volume', 'ls', '--format', '{{json .}}'], 8000),
+    runCli(dockerPath, ['system', 'df', '--format', '{{json .}}'], 8000),
+  ]);
+
+  if (!psResult.ok) {
+    return {
+      ok: false,
+      available: true,
+      containers: [], images: [], volumes: [],
+      error: (psResult.stderr || psResult.error || 'Docker daemon is not reachable.').trim(),
+    };
+  }
+
+  return {
+    ok: true,
+    available: true,
+    checkedAt: new Date().toISOString(),
+    containers: parseDockerJsonLines(psResult.stdout).map(c => ({
+      id: c.ID, name: c.Names, image: c.Image, status: c.Status, state: c.State, ports: c.Ports, createdAt: c.CreatedAt,
+    })),
+    images: parseDockerJsonLines(imagesResult.stdout).map(i => ({
+      id: i.ID, repository: i.Repository, tag: i.Tag, size: i.Size, createdAt: i.CreatedAt,
+    })),
+    volumes: parseDockerJsonLines(volumesResult.stdout).map(v => ({ name: v.Name, driver: v.Driver })),
+    diskUsage: parseDockerJsonLines(dfResult.stdout),
+  };
+});
+
+ipcMain.handle('docker:stop', async (event, { id } = {}) => {
+  const dockerPath = eidosDockerPath();
+  if (!dockerPath || !id) return { ok: false, error: 'Docker CLI or container id missing.' };
+  const result = await runCli(dockerPath, ['stop', id], 15000);
+  return { ok: result.ok, error: result.ok ? null : (result.stderr || result.error || 'Stop failed.').trim() };
+});
+
+// Backs up a named volume to a tar.gz under userData before any destructive
+// action touches it — mirrors Cleanmac's "review before prune" gate but as an
+// affirmative export instead of a checkbox, since a volume can be restored
+// from the tarball even after `docker volume rm`.
+ipcMain.handle('docker:backup-volume', async (event, { name } = {}) => {
+  const dockerPath = eidosDockerPath();
+  if (!dockerPath || !name) return { ok: false, error: 'Docker CLI or volume name missing.' };
+
+  const backupDir = path.join(app.getPath('userData'), 'docker-backups');
+  await fs.mkdir(backupDir, { recursive: true });
+  const safeName = name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const fileName = `${safeName}-${Date.now()}.tar.gz`;
+  const result = await runCli(dockerPath, [
+    'run', '--rm',
+    '-v', `${name}:/backup-source:ro`,
+    '-v', `${backupDir}:/backup-dest`,
+    'alpine',
+    'tar', 'czf', `/backup-dest/${fileName}`, '-C', '/backup-source', '.',
+  ], 60000);
+
+  if (!result.ok) {
+    return { ok: false, error: (result.stderr || result.error || 'Backup failed.').trim() };
+  }
+  return { ok: true, path: path.join(backupDir, fileName) };
+});
+
+// type: 'container' | 'image' | 'volume'. Requires explicit confirm:true from
+// the renderer, sent only after the user has seen the item and (for volumes)
+// been offered the backup step above — same two-step spirit as Cleanmac's
+// confirmedDockerReview checkbox, applied to any live destroy, not just prune.
+ipcMain.handle('docker:remove', async (event, { type, id, confirm } = {}) => {
+  const dockerPath = eidosDockerPath();
+  if (!dockerPath || !id || !type) return { ok: false, error: 'Docker CLI, id, or type missing.' };
+  if (!confirm) return { ok: false, error: 'Removal was not confirmed.' };
+
+  const command = { container: ['rm', '-f'], image: ['rmi'], volume: ['volume', 'rm'] }[type];
+  if (!command) return { ok: false, error: `Unknown resource type: ${type}` };
+
+  const result = await runCli(dockerPath, [...command, id], 15000);
+  return { ok: result.ok, error: result.ok ? null : (result.stderr || result.error || 'Remove failed.').trim() };
+});
+
+// — DB Inspector — read-only SQLite browsing via the system sqlite3 CLI —————
+function sqlite3Path() {
+  return commandExists('sqlite3', ['/opt/homebrew/bin', '/usr/local/bin']);
+}
+
+// Blocks multi-statement chaining and value-setting PRAGMAs; the `-readonly`
+// flag passed to sqlite3 below is the real backstop (opens the DB connection
+// itself read-only), this is just a cheap first filter.
+function isReadOnlySql(query) {
+  const trimmed = (query || '').trim().replace(/;\s*$/, '');
+  if (!trimmed || trimmed.includes(';')) return false;
+  if (/^pragma\b/i.test(trimmed) && trimmed.includes('=')) return false;
+  return /^(select|with|explain|pragma)\b/i.test(trimmed);
+}
+
+// Scans the home directory for SQLite files so the user never has to hunt
+// through Finder's hidden dotfolders (~/.hermes, ~/.autoforge, etc. — where
+// almost every local db actually lives) to find one manually.
+ipcMain.handle('db:discover', async () => {
+  const home = app.getPath('home');
+  const result = await runCli('find', [
+    home, '-maxdepth', '4',
+    '(', '-name', '*.db', '-o', '-name', '*.sqlite', '-o', '-name', '*.sqlite3', '-o', '-name', '*.db3', ')',
+    '-not', '-path', '*/node_modules/*',
+    '-not', '-path', '*/Library/*',
+    '-not', '-path', '*/.git/*',
+    '-not', '-path', '*/venv/*',
+    '-not', '-path', '*/.venv/*',
+  ], 8000);
+
+  // `find` exits non-zero whenever it hits even one permission-denied
+  // directory while walking the whole home folder — expected on a full scan
+  // and not a real failure, so only treat this as an error if stdout is
+  // actually empty too.
+  const allPaths = result.stdout.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (allPaths.length === 0 && !result.ok) {
+    return { ok: false, error: (result.stderr || result.error || 'Scan failed.').trim(), paths: [] };
+  }
+
+  // Named project folders (~/opal, ~/osiris, ...) rank above dotfolder tool
+  // state (~/.cache, ~/.codex, ...) — there are usually far more of the
+  // latter, and they'd otherwise bury the databases the user actually asked
+  // about under an alphabetical cap.
+  const isDotTopLevel = (p) => p.slice(home.length + 1).startsWith('.');
+  allPaths.sort((a, b) => {
+    const dotA = isDotTopLevel(a);
+    const dotB = isDotTopLevel(b);
+    if (dotA !== dotB) return dotA ? 1 : -1;
+    return a.localeCompare(b);
+  });
+  const paths = allPaths.slice(0, 80);
+  paths.forEach(p => allowedPaths.add(path.resolve(path.dirname(p))));
+  return { ok: true, paths };
+});
+
+ipcMain.handle('db:pick-file', async (event) => {
+  const parentWindow = BrowserWindow.fromWebContents(event.sender)
+    || (mainWindow && !mainWindow.isDestroyed() ? mainWindow : null)
+    || BrowserWindow.getFocusedWindow();
+
+  const dialogOptions = {
+    title: 'Select SQLite Database',
+    properties: ['openFile'],
+    filters: [
+      { name: 'SQLite Database', extensions: ['db', 'sqlite', 'sqlite3', 'db3'] },
+      { name: 'All Files', extensions: ['*'] },
+    ],
+  };
+  const result = parentWindow && !parentWindow.isDestroyed()
+    ? await dialog.showOpenDialog(parentWindow, dialogOptions)
+    : await dialog.showOpenDialog(dialogOptions);
+
+  if (result.canceled || !result.filePaths[0]) return null;
+  const chosenPath = result.filePaths[0];
+  allowedPaths.add(path.resolve(path.dirname(chosenPath)));
+  return chosenPath;
+});
+
+ipcMain.handle('db:schema', async (event, { dbPath } = {}) => {
+  if (!isPathAllowed(dbPath)) return { ok: false, error: 'Access Denied: pick the file again to grant access.' };
+  const sqlitePath = sqlite3Path();
+  if (!sqlitePath) return { ok: false, error: 'sqlite3 CLI not found on this Mac.' };
+
+  const result = await runCli(sqlitePath, ['-readonly', '-json', dbPath, "SELECT name, sql FROM sqlite_master WHERE type='table' ORDER BY name"], 10000);
+  if (!result.ok) return { ok: false, error: (result.stderr || result.error || 'Could not read schema.').trim() };
+  try {
+    return { ok: true, tables: result.stdout.trim() ? JSON.parse(result.stdout) : [] };
+  } catch {
+    return { ok: false, error: 'Could not parse schema output.' };
+  }
+});
+
+ipcMain.handle('db:query', async (event, { dbPath, sql } = {}) => {
+  if (!isPathAllowed(dbPath)) return { ok: false, error: 'Access Denied: pick the file again to grant access.' };
+  if (!isReadOnlySql(sql)) return { ok: false, error: 'Only single SELECT / WITH / EXPLAIN / read-only PRAGMA statements are allowed.' };
+  const sqlitePath = sqlite3Path();
+  if (!sqlitePath) return { ok: false, error: 'sqlite3 CLI not found on this Mac.' };
+
+  const result = await runCli(sqlitePath, ['-readonly', '-json', dbPath, sql], 15000);
+  if (!result.ok) return { ok: false, error: (result.stderr || result.error || 'Query failed.').trim() };
+  try {
+    const rows = result.stdout.trim() ? JSON.parse(result.stdout) : [];
+    return { ok: true, rows, columns: rows[0] ? Object.keys(rows[0]) : [] };
+  } catch {
+    return { ok: false, error: 'Could not parse query output.' };
   }
 });
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useMode, MODES } from '../context/ModeContext';
+import { useMode, MODES, LOCALHOST_WINDOW_ID } from '../context/ModeContext';
 import {
     DashboardIcon, ChatIcon, EnsembleIcon, CoworkIcon, CodeIcon, NotesIcon, ResearchIcon,
     AgentsIcon, OfficeIcon, BuildIcon, MissionIcon, ProjectsIcon, SurfaceMapIcon, PerciNowIcon, PerciDeskIcon, ShipyardIcon,
@@ -38,7 +38,7 @@ export default function ModeSwitcher() {
         { id: MODES.OFFICE, icon: OfficeIcon,       label: 'Office' },
         { id: MODES.BUILD,  icon: BuildIcon,        label: 'Build' },
         { id: MODES.MISSION, icon: MissionIcon,     label: 'Mission' },
-        { id: MODES.LIGHTHOUSE, icon: Globe, label: 'Localhost', color: '#f97316' },
+        { id: LOCALHOST_WINDOW_ID, icon: Globe, label: 'Localhost', color: '#4DA64D' },
     ];
 
     return (

@@ -1,14 +1,12 @@
-// Single source of truth for every launchable Perci app/mode. Consumed by
-// the Dashboard tile grid (DashboardMode.jsx) and the Sir Perci dock
-// launcher (SirPerciLauncher.jsx) so both stay in sync automatically.
+import React from 'react';
 import {
-    Sparkles, Server, Radar, Layers, Globe, GitMerge, TerminalSquare, Zap,
+    Sparkles, Server, Radar, Layers, Globe, GitMerge, TerminalSquare, Container, Database,
 } from 'lucide-react';
 import {
     ChatIcon, CoworkIcon, CodeIcon, NotesIcon, AgentsIcon, ResearchIcon,
     OfficeIcon, MissionIcon, BuildIcon, ProjectsIcon, SkillsIcon, SurfaceMapIcon, PerciNowIcon, PerciDeskIcon, PackagesIcon, IptvIcon, ShipyardIcon,
 } from '../components/ModeIcons';
-import { MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID, CLEANMAC_WINDOW_ID, PACKAGES_WINDOW_ID, AGENTMAIL_WINDOW_ID, AUTOFORGE_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID, IPTV_WINDOW_ID, SIMPLEX_WINDOW_ID, PXPIPE_WINDOW_ID } from '../context/ModeContext';
+import { MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID, CLEANMAC_WINDOW_ID, PACKAGES_WINDOW_ID, AGENTMAIL_WINDOW_ID, AUTOFORGE_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID, IPTV_WINDOW_ID, SIMPLEX_WINDOW_ID, PXPIPE_WINDOW_ID, KEYSAFE_WINDOW_ID, APFEL_WINDOW_ID, DOCKER_WINDOW_ID, DB_INSPECTOR_WINDOW_ID } from '../context/ModeContext';
 import lhLogo from '../assets/lh-logo.png';
 import autoforgeLogo from '../assets/autoforge-logo.png';
 import hermesLogo from '../assets/nousresearch.png';
@@ -40,6 +38,67 @@ import iptvLogo from '../assets/iptv-logo.png';
 import iptvBg from '../assets/iptv-bg.jpeg';
 import simplexLogo from '../assets/simplex-logo.png';
 import simplexBg from '../assets/simplex-bg.jpg';
+import keysafeLogo from '../assets/keysafe-logo.jpeg';
+import keysafeBg from '../assets/keysafe-bg.jpeg';
+import apfelBg from '../assets/apfel-bg.jpeg';
+import pxpipeBg from '../assets/pxpipe-bg.jpeg';
+import dockerBg from '../assets/docker-bg.jpg';
+
+// pxpipe sphere icon component — gradient filled circle
+function SphereIcon(props) {
+    return (
+        <svg
+            {...props}
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className={props.className}
+            style={{ color: props.color || 'currentColor' }}
+        >
+            <defs>
+                <linearGradient id="pxpipe-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#a855f7" />
+                    <stop offset="100%" stopColor="#ec4899" />
+                </linearGradient>
+                <radialGradient id="pxpipe-sphere" cx="40%" cy="40%" r="60%">
+                    <stop offset="0%" stopColor="white" stopOpacity="0.5" />
+                    <stop offset="100%" stopColor="white" stopOpacity="0" />
+                </radialGradient>
+            </defs>
+            <circle cx="12" cy="12" r="10" fill="url(#pxpipe-gradient)" />
+            <circle cx="12" cy="12" r="10" fill="url(#pxpipe-sphere)" />
+        </svg>
+    );
+}
+
+// Apfel custom vector branding icon
+function ApfelTileIcon({ size = 20, className, style, ...props }) {
+    return (
+        <svg
+            width={size}
+            height={size}
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className={className}
+            style={style}
+            {...props}
+        >
+            <defs>
+                <linearGradient id="apple-rainbow-tile" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#4DA64D"/>
+                    <stop offset="20%" stopColor="#E8B32A"/>
+                    <stop offset="40%" stopColor="#E07A2E"/>
+                    <stop offset="60%" stopColor="#D04545"/>
+                    <stop offset="80%" stopColor="#8E4E9A"/>
+                    <stop offset="100%" stopColor="#2E94C9"/>
+                </linearGradient>
+            </defs>
+            <circle cx="12" cy="14" r="8" fill="url(#apple-rainbow-tile)"/>
+            <path d="M12 6.5c0-2.8 1.8-4 3.2-4.2" stroke="#4DA64D" strokeWidth="1.8" fill="none" strokeLinecap="round"/>
+        </svg>
+    );
+}
 
 // Native Perci surfaces — first-class workspace modes.
 // Sorted alphabetically by title so the dashboard tile grid and Sir Perci
@@ -47,10 +106,11 @@ import simplexBg from '../assets/simplex-bg.jpg';
 export const NATIVE_TILES = [
     { id: MODES.AGENTS, icon: AgentsIcon, title: 'Agents', desc: 'Queue jobs for the CLI crew', hue: '#4ade80' },
     { id: MODES.AUTORESEARCH, icon: ResearchIcon, title: 'Autoresearch', desc: 'Prompt-optimization loops', hue: '#f472b6' },
-    { id: MODES.BUILD, icon: BuildIcon, title: 'Build', desc: 'Generate and ship projects', hue: '#fb7185' },
+    { id: MODES.BUILD, icon: BuildIcon, title: 'Build', desc: 'Generate and ship projects', hue: '#fb923c' },
     { id: MODES.CHAT, icon: ChatIcon, title: 'Chat', desc: 'Converse with any model', hue: '#f97316' },
     { id: MODES.CODE, icon: CodeIcon, title: 'Code', desc: 'Edit and run your repos', hue: '#a78bfa' },
     { id: MODES.COWORK, icon: CoworkIcon, title: 'Cowork', desc: 'Session-based deep work', hue: '#22d3ee' },
+    { id: DB_INSPECTOR_WINDOW_ID, icon: Database, title: 'DB Inspector', desc: 'Browse local SQLite schemas & rows', hue: '#22c55e' },
     { id: MODES.PERCI_DESK, icon: PerciDeskIcon, title: 'Desk', desc: 'Perci-wide action desk', hue: '#0f766e' },
     { id: MODES.ENSEMBLE, icon: GitMerge, title: 'Ensemble', desc: 'Panel + judge synthesis', hue: '#818cf8' },
     { id: MODES.PROJECTS, icon: ProjectsIcon, title: 'Git Shells', desc: 'Manage terminals by project', hue: '#f97316' },
@@ -70,7 +130,7 @@ export const NATIVE_TILES = [
 // Perci launcher, so both render the same artwork (white backing vs.
 // edge-to-edge cover) instead of drifting apart.
 export const LOGO_WHITE_BOX_IDS = new Set([GDASH_WINDOW_ID, MODES.STUDIOOS, MODES.LIGHTHOUSE, HERMES_WINDOW_ID, CLEANMAC_WINDOW_ID]);
-export const LOGO_FILL_COVER_IDS = new Set([EIDOS_WINDOW_ID, KLIPIT_WINDOW_ID, MODES.BARS, MODES.MARKITDOWN, MODES.CONCERNS, AUTOFORGE_WINDOW_ID, AGENTMAIL_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID, IPTV_WINDOW_ID, SIMPLEX_WINDOW_ID]);
+export const LOGO_FILL_COVER_IDS = new Set([EIDOS_WINDOW_ID, KLIPIT_WINDOW_ID, MODES.BARS, MODES.MARKITDOWN, MODES.CONCERNS, AUTOFORGE_WINDOW_ID, AGENTMAIL_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID, IPTV_WINDOW_ID, SIMPLEX_WINDOW_ID, KEYSAFE_WINDOW_ID]);
 
 // OS-level tools and external runtimes. Bars belongs here when its Perci
 // surface is wired, not in the native Perci app group.
@@ -91,5 +151,8 @@ export const SYSTEM_TILES = [
     { id: OPEN_NOTEBOOK_WINDOW_ID, logo: cleanmacLogo, title: 'Open Notebook', desc: 'Embedded localhost notebook window', hue: '#10b981', artwork: true, bgImage: openNotebookBg },
     { id: IPTV_WINDOW_ID, icon: IptvIcon, logo: iptvLogo, title: 'IPTV', desc: 'Watch live TV channels from around the world', hue: '#8b5cf6', artwork: true, bgImage: iptvBg },
     { id: SIMPLEX_WINDOW_ID, icon: null, logo: simplexLogo, title: 'SimpleX', desc: 'Sovereign and private chat client', hue: '#0197ff', artwork: true, bgImage: simplexBg },
-    { id: PXPIPE_WINDOW_ID, icon: Zap, title: 'pxpipe', desc: 'Token-compression proxy dashboard', hue: '#a855f7' },
+    { id: PXPIPE_WINDOW_ID, icon: SphereIcon, title: 'pxpipe', desc: 'Token-compression proxy dashboard', hue: '#a855f7', artwork: true, bgImage: pxpipeBg },
+    { id: KEYSAFE_WINDOW_ID, icon: null, logo: keysafeLogo, title: 'KeySafe', desc: 'Secure local API keys & recovery codes', hue: '#0ea5e9', artwork: true, bgImage: keysafeBg },
+    { id: APFEL_WINDOW_ID, icon: ApfelTileIcon, logo: null, title: 'Apfel', desc: 'GUI harness for Apple Intelligence via the apfel CLI', hue: '#60a5fa', artwork: true, bgImage: apfelBg, iconSize: 26 },
+    { id: DOCKER_WINDOW_ID, icon: Container, title: 'Docker', desc: 'Containers, images & volumes with backup-gated removal', hue: '#2496ed', artwork: true, bgImage: dockerBg },
 ];

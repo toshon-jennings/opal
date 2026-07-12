@@ -385,6 +385,14 @@ class BaseClient {
                         onChunk(delta.content);
                     }
 
+                    // Local reasoning models (LM Studio et al.) stream their
+                    // chain-of-thought as reasoning_content; surface it as a
+                    // thinking chunk so callers can show activity instead of
+                    // appearing frozen for the whole think phase.
+                    if (delta.reasoning_content) {
+                        onChunk(delta.reasoning_content, { isThinking: true });
+                    }
+
                     for (const tc of (delta.tool_calls || [])) {
                         const i = tc.index ?? 0;
                         if (!acc[i]) acc[i] = { id: '', name: '', argumentsStr: '' };

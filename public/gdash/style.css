@@ -104,19 +104,20 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    overflow: hidden;
 }
 
 .header-logo {
-    height: 24px;
-    width: auto;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 5px;
     display: block;
-}
-
-.logo-area h1 {
-    font-size: 1.5rem;
-    font-weight: 400;
-    letter-spacing: -0.02em;
-    font-family: 'Google Sans', 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 
@@ -420,7 +421,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(255, 255, 255, 0.08);
+    background: #fff;
     border-radius: 10px;
     transition: var(--transition-smooth);
 }
@@ -553,60 +554,9 @@ body {
     }
 }
 
-/* --- Added Styles for Hover & Modal --- */
-
-/* Card Hover Overlay */
-.card-hover-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(10, 11, 20, 0.98);
-    /* Solid background */
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    opacity: 0;
-    pointer-events: none;
-    transition: all 0.2s ease;
-    padding: 20px;
-    text-align: center;
-    z-index: 10;
-}
-
-.service-card:hover .card-hover-overlay {
-    opacity: 1;
-    pointer-events: all;
-}
-
-/* Don't show hover overlay on cards with active widgets */
-.service-card.widget-mode:hover .card-hover-overlay {
-    opacity: 0;
-    pointer-events: none;
-}
-
-.service-card:hover .card-info,
-.service-card:hover .card-icon,
-.service-card:hover .card-category {
-    /* No blur on hover */
-    filter: none;
-}
-
-/* Don't blur content on cards with active widgets */
-.service-card.widget-mode:hover .card-info,
-.service-card.widget-mode:hover .card-icon,
-.service-card.widget-mode:hover .card-category,
-.service-card.widget-mode:hover .widget-area {
-    filter: none;
-}
-
+/* --- Widget badge --- */
 .plan-badge {
-    position: absolute;
-    top: 12px;
-    right: 12px;
+    display: inline-block;
     background: linear-gradient(135deg, var(--google-blue), var(--google-green));
     padding: 4px 10px;
     border-radius: 20px;
@@ -614,287 +564,7 @@ body {
     font-weight: 700;
     color: white;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    z-index: 5;
-}
-
-.widget-mode .plan-badge {
-    position: static;
-    display: inline-block;
     margin-bottom: 10px;
-}
-
-.plan-stat {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin-bottom: 5px;
-}
-
-.stat-value {
-    font-size: 1.8rem;
-    font-weight: 800;
-    color: white;
-    line-height: 1.1;
-}
-
-.stat-label {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-}
-
-.manage-btn {
-    background: white;
-    border: none;
-    color: var(--bg-dark);
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-weight: 600;
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: transform 0.2s;
-}
-
-.manage-btn:hover {
-    transform: scale(1.05);
-}
-
-.hover-hint {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    opacity: 0.7;
-    margin-top: 4px;
-}
-
-.card-hover-overlay.simple .hover-hint {
-    font-size: 0.9rem;
-    font-weight: 500;
-    opacity: 1;
-    color: white;
-}
-
-/* Modal Styling */
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.85);
-    /* Solid background */
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s ease;
-}
-
-.modal-overlay.active {
-    opacity: 1;
-    pointer-events: all;
-}
-
-.modal-content {
-    background: #13151a;
-    /* Darker clean bg */
-    width: 90%;
-    max-width: 800px;
-    border-radius: 24px;
-    border: 1px solid var(--glass-border);
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-    overflow: hidden;
-    transform: scale(0.95);
-    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    max-height: 90vh;
-    display: flex;
-    flex-direction: column;
-}
-
-.modal-overlay.active .modal-content {
-    transform: scale(1);
-}
-
-.modal-header {
-    padding: 24px 30px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    position: relative;
-}
-
-.modal-icon {
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #000000 !important;
-}
-
-.modal-icon img {
-    width: 40px;
-    height: 40px;
-    object-fit: contain;
-}
-
-.modal-title h2 {
-    font-size: 1.5rem;
-    margin: 0 0 5px 0;
-    color: white;
-}
-
-.current-plan-tag {
-    display: inline-block;
-    background: rgba(255, 255, 255, 0.1);
-    padding: 3px 8px;
-    border-radius: 6px;
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-}
-
-.close-modal-btn {
-    position: absolute;
-    top: 24px;
-    right: 24px;
-    background: transparent;
-    border: none;
-    color: var(--text-secondary);
-    font-size: 1.5rem;
-    cursor: pointer;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.2s;
-}
-
-.close-modal-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: white;
-}
-
-.plan-comparison {
-    display: flex;
-    padding: 30px;
-    gap: 30px;
-    overflow-y: auto;
-}
-
-.plan-col {
-    flex: 1;
-    background: rgba(255, 255, 255, 0.02);
-    border-radius: 16px;
-    padding: 24px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    display: flex;
-    flex-direction: column;
-}
-
-.plan-col.pro {
-    background: linear-gradient(180deg, rgba(66, 133, 244, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
-    border-color: rgba(66, 133, 244, 0.2);
-    position: relative;
-}
-
-.plan-col h3 {
-    font-size: 1.1rem;
-    color: var(--text-secondary);
-    margin-bottom: 10px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    font-size: 0.8rem;
-}
-
-
-
-.plan-col.pro h3 {
-    color: var(--google-blue);
-    font-weight: 700;
-}
-
-.price {
-    font-size: 2.5rem;
-    font-weight: 700;
-    color: white;
-    margin-bottom: 20px;
-    display: flex;
-    align-items: baseline;
-}
-
-.price span {
-    font-size: 1rem;
-    color: var(--text-secondary);
-    font-weight: 400;
-    margin-left: 4px;
-}
-
-.plan-col ul {
-    list-style: none;
-    margin: 0 0 24px 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.plan-col li {
-    font-size: 0.9rem;
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    line-height: 1.4;
-    color: var(--text-primary);
-}
-
-.cross {
-    color: var(--text-secondary);
-    /* or red */
-    opacity: 0.5;
-}
-
-.check {
-    color: var(--google-green);
-    font-weight: bold;
-}
-
-.plan-btn {
-    margin-top: auto;
-    width: 100%;
-    padding: 12px;
-    border-radius: 12px;
-    border: none;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.plan-btn.secondary {
-    background: rgba(255, 255, 255, 0.1);
-    color: var(--text-secondary);
-    cursor: default;
-}
-
-.plan-btn.primary {
-    background: var(--google-blue);
-    color: white;
-    box-shadow: 0 4px 15px rgba(66, 133, 244, 0.3);
-}
-
-.plan-btn.primary:hover {
-    background: #5d97f5;
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(66, 133, 244, 0.4);
-}
-
-@media (max-width: 768px) {
-    .plan-comparison {
-        flex-direction: column;
-    }
 }
 
 /* Activity List (Dashboard) */
@@ -943,11 +613,6 @@ body {
     justify-content: flex-start;
 }
 
-.card-hover-overlay.activity {
-    padding: 12px;
-    justify-content: flex-start;
-}
-
 /* Widget Container */
 .widget-area {
     display: none;
@@ -963,10 +628,6 @@ body {
     display: flex;
     flex-direction: column;
     height: 100%;
-}
-
-.widget-mode:hover .widget-container {
-    filter: none;
 }
 
 /* Quota Bar */
@@ -998,4 +659,181 @@ body {
     background: linear-gradient(90deg, #34A853, #FBBC05);
     border-radius: 3px;
     transition: width 1s ease-out;
+}
+
+/* --- Header controls: refresh + updated-age --- */
+.auth-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.refresh-age {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.refresh-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    flex-shrink: 0;
+}
+
+.is-signed-in .refresh-btn {
+    display: flex;
+}
+
+.refresh-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: var(--text-primary);
+}
+
+.refresh-btn.spinning svg {
+    animation: gdash-spin 0.9s linear infinite;
+}
+
+@keyframes gdash-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* --- Card actions (pin + quick-create) --- */
+.card-actions {
+    position: absolute;
+    top: 0.6rem;
+    right: 0.6rem;
+    display: flex;
+    gap: 0.35rem;
+    z-index: 20;
+    opacity: 0;
+    transition: var(--transition-smooth);
+}
+
+/* Widget cards park their icon in the top-right corner — sit left of it */
+.widget-mode .card-actions {
+    top: 0.85rem;
+    right: 3rem;
+}
+
+.service-card:hover .card-actions,
+.service-card:focus-within .card-actions,
+.card-actions:has(.pin.pinned) {
+    opacity: 1;
+}
+
+.card-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: var(--transition-smooth);
+}
+
+.card-action-btn:hover {
+    background: rgba(255, 255, 255, 0.18);
+    color: var(--text-primary);
+}
+
+.card-action-btn.pin svg {
+    fill: none;
+}
+
+.card-action-btn.pin.pinned {
+    color: var(--google-yellow);
+    border-color: rgba(251, 188, 5, 0.5);
+}
+
+.card-action-btn.pin.pinned svg {
+    fill: currentColor;
+}
+
+/* --- Search tools (deep links + live results) --- */
+.search-tools .deep-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+}
+
+.deep-link-chip {
+    padding: 0.5rem 1rem;
+    background: rgba(66, 133, 244, 0.12);
+    border: 1px solid rgba(66, 133, 244, 0.35);
+    border-radius: 20px;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.deep-link-chip:hover {
+    background: rgba(66, 133, 244, 0.25);
+    border-color: var(--google-blue);
+    transform: translateY(-2px);
+}
+
+.live-results {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 0.6rem;
+}
+
+.live-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0.6rem 0.75rem;
+    background: hsla(230, 25%, 12%, 0.6);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.85rem;
+    text-align: left;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    min-width: 0;
+}
+
+.live-item:hover {
+    background: hsla(230, 25%, 20%, 0.7);
+    border-color: rgba(255, 255, 255, 0.25);
+    transform: translateY(-2px);
+}
+
+.live-item .file-name {
+    flex: 1;
+}
+
+/* --- Misc --- */
+.no-results {
+    padding: 2rem 0.5rem;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}
+
+.widget-error {
+    cursor: default;
+    opacity: 0.75;
 }

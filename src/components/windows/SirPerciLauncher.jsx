@@ -5,7 +5,7 @@ import { Search, BookOpen } from 'lucide-react';
 import PerciMascot from '../PerciMascot';
 import { useMode } from '../../context/ModeContext';
 import { useChat } from '../../context/ChatContext';
-import { NATIVE_TILES, SYSTEM_TILES, LOGO_WHITE_BOX_IDS, LOGO_FILL_COVER_IDS } from '../../lib/appCatalog';
+import { NATIVE_TILES, SYSTEM_TILES, LOGO_WHITE_BOX_IDS, LOGO_FILL_COVER_IDS } from '../../lib/appCatalog.jsx';
 import { getPwaRegistry, pwaToTile } from '../../lib/pwaRegistry';
 import { useFlipPosition } from '../../lib/useFlipPosition';
 import { BeginnerGuideModal } from '../BeginnerGuideModal';
@@ -90,7 +90,7 @@ export default function SirPerciLauncher({ onOpenSettings, autoHide, onToggleAut
 
     const q = query.trim().toLowerCase();
     const nativeResults = useMemo(() => NATIVE_TILES.filter((it) => matches(it, q)), [q]);
-    const systemResults = useMemo(() => [...SYSTEM_TILES, ...getPwaRegistry().map(pwaToTile)].filter((it) => matches(it, q)), [q]);
+    const systemResults = useMemo(() => [...SYSTEM_TILES, ...getPwaRegistry().map(pwaToTile)].filter((it) => matches(it, q)).sort((a, b) => a.title.localeCompare(b.title)), [q]);
     const guideResults = useMemo(() => GUIDES.filter((it) => matches(it, q)), [q]);
     const noResults = !nativeResults.length && !systemResults.length && !guideResults.length;
 

@@ -1,4 +1,6 @@
 export const TERMINAL_PORT_KEY = 'perci_terminal_port';
+// 3001 is the stable Perci terminal port in both dev and packaged builds.
+// Keep 3002 as a compatibility fallback for older running instances.
 export const TERMINAL_PORT_CANDIDATES = [3001, 3002];
 
 import { readStringStorage, writeStringStorage } from './persistentStore';
@@ -6,7 +8,7 @@ import { readStringStorage, writeStringStorage } from './persistentStore';
 export function getTerminalPortCandidates() {
     const saved = Number(readStringStorage(TERMINAL_PORT_KEY, ''));
     const candidates = Number.isFinite(saved) && saved > 0
-        ? [saved, ...TERMINAL_PORT_CANDIDATES]
+        ? [TERMINAL_PORT_CANDIDATES[0], saved, ...TERMINAL_PORT_CANDIDATES.slice(1)]
         : TERMINAL_PORT_CANDIDATES;
     return Array.from(new Set(candidates));
 }

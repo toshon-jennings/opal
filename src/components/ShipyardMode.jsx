@@ -461,7 +461,7 @@ export default function ShipyardMode({ openClawStatus = {} }) {
                                         <div className="sy-msg-tools">
                                             {msg.tools.map((t, j) => (
                                                 <span key={j} className={`sy-chip sy-chip-tool ${t.ok ? 'is-ok' : 'is-error'}`} title={t.error || t.name}>
-                                                    {t.ok ? '✓' : '✗'} {t.name}
+                                                    {t.ok ? '✓' : '✗'} {t.name}{!t.ok && t.error ? ` — ${t.error}` : ''}
                                                 </span>
                                             ))}
                                         </div>

@@ -119,19 +119,31 @@ function addressLabel(url) {
     return url.replace(/^https?:\/\//, '');
 }
 
+function isBlockedInsecureUrl(url, allowHttp) {
+    if (allowHttp) return false;
+    try {
+        const { protocol, hostname } = new URL(url);
+        return protocol === 'http:' && hostname !== 'localhost' && hostname !== '127.0.0.1';
+    } catch {
+        return false;
+    }
+}
+
 
 function LocalhostTab({ id, initialUrl, hidden, onTitleChange, onUrlChange, isKlipit, isDarkMode, onNewTab }) {
     const keys = useMemo(() => getStorageKeys(isKlipit), [isKlipit]);
-    const [url, setUrl] = useState(initialUrl);
+    const initialAllowHttp = readStringStorage(keys.ALLOW_HTTP, 'false') === 'true';
+    const blockedInitialUrl = isBlockedInsecureUrl(initialUrl, initialAllowHttp);
+    const [url, setUrl] = useState(blockedInitialUrl ? '' : initialUrl);
     const [title, setTitle] = useState(addressLabel(initialUrl) || 'New Tab');
     const [inputValue, setInputValue] = useState(() => addressLabel(initialUrl));
     const [isLoading, setIsLoading] = useState(false);
-    const [loadError, setLoadError] = useState(null);
+    const [loadError, setLoadError] = useState(blockedInitialUrl ? 'Blocked: Insecure http:// connection. Enable in settings to proceed.' : null);
     const [navState, setNavState] = useState({ canGoBack: false, canGoForward: false });
     const [homeAddress, setHomeAddress] = useState(() => readStringStorage(keys.HOME, ''));
     const [homeInput, setHomeInput] = useState(() => addressLabel(readStringStorage(keys.HOME, '')));
     const [showSettings, setShowSettings] = useState(false);
-    const [allowHttp, setAllowHttp] = useState(() => readStringStorage(keys.ALLOW_HTTP, 'false') === 'true');
+    const [allowHttp, setAllowHttp] = useState(initialAllowHttp);
     const [bookmarks, setBookmarks] = useState(() => {
         try {
             return JSON.parse(readStringStorage(keys.BOOKMARKS, '[]'));
@@ -369,17 +381,12 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, onUrlChange, isKl
     const navigate = useCallback((raw) => {
         const next = normalizeAddress(raw, searchEngine);
         if (!next) return;
-        
-        try {
-            const parsed = new URL(next);
-            if (parsed.protocol === 'http:' && parsed.hostname !== 'localhost' && parsed.hostname !== '127.0.0.1' && !allowHttp) {
-                setLoadError('Blocked: Insecure http:// connection. Enable in settings to proceed.');
-                setUrl('');
-                setInputValue(addressLabel(next));
-                return;
-            }
-        } catch (e) {
-            // ignore
+
+        if (isBlockedInsecureUrl(next, allowHttp)) {
+            setLoadError('Blocked: Insecure http:// connection. Enable in settings to proceed.');
+            setUrl('');
+            setInputValue(addressLabel(next));
+            return;
         }
 
         setLoadError(null);
@@ -441,15 +448,10 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, onUrlChange, isKl
             }
         };
         const handleWillNavigate = (e) => {
-            try {
-                const parsed = new URL(e.url);
-                if (parsed.protocol === 'http:' && parsed.hostname !== 'localhost' && parsed.hostname !== '127.0.0.1' && !allowHttp) {
-                    webview.stop();
-                    setLoadError(`Blocked: Insecure connection to ${parsed.hostname}`);
-                    setUrl('');
-                }
-            } catch (err) {
-                // ignore
+            if (isBlockedInsecureUrl(e.url, allowHttp)) {
+                webview.stop();
+                setLoadError(`Blocked: Insecure connection to ${new URL(e.url).hostname}`);
+                setUrl('');
             }
         };
         const myTarget = isKlipit ? 'klipit' : id;
@@ -460,11 +462,6 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, onUrlChange, isKl
                 window.electron.showContextMenu({ ...e.params, target: myTarget });
             }
         };
-        const handleNewWindow = (e) => {
-            e.preventDefault();
-            if (onNewTab) onNewTab(e.url);
-        };
-
         const handleFoundInPage = (e) => {
             setFindResult({
                 activeMatchOrdinal: e.result.activeMatchOrdinal,
@@ -480,7 +477,6 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, onUrlChange, isKl
         webview.addEventListener('page-title-updated', handleTitle);
         webview.addEventListener('will-navigate', handleWillNavigate);
         webview.addEventListener('context-menu', handleContextMenu);
-        webview.addEventListener('new-window', handleNewWindow);
         webview.addEventListener('found-in-page', handleFoundInPage);
 
         return () => {
@@ -492,10 +488,9 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, onUrlChange, isKl
             webview.removeEventListener('page-title-updated', handleTitle);
             webview.removeEventListener('will-navigate', handleWillNavigate);
             webview.removeEventListener('context-menu', handleContextMenu);
-            webview.removeEventListener('new-window', handleNewWindow);
             webview.removeEventListener('found-in-page', handleFoundInPage);
         };
-    }, [id, onTitleChange, onUrlChange, allowHttp, hidden, keys.LAST_URL, addHistoryEntry, isKlipit, onNewTab]);
+    }, [id, onTitleChange, onUrlChange, allowHttp, hidden, keys.LAST_URL, addHistoryEntry, isKlipit]);
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -564,16 +559,14 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, onUrlChange, isKl
                         />
                     </div>
                 </form>
-                <a
-                    href={url || undefined}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => { if (!url) e.preventDefault(); }}
+                <button
+                    type="button"
+                    onClick={() => { if (url) onNewTab(url); }}
                     className={`micro-interaction rounded-md p-1.5 text-[var(--text-tertiary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] ${!url ? 'pointer-events-none opacity-30' : ''}`}
-                    title="Open in browser"
+                    title="Open in new tab"
                 >
                     <ExternalLink size={14} />
-                </a>
+                </button>
                 {isKlipit && (
                     <button
                         type="button"
@@ -1014,6 +1007,14 @@ export default function LocalhostMode({ isKlipit }) {
         setTabs(prev => [...prev, { id: newId, url, title: addressLabel(url || '') || 'New Tab', pinned: false }]);
         setActiveTabId(newId);
     }, []);
+    // Listen for IPC from main process when a webview link wants to open in a new tab
+    useEffect(() => {
+        if (!window.electron?.onWebviewOpenInTab) return;
+        const unlisten = window.electron.onWebviewOpenInTab((url) => {
+            handleNewTab(url);
+        });
+        return unlisten;
+    }, [handleNewTab]);
 
     const togglePinnedTab = useCallback((id) => {
         setTabs((currentTabs) => {
@@ -1176,11 +1177,12 @@ export default function LocalhostMode({ isKlipit }) {
             </div>
 
             <div className="flex items-center gap-1 border-b border-[var(--border)] bg-[var(--bg-secondary)]/30 px-2 pt-2" style={{ WebkitAppRegion: 'no-drag' }}>
+                <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
                 {/* Manager tab — always first, always present */}
                 <button
                     type="button"
                     onClick={() => setActiveTabId(MANAGER_TAB_ID)}
-                    className={`group relative flex h-8 min-w-[80px] cursor-pointer items-center gap-1.5 rounded-t-lg border-x border-t px-2.5 text-xs transition-colors ${
+                    className={`group relative flex h-8 min-w-[80px] shrink-0 cursor-pointer items-center gap-1.5 rounded-t-lg border-x border-t px-2.5 text-xs transition-colors ${
                         activeTabId === MANAGER_TAB_ID
                             ? 'border-[var(--border)] bg-[var(--bg-primary)] text-[var(--accent)]'
                             : 'border-transparent bg-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
@@ -1196,7 +1198,7 @@ export default function LocalhostMode({ isKlipit }) {
                         <div
                             key={tab.id}
                             draggable={true}
-                            className={`group relative flex h-8 min-w-[120px] max-w-[210px] cursor-pointer items-center justify-between gap-1.5 rounded-t-lg border-x border-t px-2.5 text-xs transition-colors ${
+                            className={`group relative flex h-8 min-w-[120px] max-w-[210px] shrink-0 cursor-pointer items-center justify-between gap-1.5 rounded-t-lg border-x border-t px-2.5 text-xs transition-colors ${
                                 isActive
                                     ? 'border-[var(--border)] bg-[var(--bg-primary)] text-[var(--text-primary)]'
                                     : 'border-transparent bg-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
@@ -1266,6 +1268,7 @@ export default function LocalhostMode({ isKlipit }) {
                         </div>
                     );
                 })}
+                </div>
                 <button
                     type="button"
                     onClick={() => {
@@ -1273,7 +1276,7 @@ export default function LocalhostMode({ isKlipit }) {
                         setTabs([...tabs, { id: newId, url: '', title: 'New Tab', pinned: false }]);
                         setActiveTabId(newId);
                     }}
-                    className="ml-1 mb-1 rounded-md p-1.5 text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+                    className="ml-1 mb-1 shrink-0 rounded-md p-1.5 text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
                     title="New tab"
                 >
                     <Plus size={14} />

@@ -222,14 +222,14 @@
 
 .simplex-alert-multi-client {
     background-color: #f97316 !important;
-    color: #030749 !important;
+    color: #000000 !important;
     border-color: #ea580c !important;
 }
 
 .simplex-alert-multi-client strong,
 .simplex-alert-multi-client code,
 .simplex-alert-multi-client svg {
-    color: #030749 !important;
+    color: #000000 !important;
 }
 
 .simplex-alert-multi-client code {

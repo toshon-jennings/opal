@@ -14,7 +14,7 @@ import UsageLimitsGlance from './UsageLimitsGlance';
 import { AGENT_DEFINITIONS, ACTIVE_JOB_STATUSES, ATTENTION_JOB_STATUSES } from './AgentsPanel';
 import OnboardingCard, { hasOnboardingBeenSeen } from './OnboardingCard';
 import { BeginnerGuideModal } from './BeginnerGuideModal';
-import { NATIVE_TILES, SYSTEM_TILES, LOGO_WHITE_BOX_IDS, LOGO_FILL_COVER_IDS } from '../lib/appCatalog';
+import { NATIVE_TILES, SYSTEM_TILES, LOGO_WHITE_BOX_IDS, LOGO_FILL_COVER_IDS } from '../lib/appCatalog.jsx';
 import { getPwaRegistry, removePwa, pwaToTile } from '../lib/pwaRegistry';
 import AddPwaModal from './windows/AddPwaModal';
 import { readJsonStorage, writeStringStorage } from '../lib/persistentStore';
@@ -389,6 +389,40 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
         return parts.join(' · ');
     }, [openClawStatus]);
 
+    // Live Google summary for the G-Dash tile. Served from main's dashboard cache
+    // with a lax 10-min tolerance, so it stays cheap; when G-Dash isn't connected
+    // the IPC returns immediately without touching Google and the static desc shows.
+    const [gdashDesc, setGdashDesc] = useState(null);
+    useEffect(() => {
+        if (!window.electron?.gdashDashboard) return undefined;
+        let cancelled = false;
+        const load = async () => {
+            try {
+                const d = await window.electron.gdashDashboard({ maxAgeMs: 10 * 60 * 1000 });
+                if (cancelled) return;
+                if (!d?.connected) { setGdashDesc(null); return; }
+                const parts = [];
+                if (typeof d.gmail?.unreadCount === 'number') parts.push(`${d.gmail.unreadCount} unread`);
+                const ev = Array.isArray(d.calendar?.events) ? d.calendar.events[0] : null;
+                if (ev) {
+                    const start = ev.start?.dateTime ? new Date(ev.start.dateTime) : null;
+                    let when = 'all day';
+                    if (start && !Number.isNaN(start.getTime())) {
+                        const time = start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        when = start.toDateString() === new Date().toDateString()
+                            ? time
+                            : `${start.toLocaleDateString([], { weekday: 'short' })} ${time}`;
+                    }
+                    parts.push(`next: ${when} ${ev.summary || ''}`.trim());
+                }
+                setGdashDesc(parts.length ? parts.join(' · ') : 'Connected');
+            } catch { /* keep the static desc */ }
+        };
+        void load();
+        const id = window.setInterval(() => void load(), 5 * 60 * 1000);
+        return () => { cancelled = true; window.clearInterval(id); };
+    }, []);
+
     const openIds = useMemo(() => new Set(windows.map((w) => w.modeId)), [windows]);
     const orderedNativeTiles = useMemo(() => {
         const tiles = orderTiles(NATIVE_TILES, tileOrder.native);
@@ -654,7 +688,7 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                                                 )}
                                             </span>
                                         )}
-                                        <span className={`dash-tile-icon ${isWhiteBox || isFillCover ? 'overflow-hidden' : ''} ${isWhiteBox ? '!bg-white' : ''}`}>
+                                        <span className={`dash-tile-icon ${isWhiteBox || isFillCover ? 'overflow-hidden' : ''} ${id === HERMES_WINDOW_ID ? '!bg-white/75' : isWhiteBox ? '!bg-white' : ''}`}>
                                             {logo ? <img src={logo} alt="" className="dash-tile-logo" style={logoStyle} /> : <Icon size={iconSize || 20} />}
                                         </span>
                                     <span className="dash-tile-name">
@@ -663,7 +697,7 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                                             <span className={`dash-dot ${openClawStatus?.state === 'online' ? 'is-online' : 'is-off'}`} />
                                         )}
                                     </span>
-                                    <span className="dash-tile-desc">{id === OPENCLAW_WINDOW_ID ? openClawDesc : desc}</span>
+                                    <span className="dash-tile-desc">{id === OPENCLAW_WINDOW_ID ? openClawDesc : (id === GDASH_WINDOW_ID && gdashDesc) ? gdashDesc : desc}</span>
                                     {openIds.has(id) && <span className="dash-tile-open">open</span>}
                                     {isPwa && (
                                         <span

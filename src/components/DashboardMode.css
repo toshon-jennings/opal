@@ -1467,7 +1467,7 @@
 .dash-tile-art {
     position: absolute;
     inset: 0;
-    background-image: url('/artwork/design-01kv2y38zh-1781436378.png');
+    background-image: url('/artwork/hermes-anime.jpg');
     background-size: cover;
     background-position: center;
     opacity: 0.2;
@@ -1507,7 +1507,7 @@
 /* The Nous logo is black line-art — give its chip a bright background and
    border so it reads clearly instead of going dark on the tile. */
 .dash-tile-hermes .dash-tile-icon {
-    background: #fff;
+    background: rgba(255, 255, 255, 0.5) !important;
     border-color: rgba(255, 255, 255, 0.65);
 }
 

@@ -1,11 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlaskConical, FolderOpen, Play, RefreshCw, ChevronDown, ChevronRight, AlertCircle, BookOpen, Cpu } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { FlaskConical, FolderOpen, Play, RefreshCw, ChevronDown, ChevronRight, AlertCircle, BookOpen, Cpu, Copy, Check, Square } from 'lucide-react';
 import skillText from '../assets/autoresearch-skill.md?raw';
 import karpathySkillText from '../assets/karpathy-skill.md?raw';
 import TrainingResults from './TrainingResults';
 import { readStringStorage, writeStringStorage } from '../lib/persistentStore';
 
 const SUBMODE_KEY = 'autoresearch_submode';
+// Own key for the target repo — deliberately NOT the shared 'working_directory'
+// key, so pointing Autoresearch at a scratch repo doesn't move Code/Cowork/
+// Agents there too. Seeded from the shared key on first use.
+const TARGET_DIR_KEY = 'autoresearch_target_dir';
+const TARGET_TEXT_KEY = 'autoresearch_target_text';
+const JOB_KEY = 'autoresearch_job_id';
 
 // CLI agents that take a prompt + working directory and can run an autonomous
 // multi-step loop. The skill instructions are inlined into the prompt (below),
@@ -55,16 +61,42 @@ function buildPrompt(mode, target) {
   ].join('\n');
 }
 
-// Monitors a repo's `.autoresearch/` directory (written by the
-// "autoresearch-universal" skill) and visualizes the optimization loop:
-// best score, per-run history, mutation operators, and the winning prompt.
-// Also offers a convenience launch via the Claude Code agent.
-//
-// The skill must be installed at ~/.claude/skills/autoresearch-universal/ and
-// is only picked up by the Claude Code (or Cursor) CLI agent — see the
-// precondition banner below.
+// Monitors a repo's `.autoresearch/` directory (written by the autoresearch
+// skills) and visualizes the optimization loop: best score, per-run history,
+// mutation operators, and the winning prompt. Also launches runs through the
+// agent-jobs queue with the skill inlined into the prompt, so nothing needs
+// to be installed in ~/.claude/skills/.
 
 const POLL_INTERVAL_MS = 4000;
+const RUNS_SHOWN = 20;
+
+// Statuses the agent-jobs system treats as still in flight; everything else
+// (completed / failed / cancelled) is terminal and stops the status poll.
+const ACTIVE_JOB_STATUSES = ['pending', 'claimed', 'running', 'retry_queued'];
+
+// Fetch one job's status, preferring the slim agent-jobs:get lookup and
+// falling back to scanning the list for older main processes.
+async function fetchJob(jobId) {
+  if (window.electron?.getAgentJob) {
+    try { return await window.electron.getAgentJob(jobId); } catch { return null; }
+  }
+  if (window.electron?.listAgentJobs) {
+    try {
+      const jobs = await window.electron.listAgentJobs({ limit: 100, source: 'agents_page' });
+      return jobs.find(j => j.id === jobId) || null;
+    } catch { return null; }
+  }
+  return null;
+}
+
+function fmtElapsed(fromIso) {
+  const ms = Date.now() - new Date(fromIso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return '';
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  if (m >= 60) return `${Math.floor(m / 60)}h ${m % 60}m`;
+  return m ? `${m}m ${s % 60}s` : `${s}s`;
+}
 
 function folderName(p) {
   if (!p) return '';
@@ -96,25 +128,30 @@ function parseJsonl(text) {
 
 export default function AutoresearchPanel() {
   const [targetDir, setTargetDir] = useState(() => {
-    try { return readStringStorage('working_directory') || ''; } catch { return ''; }
+    try { return readStringStorage(TARGET_DIR_KEY) || readStringStorage('working_directory') || ''; } catch { return ''; }
   });
   const [tab, setTab] = useState('research');
   const [submode, setSubmode] = useState(() => {
     try { return readStringStorage(SUBMODE_KEY) === 'training' ? 'training' : 'prompt'; } catch { return 'prompt'; }
   });
-  const [target, setTarget] = useState('');
+  const [target, setTarget] = useState(() => {
+    try { return readStringStorage(TARGET_TEXT_KEY) || ''; } catch { return ''; }
+  });
   const [agent, setAgent] = useState('claude_code');
   const [state, setState] = useState(null);
   const [runs, setRuns] = useState([]);
   const [bestPrompt, setBestPrompt] = useState('');
   const [programLog, setProgramLog] = useState('');
   const [showBestPrompt, setShowBestPrompt] = useState(false);
+  const [showAllRuns, setShowAllRuns] = useState(false);
+  const [promptCopied, setPromptCopied] = useState(false);
   const [lastReadAt, setLastReadAt] = useState(null);
   const [notice, setNotice] = useState(null);
   const [launching, setLaunching] = useState(false);
-  const [jobStatus, setJobStatus] = useState(null);
+  const [job, setJob] = useState(null);
 
-  const launchedJobIdRef = useRef(null);
+  const jobActive = job ? ACTIVE_JOB_STATUSES.includes(job.status) : false;
+  const jobStartedAt = job?.started_at || job?.created_at || null;
 
   const arDir = targetDir ? `${targetDir.replace(/\/+$/, '')}/.autoresearch` : '';
 
@@ -130,11 +167,13 @@ export default function AutoresearchPanel() {
       submode === 'training' ? readMaybe(`${arDir}/program_log.md`) : Promise.resolve(null),
     ]);
 
-    let parsedState = null;
     if (stateText) {
-      try { parsedState = JSON.parse(stateText); } catch { parsedState = null; }
+      // A parse failure here is usually a torn read (the agent was mid-write);
+      // keep the last good state instead of blanking the stats for a tick.
+      try { setState(JSON.parse(stateText)); } catch { /* keep previous */ }
+    } else {
+      setState(null);
     }
-    setState(parsedState);
     setRuns(parseJsonl(resultsText));
     setBestPrompt(promptText || '');
     setProgramLog(logText || '');
@@ -159,22 +198,32 @@ export default function AutoresearchPanel() {
     return () => window.clearInterval(id);
   }, [arDir, refresh]);
 
-  // Poll the launched job's status, if any.
+  // Re-attach to a previously launched job after a remount (mode switch). Jobs
+  // live in the main process's memory, so a lookup miss means the app restarted
+  // and the saved id is stale.
   useEffect(() => {
-    if (!launchedJobIdRef.current || !window.electron?.listAgentJobs) return;
+    let savedId = '';
+    try { savedId = readStringStorage(JOB_KEY); } catch { /* ignore */ }
+    if (!savedId) return;
     let active = true;
-    const tick = async () => {
-      try {
-        const jobs = await window.electron.listAgentJobs({ limit: 24, source: 'agents_page' });
-        if (!active) return;
-        const job = jobs.find(j => j.id === launchedJobIdRef.current);
-        if (job) setJobStatus(job.status);
-      } catch { /* ignore */ }
-    };
-    void tick();
-    const id = window.setInterval(tick, POLL_INTERVAL_MS);
+    void fetchJob(savedId).then(fresh => {
+      if (!active) return;
+      if (fresh) setJob(fresh);
+      else { try { writeStringStorage(JOB_KEY, ''); } catch { /* ignore */ } }
+    });
+    return () => { active = false; };
+  }, []);
+
+  // Poll the launched job's status while it's in flight; stop once terminal.
+  useEffect(() => {
+    if (!job?.id || !jobActive) return;
+    let active = true;
+    const id = window.setInterval(async () => {
+      const fresh = await fetchJob(job.id);
+      if (active && fresh) setJob(fresh);
+    }, POLL_INTERVAL_MS);
     return () => { active = false; window.clearInterval(id); };
-  }, [jobStatus]); // re-arm when a job is first set
+  }, [job?.id, jobActive]);
 
   async function chooseFolder() {
     if (!window.electron?.selectDirectory) {
@@ -185,7 +234,7 @@ export default function AutoresearchPanel() {
       const folderPath = await window.electron.selectDirectory();
       if (!folderPath) return;
       setTargetDir(folderPath);
-      try { writeStringStorage('working_directory', folderPath); } catch { /* ignore */ }
+      try { writeStringStorage(TARGET_DIR_KEY, folderPath); } catch { /* ignore */ }
       setNotice(null);
     } catch (err) {
       setNotice(err?.message || 'Could not choose folder.');
@@ -210,8 +259,8 @@ export default function AutoresearchPanel() {
         working_directory: targetDir,
       });
       if (result?.ok && result.job?.id) {
-        launchedJobIdRef.current = result.job.id;
-        setJobStatus(result.job.status || 'running');
+        setJob(result.job);
+        try { writeStringStorage(JOB_KEY, result.job.id); } catch { /* ignore */ }
         const label = LAUNCH_AGENTS.find(a => a.id === agent)?.label || agent;
         setNotice(`Launched via ${label}. It runs autonomously (no plan-review step) — watch results below.`);
       } else {
@@ -224,6 +273,30 @@ export default function AutoresearchPanel() {
     }
   }
 
+  async function stopJob() {
+    if (!job?.id || !window.electron?.cancelAgentJob) return;
+    try {
+      const result = await window.electron.cancelAgentJob(job.id);
+      if (result?.ok) {
+        setJob(j => (j ? { ...j, status: result.status || 'cancelled' } : j));
+      } else {
+        setNotice(result?.error || 'Could not stop the run.');
+      }
+    } catch (err) {
+      setNotice(err?.message || 'Could not stop the run.');
+    }
+  }
+
+  async function copyBestPrompt() {
+    try {
+      await navigator.clipboard.writeText(bestPrompt);
+      setPromptCopied(true);
+      window.setTimeout(() => setPromptCopied(false), 1500);
+    } catch {
+      setNotice('Could not copy to the clipboard.');
+    }
+  }
+
   const maxScore = useMemo(() => {
     const fromState = Number(state?.max_score);
     if (Number.isFinite(fromState) && fromState > 0) return fromState;
@@ -231,7 +304,15 @@ export default function AutoresearchPanel() {
   }, [state, runs]);
 
   const bestScore = Number(state?.best_score);
-  const hasData = state || runs.length > 0 || bestPrompt;
+  const hasData = Boolean(state || runs.length > 0 || bestPrompt || programLog);
+
+  // Newest run first — that's the row the user is watching for — capped until
+  // "Show all" so long loops don't produce an endless list.
+  const displayRuns = useMemo(() => {
+    const numbered = runs.map((r, i) => ({ ...r, _n: r.run ?? i + 1 }));
+    numbered.reverse();
+    return showAllRuns ? numbered : numbered.slice(0, RUNS_SHOWN);
+  }, [runs, showAllRuns]);
 
   return (
     <div className="flex flex-col h-full bg-[var(--bg-primary)] text-[var(--text-primary)]" style={{ fontFamily: 'DM Sans, sans-serif' }}>
@@ -334,6 +415,7 @@ export default function AutoresearchPanel() {
           <input
             value={target}
             onChange={e => setTarget(e.target.value)}
+            onBlur={() => { try { writeStringStorage(TARGET_TEXT_KEY, target); } catch { /* ignore */ } }}
             placeholder={submode === 'training'
               ? 'Optional research steer (e.g. focus on LR schedules) — leave blank to let it explore'
               : 'Optimization target (e.g. docstring completeness, accessibility)'}
@@ -358,9 +440,24 @@ export default function AutoresearchPanel() {
             >
               {LAUNCH_AGENTS.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
             </select>
-            {jobStatus && (
-              <span className="text-xs text-[var(--text-secondary)]">
-                Job: <span className="font-medium text-[var(--text-primary)]">{jobStatus}</span>
+            {job && (
+              <span className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)]">
+                <span
+                  className="w-1.5 h-1.5 rounded-full shrink-0"
+                  style={{ background: jobActive ? 'var(--accent)' : job.status === 'completed' ? 'var(--accent-cyan)' : '#f87171' }}
+                />
+                <span className="font-medium text-[var(--text-primary)]">{job.status}</span>
+                {jobActive && jobStartedAt && <span className="tabular-nums">· {fmtElapsed(jobStartedAt)}</span>}
+                {jobActive && (
+                  <button
+                    onClick={stopJob}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-md border border-[var(--border)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+                    title="Stop the run"
+                  >
+                    <Square size={9} />
+                    Stop
+                  </button>
+                )}
               </span>
             )}
           </div>
@@ -373,16 +470,16 @@ export default function AutoresearchPanel() {
         )}
 
         {/* Results */}
-        {submode === 'training' ? (
-          targetDir ? (
-            <TrainingResults runs={runs} state={state} programLog={programLog} lastReadAt={lastReadAt} />
-          ) : (
-            <div className="text-sm text-[var(--text-tertiary)] text-center py-8">Pick a target repo to begin.</div>
-          )
-        ) : !hasData ? (
-          <div className="text-sm text-[var(--text-tertiary)] text-center py-8">
-            {targetDir ? 'No .autoresearch/ data yet. Launch a run or point at a repo that has one.' : 'Pick a target repo to begin.'}
-          </div>
+        {!hasData ? (
+          <ResultsEmptyState
+            targetDir={targetDir}
+            job={job}
+            jobActive={jobActive}
+            jobStartedAt={jobStartedAt}
+            onOpenGuide={() => setTab('guide')}
+          />
+        ) : submode === 'training' ? (
+          <TrainingResults runs={runs} state={state} programLog={programLog} lastReadAt={lastReadAt} />
         ) : (
           <div className="space-y-4">
             {/* Score summary */}
@@ -401,15 +498,15 @@ export default function AutoresearchPanel() {
             {/* Run history */}
             {runs.length > 0 && (
               <div className="space-y-1.5">
-                <div className="text-xs font-medium text-[var(--text-secondary)]">Run history</div>
-                {runs.map((r, i) => {
+                <div className="text-xs font-medium text-[var(--text-secondary)]">Run history (newest first)</div>
+                {displayRuns.map((r) => {
                   const score = Number(r.score) || 0;
                   const rmax = Number(r.max) || maxScore || 1;
                   const pct = rmax ? Math.round((score / rmax) * 100) : 0;
                   const kept = r.status === 'keep';
                   return (
-                    <div key={i} className="flex items-center gap-2 text-xs">
-                      <span className="w-8 text-[var(--text-tertiary)] tabular-nums">#{r.run ?? i + 1}</span>
+                    <div key={r._n} className="flex items-center gap-2 text-xs">
+                      <span className="w-8 text-[var(--text-tertiary)] tabular-nums">#{r._n}</span>
                       <div className="flex-1 h-2 rounded-full bg-[var(--bg-secondary)] overflow-hidden">
                         <div
                           className="h-full rounded-full"
@@ -422,19 +519,37 @@ export default function AutoresearchPanel() {
                     </div>
                   );
                 })}
+                {runs.length > RUNS_SHOWN && (
+                  <button
+                    onClick={() => setShowAllRuns(v => !v)}
+                    className="text-xs text-[var(--accent)] hover:underline"
+                  >
+                    {showAllRuns ? `Show latest ${RUNS_SHOWN} only` : `Show all ${runs.length} runs`}
+                  </button>
+                )}
               </div>
             )}
 
             {/* Best prompt */}
             {bestPrompt && (
               <div className="border border-[var(--border)] rounded-lg overflow-hidden">
-                <button
-                  onClick={() => setShowBestPrompt(v => !v)}
-                  className="w-full flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-colors"
-                >
-                  {showBestPrompt ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                  Best prompt ({bestPrompt.length} chars)
-                </button>
+                <div className="flex items-center">
+                  <button
+                    onClick={() => setShowBestPrompt(v => !v)}
+                    className="flex-1 flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-colors"
+                  >
+                    {showBestPrompt ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    Best prompt ({bestPrompt.length} chars)
+                  </button>
+                  <button
+                    onClick={copyBestPrompt}
+                    className="shrink-0 flex items-center gap-1 px-2.5 py-2 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+                    title="Copy the tuned prompt to the clipboard"
+                  >
+                    {promptCopied ? <Check size={13} className="text-[var(--accent)]" /> : <Copy size={13} />}
+                    {promptCopied ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
                 {showBestPrompt && (
                   <pre className="px-3 py-2 text-xs font-mono whitespace-pre-wrap break-words text-[var(--text-primary)] bg-[var(--bg-secondary)] max-h-64 overflow-y-auto">
                     {bestPrompt}
@@ -461,6 +576,37 @@ function Stat({ label, value }) {
     <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg px-3 py-2">
       <div className="text-[10px] uppercase tracking-wide text-[var(--text-tertiary)]">{label}</div>
       <div className="text-lg font-semibold tabular-nums text-[var(--text-primary)]">{value}</div>
+    </div>
+  );
+}
+
+// Staged empty state: a freshly launched run writes nothing for minutes (a
+// baseline training run alone takes ~5), so distinguish "working on it" from
+// "nothing here" — and from "the run died without producing results".
+function ResultsEmptyState({ targetDir, job, jobActive, jobStartedAt, onOpenGuide }) {
+  let message;
+  if (jobActive) {
+    const elapsed = jobStartedAt ? ` (${fmtElapsed(jobStartedAt)} elapsed)` : '';
+    message = `Run launched — waiting for the first results${elapsed}. The first scores can take a few minutes.`;
+  } else if (job) {
+    message = `The run ${job.status === 'completed' ? 'finished' : job.status} without writing results — check its log on the Agents page.`;
+  } else if (targetDir) {
+    message = 'No .autoresearch/ data yet. Launch a run or point at a repo that has one.';
+  } else {
+    message = 'Pick a target repo to begin.';
+  }
+  return (
+    <div className="text-center py-8 space-y-3">
+      <div className="text-sm text-[var(--text-tertiary)]">{message}</div>
+      {!job && (
+        <button
+          onClick={onOpenGuide}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--bg-secondary)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+        >
+          <BookOpen size={13} />
+          New to Autoresearch? Read the Guide
+        </button>
+      )}
     </div>
   );
 }

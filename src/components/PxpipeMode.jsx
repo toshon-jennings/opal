@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { RefreshCw, ExternalLink, Terminal, Download } from 'lucide-react';
-import { PXPIPE_ORIGIN } from '../lib/pxpipe';
+import { PXPIPE_ORIGIN, checkPxpipeAlive } from '../lib/pxpipe';
 
 export default function PxpipeMode() {
     const [alive, setAlive] = useState(null); // null=checking, true=alive, false=missing
@@ -11,16 +11,8 @@ export default function PxpipeMode() {
     useEffect(() => {
         let cancelled = false;
         (async () => {
-            try {
-                await fetch(`${PXPIPE_ORIGIN}/`, {
-                    mode: 'no-cors',
-                    cache: 'no-store',
-                    signal: AbortSignal.timeout(2000),
-                });
-                if (!cancelled) setAlive(true);
-            } catch {
-                if (!cancelled) setAlive(false);
-            }
+            const isAlive = await checkPxpipeAlive();
+            if (!cancelled) setAlive(isAlive);
         })();
         return () => { cancelled = true; };
     }, []);

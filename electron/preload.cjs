@@ -31,6 +31,7 @@ contextBridge.exposeInMainWorld('electron', {
       ipcRenderer.invoke('studioos:fetch', { apiBase, apiKey, path, method, body })
   },
   listAgentJobs: (options) => ipcRenderer.invoke('agent-jobs:list', options),
+  getAgentJob: (id) => ipcRenderer.invoke('agent-jobs:get', id),
   queueAgentJob: (job) => ipcRenderer.invoke('agent-jobs:queue', job),
   cancelAgentJob: (id) => ipcRenderer.invoke('agent-jobs:cancel', id),
   queueJulesJob: (job) => ipcRenderer.invoke('jules:queue', job),
@@ -106,7 +107,7 @@ contextBridge.exposeInMainWorld('electron', {
   gdashStatus: () => ipcRenderer.invoke('gdash:status'),
   gdashConnect: () => ipcRenderer.invoke('gdash:connect'),
   gdashDisconnect: () => ipcRenderer.invoke('gdash:disconnect'),
-  gdashDashboard: () => ipcRenderer.invoke('gdash:dashboard'),
+  gdashDashboard: (opts) => ipcRenderer.invoke('gdash:dashboard', opts),
   // Eidos — persistent memory service (Docker/OrbStack lifecycle + dashboard).
   eidosStatus: () => ipcRenderer.invoke('eidos:status'),
   eidosStart: () => ipcRenderer.invoke('eidos:start'),
@@ -134,6 +135,15 @@ contextBridge.exposeInMainWorld('electron', {
   // Docker-dependent localhost services (Open Notebook, etc).
   dockerStatus: () => ipcRenderer.invoke('docker:status'),
   dockerStartOrbStack: () => ipcRenderer.invoke('docker:start-orbstack'),
+  dockerList: () => ipcRenderer.invoke('docker:list'),
+  dockerStop: (id) => ipcRenderer.invoke('docker:stop', { id }),
+  dockerBackupVolume: (name) => ipcRenderer.invoke('docker:backup-volume', { name }),
+  dockerRemove: (type, id, confirm) => ipcRenderer.invoke('docker:remove', { type, id, confirm }),
+  // DB Inspector — read-only SQLite browsing via the system sqlite3 CLI.
+  dbDiscover: () => ipcRenderer.invoke('db:discover'),
+  dbPickFile: () => ipcRenderer.invoke('db:pick-file'),
+  dbSchema: (dbPath) => ipcRenderer.invoke('db:schema', { dbPath }),
+  dbQuery: (dbPath, sql) => ipcRenderer.invoke('db:query', { dbPath, sql }),
   // Packages Dashboard APIs
   packagesScan: () => ipcRenderer.invoke('packages:scan'),
   packagesGetConfig: () => ipcRenderer.invoke('packages:get-config'),
@@ -166,4 +176,9 @@ contextBridge.exposeInMainWorld('electron', {
   // PWA shortcuts — extract favicon + title from a URL
   extractPwaMetadata: (url) => ipcRenderer.invoke('pwa:extract-favicon', { url }),
   getPreloadPath: () => ipcRenderer.invoke('get-preload-path'),
+  onWebviewOpenInTab: (callback) => {
+    const listener = (event, url) => callback(url);
+    ipcRenderer.on('webview:open-in-tab', listener);
+    return () => ipcRenderer.removeListener('webview:open-in-tab', listener);
+  },
 });

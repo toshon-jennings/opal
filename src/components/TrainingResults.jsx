@@ -55,10 +55,20 @@ function Stat({ label, value, highlight }) {
   );
 }
 
+const ROWS_SHOWN = 20;
+
 export default function TrainingResults({ runs, state, programLog, lastReadAt }) {
   const [showLog, setShowLog] = useState(false);
+  const [showAllRows, setShowAllRows] = useState(false);
 
   const rows = useMemo(() => runs.map(normalizeRun), [runs]);
+
+  // Newest experiment first, capped until "Show all" — long loops accrue
+  // hundreds of rows and the latest one is what the user is watching for.
+  const displayRows = useMemo(() => {
+    const rev = [...rows].reverse();
+    return showAllRows ? rev : rev.slice(0, ROWS_SHOWN);
+  }, [rows, showAllRows]);
 
   // Lower val_bpb is better. Prefer the value the loop recorded; fall back to the
   // best observed across runs.
@@ -108,7 +118,7 @@ export default function TrainingResults({ runs, state, programLog, lastReadAt })
       {/* Run history table */}
       {rows.length > 0 && (
         <div className="space-y-1.5">
-          <div className="text-xs font-medium text-[var(--text-secondary)]">Experiment history</div>
+          <div className="text-xs font-medium text-[var(--text-secondary)]">Experiment history (newest first)</div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs tabular-nums border-collapse">
               <thead>
@@ -124,12 +134,12 @@ export default function TrainingResults({ runs, state, programLog, lastReadAt })
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r, i) => (
+                {displayRows.map((r, i) => (
                   <tr
                     key={i}
                     title={r.idea}
                     className="border-t border-[var(--border)]"
-                    style={i === bestRunIdx ? { background: 'color-mix(in srgb, var(--accent) 12%, transparent)' } : undefined}
+                    style={bestRunIdx >= 0 && r === rows[bestRunIdx] ? { background: 'color-mix(in srgb, var(--accent) 12%, transparent)' } : undefined}
                   >
                     <td className="py-1 pr-2 text-[var(--text-tertiary)]">{r.run}</td>
                     <td className="py-1 pr-2 font-mono text-[var(--text-tertiary)]">{r.commit || '—'}</td>
@@ -144,6 +154,14 @@ export default function TrainingResults({ runs, state, programLog, lastReadAt })
               </tbody>
             </table>
           </div>
+          {rows.length > ROWS_SHOWN && (
+            <button
+              onClick={() => setShowAllRows(v => !v)}
+              className="text-xs text-[var(--accent)] hover:underline"
+            >
+              {showAllRows ? `Show latest ${ROWS_SHOWN} only` : `Show all ${rows.length} experiments`}
+            </button>
+          )}
           <div className="text-[10px] text-[var(--text-tertiary)]">Hover a row to see the idea it tested. Best val_bpb row is highlighted.</div>
         </div>
       )}

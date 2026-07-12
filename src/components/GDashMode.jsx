@@ -9,6 +9,13 @@ import { KeyRound, Settings as SettingsIcon } from 'lucide-react';
 
 const GDASH_SRC = `${import.meta.env.BASE_URL}gdash/index.html`;
 
+// The iframe is same-origin (served from our own bundle), so pin postMessage to
+// our origin where one exists. Packaged builds load via file:// (opaque origin),
+// where '*' is the only option — same as before, and no tokens cross this bridge.
+const FRAME_ORIGIN = window.location.origin && window.location.origin !== 'null'
+    ? window.location.origin
+    : '*';
+
 export default function GDashMode({ onOpenSettings }) {
     const iframeRef = useRef(null);
     const [needsClientId, setNeedsClientId] = useState(false);
@@ -16,18 +23,23 @@ export default function GDashMode({ onOpenSettings }) {
 
     const postToFrame = useCallback((type, payload) => {
         const win = iframeRef.current?.contentWindow;
-        if (win) win.postMessage({ source: 'gdash-host', type, ...(payload || {}) }, '*');
+        if (win) win.postMessage({ source: 'gdash-host', type, ...(payload || {}) }, FRAME_ORIGIN);
     }, []);
 
-    const pushDashboard = useCallback(async () => {
+    // Stale-while-revalidate: paint whatever main has cached immediately, then
+    // fetch fresh (respecting the TTL, or bypassing it when the user hits refresh).
+    const pushDashboard = useCallback(async ({ force = false } = {}) => {
         if (!window.electron?.gdashDashboard) {
             postToFrame('dashboard:result', { data: { connected: false } });
             return;
         }
         try {
-            const data = await window.electron.gdashDashboard();
-            setNeedsClientId(data?.hasClientId === false);
-            postToFrame('dashboard:result', { data: data || { connected: false } });
+            const cached = await window.electron.gdashDashboard({ cacheOnly: true });
+            if (cached?.connected) postToFrame('dashboard:result', { data: cached });
+            const fresh = await window.electron.gdashDashboard({ forceRefresh: force });
+            setNeedsClientId(fresh?.hasClientId === false);
+            const alreadyPushed = cached?.connected && fresh?.fromCache && fresh?.fetchedAt === cached?.fetchedAt;
+            if (!alreadyPushed) postToFrame('dashboard:result', { data: fresh || { connected: false } });
         } catch {
             postToFrame('dashboard:result', { data: { connected: false } });
         }
@@ -43,7 +55,7 @@ export default function GDashMode({ onOpenSettings }) {
             const result = await window.electron.gdashConnect();
             if (result?.ok) {
                 setNeedsClientId(false);
-                await pushDashboard();
+                await pushDashboard({ force: true });
             } else {
                 if (result?.error === 'no-client-id') setNeedsClientId(true);
                 postToFrame('connect:error', { error: result?.error || 'connect-failed' });
@@ -62,10 +74,11 @@ export default function GDashMode({ onOpenSettings }) {
     useEffect(() => {
         function onMessage(event) {
             if (event.source !== iframeRef.current?.contentWindow) return;
+            if (FRAME_ORIGIN !== '*' && event.origin !== FRAME_ORIGIN) return;
             const msg = event.data;
             if (!msg || msg.source !== 'gdash') return;
             switch (msg.type) {
-                case 'dashboard:request': void pushDashboard(); break;
+                case 'dashboard:request': void pushDashboard({ force: Boolean(msg.force) }); break;
                 case 'connect': void handleConnect(); break;
                 case 'disconnect': void handleDisconnect(); break;
                 default: break;

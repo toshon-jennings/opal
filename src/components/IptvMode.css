@@ -156,6 +156,28 @@
   background: #000;
 }
 
+.retro-tv__iframe {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 100%;
+  min-height: 100%;
+  border: 0;
+  background: #000;
+}
+
+/* Electron's <webview> renders its guest content through an internal shadow-DOM
+   <iframe> styled `flex: 1 1 auto` with no explicit height — it only fills the
+   host element when the host itself is a flex container. Under `display: block`
+   (the .retro-tv__iframe default, shared with the plain <iframe> case) that
+   inner iframe falls back to its intrinsic 150px height, capping the guest's
+   own viewport at 150px regardless of any CSS/JS run inside the guest document. */
+webview.retro-tv__iframe {
+  display: flex;
+}
+
 .retro-tv__channel-overlay {
   position: absolute;
   bottom: 0;
@@ -457,28 +479,87 @@
   opacity: 0.5;
 }
 
+.iptv-sidebar__youtube-section {
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(128, 128, 128, 0.15);
+}
+
+.iptv-sidebar__youtube-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid rgba(128, 128, 128, 0.15);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.iptv-sidebar__youtube-btn:hover {
+  background: rgba(255, 0, 0, 0.08);
+  color: #ff0000;
+  border-color: rgba(255, 0, 0, 0.3);
+}
+
+.iptv-sidebar__youtube-btn span {
+  flex: 1;
+  text-align: left;
+}
+
+.iptv-channel__youtube-delete {
+  color: var(--text-tertiary);
+}
+
+.iptv-channel__youtube-delete:hover {
+  color: #ff0000;
+}
+
 /* ── Filter Tabs ──────────────────────────────────────────────────────── */
 
 .iptv-filter-tabs {
   display: flex;
-  gap: 4px;
+  gap: 8px;
 }
 
 .iptv-filter-tab {
   flex: 1;
+  min-width: 0;
+  min-height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  padding: 6px 8px;
+  gap: 6px;
+  padding: 6px 7px;
   font-size: 11px;
-  font-weight: 500;
-  border: none;
+  font-weight: 700;
+  border: 1px solid transparent;
   border-radius: 6px;
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.iptv-filter-tab svg {
+  flex: 0 0 auto;
+}
+
+.iptv-filter-tab--all {
+  color: #60a5fa;
+}
+
+.iptv-filter-tab--favorites {
+  color: #f43f5e;
+}
+
+.iptv-filter-tab--youtube {
+  color: #ff3b30;
 }
 
 .iptv-filter-tab:hover {
@@ -486,15 +567,28 @@
 }
 
 .iptv-filter-tab--active {
-  background: var(--accent, #3b82f6);
+  background: currentColor;
+  border-color: currentColor;
+}
+
+.iptv-filter-tab--active svg,
+.iptv-filter-tab--active .iptv-filter-tab__count {
   color: #fff;
 }
 
+.iptv-filter-tab--active .iptv-filter-tab__count {
+  background: rgba(255, 255, 255, 0.24);
+}
+
 .iptv-filter-tab__count {
+  flex: 0 0 auto;
+  min-width: 16px;
   font-size: 9px;
   padding: 1px 5px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.25);
+  background: color-mix(in srgb, currentColor 18%, transparent);
+  color: currentColor;
+  line-height: 1.35;
 }
 
 /* ── Search ───────────────────────────────────────────────────────────── */

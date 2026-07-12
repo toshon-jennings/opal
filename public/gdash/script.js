@@ -1,8 +1,8 @@
 const SERVICES = [
     // AI & Intelligence (The Thinking Space)
-    { id: 'gemini', name: 'Gemini', category: 'ai', desc: 'Conversational AI for everything.', url: 'https://gemini.google.com', icon: 'assets/icons/gemini.svg', color: '#6898EE', tags: ['chat', 'assistant', 'gpt', 'llm', 'answer'], external: true, planInfo: { tier: 'Pro Plan', stats: { value: 'Gemini 3', label: 'Pro Model' }, comparison: { free: ['Gemini 3 Flash Model', 'Standard Context', 'Standard Rate Limits'], pro: ['Gemini 3 Pro Model', 'Extended Context', 'Priority Access', 'Advanced Reasoning'] } } },
+    { id: 'gemini', name: 'Gemini', category: 'ai', desc: 'Conversational AI for everything.', url: 'https://gemini.google.com', icon: 'assets/icons/gemini.svg', color: '#6898EE', tags: ['chat', 'assistant', 'gpt', 'llm', 'answer'], external: true },
     { id: 'ai-studio', name: 'AI Studio', category: 'ai', desc: 'Fastest way to build with Gemini.', url: 'https://aistudio.google.com/prompts/new_chat', icon: 'assets/icons/ai_studio.svg', color: '#4285F4', tags: ['developer', 'api', 'model', 'tuning'], external: true },
-    { id: 'notebooklm', name: 'NotebookLM', category: 'ai', desc: 'AI-first notebook for researchers.', url: 'https://notebooklm.google.com', icon: 'https://www.gstatic.com/images/branding/product/2x/notebooklm_48dp.png', color: '#1B73E8', tags: ['research', 'notes', 'study', 'source'], external: true, planInfo: { tier: 'Pro Plan', stats: { value: '300', label: 'sources/nb' }, comparison: { free: ['50 sources per notebook', '20MB max file size', 'Standard Audio Overview'], pro: ['300 sources per notebook', '500MB max file size', 'Team Sharing'] } } },
+    { id: 'notebooklm', name: 'NotebookLM', category: 'ai', desc: 'AI-first notebook for researchers.', url: 'https://notebooklm.google.com', icon: 'https://www.gstatic.com/images/branding/product/2x/notebooklm_48dp.png', color: '#1B73E8', tags: ['research', 'notes', 'study', 'source'], external: true },
     { id: 'vertex', name: 'Vertex AI Studio', category: 'ai', desc: 'Build, deploy, and scale ML models.', url: 'https://cloud.google.com/vertex-ai', icon: 'assets/icons/vertex_ai.png', color: '#4285F4', tags: ['ml', 'machine learning', 'cloud', 'enterprise'], external: true },
     { id: 'imagen', name: 'Imagen', category: 'ai', desc: 'AI-powered image generation.', url: 'https://deepmind.google/models/imagen/', icon: 'assets/icons/imagen.svg', color: '#EA4335', tags: ['image', 'generation', 'art', 'create', 'ai'], external: true },
     { id: 'veo', name: 'Veo', category: 'ai', desc: 'AI video generation model.', url: 'https://deepmind.google/technologies/veo/', icon: 'assets/icons/veo.svg', color: '#FBBC05', tags: ['video', 'generation', 'ai', 'create'], external: true },
@@ -13,17 +13,17 @@ const SERVICES = [
     { id: 'jules', name: 'Jules', category: 'ai', desc: 'Agentic coding assistant for GitHub.', url: 'https://jules.google', icon: 'assets/icons/labs.svg', color: '#EA4335', tags: ['code', 'github', 'programming', 'developer'], external: true },
 
     // Knowledge & Memory (Where Ideas Persist)
-    { id: 'docs', name: 'Docs', category: 'knowledge', desc: 'Create and edit documents online.', url: 'https://docs.google.com', icon: 'https://www.gstatic.com/images/branding/product/2x/docs_48dp.png', color: '#4285F4', tags: ['word', 'writer', 'paper', 'text'], external: true },
-    { id: 'sheets', name: 'Sheets', category: 'knowledge', desc: 'Powerful spreadsheets for everyone.', url: 'https://sheets.google.com', icon: 'https://www.gstatic.com/images/branding/product/2x/sheets_48dp.png', color: '#34A853', tags: ['table', 'excel', 'data', 'grid'], external: true },
-    { id: 'slides', name: 'Slides', category: 'knowledge', desc: 'Stunning presentations made easy.', url: 'https://slides.google.com', icon: 'https://www.gstatic.com/images/branding/product/2x/slides_48dp.png', color: '#FBBC05', tags: ['deck', 'ppt', 'presentation'], external: true },
+    { id: 'docs', name: 'Docs', category: 'knowledge', desc: 'Create and edit documents online.', url: 'https://docs.google.com', icon: 'https://www.gstatic.com/images/branding/product/2x/docs_48dp.png', color: '#4285F4', tags: ['word', 'writer', 'paper', 'text'], external: true, quick: { label: 'New document', url: 'https://docs.new' } },
+    { id: 'sheets', name: 'Sheets', category: 'knowledge', desc: 'Powerful spreadsheets for everyone.', url: 'https://sheets.google.com', icon: 'https://www.gstatic.com/images/branding/product/2x/sheets_48dp.png', color: '#34A853', tags: ['table', 'excel', 'data', 'grid'], external: true, quick: { label: 'New spreadsheet', url: 'https://sheets.new' } },
+    { id: 'slides', name: 'Slides', category: 'knowledge', desc: 'Stunning presentations made easy.', url: 'https://slides.google.com', icon: 'https://www.gstatic.com/images/branding/product/2x/slides_48dp.png', color: '#FBBC05', tags: ['deck', 'ppt', 'presentation'], external: true, quick: { label: 'New presentation', url: 'https://slides.new' } },
     { id: 'drive', name: 'Drive', category: 'knowledge', desc: 'Store, share, and collaborate on files.', url: 'https://drive.google.com', icon: 'https://www.gstatic.com/images/branding/product/2x/drive_48dp.png', color: '#34A853', tags: ['storage', 'cloud', 'files', 'upload'], external: true },
     { id: 'photos', name: 'Photos', category: 'knowledge', desc: 'Home for all your photos and videos.', url: 'https://photos.google.com', icon: 'https://www.gstatic.com/images/branding/product/2x/photos_48dp.png', color: '#FBBC05', tags: ['gallery', 'images', 'pictures', 'backup'], external: true },
     { id: 'images', name: 'Images', category: 'knowledge', desc: 'Search for images on the web.', url: 'https://images.google.com', icon: 'assets/icons/search.svg', color: '#4285F4', tags: ['search', 'images', 'photos', 'visual'], external: true },
 
-    { id: 'gmail', name: 'Gmail', category: 'productivity', desc: 'Check your latest mail.', url: 'https://mail.google.com', icon: 'https://www.gstatic.com/images/branding/product/2x/gmail_48dp.png', color: '#EA4335', external: true },
-    { id: 'calendar', name: 'Calendar', category: 'productivity', desc: 'Your upcoming schedule.', url: 'https://calendar.google.com', icon: 'https://www.gstatic.com/images/branding/product/2x/calendar_48dp.png', color: '#4285F4', external: true },
-    { id: 'meet', name: 'Meet', category: 'productivity', desc: 'Video meetings and calls.', url: 'https://meet.google.com', icon: 'assets/icons/meet.svg', color: '#00897B', tags: ['video', 'call', 'conference', 'meeting'], external: true },
-    { id: 'keep', name: 'Keep', category: 'productivity', desc: 'Capture what\'s on your mind quickly.', url: 'https://keep.google.com', icon: 'https://www.gstatic.com/images/branding/product/2x/keep_48dp.png', color: '#FBBC05', tags: ['notes', 'lists', 'todo', 'reminders'], external: true },
+    { id: 'gmail', name: 'Gmail', category: 'productivity', desc: 'Check your latest mail.', url: 'https://mail.google.com', icon: 'https://www.gstatic.com/images/branding/product/2x/gmail_48dp.png', color: '#EA4335', external: true, quick: { label: 'Compose email', url: 'https://mail.google.com/mail/?view=cm&fs=1' } },
+    { id: 'calendar', name: 'Calendar', category: 'productivity', desc: 'Your upcoming schedule.', url: 'https://calendar.google.com', icon: 'https://www.gstatic.com/images/branding/product/2x/calendar_48dp.png', color: '#4285F4', external: true, quick: { label: 'New event', url: 'https://calendar.google.com/calendar/r/eventedit' } },
+    { id: 'meet', name: 'Meet', category: 'productivity', desc: 'Video meetings and calls.', url: 'https://meet.google.com', icon: 'assets/icons/meet.svg', color: '#00897B', tags: ['video', 'call', 'conference', 'meeting'], external: true, quick: { label: 'New meeting', url: 'https://meet.new' } },
+    { id: 'keep', name: 'Keep', category: 'productivity', desc: 'Capture what\'s on your mind quickly.', url: 'https://keep.google.com', icon: 'https://www.gstatic.com/images/branding/product/2x/keep_48dp.png', color: '#FBBC05', tags: ['notes', 'lists', 'todo', 'reminders'], external: true, quick: { label: 'New note', url: 'https://keep.new' } },
     { id: 'tasks', name: 'Tasks', category: 'productivity', desc: 'Stay on top of your to-dos.', url: 'https://tasks.google.com', icon: 'https://www.gstatic.com/images/branding/product/2x/tasks_48dp.png', color: '#4285F4', tags: ['todo', 'list', 'reminders'], external: true },
 
     // Labs & Experiments (A Sandbox for Play)
@@ -74,11 +74,16 @@ const SERVICES = [
 
 const grid = document.getElementById('dashboard-grid');
 const searchInput = document.getElementById('service-search');
-const modalOverlay = document.getElementById('modal-overlay');
 const categoryFiltersContainer = document.getElementById('category-filters');
 
 // Category filter state
 let currentCategoryFilter = 'all';
+
+// Connected-dashboard state (populated via the host bridge further down; declared
+// here because the initial render below already consults it).
+let dashboardData = null;
+let isConnected = false;
+let lastFetchedAt = 0;
 
 const CATEGORIES = [
     { id: 'ai', label: 'AI & Intelligence', desc: 'Your thinking space' },
@@ -90,6 +95,100 @@ const CATEGORIES = [
     { id: 'identity', label: 'Identity & Control', desc: 'Manage access and security' },
     { id: 'learning', label: 'Learning & Skills', desc: 'Grow your expertise' }
 ];
+
+/* --- Pinned favorites (persisted locally) --- */
+const PINS_KEY = 'gdash:pins';
+
+function loadPins() {
+    try {
+        const raw = JSON.parse(localStorage.getItem(PINS_KEY) || '[]');
+        if (!Array.isArray(raw)) return [];
+        const known = new Set(SERVICES.map(s => s.id));
+        return raw.filter(id => known.has(id));
+    } catch { return []; }
+}
+
+let pinnedIds = loadPins();
+
+function togglePin(id) {
+    if (pinnedIds.includes(id)) pinnedIds = pinnedIds.filter(p => p !== id);
+    else pinnedIds = [...pinnedIds, id];
+    try { localStorage.setItem(PINS_KEY, JSON.stringify(pinnedIds)); } catch { /* private mode etc. */ }
+    renderServices(searchInput.value);
+}
+
+const PIN_STAR_SVG = '<svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>';
+const QUICK_PLUS_SVG = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
+
+function createServiceCard(s) {
+    const isPinned = pinnedIds.includes(s.id);
+    const card = document.createElement('div');
+    card.className = 'service-card';
+    card.setAttribute('tabindex', '0'); // Make focusable
+    card.dataset.url = s.url;
+    card.dataset.id = s.id;
+    card.style.setProperty('--accent-color', s.color);
+
+    card.innerHTML = `
+        <div class="card-actions">
+            ${s.quick ? `<button type="button" class="card-action-btn quick" title="${escapeAttr(s.quick.label)}" aria-label="${escapeAttr(s.quick.label)}">${QUICK_PLUS_SVG}</button>` : ''}
+            <button type="button" class="card-action-btn pin${isPinned ? ' pinned' : ''}" title="${isPinned ? 'Unpin' : 'Pin to top'}" aria-label="${isPinned ? 'Unpin' : 'Pin to top'}" aria-pressed="${isPinned}">${PIN_STAR_SVG}</button>
+        </div>
+        <div class="card-icon">
+            <img src="${s.icon}" alt="${s.name}" onerror="this.src='https://www.gstatic.com/images/branding/product/2x/generic_48dp.png'">
+        </div>
+        <div class="card-info">
+            <h3>${s.name}</h3>
+            <p>${s.desc}</p>
+        </div>
+        <div class="widget-area"></div>
+    `;
+
+    // Click handler
+    card.addEventListener('click', (e) => {
+        e.preventDefault(); // Prevent default if it was a link
+        launchService(s);
+    });
+
+    // Enter key handler
+    card.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && e.target === card) {
+            e.preventDefault();
+            launchService(s);
+        }
+    });
+
+    const quickBtn = card.querySelector('.card-action-btn.quick');
+    if (quickBtn) quickBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.open(s.quick.url, '_blank');
+    });
+    card.querySelector('.card-action-btn.pin').addEventListener('click', (e) => {
+        e.stopPropagation();
+        togglePin(s.id);
+    });
+
+    return card;
+}
+
+function renderSection(label, desc, services) {
+    const section = document.createElement('div');
+    section.className = 'category-section';
+
+    const header = document.createElement('div');
+    header.className = 'section-header';
+    header.innerHTML = `
+        <h2 class="section-title">${label}</h2>
+        <span class="section-desc">${desc}</span>
+    `;
+    section.appendChild(header);
+
+    const cardsGrid = document.createElement('div');
+    cardsGrid.className = 'cards-grid';
+    services.forEach(s => cardsGrid.appendChild(createServiceCard(s)));
+    section.appendChild(cardsGrid);
+    return section;
+}
 
 function renderServices(query = '', categoryFilter = currentCategoryFilter) {
     grid.innerHTML = '';
@@ -107,14 +206,30 @@ function renderServices(query = '', categoryFilter = currentCategoryFilter) {
         filteredServices = filteredServices.filter(s => s.category === categoryFilter);
     }
 
-    if (query && filteredServices.length === 0) {
-        grid.innerHTML = '<div class="no-results">No services found matching your search.</div>';
+    // Search tools: matches from the connected account's data + deep-search links.
+    const liveMatches = query ? buildLiveMatches(query) : [];
+    if (query) grid.appendChild(renderSearchTools(query, liveMatches));
+
+    if (query && filteredServices.length === 0 && liveMatches.length === 0) {
+        grid.insertAdjacentHTML('beforeend', '<div class="no-results">No services or content found matching your search.</div>');
         return;
+    }
+
+    // Pinned section first (only in the 'all' view; category views keep cards in place)
+    let remaining = filteredServices;
+    if (categoryFilter === 'all' && pinnedIds.length > 0) {
+        const byId = new Map(filteredServices.map(s => [s.id, s]));
+        const pinned = pinnedIds.map(id => byId.get(id)).filter(Boolean);
+        if (pinned.length > 0) {
+            grid.appendChild(renderSection('Pinned', 'Your favorites', pinned));
+            const pinnedSet = new Set(pinned.map(s => s.id));
+            remaining = filteredServices.filter(s => !pinnedSet.has(s.id));
+        }
     }
 
     // Group by category
     const grouped = {};
-    filteredServices.forEach(s => {
+    remaining.forEach(s => {
         if (!grouped[s.category]) grouped[s.category] = [];
         grouped[s.category].push(s);
     });
@@ -123,119 +238,104 @@ function renderServices(query = '', categoryFilter = currentCategoryFilter) {
     CATEGORIES.forEach(cat => {
         const services = grouped[cat.id];
         if (!services || services.length === 0) return;
-
-        // Sort services alphabetically by name
         services.sort((a, b) => a.name.localeCompare(b.name));
-
-        // Section Container
-        const section = document.createElement('div');
-        section.className = 'category-section';
-
-        // Section Header
-        const header = document.createElement('div');
-        header.className = 'section-header';
-        header.innerHTML = `
-            <h2 class="section-title">${cat.label}</h2>
-            <span class="section-desc">${cat.desc}</span>
-        `;
-        section.appendChild(header);
-
-        // Cards Grid
-        const cardsGrid = document.createElement('div');
-        cardsGrid.className = 'cards-grid';
-
-        services.forEach((s, index) => {
-            const card = document.createElement('div');
-            card.className = 'service-card';
-            card.setAttribute('tabindex', '0'); // Make focusable
-            card.dataset.url = s.url;
-            card.dataset.id = s.id;
-            card.style.setProperty('--accent-color', s.color);
-
-            card.innerHTML = `
-                <div class="card-icon">
-                    <img src="${s.icon}" alt="${s.name}" onerror="this.src='https://www.gstatic.com/images/branding/product/2x/generic_48dp.png'">
-                </div>
-                <div class="card-info">
-                    <h3>${s.name}</h3>
-                    <p>${s.desc}</p>
-                </div>
-                <div class="widget-area"></div>
-            `;
-
-            // Click handler
-            card.addEventListener('click', (e) => {
-                e.preventDefault(); // Prevent default if it was a link
-                launchService(s);
-            });
-
-            // Enter key handler
-            card.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    launchService(s);
-                }
-            });
-
-            cardsGrid.appendChild(card);
-        });
-
-        section.appendChild(cardsGrid);
-        grid.appendChild(section);
+        grid.appendChild(renderSection(cat.label, cat.desc, services));
     });
+
+    // Re-hydrate card widgets after every re-render (search, filters, pinning).
+    applyWidgets();
 }
 
-// Modal Functions
-window.openModal = function (serviceId) {
-    const service = SERVICES.find(s => s.id === serviceId);
-    if (!service || !service.planInfo) return;
+/* --- Live search over connected-account data --- */
 
-    const modalContent = document.getElementById('modal-content-inject');
-    const freeList = service.planInfo.comparison.free.map(item => `<li><span class="cross">✕</span> ${item}</li>`).join('');
-    const proList = service.planInfo.comparison.pro.map(item => `<li><span class="check">✓</span> ${item}</li>`).join('');
+function buildLiveMatches(query) {
+    if (!isConnected || !dashboardData) return [];
+    const q = query.toLowerCase();
+    const matches = [];
+    const seenFiles = new Map();
 
-    modalContent.innerHTML = `
-        <div class="modal-header">
-            <div class="modal-icon">
-                <img src="${service.icon}" alt="${service.name}">
-            </div>
-            <div class="modal-title">
-                <h2>Upgrade ${service.name}</h2>
-                <div class="current-plan-tag">Current: ${service.planInfo.tier}</div>
-            </div>
-            <button class="close-modal-btn" onclick="closeModal()">✕</button>
-        </div>
-        
-        <div class="plan-comparison">
-            <div class="plan-col free">
-                <h3>Free Plan</h3>
-                <div class="price">$0<span>/mo</span></div>
-                <ul>${freeList}</ul>
-                <button class="plan-btn secondary" disabled>Included</button>
-            </div>
-            <div class="plan-col pro">
-                <h3>${service.planInfo.tier}</h3>
-                <div class="price">$19.99<span>/mo</span></div>
-                <ul>${proList}</ul>
-                <button class="plan-btn primary" onclick="window.open('${service.url}', '_blank')">Manage Subscription</button>
-            </div>
-        </div>
-    `;
-
-    modalOverlay.classList.add('active');
-    document.body.style.overflow = 'hidden';
-};
-
-window.closeModal = function () {
-    modalOverlay.classList.remove('active');
-    document.body.style.overflow = '';
-};
-
-// Close modal on outside click
-if (modalOverlay) {
-    modalOverlay.addEventListener('click', (e) => {
-        if (e.target === modalOverlay) closeModal();
+    const fileSources = [
+        dashboardData.drive?.recentFiles,
+        dashboardData.docs,
+        dashboardData.sheets,
+        dashboardData.slides,
+    ];
+    fileSources.forEach(list => (list || []).forEach(f => {
+        if (f && f.id && !seenFiles.has(f.id)) seenFiles.set(f.id, f);
+    }));
+    seenFiles.forEach(f => {
+        if ((f.name || '').toLowerCase().includes(q)) {
+            matches.push({ icon: getFileEmoji(f.mimeType || ''), label: f.name, url: f.webViewLink });
+        }
     });
+
+    (dashboardData.calendar?.events || []).forEach(ev => {
+        if ((ev.summary || '').toLowerCase().includes(q)) {
+            matches.push({ icon: '📅', label: `${formatEventWhen(ev)} — ${ev.summary}`, url: ev.htmlLink });
+        }
+    });
+
+    (dashboardData.gmail?.messages || []).forEach(raw => {
+        const msg = normalizeGmailMessage(raw);
+        const hay = `${msg.subject} ${msg.from}`.toLowerCase();
+        if (hay.includes(q)) {
+            matches.push({ icon: '✉️', label: `${msg.from.split('<')[0].trim()}: ${msg.subject}`, url: `https://mail.google.com/mail/u/0/#inbox/${msg.id || ''}` });
+        }
+    });
+
+    (dashboardData.tasks?.items || []).forEach(t => {
+        if ((t.title || '').toLowerCase().includes(q)) {
+            matches.push({ icon: '☐', label: t.title, url: 'https://tasks.google.com/embed/?origin=https://tasks.google.com' });
+        }
+    });
+
+    return matches.slice(0, 8);
+}
+
+function renderSearchTools(query, liveMatches) {
+    const enc = encodeURIComponent(query);
+    const section = document.createElement('div');
+    section.className = 'category-section search-tools';
+
+    const header = document.createElement('div');
+    header.className = 'section-header';
+    header.innerHTML = `
+        <h2 class="section-title">Search</h2>
+        <span class="section-desc">${isConnected ? 'Your content and Google-wide search' : 'Google-wide search'}</span>
+    `;
+    section.appendChild(header);
+
+    const deepLinks = document.createElement('div');
+    deepLinks.className = 'deep-links';
+    deepLinks.innerHTML = [
+        { label: 'Drive', url: `https://drive.google.com/drive/search?q=${enc}` },
+        { label: 'Gmail', url: `https://mail.google.com/mail/u/0/#search/${enc}` },
+        { label: 'Calendar', url: `https://calendar.google.com/calendar/r/search?text=${enc}` },
+    ].map(l => `
+        <button type="button" class="deep-link-chip" data-open-url="${escapeAttr(l.url)}">
+            Search ${l.label} for &ldquo;${escapeHtml(query)}&rdquo;
+        </button>
+    `).join('');
+    section.appendChild(deepLinks);
+    deepLinks.querySelectorAll('.deep-link-chip').forEach(chip => {
+        chip.addEventListener('click', () => window.open(chip.dataset.openUrl, '_blank'));
+    });
+
+    if (liveMatches.length > 0) {
+        const list = document.createElement('div');
+        list.className = 'live-results';
+        liveMatches.forEach(m => {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'live-item';
+            item.innerHTML = `<span class="file-icon">${m.icon}</span><span class="file-name">${escapeHtml(m.label)}</span>`;
+            item.addEventListener('click', () => window.open(m.url || '#', '_blank'));
+            list.appendChild(item);
+        });
+        section.appendChild(list);
+    }
+
+    return section;
 }
 
 // Render Category Filter Pills
@@ -277,9 +377,6 @@ searchInput.addEventListener('input', (e) => {
     renderServices(e.target.value, currentCategoryFilter);
 });
 
-// Remove old tab listeners
-// tabs.forEach(tab => ... );
-
 // Keyboard Navigation Manager
 class KeyboardManager {
     constructor() {
@@ -318,8 +415,7 @@ class KeyboardManager {
                     e.preventDefault();
                     searchInput.focus();
                 }
-                return; // Let default happen if already focused? No, prevent "/" char typing if handled
-                break;
+                return;
         }
 
         if (nextIndex !== currentIndex && nextIndex >= 0) {
@@ -332,15 +428,17 @@ const keyManager = new KeyboardManager();
 
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-        closeModal();
+        // Clear the search when it has focus or a query is active.
+        if (searchInput.value || document.activeElement === searchInput) {
+            searchInput.value = '';
+            renderServices('');
+            searchInput.blur();
+        }
         return;
     }
 
-    // Only handle nav keys if modal is not open
-    if (!modalOverlay.classList.contains('active')) {
-        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', '/'].includes(e.key)) {
-            keyManager.handleKey(e);
-        }
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', '/'].includes(e.key)) {
+        keyManager.handleKey(e);
     }
 });
 
@@ -355,17 +453,16 @@ function launchService(service) {
 
 /* --- Part B: API-Aware Dashboard --- */
 
-let dashboardData = null;
-let isConnected = false;
-
 // Auth Elements
 const authBtn = document.getElementById('auth-btn');
 const authText = authBtn.querySelector('.auth-text');
+const refreshBtn = document.getElementById('refresh-btn');
+const refreshAge = document.getElementById('refresh-age');
 const authError = document.createElement('div');
 authError.className = 'auth-error';
 authError.setAttribute('role', 'alert');
 authError.hidden = true;
-authBtn.insertAdjacentElement('afterend', authError);
+document.querySelector('.user-area').appendChild(authError);
 
 function escapeHtml(value) {
     return String(value ?? '')
@@ -384,12 +481,17 @@ function escapeAttr(value) {
  * G-Dash runs inside Perci as an iframe. OAuth and every Google API call happen
  * in the Electron main process — this iframe never sees an access token. We talk
  * to the host React panel (GDashMode) over postMessage; it relays to the
- * window.electron.gdash* IPC methods and pushes back the assembled dashboard. */
+ * window.electron.gdash* IPC methods and pushes back the assembled dashboard.
+ * The frame is same-origin with the host, so pin messages to our origin where
+ * one exists (packaged file:// builds have an opaque origin and must use '*'). */
 const GDASH_HOST = (window.parent && window.parent !== window) ? window.parent : null;
+const HOST_ORIGIN = (window.location.origin && window.location.origin !== 'null')
+    ? window.location.origin
+    : '*';
 
 function postToHost(type, payload) {
     if (!GDASH_HOST) return;
-    GDASH_HOST.postMessage({ source: 'gdash', type, ...(payload || {}) }, '*');
+    GDASH_HOST.postMessage({ source: 'gdash', type, ...(payload || {}) }, HOST_ORIGIN);
 }
 
 function showAuthError(message) {
@@ -401,20 +503,26 @@ function applyDashboard(data) {
     if (data && data.connected) {
         dashboardData = data;
         isConnected = true;
+        if (data.fetchedAt) lastFetchedAt = data.fetchedAt;
         handleAuthSuccess();
     } else {
         dashboardData = null;
         isConnected = false;
+        lastFetchedAt = 0;
         handleSignOut();
     }
+    updateRefreshAge();
 }
 
 window.addEventListener('message', (event) => {
+    if (!GDASH_HOST || event.source !== GDASH_HOST) return;
+    if (HOST_ORIGIN !== '*' && event.origin !== HOST_ORIGIN) return;
     const msg = event.data;
     if (!msg || msg.source !== 'gdash-host') return;
     switch (msg.type) {
         case 'dashboard:result':
             showAuthError('');
+            refreshBtn.classList.remove('spinning');
             applyDashboard(msg.data);
             break;
         case 'connecting':
@@ -422,6 +530,7 @@ window.addEventListener('message', (event) => {
             break;
         case 'connect:error':
             isConnected = false;
+            refreshBtn.classList.remove('spinning');
             handleSignOut();
             showAuthError(
                 msg.error === 'no-client-id'
@@ -445,6 +554,40 @@ function loadOrbitGoogleConnect() {
     authText.textContent = 'Checking…';
     postToHost('dashboard:request');
 }
+
+/* --- Freshness: manual refresh, auto-refresh, "updated Xm ago" --- */
+
+function requestDashboard(force) {
+    if (!GDASH_HOST) return;
+    if (force) refreshBtn.classList.add('spinning');
+    postToHost('dashboard:request', force ? { force: true } : undefined);
+}
+
+refreshBtn.addEventListener('click', () => requestDashboard(true));
+
+function updateRefreshAge() {
+    if (!isConnected || !lastFetchedAt) {
+        refreshAge.hidden = true;
+        return;
+    }
+    const mins = Math.floor((Date.now() - lastFetchedAt) / 60000);
+    refreshAge.textContent = mins < 1 ? 'Updated just now'
+        : mins < 60 ? `Updated ${mins}m ago`
+            : `Updated ${Math.floor(mins / 60)}h ago`;
+    refreshAge.hidden = false;
+}
+
+setInterval(updateRefreshAge, 30 * 1000);
+
+// Periodic + on-return refresh. The host's main-process cache absorbs these, so
+// they only hit Google when the data is actually stale.
+setInterval(() => {
+    if (isConnected && document.visibilityState === 'visible') requestDashboard(false);
+}, 5 * 60 * 1000);
+
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && isConnected) requestDashboard(false);
+});
 
 // Auth button toggles: connect when signed out, disconnect when signed in.
 authBtn.addEventListener('click', () => {
@@ -470,16 +613,7 @@ function handleAuthSuccess() {
     authError.textContent = '';
     const givenName = dashboardData?.profile?.givenName;
     authText.textContent = givenName ? `Hi, ${givenName}` : 'Connected';
-    fetchDriveStats();
-    fetchCalendarStats();
-    fetchGmailStats();
-    fetchDriveQuota();
-    fetchDocsStats();
-    fetchSheetsStats();
-    fetchSlidesStats();
-    fetchTasksStats();
-    handleKeepWidget();
-    handleNotebookLMWidget();
+    applyWidgets();
 }
 
 function handleSignOut() {
@@ -492,31 +626,21 @@ function handleSignOut() {
         const widgetArea = card.querySelector('.widget-area');
         if (widgetArea) widgetArea.innerHTML = '';
     });
-    // Clear old badges if any
-    const badges = document.querySelectorAll('.card-hover-overlay.stats');
-    badges.forEach(b => b.remove());
 }
 
-// API: Fetch User Profile
-async function fetchUserProfile() {
-    const givenName = dashboardData?.profile?.givenName;
-    authText.textContent = givenName ? `Hi, ${givenName}` : 'Connected';
-}
-
-// API: Fetch Drive Stats
-async function fetchDriveStats() {
-    const files = dashboardData?.drive?.recentFiles || [];
-    renderDriveActivity(files);
-}
-
-// Helper: Generic Drive File Fetcher
-async function fetchDriveFiles(mimeType, limit = 5) {
-    const filesByMimeType = {
-        'application/vnd.google-apps.document': dashboardData?.docs || [],
-        'application/vnd.google-apps.spreadsheet': dashboardData?.sheets || [],
-        'application/vnd.google-apps.presentation': dashboardData?.slides || [],
-    };
-    return (filesByMimeType[mimeType] || []).slice(0, limit);
+// Re-render every data widget from the current dashboard payload. Safe to call
+// after any grid re-render (search, category filters, pin toggles, sign-in).
+function applyWidgets() {
+    if (!isConnected || !dashboardData) return;
+    renderDriveWidget();
+    renderCalendarWidget();
+    renderGmailWidget();
+    renderDocsWidget();
+    renderSheetsWidget();
+    renderSlidesWidget();
+    renderTasksWidget();
+    handleKeepWidget();
+    handleNotebookLMWidget();
 }
 
 function getOpenItemAttributes(url) {
@@ -534,8 +658,8 @@ function renderServiceError(serviceId, message) {
     widgetArea.innerHTML = `
         <div class="widget-container stats activity">
             <div class="activity-list">
-                <div class="activity-item" style="cursor: default; opacity: 0.65;">
-                    <span class="file-icon">!</span>
+                <div class="activity-item widget-error">
+                    <span class="file-icon">⚠️</span>
                     <span class="file-name">${escapeHtml(message)}</span>
                 </div>
             </div>
@@ -553,28 +677,25 @@ function normalizeGmailMessage(message) {
     }
 }
 
-// API: Fetch Docs Stats
-async function fetchDocsStats() {
-    try {
-        const files = await fetchDriveFiles('application/vnd.google-apps.document');
-        renderServiceActivity('docs', files, '#4285F4', 'Recent Docs');
-    } catch (e) { renderServiceError('docs', 'Error loading docs'); }
+// Widgets: a null section means that fetch failed in the main process (vs. an
+// empty array, which is a real "nothing there" result).
+
+function renderDocsWidget() {
+    const files = dashboardData?.docs;
+    if (files === null) return renderServiceError('docs', "Couldn't load Docs — refresh to retry");
+    renderServiceActivity('docs', (files || []).slice(0, 5), '#4285F4', 'Recent Docs');
 }
 
-// API: Fetch Sheets Stats
-async function fetchSheetsStats() {
-    try {
-        const files = await fetchDriveFiles('application/vnd.google-apps.spreadsheet');
-        renderServiceActivity('sheets', files, '#34A853', 'Recent Sheets');
-    } catch (e) { renderServiceError('sheets', 'Error loading sheets'); }
+function renderSheetsWidget() {
+    const files = dashboardData?.sheets;
+    if (files === null) return renderServiceError('sheets', "Couldn't load Sheets — refresh to retry");
+    renderServiceActivity('sheets', (files || []).slice(0, 5), '#34A853', 'Recent Sheets');
 }
 
-// API: Fetch Slides Stats
-async function fetchSlidesStats() {
-    try {
-        const files = await fetchDriveFiles('application/vnd.google-apps.presentation');
-        renderServiceActivity('slides', files, '#FBBC05', 'Recent Slides');
-    } catch (e) { renderServiceError('slides', 'Error loading slides'); }
+function renderSlidesWidget() {
+    const files = dashboardData?.slides;
+    if (files === null) return renderServiceError('slides', "Couldn't load Slides — refresh to retry");
+    renderServiceActivity('slides', (files || []).slice(0, 5), '#FBBC05', 'Recent Slides');
 }
 
 // Helper: Generic Service Activity Renderer
@@ -623,16 +744,18 @@ function renderServiceActivity(serviceId, files, color, label) {
     `;
 }
 
-function renderDriveActivity(files) {
+function renderDriveWidget() {
+    const files = dashboardData?.drive?.recentFiles;
+    if (files === null) return renderServiceError('drive', "Couldn't load Drive — refresh to retry");
+
     const driveCard = document.querySelector('.service-card[data-id="drive"]');
     if (!driveCard) return;
 
-    // Clear old state
     driveCard.classList.add('widget-mode');
     const widgetArea = driveCard.querySelector('.widget-area');
     if (!widgetArea) return;
 
-    const fileListHtml = files.map(file => `
+    const fileListHtml = (files || []).map(file => `
         <div class="activity-item" ${getOpenItemAttributes(file.webViewLink)}>
             <span class="file-icon">${getFileEmoji(file.mimeType || '')}</span>
             <span class="file-name">${escapeHtml(file.name)}</span>
@@ -645,10 +768,14 @@ function renderDriveActivity(files) {
                 <span class="plan-badge" style="background:#34A853;color:white;">Recent Activity</span>
             </div>
             <div class="activity-list">
-                ${fileListHtml}
+                ${fileListHtml || '<div class="activity-item" style="cursor: default; opacity: 0.6;"><span class="file-icon">📂</span><span class="file-name">No recent items found</span></div>'}
             </div>
         </div>
     `;
+
+    // Storage quota bar (best-effort; only when the drive fetch itself succeeded)
+    const quota = dashboardData?.drive?.storageQuota;
+    if (quota) renderDriveQuota(quota, widgetArea);
 }
 
 function getFileEmoji(mimeType) {
@@ -659,35 +786,12 @@ function getFileEmoji(mimeType) {
     if (mimeType.includes('image')) return '🖼️';
     if (mimeType.includes('folder')) return '📁';
     return '📝';
-
 }
 
-function updateDriveCard(value, label) {
-    const driveCard = document.querySelector('.service-card[data-id="drive"]');
-    if (!driveCard) return;
+function renderTasksWidget() {
+    const items = dashboardData?.tasks?.items;
+    if (items === null) return renderServiceError('tasks', "Couldn't load Tasks — refresh to retry");
 
-    const existingOverlay = driveCard.querySelector('.card-hover-overlay');
-    if (existingOverlay) existingOverlay.remove();
-
-    const statsHtml = `
-        <div class="card-hover-overlay stats">
-            <div class="plan-badge" style="background:#EA4335;color:white;">${label}</div>
-            <div class="plan-stat">
-                <span class="stat-value" style="font-size: 1.2rem;">${value}</span>
-            </div>
-        </div>
-    `;
-    driveCard.insertAdjacentHTML('beforeend', statsHtml);
-}
-
-
-
-// API: Fetch Google Tasks
-async function fetchTasksStats() {
-    renderTasksActivity(dashboardData?.tasks?.items || []);
-}
-
-function renderTasksActivity(tasks) {
     const card = document.querySelector('.service-card[data-id="tasks"]');
     if (!card) return;
 
@@ -695,8 +799,8 @@ function renderTasksActivity(tasks) {
     const widgetArea = card.querySelector('.widget-area');
     if (!widgetArea) return;
 
-    // Filter for relevant tasks: not empty title
-    const validTasks = tasks.filter(t => t.title).slice(0, 5);
+    // Pending tasks only (main already filters, but stay defensive on shape)
+    const validTasks = (items || []).filter(t => t.title).slice(0, 5);
 
     const taskListHtml = validTasks.map(task => {
         const isCompleted = task.status === 'completed';
@@ -717,7 +821,7 @@ function renderTasksActivity(tasks) {
                 <span class="plan-badge" style="background:#4285F4;color:white;">Your Tasks</span>
             </div>
             <div class="activity-list">
-                ${taskListHtml || '<div class="activity-item">No recent tasks</div>'}
+                ${taskListHtml || '<div class="activity-item" style="cursor: default; opacity: 0.6;"><span class="file-icon">🎉</span><span class="file-name">All caught up</span></div>'}
             </div>
         </div>
     `;
@@ -782,12 +886,37 @@ function handleKeepWidget() {
     `;
 }
 
-// API: Fetch Calendar Stats
-async function fetchCalendarStats() {
-    renderCalendarActivity(dashboardData?.calendar?.events || []);
+// Format an event's start as a compact, honest label. All-day events have
+// start.date (no time — parse as LOCAL date to avoid the UTC-midnight shift);
+// timed events have start.dateTime. Non-today events get a day label.
+function formatEventWhen(event) {
+    const allDay = !event.start?.dateTime;
+    let d;
+    if (allDay) {
+        const raw = event.start?.date || '';
+        const [y, m, day] = raw.split('-').map(Number);
+        d = new Date(y, (m || 1) - 1, day || 1);
+    } else {
+        d = new Date(event.start.dateTime);
+    }
+    if (!d || Number.isNaN(d.getTime())) return '';
+
+    const startOfDay = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+    const diffDays = Math.round((startOfDay(d) - startOfDay(new Date())) / 86400000);
+    const dayLabel = diffDays === 0 ? ''
+        : diffDays === 1 ? 'Tomorrow'
+            : diffDays > 1 && diffDays < 7 ? d.toLocaleDateString([], { weekday: 'short' })
+                : d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+
+    if (allDay) return dayLabel ? `${dayLabel} · All day` : 'All day';
+    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return dayLabel ? `${dayLabel} ${time}` : time;
 }
 
-function renderCalendarActivity(events) {
+function renderCalendarWidget() {
+    const events = dashboardData?.calendar?.events;
+    if (events === null) return renderServiceError('calendar', "Couldn't load Calendar — refresh to retry");
+
     const card = document.querySelector('.service-card[data-id="calendar"]');
     if (!card) return;
 
@@ -795,16 +924,12 @@ function renderCalendarActivity(events) {
     const widgetArea = card.querySelector('.widget-area');
     if (!widgetArea) return;
 
-    const eventListHtml = events.map(event => {
-        const start = event.start?.dateTime || event.start?.date;
-        const time = new Date(start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        return `
-            <div class="activity-item" ${getOpenItemAttributes(event.htmlLink)}>
-                <span class="file-icon">📅</span>
-                <span class="file-name"><strong>${escapeHtml(time)}</strong> ${escapeHtml(event.summary || '(No title)')}</span>
-            </div>
-        `;
-    }).join('');
+    const eventListHtml = (events || []).map(event => `
+        <div class="activity-item" ${getOpenItemAttributes(event.htmlLink)}>
+            <span class="file-icon">📅</span>
+            <span class="file-name"><strong>${escapeHtml(formatEventWhen(event))}</strong> ${escapeHtml(event.summary || '(No title)')}</span>
+        </div>
+    `).join('');
 
     widgetArea.innerHTML = `
         <div class="widget-container stats activity">
@@ -812,18 +937,16 @@ function renderCalendarActivity(events) {
                 <span class="plan-badge" style="background:#4285F4;color:white;">Upcoming</span>
             </div>
             <div class="activity-list">
-                ${eventListHtml || '<div class="activity-item">No upcoming events</div>'}
+                ${eventListHtml || '<div class="activity-item" style="cursor: default; opacity: 0.6;"><span class="file-icon">📅</span><span class="file-name">No upcoming events</span></div>'}
             </div>
         </div>
     `;
 }
 
-// API: Fetch Gmail Stats
-async function fetchGmailStats() {
-    renderGmailActivity(dashboardData?.gmail?.unreadCount || 0, dashboardData?.gmail?.messages || []);
-}
+function renderGmailWidget() {
+    const gmail = dashboardData?.gmail;
+    if (gmail === null) return renderServiceError('gmail', "Couldn't load Gmail — refresh to retry");
 
-function renderGmailActivity(count, messages) {
     const card = document.querySelector('.service-card[data-id="gmail"]');
     if (!card) return;
 
@@ -831,7 +954,8 @@ function renderGmailActivity(count, messages) {
     const widgetArea = card.querySelector('.widget-area');
     if (!widgetArea) return;
 
-    const msgListHtml = messages.map(rawMessage => {
+    const count = gmail?.unreadCount || 0;
+    const msgListHtml = (gmail?.messages || []).map(rawMessage => {
         const msg = normalizeGmailMessage(rawMessage);
         const subject = msg.subject || '(No Subject)';
         const from = msg.from || 'Unknown';
@@ -850,23 +974,13 @@ function renderGmailActivity(count, messages) {
                 <span class="plan-badge" style="background:#EA4335;color:white;">${count} Unread</span>
             </div>
             <div class="activity-list">
-                ${msgListHtml || '<div class="activity-item">No unread messages</div>'}
+                ${msgListHtml || '<div class="activity-item" style="cursor: default; opacity: 0.6;"><span class="file-icon">📭</span><span class="file-name">No unread messages</span></div>'}
             </div>
         </div>
     `;
 }
 
-// API: Fetch Drive Quota
-async function fetchDriveQuota() {
-    if (dashboardData?.drive?.storageQuota) {
-        renderDriveQuota(dashboardData.drive.storageQuota);
-    }
-}
-
-function renderDriveQuota(quota) {
-    const driveCard = document.querySelector('.service-card[data-id="drive"]');
-    if (!driveCard) return;
-
+function renderDriveQuota(quota, widgetArea) {
     // Use total from quota (usually 15GB for free users)
     const limit = parseInt(quota.limit);
     const usage = parseInt(quota.usage);
@@ -875,10 +989,6 @@ function renderDriveQuota(quota) {
 
     const usageGB = (usage / (1024 ** 3)).toFixed(1);
     const limitGB = (limit / (1024 ** 3)).toFixed(1);
-
-    // We keep the activity list but add the quota bar at the bottom
-    const widgetArea = driveCard.querySelector('.widget-area');
-    if (!widgetArea) return;
 
     const quotaHtml = `
         <div class="quota-container">
