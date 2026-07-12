@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.37.0] - 2026-07-12
+### Added
+- **Apfel Harness mode** — embedded Apfel Harness window with health monitoring and node server lifecycle management.
+- **Keysafe mode** — embedded KeySafe window with port 4100 detection and dev server launch.
+- **Docker mode** — Docker container management surface.
+- **DbInspector mode** — database inspection surface.
+- **Localhost mode** — local development server manager with Pxpipe and Shipyard modes.
+- **IPTV player** — streaming TV player mode with channel management.
+- **PerciDesk surfaces** — expanded workspace surfaces for the desktop.
+- **SimpleX integration** — privacy-focused messenger integration with workspace maps.
+- **Google Jules agent** — Jules cloud coding agent integrated into the agent panel.
+- **Mission Control agent-job bridge** — agent activity feed with pulse visualization and TransitMap integration.
+- **Package Registry dashboard surface** — browse/manage npm and PyPI packages from the dashboard.
+- **Notes master password (sudo) encryption** — lock/unlock all encrypted notes with a single master password.
+- **AutoForge surface + AgentMail tile** — automated forge dashboard tile with AgentMail integration.
+- **Perci Map planner surface** — interactive route planning with "Clear all" controls and redesigned map icon.
+- **TimesFM forecasting MCP server** — time-series forecasting via Google TimesFM, with hardened renderer tool.
+- **Dashboard tile management** — per-section A-Z toggle and drag-to-reorder tiles.
+- **Chronicle change-story generator** — CLI tool to generate human-readable change stories from git history.
+- **Power Workspace operator manual** — draggable in-window manual overlay.
+- **Mode Guide** — rebuilt as a field-manual modal with mode descriptions.
+- **Taste-dial system prompts** — personality dials wired into Chat/Code system prompts.
+- **Eidos production build** — Eidos dashboard served from production build, parallel startup.
+- **G-Dash refinements** — logo, styling, and layout polish.
+
+### Changed
+- Perci surfaces refactored and Eidos integration improved.
+- Agent CLI mode uses PTY for prompt-flag agents (Cmd Code, Copilot).
+- Mission Control agent activity always shown; window extended to 120s.
+- Mode Guide, Mission Control guide, and HANDOFF docs updated.
+
+### Fixed
+- Toolbar layout bleeding resolved; agentic tools enabled in Code mode.
+- Perci-Now counts minimized windows as open surfaces.
+- Jules agent card moved to alphabetical position.
+
 ## [0.31.0] - 2026-06-24
 ### Added
 - **Ensemble mode** — multi-model deliberation engine with fan-out/judge pipeline. Panel of models responds in parallel, then a judge synthesizes.
