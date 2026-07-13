@@ -392,7 +392,9 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, onUrlChange, isKl
         setLoadError(null);
         setUrl(next);
         setInputValue(addressLabel(next));
-        onUrlChange?.(id, next, addressLabel(next) || 'New Tab');
+        const fallbackTitle = addressLabel(next) || 'New Tab';
+        setTitle(fallbackTitle);
+        onUrlChange?.(id, next, fallbackTitle);
         if (!hidden) writeStringStorage(keys.LAST_URL, next);
     }, [hidden, allowHttp, keys.LAST_URL, searchEngine, id, onUrlChange]);
 

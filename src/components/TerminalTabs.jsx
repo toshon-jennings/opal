@@ -1,11 +1,9 @@
-import { useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Plus, RefreshCw, RotateCcw, X, GripVertical } from 'lucide-react';
-import TerminalPanel from './Terminal';
+import TerminalSplitLayout from './TerminalSplitLayout';
 
-// A multitab wrapper over TerminalPanel. Every tab is its own PTY session
-// (unique sessionId on the local terminal bridge); inactive tabs stay mounted
-// so their shells keep running, and the strip shows each session's live
-// connection state. Reset/reconnect act on the active tab via the panel ref.
+// A multitab wrapper over native pane trees. Every leaf owns its own PTY
+// session; no terminal-multiplexer escape sequences are injected.
 
 const MAX_TABS = 6;
 
@@ -55,7 +53,11 @@ export default function TerminalTabs({ idPrefix = 'term' }) {
         if (id === currentId) {
             setActiveId(next[Math.max(0, idx - 1)]?.id ?? next[0].id);
         }
-        setStatuses(({ [id]: _gone, ...rest }) => rest);
+        setStatuses(prev => {
+            const rest = { ...prev };
+            delete rest[id];
+            return rest;
+        });
         delete panelRefs.current[id];
     };
 
@@ -187,10 +189,10 @@ export default function TerminalTabs({ idPrefix = 'term' }) {
                     </button>
                 </div>
             </div>
-            {/* Sessions stay mounted while hidden so shells survive tab switches. */}
+            {/* Sessions stay mounted while hidden so every pane's shell survives tab switches. */}
             {tabs.map(tab => (
                 <div key={tab.id} className={tab.id === currentId ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}>
-                    <TerminalPanel
+                    <TerminalSplitLayout
                         ref={el => { panelRefs.current[tab.id] = el; }}
                         sessionId={tab.id}
                         embedded

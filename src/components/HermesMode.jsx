@@ -1057,7 +1057,7 @@ export default function HermesMode() {
                                                     <span className="shrink-0 text-[10px] text-[var(--text-tertiary)]">{s.lastActive}</span>
                                                 </div>
                                                 <p className="mt-0.5 truncate text-xs text-[var(--text-secondary)]">{s.preview}</p>
-                                                <p className="mt-1 font-mono text-[10px] text-[var(--text-tertiary)]">{s.id}</p>
+                                                <p className="mt-1 truncate font-mono text-[10px] text-[var(--text-tertiary)]">{s.id}</p>
                                             </div>
                                         ))}
                                     </div>

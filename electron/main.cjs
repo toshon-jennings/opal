@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu, shell, safeStorage, session, nativeImage, webContents } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, shell, safeStorage, session, nativeImage } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const { installRedactedConsole, redactSecrets } = require('./redact-console.cjs');
 const supermemoryProcess = require('./lib/supermemory-process.cjs');
@@ -144,6 +144,16 @@ function attachRendererDiagnostics(win) {
 let terminalServerProcess = null;
 let mainWindow = null;
 let splashWindow = null;
+
+function reloadPerciWindow(ignoreCache = false) {
+  if (!mainWindow || mainWindow.isDestroyed()) return false;
+  if (ignoreCache) {
+    mainWindow.webContents.reloadIgnoringCache();
+  } else {
+    mainWindow.webContents.reload();
+  }
+  return true;
+}
 
 
 function isBundledAssetDocumentUrl(url) {
@@ -784,29 +794,15 @@ function createMenu() {
         {
           label: 'Reload',
           accelerator: 'CmdOrCtrl+R',
-          click: (menuItem, browserWindow) => {
-            const focusedContents = webContents.getFocusedWebContents();
-            if (focusedContents) {
-              focusedContents.reload();
-            } else if (browserWindow) {
-              browserWindow.webContents.reload();
-            } else if (mainWindow && !mainWindow.isDestroyed()) {
-              mainWindow.webContents.reload();
-            }
+          click: () => {
+            reloadPerciWindow();
           }
         },
         {
           label: 'Force Reload',
           accelerator: 'CmdOrCtrl+Shift+R',
-          click: (menuItem, browserWindow) => {
-            const focusedContents = webContents.getFocusedWebContents();
-            if (focusedContents) {
-              focusedContents.reloadIgnoringCache();
-            } else if (browserWindow) {
-              browserWindow.webContents.reloadIgnoringCache();
-            } else if (mainWindow && !mainWindow.isDestroyed()) {
-              mainWindow.webContents.reloadIgnoringCache();
-            }
+          click: () => {
+            reloadPerciWindow(true);
           }
         },
         ...(isDev ? [{ role: 'toggleDevTools' }] : []),
@@ -1084,19 +1080,16 @@ app.whenReady().then(() => {
   }
 
   app.on('web-contents-created', (_event, contents) => {
-    // Intercept reload and force reload shortcuts globally (including in webviews)
+    // Intercept reload and force reload shortcuts globally (including in webviews).
+    // These are Perci shortcuts, so they must always reload the shell rather than
+    // whichever embedded surface currently owns keyboard focus.
     contents.on('before-input-event', (event, input) => {
       if (input.type !== 'keyDown') return;
 
       const isCmdOrCtrl = process.platform === 'darwin' ? input.meta : input.control;
       if (isCmdOrCtrl && input.key.toLowerCase() === 'r') {
-        if (input.shift) {
-          event.preventDefault();
-          contents.reloadIgnoringCache();
-        } else {
-          event.preventDefault();
-          contents.reload();
-        }
+        event.preventDefault();
+        reloadPerciWindow(input.shift);
       }
     });
 
@@ -4519,27 +4512,45 @@ ipcMain.handle('localhost:disable-autostart', async (event, { plistPath, label }
 });
 
 ipcMain.handle('localhost:start-now', async (event, { cwd, command } = {}) => {
-  try {
-    const { spawn } = require('child_process');
-    if (process.platform === 'win32') {
-      const child = spawn('cmd.exe', ['/c', command], {
-        cwd: cwd || process.env.USERPROFILE || process.env.HOME,
-        detached: true,
-        stdio: 'ignore',
-      });
-      child.unref();
-    } else {
-      const child = spawn('/bin/bash', ['-c', command], {
-        cwd: cwd || process.env.HOME,
-        detached: true,
-        stdio: 'ignore',
-      });
-      child.unref();
-    }
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, error: err.message };
+  if (typeof command !== 'string' || !command.trim()) {
+    return { ok: false, error: 'A launch command is required.' };
   }
+
+  const homeDir = app.getPath('home');
+  const requestedCwd = typeof cwd === 'string' && cwd.trim() ? cwd.trim() : homeDir;
+  const launchCwd = requestedCwd === '~'
+    ? homeDir
+    : requestedCwd.startsWith('~/')
+      ? path.join(homeDir, requestedCwd.slice(2))
+      : requestedCwd;
+
+  if (!fsSync.existsSync(launchCwd)) {
+    return { ok: false, error: `Launch folder does not exist: ${launchCwd}` };
+  }
+
+  return new Promise((resolve) => {
+    const executable = process.platform === 'win32'
+      ? 'cmd.exe'
+      : (process.env.SHELL && fsSync.existsSync(process.env.SHELL) ? process.env.SHELL : '/bin/sh');
+    const args = process.platform === 'win32' ? ['/c', command] : ['-lc', command];
+    const child = spawn(executable, args, {
+      cwd: launchCwd,
+      detached: true,
+      stdio: 'ignore',
+    });
+    let settled = false;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      resolve(result);
+    };
+
+    child.once('error', (err) => finish({ ok: false, error: err.message }));
+    child.once('spawn', () => {
+      child.unref();
+      finish({ ok: true });
+    });
+  });
 });
 
 ipcMain.handle('get-home-dir', async () => {
@@ -7488,16 +7499,52 @@ ipcMain.handle('usage-tracker:save', async (event, data) => writeUsageTracker(da
   const http = require('http');
   let autoforgeProc = null;
 
+  function isAutoforgeServer(port) {
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (value) => {
+        if (!settled) {
+          settled = true;
+          resolve(value);
+        }
+      };
+      const req = http.get(`http://127.0.0.1:${port}/openapi.json`, { timeout: 2000 }, (res) => {
+        let body = '';
+        res.setEncoding('utf8');
+        res.on('data', (chunk) => {
+          body += chunk;
+          if (body.length > 64 * 1024) {
+            req.destroy();
+            finish(false);
+          }
+        });
+        res.on('end', () => {
+          if (res.statusCode !== 200) return finish(false);
+          try {
+            const schema = JSON.parse(body);
+            finish(
+              schema?.info?.title === 'Autonomous Coding UI' &&
+              schema?.info?.description === 'Web UI for the Autonomous Coding Agent'
+            );
+          } catch {
+            finish(false);
+          }
+        });
+      });
+      req.on('error', () => finish(false));
+      req.on('timeout', () => { req.destroy(); finish(false); });
+    });
+  }
+
   function checkAutoforgePort() {
     return new Promise((resolve) => {
-      const tryPort = (port, maxPort) => {
+      const tryPort = async (port, maxPort) => {
         if (port > maxPort) { resolve(null); return; }
-        const req = http.get(`http://127.0.0.1:${port}/`, { timeout: 2000 }, (res) => {
-          res.resume();
+        if (await isAutoforgeServer(port)) {
           resolve(port);
-        });
-        req.on('error', () => tryPort(port + 1, maxPort));
-        req.on('timeout', () => { req.destroy(); tryPort(port + 1, maxPort); });
+          return;
+        }
+        tryPort(port + 1, maxPort);
       };
       tryPort(8888, 8898);
     });

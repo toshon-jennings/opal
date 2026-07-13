@@ -37,12 +37,17 @@ export default function AutoforgeMode() {
     const findServerViaFetch = useCallback(async () => {
         for (let port = AUTOFORGE_DEFAULT_PORT; port < AUTOFORGE_DEFAULT_PORT + 10; port++) {
             try {
-                await fetch(`http://127.0.0.1:${port}/`, {
+                const response = await fetch(`http://127.0.0.1:${port}/openapi.json`, {
                     method: 'GET',
-                    mode: 'no-cors',
                     signal: AbortSignal.timeout(1500),
                 });
-                return `http://127.0.0.1:${port}`;
+                const schema = await response.json();
+                if (
+                    schema?.info?.title === 'Autonomous Coding UI' &&
+                    schema?.info?.description === 'Web UI for the Autonomous Coding Agent'
+                ) {
+                    return `http://127.0.0.1:${port}`;
+                }
             } catch {
                 continue;
             }

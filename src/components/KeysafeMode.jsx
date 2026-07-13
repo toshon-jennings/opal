@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { RefreshCw, ExternalLink, ShieldAlert, ShieldCheck, Play, Loader2 } from 'lucide-react';
+import { RefreshCw, ExternalLink, ShieldAlert, Play, Loader2 } from 'lucide-react';
 import keysafeLogo from '../assets/keysafe-logo.jpeg';
 import './KeysafeMode.css';
 
@@ -49,6 +49,13 @@ export default function KeysafeMode() {
     useEffect(() => {
         let active = true;
         (async () => {
+            // Electron's renderer can block a no-cors localhost probe under
+            // COEP even when the webview can load the same service. Let the
+            // webview report its own load result instead.
+            if (window.electron) {
+                setStatus('running');
+                return;
+            }
             const isAlive = await checkAlive();
             if (!active) return;
             if (isAlive) {
@@ -63,14 +70,26 @@ export default function KeysafeMode() {
         };
     }, [checkAlive, stopPolling]);
 
+    useEffect(() => {
+        const webview = webviewRef.current;
+        if (!window.electron || !webview) return;
+
+        const handleFail = (event) => {
+            if (event.errorCode !== -3) setStatus('offline');
+        };
+        webview.addEventListener('did-fail-load', handleFail);
+        return () => webview.removeEventListener('did-fail-load', handleFail);
+    }, [frameKey, status]);
+
     const handleLaunch = useCallback(async () => {
         if (!window.electron?.localhostStartNow) return;
         setStatus('starting');
         try {
-            await window.electron.localhostStartNow({
+            const result = await window.electron.localhostStartNow({
                 cwd: '~/keysafe',
                 command: 'npm run dev',
             });
+            if (!result?.ok) throw new Error(result?.error || 'KeySafe did not start.');
             startPolling();
         } catch (err) {
             console.error('[KeySafe] Failed to auto-start server:', err);
@@ -80,9 +99,6 @@ export default function KeysafeMode() {
 
     const handleReload = useCallback(() => {
         setFrameKey((prev) => prev + 1);
-        if (window.electron && webviewRef.current) {
-            webviewRef.current.reload();
-        }
     }, []);
 
     const handleOpenExternal = useCallback(() => {
@@ -206,14 +222,16 @@ export default function KeysafeMode() {
             </div>
 
             {window.electron ? (
-                <webview
-                    ref={webviewRef}
-                    key={frameKey}
-                    src={KEYSAFE_ORIGIN}
-                    className="keysafe-webview"
-                    partition="persist:perci-keysafe"
-                    allowpopups="true"
-                />
+                React.createElement('webview', {
+                    ref: webviewRef,
+                    key: frameKey,
+                    src: KEYSAFE_ORIGIN,
+                    className: 'keysafe-webview',
+                    // KeySafe originally lived in Perci's localhost profile.
+                    // Keep that durable profile so existing IndexedDB records remain visible.
+                    partition: 'persist:perci-localhost',
+                    allowpopups: 'true',
+                })
             ) : (
                 <iframe
                     ref={webviewRef}

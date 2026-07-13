@@ -119,8 +119,8 @@ function createSession(sessionId) {
 
   const ptyProcess = pty.spawn(finalShell, ['-l'], {
     name: 'xterm-256color',
-    cols: 80,
-    rows: 24,
+    cols: 120,
+    rows: 40,
     cwd: process.cwd(),
     env: ptyEnv,
   });

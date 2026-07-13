@@ -25,6 +25,7 @@ const TerminalPanel = forwardRef(function TerminalPanel({ sessionId = 'default',
   const terminalRef = useRef(null);
   const termInstanceRef = useRef(null);
   const wsRef = useRef(null);
+  const layoutReadyRef = useRef(false);
   const activePortIndexRef = useRef(0);
   const [status, setStatus] = useState("connecting");
   const [isFocused, setIsFocused] = useState(false);
@@ -53,7 +54,12 @@ const TerminalPanel = forwardRef(function TerminalPanel({ sessionId = 'default',
 
   const connect = useCallback(async () => {
     const container = terminalRef.current;
-    if (!container || !termInstanceRef.current) return;
+    if (!container || !termInstanceRef.current || !layoutReadyRef.current) return;
+
+    // Don't connect if the container has no dimensions yet — we'll
+    // connect later when the ResizeObserver fires with a real size.
+    const rect = container.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
 
     dropSocket();
     setStatus("connecting");
@@ -61,7 +67,7 @@ const TerminalPanel = forwardRef(function TerminalPanel({ sessionId = 'default',
     const ports = getTerminalPortCandidates();
     const port = ports[activePortIndexRef.current] || ports[0];
     const { token } = await getTerminalConnectionInfo();
-    if (!terminalRef.current || !termInstanceRef.current) return;
+    if (!terminalRef.current || !termInstanceRef.current || !layoutReadyRef.current) return;
     const wsUrl = buildTerminalWsUrl(port, sessionId, false, token);
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
@@ -133,13 +139,45 @@ const TerminalPanel = forwardRef(function TerminalPanel({ sessionId = 'default',
 
     term.open(container);
     termInstanceRef.current = term;
-    
-    // Fit before connecting so the PTY spawns at the real size instead of
-    // 80x24 (a TUI's first paint at the wrong width never redraws cleanly).
-    const connectTimer = setTimeout(() => {
-        try { fitAddon.fit(); } catch { /* fit can fail while hidden */ }
-        connect();
-    }, 100);
+    // xterm's viewport is absolutely positioned. Give its relative parent a
+    // stable height so the viewport does not inherit the screen's initial 0px
+    // height while character metrics are still being established.
+    term.element.style.height = "100%";
+
+    let disposed = false;
+    let fontReady = !document.fonts;
+    let layoutFrame = null;
+    let connecting = false;
+
+    const scheduleLayout = () => {
+      if (layoutFrame !== null) return;
+      layoutFrame = requestAnimationFrame(() => {
+        layoutFrame = null;
+        if (disposed || !fontReady || !termInstanceRef.current) return;
+
+        const rect = container.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return;
+
+        // A same-size resize is the public xterm path that re-measures an
+        // invalid CharSizeService after a hidden mount. Do it before asking
+        // FitAddon for dimensions; fit() silently no-ops for a 0px cell.
+        term.resize(term.cols, term.rows);
+        if (!fitAddon.proposeDimensions()) return;
+
+        fitAddon.fit();
+        if (!fitAddon.proposeDimensions()) return;
+
+        layoutReadyRef.current = true;
+        // If IntersectionObserver paused rendering while this panel was
+        // hidden, refresh marks the full paint for delivery on visibility.
+        term.refresh(0, term.rows - 1);
+
+        if (!wsRef.current && !connecting) {
+          connecting = true;
+          void connect().finally(() => { connecting = false; });
+        }
+      });
+    };
 
     term.onResize(({ cols, rows }) => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -165,24 +203,36 @@ const TerminalPanel = forwardRef(function TerminalPanel({ sessionId = 'default',
       textarea.addEventListener("blur", handleTerminalBlur);
     }
 
-    const handleResize = () => {
-      requestAnimationFrame(() => {
-        try { fitAddon.fit(); } catch { /* fit can fail while hidden */ }
-      });
-    };
+    const handleResize = () => scheduleLayout();
+
+    if (document.fonts) {
+      // `fonts.ready` alone can already be resolved before xterm asks for its
+      // font. Explicitly request this face first, then wait for the font set.
+      void document.fonts.load('13px "JetBrains Mono"')
+        .catch(() => [])
+        .then(() => document.fonts.ready)
+        .then(() => {
+          fontReady = true;
+          scheduleLayout();
+        });
+    } else {
+      scheduleLayout();
+    }
 
     const resizeObserver = new ResizeObserver(handleResize);
     resizeObserver.observe(container);
     window.addEventListener("resize", handleResize);
 
     return () => {
-      clearTimeout(connectTimer);
       if (textarea) {
         textarea.removeEventListener("focus", handleTerminalFocus);
         textarea.removeEventListener("blur", handleTerminalBlur);
       }
       resizeObserver.disconnect();
       window.removeEventListener("resize", handleResize);
+      disposed = true;
+      layoutReadyRef.current = false;
+      if (layoutFrame !== null) cancelAnimationFrame(layoutFrame);
       dropSocket();
       termInstanceRef.current = null;
       term.dispose();

@@ -7,7 +7,7 @@ import {
 import { useMode, MODES } from '../context/ModeContext';
 import { hasElectronStore, loadElectronPersistence, saveElectronPersistence, readStringStorage, writeStringStorage, removeStorageKey } from '../lib/persistentStore';
 import { POWER_WORKSPACE_PROJECT_HANDOFF_KEY } from '../lib/powerWorkspace';
-import TerminalPanel from './Terminal';
+import TerminalSplitLayout from './TerminalSplitLayout';
 import gitshellsBg from '../assets/gitshells-bg.jpg';
 import './ProjectsMode.css';
 
@@ -922,7 +922,7 @@ export default function ProjectsMode() {
                     </button>
                   </div>
 
-                  <button 
+              <button 
                     onClick={() => forceCDToRoot(activeTerminalId, activeProject.path || '')}
                     className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[var(--border)] hover:border-amber-500/30 hover:bg-amber-500/5 text-xs text-[var(--text-secondary)] hover:text-amber-500 transition-all font-medium"
                     title="CD to workspace root folder"
@@ -977,7 +977,7 @@ export default function ProjectsMode() {
                       key={term.id} 
                       className={isCurrent ? "flex flex-col h-full w-full min-h-0 relative" : "hidden"}
                     >
-                      <TerminalPanel
+                      <TerminalSplitLayout
                         ref={el => { panelRefs.current[term.id] = el; }}
                         sessionId={term.id}
                         embedded
