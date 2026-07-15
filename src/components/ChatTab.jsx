@@ -1,15 +1,18 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowUp, MessageSquare, Plus, RefreshCw, X } from 'lucide-react';
+import { ArrowUp, Plus, X } from 'lucide-react';
 import { ChatMessage } from './ChatMessage';
 import NousBadge from './NousBadge';
 import { useTheme } from '../context/ThemeContext';
 import {
-  getHermesChatState, pushHermesChatMessage, resetHermesChatState, setHermesChatMessages,
-  setHermesChatSessionId, setHermesChatStarted
+  getHermesChatState, resetHermesChatState, setHermesChatMessages, setHermesChatSessionId
 } from '../lib/hermesChatStore';
 import './ChatTab.css';
 
 const HERMES_TILE_BACKGROUND = '/artwork/design-01kv2y38zh-1781436378.png';
+
+// Backend failures that mean the session itself is gone (main process
+// restarted, or the CLI dropped a resumed session) — not that the turn failed.
+const SESSION_FAILURE = /session not found|no chat session is running/i;
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -18,11 +21,12 @@ function getGreeting() {
   return 'Good evening';
 }
 
-function formatSessionLabel(sessionId) {
-  if (!sessionId) return 'Starting';
-  if (sessionId.startsWith('pending-')) return 'Pending first turn';
-  if (sessionId.length <= 18) return sessionId;
-  return `${sessionId.slice(0, 8)}...${sessionId.slice(-6)}`;
+// `hermes chat --resume` prefixes replies with a "↻ Resumed session …" banner.
+// The conversation is continuous in the UI, so session banners never render.
+function cleanHermesOutput(text) {
+  return String(text || '')
+    .replace(/^\s*↻\s*Resumed session[^\n]*\n?/i, '')
+    .trim();
 }
 
 function toChatMessage(message) {
@@ -44,7 +48,7 @@ function HermesAvatar({ title = 'Hermes' }) {
   );
 }
 
-function HermesEmpty({ isStarting, onRetry }) {
+function HermesEmpty() {
   return (
     <div className="flex min-h-[360px] items-center justify-center">
       <div className="w-full px-6 py-14 text-center md:px-10">
@@ -59,22 +63,6 @@ function HermesEmpty({ isStarting, onRetry }) {
           <p className="mx-auto mt-3 max-w-md text-sm text-[var(--text-secondary)]">
             Ask Hermes to work through code, plans, files, or local tasks.
           </p>
-          {isStarting && (
-            <div className="mt-6 inline-flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-[var(--text-secondary)]">
-              <span className="hermes-chat-dot is-active" />
-              Starting Hermes chat
-            </div>
-          )}
-          {!isStarting && onRetry && (
-            <button
-              type="button"
-              onClick={onRetry}
-              className="mt-6 inline-flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-3.5 py-2 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
-            >
-              <RefreshCw size={15} />
-              Retry session
-            </button>
-          )}
         </div>
       </div>
     </div>
@@ -102,17 +90,17 @@ function HermesThinkingRow() {
   );
 }
 
-function ChatComposer({ onSend, onCancel, isRunning, disabled, isStarting }) {
+function ChatComposer({ onSend, onCancel, isRunning }) {
   const [text, setText] = useState('');
   const textareaRef = useRef(null);
-  const canSend = text.trim().length > 0 && !disabled && !isRunning;
+  const canSend = text.trim().length > 0 && !isRunning;
 
-  // Refocus textarea after a run completes so you can keep typing without clicking back in
+  // Focus on mount and refocus after a run completes so you can keep typing
   useEffect(() => {
-    if (!isRunning && !disabled) {
+    if (!isRunning) {
       textareaRef.current?.focus();
     }
-  }, [isRunning, disabled]);
+  }, [isRunning]);
 
   const resetHeight = useCallback(() => {
     if (textareaRef.current) {
@@ -122,11 +110,11 @@ function ChatComposer({ onSend, onCancel, isRunning, disabled, isStarting }) {
 
   const submit = useCallback(() => {
     const message = text.trim();
-    if (!message || disabled || isRunning) return;
+    if (!message || isRunning) return;
     onSend(message);
     setText('');
     resetHeight();
-  }, [disabled, isRunning, onSend, resetHeight, text]);
+  }, [isRunning, onSend, resetHeight, text]);
 
   const handleKeyDown = useCallback((event) => {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -149,9 +137,8 @@ function ChatComposer({ onSend, onCancel, isRunning, disabled, isStarting }) {
         onChange={handleChange}
         onKeyDown={handleKeyDown}
         rows={1}
-        placeholder={isStarting ? 'Starting Hermes chat...' : 'Message Hermes...'}
-        disabled={disabled || isRunning}
-        className="min-h-[40px] max-h-[200px] w-full resize-none border-none bg-transparent text-base leading-relaxed text-[var(--text-primary)] outline-none placeholder:text-[var(--text-tertiary)] disabled:cursor-not-allowed disabled:opacity-60"
+        placeholder="Message Hermes..."
+        className="min-h-[40px] max-h-[200px] w-full resize-none border-none bg-transparent text-base leading-relaxed text-[var(--text-primary)] outline-none placeholder:text-[var(--text-tertiary)]"
       />
       <div className="mt-3 flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
@@ -189,112 +176,112 @@ function ChatComposer({ onSend, onCancel, isRunning, disabled, isStarting }) {
 
 export default function ChatTab({ isDesktop }) {
   const { isDarkMode } = useTheme();
-  const initial = getHermesChatState();
-  const [messages, setMessages] = useState(initial.messages);
-  const [sessionId, setSessionId] = useState(initial.sessionId);
-  const [started, setStarted] = useState(initial.started);
-  const [isStarting, setIsStarting] = useState(false);
+  const [messages, setMessages] = useState(() => getHermesChatState().messages);
   const [isRunning, setIsRunning] = useState(false);
-  const [error, setError] = useState(null);
   const bottomRef = useRef(null);
   const activeRunId = useRef(null);
-  const autoStartedRef = useRef(false);
+  const sessionIdRef = useRef(getHermesChatState().sessionId);
+  const sessionPromiseRef = useRef(null);
+  const bootedRef = useRef(false);
 
-  const startSession = useCallback(async ({ clearMessages = false } = {}) => {
-    if (!isDesktop) return;
-    setIsStarting(true);
-    setError(null);
+  const adoptSessionId = useCallback((id) => {
+    // Synthetic pending- ids from the backend are not resumable; keep null.
+    const real = typeof id === 'string' && id && !id.startsWith('pending-') ? id : null;
+    if (real === sessionIdRef.current) return;
+    sessionIdRef.current = real;
+    setHermesChatSessionId(real);
+  }, []);
+
+  // hermes:chat-start is instant — it only records chat state in the main
+  // process; the real CLI session is created lazily on the first send. So
+  // the composer never waits on this.
+  const ensureSession = useCallback(async ({ fresh = false } = {}) => {
+    if (fresh) {
+      adoptSessionId(null);
+      try {
+        await window.electron.stopHermesChat();
+      } catch (err) {
+        console.error('[ChatTab] stopHermesChat error:', err);
+      }
+    }
+    const resumeSessionId = sessionIdRef.current;
+    const result = await window.electron.startHermesChat(resumeSessionId ? { resumeSessionId } : undefined);
+    if (!result?.ok) throw new Error(result?.error || 'Could not start Hermes chat.');
+    if (result.sessionId) adoptSessionId(result.sessionId);
+    return result;
+  }, [adoptSessionId]);
+
+  const awaitSession = useCallback(async () => {
+    if (!sessionPromiseRef.current) sessionPromiseRef.current = ensureSession();
     try {
-      const result = await window.electron.startHermesChat();
-      if (!result?.ok) {
-        setStarted(false);
-        setSessionId(null);
-        setError(result?.error || 'Could not start Hermes chat.');
-        return;
-      }
-
-      setStarted(true);
-      setSessionId(result.sessionId || null);
-      if (clearMessages || !result.resumed) {
-        setMessages([]);
-      }
+      return await sessionPromiseRef.current;
     } catch (err) {
-      console.error('[ChatTab] startHermesChat error:', err);
-      setStarted(false);
-      setSessionId(null);
-      setError(err.message || 'Could not start Hermes chat.');
-    } finally {
-      setIsStarting(false);
+      sessionPromiseRef.current = null; // retry on the next send
+      throw err;
     }
-  }, [isDesktop]);
+  }, [ensureSession]);
 
+  // Re-arm the backend session silently on open; failures surface on send.
   useEffect(() => {
-    if (!isDesktop || autoStartedRef.current) return;
-    autoStartedRef.current = true;
-    // If we restored messages and a sessionId from the store, the session is
-    // still live on the backend — no need to start a new one.
-    if (initial.sessionId && initial.started) {
-      setMessages(initial.messages);
-      return;
-    }
-    void startSession();
-  }, [isDesktop, startSession, initial.messages, initial.sessionId, initial.started]);
+    if (!isDesktop || bootedRef.current) return;
+    bootedRef.current = true;
+    sessionPromiseRef.current = ensureSession();
+    sessionPromiseRef.current.catch(() => { sessionPromiseRef.current = null; });
+  }, [ensureSession, isDesktop]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isRunning]);
 
-  // Sync state to the module-level store so it survives component remounts
+  // Sync the transcript to the persistent store so the conversation survives
+  // remounts, reloads, and app restarts
   useEffect(() => {
     setHermesChatMessages(messages);
   }, [messages]);
-  useEffect(() => {
-    setHermesChatSessionId(sessionId);
-  }, [sessionId]);
-  useEffect(() => {
-    setHermesChatStarted(started);
-  }, [started]);
 
-  const startFreshChat = useCallback(async () => {
-    if (!isDesktop || isStarting || isRunning) return;
+  const startFreshChat = useCallback(() => {
+    if (!isDesktop || isRunning) return;
     activeRunId.current = null;
-    setError(null);
     resetHermesChatState();
     setMessages([]);
-    setStarted(false);
-    setSessionId(null);
-    try {
-      await window.electron.stopHermesChat();
-    } catch (err) {
-      console.error('[ChatTab] stopHermesChat error:', err);
-    }
-    await startSession({ clearMessages: true });
-  }, [isDesktop, isRunning, isStarting, startSession]);
+    sessionIdRef.current = null;
+    sessionPromiseRef.current = ensureSession({ fresh: true });
+    sessionPromiseRef.current.catch(() => { sessionPromiseRef.current = null; });
+  }, [ensureSession, isDesktop, isRunning]);
 
   const sendMessage = useCallback(async (text) => {
-    if (!isDesktop || !sessionId || isRunning) return;
+    if (!isDesktop || isRunning) return;
 
-    const now = new Date().toISOString();
-    const userMessage = {
+    const runId = `hermes-assistant-${Date.now()}`;
+    activeRunId.current = runId;
+    setMessages(prev => [...prev, {
       id: `hermes-user-${Date.now()}`,
       role: 'user',
       text,
-      ts: now,
+      ts: new Date().toISOString(),
       status: 'done',
-    };
-    const runId = `hermes-assistant-${Date.now()}`;
-    activeRunId.current = runId;
-
-    setMessages(prev => [...prev, userMessage]);
+    }]);
     setIsRunning(true);
-    setError(null);
 
     try {
-      const result = await window.electron.sendHermesChat({ text });
+      await awaitSession();
+      let result = await window.electron.sendHermesChat({ text });
       if (activeRunId.current !== runId) return;
 
+      if (!result?.ok && !result?.cancelled && SESSION_FAILURE.test(result?.error || '')) {
+        // The backend session died. Heal silently: start a fresh backend
+        // session, keep the visible transcript, retry the turn once.
+        sessionPromiseRef.current = ensureSession({ fresh: true });
+        await sessionPromiseRef.current;
+        if (activeRunId.current !== runId) return;
+        result = await window.electron.sendHermesChat({ text });
+        if (activeRunId.current !== runId) return;
+      }
+
+      if (result?.sessionId) adoptSessionId(result.sessionId);
+
       const assistantText = result?.ok
-        ? (result.output || 'Hermes completed the turn without output.')
+        ? (cleanHermesOutput(result.output) || 'Hermes completed the turn without output.')
         : `Error: ${result?.error || 'Hermes chat turn failed.'}`;
 
       setMessages(prev => [...prev, {
@@ -304,10 +291,6 @@ export default function ChatTab({ isDesktop }) {
         ts: new Date().toISOString(),
         status: result?.ok ? 'done' : 'error',
       }]);
-
-      if (result?.sessionId) {
-        setSessionId(result.sessionId);
-      }
     } catch (err) {
       if (activeRunId.current === runId) {
         setMessages(prev => [...prev, {
@@ -324,7 +307,7 @@ export default function ChatTab({ isDesktop }) {
         activeRunId.current = null;
       }
     }
-  }, [isDesktop, isRunning, sessionId]);
+  }, [adoptSessionId, awaitSession, ensureSession, isDesktop, isRunning]);
 
   const cancelRun = useCallback(async () => {
     if (!isDesktop || !isRunning) return;
@@ -359,9 +342,6 @@ export default function ChatTab({ isDesktop }) {
     );
   }
 
-  const canUseComposer = started && Boolean(sessionId) && !isStarting;
-  const showRetry = Boolean(error) && !isStarting && !started;
-
   return (
     <div className="hermes-chat-root relative flex min-h-0 flex-1 flex-col overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)]">
       <div
@@ -379,7 +359,7 @@ export default function ChatTab({ isDesktop }) {
       <div className="relative min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-6 md:px-6 md:py-8">
           {messages.length === 0 ? (
-            <HermesEmpty isStarting={isStarting} onRetry={showRetry ? () => startSession({ clearMessages: true }) : null} />
+            <HermesEmpty />
           ) : (
             messages.map(message => (
               <ChatMessage
@@ -397,17 +377,11 @@ export default function ChatTab({ isDesktop }) {
       </div>
 
       <div className="relative mx-auto w-full max-w-3xl p-4 md:p-6">
-        <div className="mb-2 flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-2 text-sm text-[var(--text-secondary)]">
-            <MessageSquare size={15} className="shrink-0 text-[var(--text-tertiary)]" />
-            <span className="truncate">
-              {isStarting ? 'Starting Hermes' : `Session ${formatSessionLabel(sessionId)}`}
-            </span>
-          </div>
+        <div className="mb-2 flex items-center justify-end">
           <button
             type="button"
             onClick={startFreshChat}
-            disabled={isStarting || isRunning}
+            disabled={isRunning}
             className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-1.5 text-sm font-medium text-[var(--text-secondary)] shadow-sm transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Start a new Hermes chat"
             title="Start a new Hermes chat"
@@ -417,18 +391,10 @@ export default function ChatTab({ isDesktop }) {
           </button>
         </div>
 
-        {error && (
-          <div className="mb-2 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-[var(--text-secondary)]">
-            {error}
-          </div>
-        )}
-
         <ChatComposer
           onSend={sendMessage}
           onCancel={cancelRun}
           isRunning={isRunning}
-          isStarting={isStarting}
-          disabled={!canUseComposer}
         />
       </div>
     </div>

@@ -6,7 +6,7 @@ import {
     ChatIcon, CoworkIcon, CodeIcon, NotesIcon, AgentsIcon, ResearchIcon,
     OfficeIcon, MissionIcon, BuildIcon, ProjectsIcon, SkillsIcon, SurfaceMapIcon, PerciNowIcon, PerciDeskIcon, PackagesIcon, IptvIcon, ShipyardIcon,
 } from '../components/ModeIcons';
-import { MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID, CLEANMAC_WINDOW_ID, PACKAGES_WINDOW_ID, AGENTMAIL_WINDOW_ID, AUTOFORGE_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID, IPTV_WINDOW_ID, SIMPLEX_WINDOW_ID, PXPIPE_WINDOW_ID, KEYSAFE_WINDOW_ID, APFEL_WINDOW_ID, DOCKER_WINDOW_ID, DB_INSPECTOR_WINDOW_ID } from '../context/ModeContext';
+import { MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID, CLEANMAC_WINDOW_ID, PACKAGES_WINDOW_ID, AGENTMAIL_WINDOW_ID, AUTOFORGE_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID, IPTV_WINDOW_ID, SIMPLEX_WINDOW_ID, PXPIPE_WINDOW_ID, KEYSAFE_WINDOW_ID, APFEL_WINDOW_ID, ALIAS_MANAGER_WINDOW_ID, DOCKER_WINDOW_ID, DB_INSPECTOR_WINDOW_ID, GITHUB_OVERVIEW_WINDOW_ID } from '../context/ModeContext';
 import lhLogo from '../assets/lh-logo.png';
 import autoforgeLogo from '../assets/autoforge-logo.png';
 import hermesLogo from '../assets/nousresearch.png';
@@ -43,6 +43,8 @@ import keysafeBg from '../assets/keysafe-bg.jpeg';
 import apfelBg from '../assets/apfel-bg.jpeg';
 import pxpipeBg from '../assets/pxpipe-bg.jpeg';
 import dockerBg from '../assets/docker-bg.jpg';
+import githubOverviewLogo from '../assets/github-overview-logo.png';
+import githubOverviewBg from '../assets/github-overview-bg.jpeg';
 
 // pxpipe sphere icon component — gradient filled circle
 function SphereIcon(props) {
@@ -104,6 +106,7 @@ function ApfelTileIcon({ size = 20, className, style, ...props }) {
 // Sorted alphabetically by title so the dashboard tile grid and Sir Perci
 // launcher stay in sync and are easy to scan.
 export const NATIVE_TILES = [
+    { id: ALIAS_MANAGER_WINDOW_ID, icon: TerminalSquare, title: 'Alias Manager', desc: 'System alias configuration', hue: '#14b8a6' },
     { id: MODES.AGENTS, icon: AgentsIcon, title: 'Agents', desc: 'Queue jobs for the CLI crew', hue: '#4ade80' },
     { id: MODES.AUTORESEARCH, icon: ResearchIcon, title: 'Autoresearch', desc: 'Prompt-optimization loops', hue: '#f472b6' },
     { id: MODES.BUILD, icon: BuildIcon, title: 'Build', desc: 'Generate and ship projects', hue: '#fb923c' },
@@ -129,30 +132,31 @@ export const NATIVE_TILES = [
 // Logo presentation hints shared by the Dashboard tile grid and the Sir
 // Perci launcher, so both render the same artwork (white backing vs.
 // edge-to-edge cover) instead of drifting apart.
-export const LOGO_WHITE_BOX_IDS = new Set([GDASH_WINDOW_ID, MODES.STUDIOOS, MODES.LIGHTHOUSE, HERMES_WINDOW_ID, CLEANMAC_WINDOW_ID]);
+export const LOGO_WHITE_BOX_IDS = new Set([GDASH_WINDOW_ID, MODES.STUDIOOS, MODES.LIGHTHOUSE, HERMES_WINDOW_ID, CLEANMAC_WINDOW_ID, GITHUB_OVERVIEW_WINDOW_ID]);
 export const LOGO_FILL_COVER_IDS = new Set([EIDOS_WINDOW_ID, KLIPIT_WINDOW_ID, MODES.BARS, MODES.MARKITDOWN, MODES.CONCERNS, AUTOFORGE_WINDOW_ID, AGENTMAIL_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID, IPTV_WINDOW_ID, SIMPLEX_WINDOW_ID, KEYSAFE_WINDOW_ID]);
 
 // OS-level tools and external runtimes. Bars belongs here when its Perci
 // surface is wired, not in the native Perci app group.
 export const SYSTEM_TILES = [
     { id: MODES.LIGHTHOUSE, icon: Radar, logo: lhLogo, title: 'Lighthouse', desc: 'Scan ports and find conflicts', hue: '#ffbf45', artwork: true, bgImage: lighthouseBg },
-    { id: OPENCLAW_WINDOW_ID, icon: Server, logo: openclawLogo, title: 'OpenClaw', desc: 'Gateway dashboard', hue: '#ef4444', artwork: true, bgImage: openclawBg },
+    { id: OPENCLAW_WINDOW_ID, icon: Server, logo: openclawLogo, title: 'OpenClaw', desc: 'Chat with your always-on agent', hue: '#ef4444', artwork: true, bgImage: openclawBg },
     { id: HERMES_WINDOW_ID, icon: null, logo: hermesLogo, title: 'Hermes', desc: 'CLI agent — chat, console, sessions', hue: '#eab308', artwork: true },
     { id: GDASH_WINDOW_ID, icon: null, logo: gdashLogo, title: 'G-Dash', desc: 'Google Workspace dashboard', hue: '#4285f4', artwork: true, bgImage: gdashBg },
     { id: EIDOS_WINDOW_ID, icon: null, logo: eidosLogo, title: 'Eidos', desc: 'Persistent memory for AI agents', hue: '#6b7280', artwork: true, bgImage: eidosBg },
     { id: KLIPIT_WINDOW_ID, icon: null, logo: klipitLogo, title: 'Klipit Browser', desc: 'Securely klip the web', hue: '#ec4899', artwork: true, bgImage: klipitBg },
     { id: MODES.BARS, icon: null, logo: barsLogo, title: 'BARS', desc: 'Idea notebook', hue: '#f59e0b', artwork: true, bgImage: barsBg },
     { id: MODES.MARKITDOWN, icon: null, logo: markitdownLogo, title: 'MarkItDownUI', desc: 'Convert files and URLs to Markdown', hue: '#0ea5e9', artwork: true, bgImage: markitdownBg },
-    { id: MODES.CONCERNS, icon: null, logo: billboardLogo, title: 'Bill Board', desc: 'Services, keys & subscriptions', hue: '#06b6d4', artwork: true, bgImage: billboardBg },
+    { id: MODES.CONCERNS, icon: null, logo: billboardLogo, title: 'Bill Board', desc: 'Services, keys, & subscriptions', hue: '#06b6d4', artwork: true, bgImage: billboardBg },
     { id: MODES.STUDIOOS, icon: Layers, logo: studioosLogo, title: 'SOS-Glance', desc: 'View/manage your StudioOS workspace', hue: '#3b82f6', artwork: true, bgImage: studioosBg },
     { id: CLEANMAC_WINDOW_ID, icon: TerminalSquare, title: 'Cleanmac', desc: 'Clean developer caches on macOS', hue: '#10b981', artwork: true, bgImage: cleanmacBg, iconSize: 34 },
     { id: AUTOFORGE_WINDOW_ID, icon: null, logo: autoforgeLogo, title: 'AutoForge', desc: 'Autonomous coding agent', hue: '#f97316', artwork: true, bgImage: autoforgeBg },
     { id: AGENTMAIL_WINDOW_ID, icon: null, logo: agentmailLogo, title: 'AgentMail', desc: 'Email via AgentMail web console', hue: '#6366f1', artwork: true, bgImage: agentmailBg },
     { id: OPEN_NOTEBOOK_WINDOW_ID, logo: cleanmacLogo, title: 'Open Notebook', desc: 'Embedded localhost notebook window', hue: '#10b981', artwork: true, bgImage: openNotebookBg },
     { id: IPTV_WINDOW_ID, icon: IptvIcon, logo: iptvLogo, title: 'IPTV', desc: 'Watch live TV channels from around the world', hue: '#8b5cf6', artwork: true, bgImage: iptvBg },
-    { id: SIMPLEX_WINDOW_ID, icon: null, logo: simplexLogo, title: 'SimpleX', desc: 'Sovereign and private chat client', hue: '#0197ff', artwork: true, bgImage: simplexBg },
+    { id: SIMPLEX_WINDOW_ID, icon: null, logo: simplexLogo, title: 'SimpleX', desc: 'Secure, private chat client', hue: '#0197ff', artwork: true, bgImage: simplexBg },
     { id: PXPIPE_WINDOW_ID, icon: SphereIcon, title: 'pxpipe', desc: 'Token-compression proxy dashboard', hue: '#a855f7', artwork: true, bgImage: pxpipeBg },
     { id: KEYSAFE_WINDOW_ID, icon: null, logo: keysafeLogo, title: 'KeySafe', desc: 'Secure local API keys & recovery codes', hue: '#0ea5e9', artwork: true, bgImage: keysafeBg },
     { id: APFEL_WINDOW_ID, icon: ApfelTileIcon, logo: null, title: 'Apfel', desc: 'GUI harness for Apple Intelligence via the apfel CLI', hue: '#60a5fa', artwork: true, bgImage: apfelBg, iconSize: 26 },
-    { id: DOCKER_WINDOW_ID, icon: Container, title: 'Docker', desc: 'Containers, images & volumes with backup-gated removal', hue: '#2496ed', artwork: true, bgImage: dockerBg },
+    { id: GITHUB_OVERVIEW_WINDOW_ID, icon: null, logo: githubOverviewLogo, title: 'GitHub Overview', desc: 'Commits, CI, alerts, & PRs for your repos', hue: '#6e5494', artwork: true, bgImage: githubOverviewBg },
+    { id: DOCKER_WINDOW_ID, icon: Container, title: 'Containers', desc: 'Containers, images, & volumes with backup-gated removal', hue: '#2496ed', artwork: true, bgImage: dockerBg },
 ];

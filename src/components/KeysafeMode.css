@@ -101,8 +101,27 @@
     border-radius: 16px;
     border: 1px solid var(--border);
     background-color: var(--bg-secondary);
+    background-image: url('../assets/keysafe-bg.jpeg');
+    background-size: cover;
+    background-position: center;
+    position: relative;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-    backdrop-filter: blur(8px);
+}
+
+.keysafe-status-card::before,
+.keysafe-offline-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 15px;
+    background: rgba(0, 0, 0, 0.65);
+    z-index: 0;
+}
+
+.keysafe-status-card > *,
+.keysafe-offline-card > * {
+    position: relative;
+    z-index: 1;
 }
 
 .keysafe-spinner {

@@ -1158,17 +1158,13 @@ app.whenReady().then(() => {
         return;
       }
 
-      // Plain <a href> clicks (no target="_blank") navigate the webview's
-      // existing frame rather than requesting a new window, so they never
-      // reach setWindowOpenHandler above. Route them to a new Perci tab too
-      // — except Google OAuth, which needs to redirect in place to keep its
-      // callback tied to this frame.
+      // Plain <a href> clicks navigate the webview in place like a normal
+      // browser. Users who want a new tab can right-click → "Open in new tab"
+      // or the app can use target="_blank"/window.open (handled by
+      // setWindowOpenHandler above). Google OAuth redirects are also allowed
+      // to proceed in place to keep the callback tied to this frame.
       if (contents.getType() === 'webview' && !isGoogleOAuthUrl(url)) {
-        event.preventDefault();
-        appendRendererLog(`webview-navigation-routed-to-tab url=${url}`);
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('webview:open-in-tab', url);
-        }
+        appendRendererLog(`webview-navigation-in-place url=${url}`);
       }
     });
   });
@@ -3018,12 +3014,21 @@ ipcMain.handle('hermes:run-cancel', async () => {
 // conversation memory. The long-lived state is the session UUID, not a process.
 let hermesChatSession = null; // { sessionId, model }
 
-ipcMain.handle('hermes:chat-start', async (event, { model, workingDirectory } = {}) => {
+ipcMain.handle('hermes:chat-start', async (event, { model, workingDirectory, resumeSessionId } = {}) => {
   // If a session already exists, return it so the UI can resume seamlessly.
   if (hermesChatSession) return { ok: true, sessionId: hermesChatSession.sessionId, resumed: true };
   const requestedModel = typeof model === 'string' ? model.trim() : '';
   if (requestedModel && !SAFE_MODEL_PATTERN.test(requestedModel)) {
     return { ok: false, error: 'Model name contains unsupported characters.' };
+  }
+  // A renderer-persisted session id from a previous app run: adopt it so the
+  // next turn resumes the CLI session (hermes stores sessions on disk).
+  const resume = typeof resumeSessionId === 'string' && /^[\w.-]{1,128}$/.test(resumeSessionId) && !resumeSessionId.startsWith('pending-')
+    ? resumeSessionId
+    : null;
+  if (resume) {
+    hermesChatSession = { sessionId: resume, realSessionId: resume, model: requestedModel, cwd: workingDirectory, hasHistory: true };
+    return { ok: true, sessionId: resume, resumed: true };
   }
   // Session ID comes from hermes itself — captured on first turn. No synthetic
   // IDs. We store the model/cwd now and defer session creation until the first
@@ -3090,8 +3095,9 @@ ipcMain.handle('hermes:chat-send', async (event, { text } = {}) => {
       };
     }
     let output = result.stdout.trim();
-    // Clean up output: strip session_id lines or legacy resume footers
+    // Clean up output: strip session_id lines, resume banners, legacy footers
     output = output.replace(/^session_id:\s*\S+\s*/im, '').trim();
+    output = output.replace(/^↻\s*Resumed session[^\n]*\n?/i, '').trim();
     output = output.replace(/\n?Resume this session with:\s*\n?\s*hermes --resume \S+\s*/, '').trim();
 
     // Capture the real session ID from stdout or stderr (check both legacy and modern formats)
@@ -4508,6 +4514,68 @@ ipcMain.handle('localhost:disable-autostart', async (event, { plistPath, label }
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err.stderr?.toString() || err.message };
+  }
+});
+
+ipcMain.handle('hosts:read', async () => {
+  try {
+    return await fs.readFile('/etc/hosts', 'utf-8');
+  } catch (err) {
+    return { error: `Failed to read /etc/hosts: ${err.message}` };
+  }
+});
+
+ipcMain.handle('hosts:write', async (event, content) => {
+  if (typeof content !== 'string') return { error: 'Invalid content format.' };
+  try {
+    const tmpPath = `/tmp/perci_hosts_${Date.now()}.tmp`;
+    await fs.writeFile(tmpPath, content, 'utf-8');
+    
+    return new Promise((resolve) => {
+      // Use osascript to prompt for admin privileges natively
+      const { execFile } = require('child_process');
+      const script = `do shell script "cp ${tmpPath} /etc/hosts && rm ${tmpPath}" with administrator privileges`;
+      execFile('osascript', ['-e', script], (error, stdout, stderr) => {
+        if (error) {
+          resolve({ error: `Authentication failed or permission denied.` });
+        } else {
+          resolve({ ok: true });
+        }
+      });
+    });
+  } catch (err) {
+    return { error: `Failed to prepare /etc/hosts update: ${err.message}` };
+  }
+});
+
+ipcMain.handle('alias:read', async () => {
+  const os = require('os');
+  const path = require('path');
+  const fsPromises = require('fs').promises;
+  const fs = require('fs');
+  const aliasPath = path.join(os.homedir(), '.aliases');
+  try {
+    if (!fs.existsSync(aliasPath)) {
+      return { ok: true, content: '' };
+    }
+    const content = await fsPromises.readFile(aliasPath, 'utf-8');
+    return { ok: true, content };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle('alias:write', async (event, content) => {
+  if (typeof content !== 'string') return { ok: false, error: 'Invalid content format.' };
+  const os = require('os');
+  const path = require('path');
+  const fsPromises = require('fs').promises;
+  const aliasPath = path.join(os.homedir(), '.aliases');
+  try {
+    await fsPromises.writeFile(aliasPath, content, 'utf-8');
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
   }
 });
 

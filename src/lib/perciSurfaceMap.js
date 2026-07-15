@@ -17,6 +17,7 @@ import {
     APFEL_WINDOW_ID,
     DOCKER_WINDOW_ID,
     DB_INSPECTOR_WINDOW_ID,
+    GITHUB_OVERVIEW_WINDOW_ID,
 } from '../context/ModeContext';
 
 export const SURFACE_ROUTE_TYPES = {
@@ -191,12 +192,13 @@ export const PERCI_SURFACE_STATIONS = [
     { id: 'bill-board', targetId: MODES.CONCERNS, label: 'Bill Board', kind: 'system', districtId: 'business-office', x: 510, y: 160, description: 'User expenses, bills, and subscription tracking.' },
     { id: 'gdash', targetId: GDASH_WINDOW_ID, label: 'G-Dash', kind: 'system', districtId: 'business-office', x: 610, y: 160, description: 'Google Workspace dashboard surface.' },
     { id: 'open-notebook', targetId: OPEN_NOTEBOOK_WINDOW_ID, label: 'Open Notebook', kind: 'system', districtId: 'local-systems-depot', x: 1070, y: 600, description: 'Dedicated localhost notebook window without address bar.' },
-    { id: 'simplex', targetId: SIMPLEX_WINDOW_ID, label: 'SimpleX', kind: 'system', districtId: 'local-systems-depot', x: 890, y: 600, description: 'Sovereign and private chat client running locally.' },
+    { id: 'simplex', targetId: SIMPLEX_WINDOW_ID, label: 'SimpleX', kind: 'system', districtId: 'local-systems-depot', x: 890, y: 600, description: 'Secure, private chat client running locally.' },
     { id: 'pxpipe', targetId: PXPIPE_WINDOW_ID, label: 'pxpipe', kind: 'system', districtId: 'local-systems-depot', x: 980, y: 600, description: 'Local token-compression proxy for LLM requests.' },
     { id: 'keysafe', targetId: KEYSAFE_WINDOW_ID, label: 'KeySafe', kind: 'system', districtId: 'local-systems-depot', x: 890, y: 780, description: 'Secure local credentials and recovery codes manager.' },
     { id: 'apfel', targetId: APFEL_WINDOW_ID, label: 'Apfel', kind: 'system', districtId: 'local-systems-depot', x: 980, y: 780, description: 'GUI harness for Apple Intelligence on-device models.' },
     { id: 'docker', targetId: DOCKER_WINDOW_ID, label: 'Docker', kind: 'system', districtId: 'local-systems-depot', x: 1160, y: 780, description: 'Live containers, images, and volumes with backup-gated removal.' },
     { id: 'db-inspector', targetId: DB_INSPECTOR_WINDOW_ID, label: 'DB Inspector', kind: 'native', districtId: 'local-systems-depot', x: 800, y: 780, description: 'Read-only SQLite schema and row browser for local project databases.' },
+    { id: 'github-overview', targetId: GITHUB_OVERVIEW_WINDOW_ID, label: 'GitHub Overview', kind: 'system', districtId: 'local-systems-depot', x: 1070, y: 780, description: 'Commits, CI, dependency alerts, issues & PRs for tracked GitHub repos.' },
 ];
 
 export const PERCI_SURFACE_ROUTES = [
@@ -205,7 +207,7 @@ export const PERCI_SURFACE_ROUTES = [
     { id: 'agent-rail', type: 'automation', label: 'Agent Rail', stationIds: ['office', 'mission', 'perci-now', 'agents', 'openclaw', 'hermes', 'skills', 'shipyard'] },
     { id: 'build-main', type: 'creation', label: 'Build Main', stationIds: ['chat', 'ensemble', 'compare', 'cowork', 'code', 'build', 'artifacts', 'localhost'] },
     { id: 'research-loop', type: 'research', label: 'Research Loop', stationIds: ['chat', 'research', 'research-results', 'notes', 'workspace'] },
-    { id: 'local-runtime', type: 'runtime', label: 'Runtime Connector', stationIds: ['markitdown', 'localhost', 'git-shells', 'lighthouse', 'openclaw', 'studioos', 'open-notebook', 'klipit', 'pxpipe', 'keysafe', 'apfel', 'docker', 'db-inspector'] },
+    { id: 'local-runtime', type: 'runtime', label: 'Runtime Connector', stationIds: ['markitdown', 'localhost', 'git-shells', 'lighthouse', 'openclaw', 'studioos', 'open-notebook', 'klipit', 'pxpipe', 'keysafe', 'apfel', 'docker', 'db-inspector', 'github-overview'] },
     { id: 'governance-line', type: 'governance', label: 'Governance Line', stationIds: ['skills', 'agents', 'mission', 'perci-now', 'eidos', 'notes'] },
     { id: 'expense-line', type: 'expenses', label: 'Expense Line', stationIds: ['bill-board', 'gdash', 'workspace', 'perci-desk', 'notes'] },
 ];

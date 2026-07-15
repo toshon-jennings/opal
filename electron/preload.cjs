@@ -101,6 +101,10 @@ contextBridge.exposeInMainWorld('electron', {
   // Localhost Manager — launchctl wrappers
   localhostEnableAutostart: (opts) => ipcRenderer.invoke('localhost:enable-autostart', opts),
   localhostDisableAutostart: (opts) => ipcRenderer.invoke('localhost:disable-autostart', opts),
+  hostsRead: () => ipcRenderer.invoke('hosts:read'),
+  hostsWrite: (content) => ipcRenderer.invoke('hosts:write', content),
+  aliasRead: () => ipcRenderer.invoke('alias:read'),
+  aliasWrite: (content) => ipcRenderer.invoke('alias:write', content),
   localhostStartNow: (opts) => ipcRenderer.invoke('localhost:start-now', opts),
   getHomeDir: () => ipcRenderer.invoke('get-home-dir'),
   // G-Dash (Google Workspace dashboard) — BYO OAuth client; tokens stay in main.

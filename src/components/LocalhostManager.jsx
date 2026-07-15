@@ -3,7 +3,7 @@ import { readStringStorage, writeStringStorage } from '../lib/persistentStore';
 import {
     Plus, X, Play, Square, Power, PowerOff,
     ChevronDown, ChevronUp, ExternalLink, RefreshCw,
-    Server, Terminal, AlertCircle, CheckCircle,
+    Server, Terminal, AlertCircle, CheckCircle, Globe
 } from 'lucide-react';
 
 const STORAGE_KEY = 'perci_localhost_manager_apps';
@@ -12,26 +12,15 @@ const STORAGE_KEY = 'perci_localhost_manager_apps';
 const DEFAULT_APPS = [
     { id: 'perci', name: 'Perci (Opal)', port: 5173, url: 'http://localhost:5173', startCommand: 'cd ~/opal && npm run dev', cwd: '~/opal', autoStart: false },
     { id: 'eidos', name: 'Eidos', port: 3000, url: 'http://localhost:3000', startCommand: 'cd ~/eidos && docker compose up -d', cwd: '~/eidos', autoStart: false },
-    { id: 'bulletin-board', name: 'Bulletin Board', port: 6061, url: 'http://localhost:6061', startCommand: 'node ~/BULLETIN-BOARD/server.js', cwd: '~/BULLETIN-BOARD', autoStart: false },
     { id: 'open-notebook', name: 'Open Notebook', port: 8502, url: 'http://localhost:8502', startCommand: '', cwd: '~/open-notebook', autoStart: false },
-    { id: 'thinking-machine', name: 'The Thinking Machine', port: 8501, url: 'http://localhost:8501', startCommand: '', cwd: '', autoStart: false },
-    { id: 'budget-bot', name: 'Budget Bot', port: 8512, url: 'http://localhost:8512', startCommand: '.venv/bin/streamlit run dashboard.py --server.port 8512 --server.headless true', cwd: '~/budget-bot', autoStart: false },
-    { id: 'big-one-site', name: 'CCT Site', port: 3010, url: 'http://localhost:3010', startCommand: 'cd ~/big-one-site && npm run dev', cwd: '~/big-one-site', autoStart: false },
-    { id: 'solvent-game', name: 'SOLVENT Game', port: 3011, url: 'http://localhost:3011', startCommand: 'cd ~/big-one-game && python3 -m http.server 3011', cwd: '~/big-one-game', autoStart: false },
-    { id: 'orbit-game', name: 'Orbit Game', port: 3012, url: 'http://localhost:3012', startCommand: 'cd ~/orbit-game && python3 -m http.server 3012', cwd: '~/orbit-game', autoStart: false },
-    { id: 'phlc-rsh', name: 'PHLCRSH', port: 5179, url: 'http://localhost:5179', startCommand: 'cd ~/PHLCRSH/app && npm run dev', cwd: '~/PHLCRSH/app', autoStart: false },
-    { id: 'osiris', name: 'OSIRIS', port: 4000, url: 'http://localhost:4000', startCommand: 'cd ~/osiris && npm start', cwd: '~/osiris', autoStart: false },
     { id: 'openclaw', name: 'OpenClaw', port: 18789, url: 'http://localhost:18789', startCommand: '', cwd: '', autoStart: false },
     { id: 'markitdown', name: 'MarkItDownUI', port: 8920, url: 'http://localhost:8920', startCommand: '', cwd: '', autoStart: false },
     { id: 'hermes-dash', name: 'Hermes Dashboard', port: 8642, url: 'http://localhost:8642', startCommand: '', cwd: '', autoStart: false },
-    { id: 'digest', name: 'Digest Dashboard', port: 6060, url: 'http://localhost:6060', startCommand: 'python3 ~/interview/digest-server.py', cwd: '~/interview', autoStart: false },
-    { id: 'keysafe', name: 'KeySafe', port: 4100, url: 'http://localhost:4100', startCommand: 'cd ~/keysafe && npm run dev', cwd: '~/keysafe', autoStart: false },
+    { id: 'keysafe', name: 'KeySafe', port: 4100, url: 'http://127.0.0.1:4100', startCommand: 'cd ~/keysafe && npm run dev', cwd: '~/keysafe', autoStart: false },
     { id: 'super-memory', name: 'Supermemory', port: 6768, url: 'http://localhost:6768', startCommand: '', cwd: '', autoStart: false },
     { id: 'lfm-harness', name: 'LFM Harness', port: 6270, url: 'http://localhost:6270', startCommand: 'node ~/lfm-harness/server.js', cwd: '~/lfm-harness', autoStart: false },
     { id: 'apfel-harness', name: 'Apfel Harness', port: 6271, url: 'http://localhost:6271', startCommand: 'node ~/apfel-harness/server.js', cwd: '~/apfel-harness', autoStart: false },
     { id: 'ollama', name: 'Ollama', port: 11434, url: 'http://localhost:11434', startCommand: 'ollama serve', cwd: '', autoStart: false },
-    { id: 'tcs-it-dash', name: 'TCS IT Dashboard', port: 8788, url: 'http://localhost:8788', startCommand: 'python3 ~/it-milestone-agent/server.py', cwd: '~/it-milestone-agent', autoStart: false },
-    { id: 'idea-tracker', name: 'Idea Tracker', port: 8787, url: 'http://localhost:8787', startCommand: '', cwd: '', autoStart: false },
 ];
 
 function plistLabel(id) { return `local.perci.${id}`; }
@@ -75,27 +64,18 @@ function readApps() {
         const raw = readStringStorage(STORAGE_KEY, '[]');
         const saved = JSON.parse(raw);
         if (!Array.isArray(saved)) return [...DEFAULT_APPS];
-        // Migration: auto-fix known-bad commands from v1 catalog
-        const KNOWN_BAD = {
-            'budget-bot': { bad: ['.venv/bin/streamlit run dashboard.py --server.port 8512', 'cd ~/budget-bot && streamlit run dashboard.py'], good: '.venv/bin/streamlit run dashboard.py --server.port 8512 --server.headless true' },
-            'thinking-machine': { bad: ['cd ~/openmythos-test && streamlit run app.py'], good: '' }, // project removed
-        };
+        
         // Merge saved auto-start state into defaults
         const savedMap = new Map(saved.map(a => [a.id, a]));
         return DEFAULT_APPS.map(def => {
             const s = savedMap.get(def.id);
             if (!s) return def;
-            // Prefer default command if the saved one matches a known-bad pattern
-            let savedCmd = s.startCommand || def.startCommand;
-            const migration = KNOWN_BAD[def.id];
-            if (migration && Array.isArray(migration.bad) ? migration.bad.includes(savedCmd) : migration.bad === savedCmd) {
-                savedCmd = migration.good;
-            }
+            
+            // For default apps, ONLY preserve the autoStart state from storage.
+            // This ensures any source-code updates (commands, ports, etc.) take effect immediately.
             return {
                 ...def,
-                autoStart: !!s.autoStart,
-                startCommand: savedCmd,
-                cwd: s.cwd || def.cwd,
+                autoStart: !!s.autoStart
             };
         }).concat(saved.filter(s => !DEFAULT_APPS.find(d => d.id === s.id)));
     } catch {
@@ -122,6 +102,9 @@ export default function LocalhostManager({ onNavigate }) {
     const [addCwd, setAddCwd] = useState('');
     const [busyIds, setBusyIds] = useState(new Set());
     const [toast, setToast] = useState(null);
+    const [showHostsModal, setShowHostsModal] = useState(false);
+    const [hostsContent, setHostsContent] = useState('');
+    const [savingHosts, setSavingHosts] = useState(false);
     const [expandedSection, setExpandedSection] = useState('all'); // 'all' | 'running' | 'stopped'
 
     // Resolve home directory from Electron main process
@@ -336,6 +319,24 @@ export default function LocalhostManager({ onNavigate }) {
                         </button>
                         <button
                             type="button"
+                            onClick={() => {
+                                window.electron.hostsRead().then(res => {
+                                    if (res.error) {
+                                        showToast(res.error, 'error');
+                                    } else {
+                                        setHostsContent(res);
+                                        setShowHostsModal(true);
+                                    }
+                                }).catch(err => showToast(err.message, 'error'));
+                            }}
+                            className="micro-interaction flex items-center gap-1 rounded-md bg-[var(--bg-hover)] px-2 py-1 text-[11px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--border)]"
+                            title="Edit /etc/hosts to map custom domains"
+                        >
+                            <Globe size={11} />
+                            /etc/hosts
+                        </button>
+                        <button
+                            type="button"
                             onClick={() => setShowAddForm(v => !v)}
                             className="micro-interaction flex items-center gap-1 rounded-md bg-[var(--accent)] px-2 py-1 text-[11px] font-medium text-white transition-colors hover:bg-[var(--accent-hover)]"
                         >
@@ -465,6 +466,81 @@ export default function LocalhostManager({ onNavigate }) {
                     )}
                 </div>
             </div>
+
+            {/* Hosts Modal */}
+            {showHostsModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="flex flex-col w-full max-w-2xl bg-[var(--bg-primary)] border border-[var(--border)] rounded-xl shadow-2xl overflow-hidden max-h-[90vh]">
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)] bg-[var(--bg-secondary)]/50">
+                            <div className="flex items-center gap-2">
+                                <Globe size={16} className="text-[var(--accent)]" />
+                                <h3 className="font-semibold text-[var(--text-primary)]">Edit /etc/hosts</h3>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowHostsModal(false)}
+                                disabled={savingHosts}
+                                className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors disabled:opacity-50"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+                        <div className="p-4 flex-1 overflow-y-auto">
+                            <p className="text-xs text-[var(--text-secondary)] mb-3 leading-relaxed">
+                                Use this file to map custom domains (like <code>nodus.local</code>) to IP addresses (like <code>127.0.0.1</code>).<br />
+                                <strong>Note:</strong> You cannot map a domain directly to a port here. You still need to include the port in the URL (e.g. <code>http://nodus.local:6280</code>).
+                            </p>
+                            <textarea
+                                value={hostsContent}
+                                onChange={(e) => setHostsContent(e.target.value)}
+                                disabled={savingHosts}
+                                spellCheck={false}
+                                className="w-full h-96 p-3 bg-[#1e1e1e] text-[#d4d4d4] font-mono text-xs rounded-md border border-[var(--border)] focus:outline-none focus:border-[var(--accent)] disabled:opacity-50"
+                            />
+                        </div>
+                        <div className="flex items-center justify-end gap-3 px-4 py-3 border-t border-[var(--border)] bg-[var(--bg-secondary)]/50">
+                            <button
+                                type="button"
+                                onClick={() => setShowHostsModal(false)}
+                                disabled={savingHosts}
+                                className="px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                disabled={savingHosts}
+                                onClick={async () => {
+                                    setSavingHosts(true);
+                                    try {
+                                        const res = await window.electron.hostsWrite(hostsContent);
+                                        if (res.error) {
+                                            showToast(res.error, 'error');
+                                        } else {
+                                            showToast('Successfully updated /etc/hosts');
+                                            setShowHostsModal(false);
+                                        }
+                                    } catch (err) {
+                                        showToast(err.message, 'error');
+                                    } finally {
+                                        setSavingHosts(false);
+                                    }
+                                }}
+                                className="px-3 py-1.5 flex items-center gap-2 text-xs font-medium text-white bg-[var(--accent)] rounded-md hover:bg-[var(--accent-hover)] transition-colors disabled:opacity-50"
+                            >
+                                {savingHosts ? (
+                                    <>
+                                        <RefreshCw size={12} className="animate-spin" />
+                                        Saving...
+                                    </>
+                                ) : (
+                                    'Save Changes (Requires Admin)'
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

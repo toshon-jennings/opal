@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, Component } from 'react';
 import perciLogo from './assets/perci-logo.png';
-import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, ARTIFACT_WINDOW_ID, RESEARCH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID, CLEANMAC_WINDOW_ID, PACKAGES_WINDOW_ID, AGENTMAIL_WINDOW_ID, AUTOFORGE_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID, IPTV_WINDOW_ID, SIMPLEX_WINDOW_ID, PXPIPE_WINDOW_ID, KEYSAFE_WINDOW_ID, APFEL_WINDOW_ID, DOCKER_WINDOW_ID, DB_INSPECTOR_WINDOW_ID } from './context/ModeContext';
+import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, ARTIFACT_WINDOW_ID, RESEARCH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID, CLEANMAC_WINDOW_ID, PACKAGES_WINDOW_ID, AGENTMAIL_WINDOW_ID, AUTOFORGE_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID, IPTV_WINDOW_ID, SIMPLEX_WINDOW_ID, PXPIPE_WINDOW_ID, KEYSAFE_WINDOW_ID, APFEL_WINDOW_ID, ALIAS_MANAGER_WINDOW_ID, DOCKER_WINDOW_ID, DB_INSPECTOR_WINDOW_ID, GITHUB_OVERVIEW_WINDOW_ID } from './context/ModeContext';
 import ModeSwitcher from './components/ModeSwitcher';
 import ChatMode from './components/ChatMode';
 import CodeMode from './components/CodeMode';
@@ -40,6 +40,8 @@ import KeysafeMode from './components/KeysafeMode';
 import ApfelMode from './components/ApfelMode';
 import DockerMode from './components/DockerMode';
 import DbInspectorMode from './components/DbInspectorMode';
+import GithubOverviewMode from './components/GithubOverviewMode';
+import AliasManagerMode from './components/AliasManagerMode';
 import ShipyardMode from './components/ShipyardMode';
 import PerciPet from './components/PerciPet';
 import { SettingsModal } from './components/SettingsModal';
@@ -51,6 +53,7 @@ import PwaShortcutWindow from './components/windows/PwaShortcutWindow';
 import { ModeGuideModal } from './components/ModeGuideModal';
 import { readStringStorage, writeStringStorage } from './lib/persistentStore';
 import { OpenClawModelsPanel } from './components/OpenClawModelsPanel';
+import { OpenClawChatPanel } from './components/OpenClawChatPanel';
 import { BuildModeProvider } from './context/BuildModeContext'; // Keeping original context for now, but primary logic will be in BuildContext
 import { BuildProvider } from './context/BuildContext';
 import { ChatProvider } from './context/ChatContext';
@@ -59,7 +62,7 @@ import nousLogo from './assets/nousresearch.png';
 import openClawLogo from './assets/openclaw-color.png';
 import autoforgeLogo from './assets/autoforge-logo.png';
 import agentmailLogo from './assets/agentmail-logo.png';
-import { Moon, Sun, Monitor, Lock, Unlock, Plus, Terminal as TerminalIcon, Server, RefreshCw, ExternalLink, AlertCircle, BookOpen, Cpu, Download, Puzzle, Sparkles, Package, ClipboardList } from 'lucide-react';
+import { Moon, Sun, Monitor, Lock, Unlock, Plus, Terminal as TerminalIcon, Server, RefreshCw, ExternalLink, AlertCircle, BookOpen, Cpu, Download, Puzzle, Sparkles, Package, ClipboardList, MessageSquare } from 'lucide-react';
 import { useTheme, ThemeProvider } from './context/ThemeContext';
 import { useChat } from './context/ChatContext';
 import TerminalPanel from './components/Terminal';
@@ -145,13 +148,13 @@ function AppContent() {
     const [dockAutoHide, setDockAutoHide] = useState(() => readStringStorage('perci_dock_autohide', 'false') === 'true');
     const [terminalCommand, setTerminalCommand] = useState('');
     const [updaterState, setUpdaterState] = useState(null);
-    const [openClawDashboardTab, setOpenClawDashboardTab] = useState('gateway');
-    // Always land on the chat (Gateway) tab when the OpenClaw window (re)opens, so
-    // switching to Models/Diary never "sticks" as the default view.
+    const [openClawDashboardTab, setOpenClawDashboardTab] = useState('chat');
+    // Always land on the native Chat tab when the OpenClaw window (re)opens, so
+    // switching to Models/Diary/Dashboard never "sticks" as the default view.
     const wasOpenClawOpenRef = useRef(false);
     useEffect(() => {
         if (openClawWindowOpen && !wasOpenClawOpenRef.current) {
-            setOpenClawDashboardTab('gateway');
+            setOpenClawDashboardTab('chat');
         }
         wasOpenClawOpenRef.current = openClawWindowOpen;
     }, [openClawWindowOpen]);
@@ -363,9 +366,11 @@ function AppContent() {
                                         <div className="text-sm font-semibold text-[var(--text-primary)] truncate">
                                             {activeOpenClawProfile.name}
                                         </div>
-                                        <div className="text-[11px] font-mono text-[var(--text-tertiary)] truncate">
-                                            {activeOpenClawProfile.controlUrl}
-                                        </div>
+                                        {openClawDashboardTab !== 'chat' && (
+                                            <div className="text-[11px] font-mono text-[var(--text-tertiary)] truncate">
+                                                {activeOpenClawProfile.controlUrl}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -406,23 +411,27 @@ function AppContent() {
                                         Powered by OpenClaw
                                         <ExternalLink size={11} />
                                     </button>
-                                    <span className={`hidden sm:inline text-xs ${openClawStatus.state === 'online' ? 'text-emerald-500' : openClawStatus.state === 'checking' ? 'text-[var(--text-secondary)]' : 'text-red-400'}`}>
-                                        {openClawStatus.state === 'online'
-                                            ? 'Gateway reachable'
-                                            : openClawStatus.state === 'checking'
-                                                ? 'Checking...'
-                                                : 'Gateway unreachable'}
-                                    </span>
-                                    <button
-                                        onClick={() => {
-                                            setOpenClawDashboardIssue(null);
-                                            setOpenClawFrameKey(key => key + 1);
-                                        }}
-                                        className="p-1.5 rounded-md text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
-                                        title="Reload dashboard"
-                                    >
-                                        <RefreshCw size={16} />
-                                    </button>
+                                    {openClawDashboardTab !== 'chat' && (
+                                        <span className={`hidden sm:inline text-xs ${openClawStatus.state === 'online' ? 'text-emerald-500' : openClawStatus.state === 'checking' ? 'text-[var(--text-secondary)]' : 'text-red-400'}`}>
+                                            {openClawStatus.state === 'online'
+                                                ? 'Gateway reachable'
+                                                : openClawStatus.state === 'checking'
+                                                    ? 'Checking...'
+                                                    : 'Gateway unreachable'}
+                                        </span>
+                                    )}
+                                    {openClawDashboardTab === 'gateway' && (
+                                        <button
+                                            onClick={() => {
+                                                setOpenClawDashboardIssue(null);
+                                                setOpenClawFrameKey(key => key + 1);
+                                            }}
+                                            className="p-1.5 rounded-md text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+                                            title="Reload dashboard"
+                                        >
+                                            <RefreshCw size={16} />
+                                        </button>
+                                    )}
                                     {window.electron?.restartOpenClawGateway && activeOpenClawProfile?.mode === 'local' && (
                                         <button
                                             onClick={restartOpenClawGateway}
@@ -445,9 +454,10 @@ function AppContent() {
                             {/* Tab strip */}
                             <div className="shrink-0 flex items-center border-b border-[var(--border)] bg-[var(--bg-secondary)] px-2">
                                 {[
-                                    { id: 'gateway', label: 'Gateway', icon: <Server size={12} /> },
+                                    { id: 'chat', label: 'Chat', icon: <MessageSquare size={12} /> },
                                     { id: 'models', label: 'Models', icon: <Cpu size={12} /> },
                                     { id: 'diary', label: "User's Diary", icon: <BookOpen size={12} /> },
+                                    { id: 'gateway', label: 'Dashboard', icon: <Server size={12} /> },
                                 ].map(tab => (
                                     <button
                                         key={tab.id}
@@ -464,7 +474,14 @@ function AppContent() {
                                 ))}
                             </div>
 
-                            {openClawDashboardTab === 'models' ? (
+                            {openClawDashboardTab === 'chat' ? (
+                                <OpenClawChatPanel
+                                    profile={activeOpenClawProfile}
+                                    status={openClawStatus}
+                                    isRestarting={isRestartingOpenClaw}
+                                    onRestart={activeOpenClawProfile?.mode === 'local' && window.electron?.restartOpenClawGateway ? restartOpenClawGateway : null}
+                                />
+                            ) : openClawDashboardTab === 'models' ? (
                                 <OpenClawModelsPanel />
                             ) : openClawDashboardTab === 'diary' ? (
                                 <div className="flex-1 min-h-0 flex flex-col bg-[var(--bg-primary)]">
@@ -654,6 +671,8 @@ function AppContent() {
             case APFEL_WINDOW_ID: return <ApfelMode />;
             case DOCKER_WINDOW_ID: return <DockerMode />;
             case DB_INSPECTOR_WINDOW_ID: return <DbInspectorMode />;
+            case GITHUB_OVERVIEW_WINDOW_ID: return <GithubOverviewMode />;
+            case ALIAS_MANAGER_WINDOW_ID: return <AliasManagerMode />;
             default:
                 // PWA shortcut windows: id starts with 'pwa_'
                 if (typeof modeId === 'string' && modeId.startsWith('pwa_')) {

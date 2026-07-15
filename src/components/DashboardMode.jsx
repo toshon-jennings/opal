@@ -7,7 +7,7 @@ import {
     GraduationCap, Globe, X, TerminalSquare, ChevronRight, Terminal, BookOpen,
     ArrowDownAZ, GripVertical,
 } from 'lucide-react';
-import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, GDASH_WINDOW_ID, KLIPIT_WINDOW_ID } from '../context/ModeContext';
+import { useMode, MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, GDASH_WINDOW_ID, KLIPIT_WINDOW_ID, GITHUB_OVERVIEW_WINDOW_ID } from '../context/ModeContext';
 import { useChat } from '../context/ChatContext';
 import DashboardPerciNowGlance from './DashboardPerciNowGlance';
 import UsageLimitsGlance from './UsageLimitsGlance';
@@ -659,6 +659,7 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                                     else if (id === MODES.STUDIOOS) logoStyle = { width: '100%', height: '100%', borderRadius: 'inherit', objectFit: 'contain', padding: '2px' };
                                     else if (isFillCover) logoStyle = { width: '100%', height: '100%', borderRadius: 'inherit', objectFit: 'cover' };
                                     else if (id === HERMES_WINDOW_ID) logoStyle = { width: '28px', height: '28px' };
+                                    else if (id === GITHUB_OVERVIEW_WINDOW_ID) logoStyle = { width: '100%', height: '100%', borderRadius: 'inherit', objectFit: 'contain', padding: '2px' };
                                     else if (isWhiteBox) logoStyle = { width: '100%', height: '100%', borderRadius: 'inherit', objectFit: 'contain', padding: '4px' };
 
                                     return (

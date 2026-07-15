@@ -3,7 +3,7 @@ import { RefreshCw, ExternalLink, ShieldAlert, Play, Loader2 } from 'lucide-reac
 import keysafeLogo from '../assets/keysafe-logo.jpeg';
 import './KeysafeMode.css';
 
-const KEYSAFE_ORIGIN = 'http://localhost:4100';
+const KEYSAFE_ORIGIN = 'http://127.0.0.1:4100';
 
 export default function KeysafeMode() {
     const [status, setStatus] = useState('checking'); // checking | running | offline | starting
@@ -126,7 +126,7 @@ export default function KeysafeMode() {
                 <div className="keysafe-status-card">
                     <Loader2 size={32} className="keysafe-spinner animate-spin text-[var(--accent)]" />
                     <p className="keysafe-status-text">Starting local KeySafe dev server...</p>
-                    <p className="keysafe-status-subtext">Waiting for http://localhost:4100 to respond.</p>
+                    <p className="keysafe-status-subtext">Waiting for http://127.0.0.1:4100 to respond.</p>
                 </div>
             </div>
         );
