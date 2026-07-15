@@ -488,10 +488,13 @@ function escapeAttr(value) {
  * in the Electron main process — this iframe never sees an access token. We talk
  * to the host React panel (GDashMode) over postMessage; it relays to the
  * window.electron.gdash* IPC methods and pushes back the assembled dashboard.
- * The frame is same-origin with the host, so pin messages to our origin where
- * one exists (packaged file:// builds have an opaque origin and must use '*'). */
+ * The frame is same-origin with the host, so pin messages to our origin when
+ * served over http(s) (dev server). Packaged file:// builds report
+ * location.origin as "file://" while message events arrive with origin "null",
+ * so pinning would silently drop every message — '*' is the only option there;
+ * the event.source identity check is the real boundary. */
 const GDASH_HOST = (window.parent && window.parent !== window) ? window.parent : null;
-const HOST_ORIGIN = (window.location.origin && window.location.origin !== 'null')
+const HOST_ORIGIN = /^https?:$/.test(window.location.protocol)
     ? window.location.origin
     : '*';
 

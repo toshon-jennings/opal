@@ -10,6 +10,7 @@ import { OrbitControls, Html, ContactShadows, useCursor, useTexture, Text, Billb
 
 const PERCI = '#C5692D';
 const PERCI_DARK = '#7A3C16';
+const ARTWORK_PATH = `${import.meta.env.BASE_URL}artwork/`;
 const GOLD = '#CD9A3C';
 const BLADE = '#E7E3DB';
 
@@ -1661,7 +1662,7 @@ function SnackTable3D({ position, rotation = [0, 0, 0], scale = 1 }) {
 }
 
 function WallArt3D({ position, rotation = [0, 0, 0], image, frameColor = '#4a3526', width = 0.62, height = 0.78, depth = 0.04 }) {
-    const texture = useTexture(`/artwork/${image}`);
+    const texture = useTexture(`${ARTWORK_PATH}${image}`);
     const border = 0.07;
     const innerW = width - border * 2;
     const innerH = height - border * 2;
@@ -1689,7 +1690,7 @@ function WallArt3D({ position, rotation = [0, 0, 0], image, frameColor = '#4a352
 /* Comic cover in a thick wall-mounted glass display case. Sizes are real-world
  * comic dimensions (room scale is 1 unit = 1 m), so the slabs read true-to-life. */
 function ComicCase3D({ position, rotation = [0, 0, 0], image, comicWidth = 0.2, comicHeight = 0.265, scale = 1 }) {
-    const texture = useTexture(`/artwork/${image}`);
+    const texture = useTexture(`${ARTWORK_PATH}${image}`);
     const caseW = comicWidth + 0.07;
     const caseH = comicHeight + 0.08;
     const caseD = 0.07;

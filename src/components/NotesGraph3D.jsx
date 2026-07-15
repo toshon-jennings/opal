@@ -588,6 +588,23 @@ function GraphScene({ data, settings, theme, hovered, setHovered, neighbors, act
         }
     }, [data.links.length]);
 
+    // Base edge lines get the same guarded wiring as the pulse/glow/highlight
+    // geometry: attaching render-time `array={sim.current…}` props is one effect
+    // pass stale after `data` grows (the sim reallocates in an effect), which
+    // uploaded a too-small buffer with an inflated count — NaN bounding sphere,
+    // "vertex buffer is not big enough", then a RangeError from every frame's
+    // `.set()` until the Canvas remounted (the packaged-app Notes freeze).
+    const wireLineRef = useCallback((el) => {
+        lineRef.current = el;
+        if (sim.current && el) {
+            const expectedLen = data.links.length * (SAMPLES - 1) * 2 * 3;
+            if (sim.current.linePos.length === expectedLen) {
+                el.geometry.setAttribute('position', new THREE.BufferAttribute(sim.current.linePos, 3));
+                el.geometry.setAttribute('color', new THREE.BufferAttribute(sim.current.lineColors, 3));
+            }
+        }
+    }, [data.links.length]);
+
     const focusNodeIdx = useRef(null);
 
     // Precalculate node colors for fast lookup in useFrame (especially for colored pulses)
@@ -662,7 +679,8 @@ function GraphScene({ data, settings, theme, hovered, setHovered, neighbors, act
             lastHovered: null,
             rippleStartTime: 0,
         };
-        // Wire up geometry for pulse + glow points (refs may have already fired).
+        // Wire up geometry for lines + pulse + glow points (refs may have already fired).
+        if (lineRef.current) wireLineRef(lineRef.current);
         if (pulseRef.current) wirePulseRef(pulseRef.current);
         if (nodeGlowRef.current) wireNodeGlowRef(nodeGlowRef.current);
         if (rippleRef.current) wireRippleRef(rippleRef.current);
@@ -954,8 +972,10 @@ function GraphScene({ data, settings, theme, hovered, setHovered, neighbors, act
         if (lineRef.current) {
             const posAttr = lineRef.current.geometry.getAttribute('position');
             const colAttr = lineRef.current.geometry.getAttribute('color');
-            if (posAttr) { posAttr.array.set(lp); posAttr.needsUpdate = true; }
-            if (colAttr) { colAttr.array.set(lc); colAttr.needsUpdate = true; }
+            // Length guards self-heal the one frame that can run between a data
+            // change and the sim-init effect re-wiring the freshly keyed geometry.
+            if (posAttr && posAttr.array.length === lp.length) { posAttr.array.set(lp); posAttr.needsUpdate = true; }
+            if (colAttr && colAttr.array.length === lc.length) { colAttr.array.set(lc); colAttr.needsUpdate = true; }
         }
 
         if (settings.pulses && s.pulseRef) {
@@ -1165,21 +1185,8 @@ function GraphScene({ data, settings, theme, hovered, setHovered, neighbors, act
             <pointLight position={[40, 60, 60]} intensity={1.1} />
             <pointLight position={[-50, -30, -40]} intensity={0.5} color={theme.cyan} />
 
-            <lineSegments ref={lineRef} key={`lines-${data.links.length}`} frustumCulled={false}>
-                <bufferGeometry>
-                    <bufferAttribute
-                        attach="attributes-position"
-                        array={sim.current ? sim.current.linePos : new Float32Array(data.links.length * (SAMPLES - 1) * 2 * 3)}
-                        count={data.links.length * (SAMPLES - 1) * 2}
-                        itemSize={3}
-                    />
-                    <bufferAttribute
-                        attach="attributes-color"
-                        array={sim.current ? sim.current.lineColors : new Float32Array(data.links.length * (SAMPLES - 1) * 2 * 3)}
-                        count={data.links.length * (SAMPLES - 1) * 2}
-                        itemSize={3}
-                    />
-                </bufferGeometry>
+            <lineSegments ref={wireLineRef} key={`lines-${data.links.length}`} frustumCulled={false}>
+                <bufferGeometry />
                 <lineBasicMaterial vertexColors transparent opacity={settings.linkOpacity} depthWrite={false} />
             </lineSegments>
 

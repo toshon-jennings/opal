@@ -10,9 +10,12 @@ import { KeyRound, Settings as SettingsIcon } from 'lucide-react';
 const GDASH_SRC = `${import.meta.env.BASE_URL}gdash/index.html`;
 
 // The iframe is same-origin (served from our own bundle), so pin postMessage to
-// our origin where one exists. Packaged builds load via file:// (opaque origin),
-// where '*' is the only option — same as before, and no tokens cross this bridge.
-const FRAME_ORIGIN = window.location.origin && window.location.origin !== 'null'
+// our origin when served over http(s) (dev server). Packaged builds load via
+// file://, where Chromium reports location.origin as "file://" but delivers
+// message events with origin "null" — pinning there silently drops every
+// message, so '*' is the only option. The event.source identity check below is
+// the real boundary; no tokens cross this bridge either way.
+const FRAME_ORIGIN = /^https?:$/.test(window.location.protocol)
     ? window.location.origin
     : '*';
 

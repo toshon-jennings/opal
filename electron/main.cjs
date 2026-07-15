@@ -1620,10 +1620,13 @@ async function gdashRunOAuth(clientId, clientSecret) {
 
 async function gdashRefreshAccessToken(clientId, tokens) {
   if (!tokens.refresh_token) throw new Error('No refresh token — reconnect your Google account.');
+  const clientSecret = await gdashReadClientSecret();
+  if (!clientSecret) throw new Error('No Google client secret — add it in Settings.');
   const body = new URLSearchParams({
     grant_type: 'refresh_token',
     refresh_token: tokens.refresh_token,
     client_id: clientId,
+    client_secret: clientSecret,
   });
   const resp = await fetch(GDASH_TOKEN_URL, {
     method: 'POST',
