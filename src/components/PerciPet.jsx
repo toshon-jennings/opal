@@ -100,7 +100,9 @@ export default function PerciPet({ openClawStatus = {} }) {
             const dy = ev.clientY - drag.startY;
             if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
             setPos({
-                x: Math.min(0.97, Math.max(0.01, drag.origin.x + dx / window.innerWidth)),
+                // x is the pet's right-edge fraction; keep it far enough from the
+                // left edge that the 240px panel opening leftward stays on-screen.
+                x: Math.min(0.99, Math.max(0.2, drag.origin.x + dx / window.innerWidth)),
                 y: Math.min(0.94, Math.max(0.02, drag.origin.y + dy / window.innerHeight)),
             });
         };
@@ -204,7 +206,7 @@ ${workspaceSummary}`;
     return (
         <div
             className="perci-pet"
-            style={{ left: `${pos.x * 100}%`, top: `${pos.y * 100}%` }}
+            style={{ right: `${(1 - pos.x) * 100}%`, top: `${pos.y * 100}%` }}
         >
             {bubble && <div className="perci-pet-bubble">{bubble}</div>}
             {open && (
