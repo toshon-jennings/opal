@@ -46,7 +46,8 @@
       "target": [
         "nsis"
       ],
-      "icon": "public/perci-icon.ico"
+      "icon": "public/perci-icon.ico",
+      "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "linux": {
       "target": [
