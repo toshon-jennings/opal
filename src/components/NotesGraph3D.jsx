@@ -1442,6 +1442,7 @@ export default function NotesGraph3D({ noteIds, graph, filesMap, activeNoteId, o
     const [showSettings, setShowSettings] = useState(false);
     const [hovered, setHovered] = useState(null);
     const [recenterKey, setRecenterKey] = useState(0);
+    const [canvasReady, setCanvasReady] = useState(false);
     const [theme, setTheme] = useState({ accent: '#C5692D', cyan: '#39C0C8', text: '#E8E8E8' });
 
     // Interactive overlays state
@@ -1543,6 +1544,28 @@ export default function NotesGraph3D({ noteIds, graph, filesMap, activeNoteId, o
         try { writeStringStorage(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* ignore */ }
     }, [settings]);
 
+    // Don't mount the Canvas until the container has a stable, non-zero size.
+    // The graph pane appears the instant the Notes window opens, before its
+    // flex box has settled — mounting r3f into that transient box makes it
+    // capture a wrong aspect/viewport, so the first render looks broken until
+    // a manual recenter remounts it. Waiting for a settled size (measured on
+    // the next frame after a resize stops) makes the first render correct.
+    useEffect(() => {
+        const el = containerRef.current;
+        if (!el) return;
+        let raf = 0;
+        const measure = () => {
+            if (el.clientWidth > 0 && el.clientHeight > 0) setCanvasReady(true);
+        };
+        const ro = new ResizeObserver(() => {
+            cancelAnimationFrame(raf);
+            raf = requestAnimationFrame(measure);
+        });
+        ro.observe(el);
+        measure();
+        return () => { ro.disconnect(); cancelAnimationFrame(raf); };
+    }, []);
+
     const set = (patch) => setSettings(s => ({ ...s, ...patch }));
     const hoveredNode = hovered != null ? data.nodes[hovered] : null;
     const selectedNode = selectedNodeId != null ? data.nodes.find(n => n.id === selectedNodeId) : null;
@@ -1553,7 +1576,7 @@ export default function NotesGraph3D({ noteIds, graph, filesMap, activeNoteId, o
             className="relative h-full w-full overflow-hidden"
             style={{ background: 'radial-gradient(circle at 50% 35%, var(--bg-secondary), var(--bg-primary) 70%)' }}
         >
-            {data.nodes.length > 0 ? (
+            {data.nodes.length > 0 && canvasReady ? (
                 <Canvas
                     key={recenterKey}
                     camera={{ position: [0, 0, 90], fov: 55, near: 0.1, far: 4000 }}
@@ -1575,11 +1598,11 @@ export default function NotesGraph3D({ noteIds, graph, filesMap, activeNoteId, o
                         onUpdateCoords={setSelectedNodeCoords}
                     />
                 </Canvas>
-            ) : (
+            ) : data.nodes.length === 0 ? (
                 <div className="absolute inset-0 flex items-center justify-center text-center text-[var(--text-tertiary)] text-sm">
                     No notes to graph yet.
                 </div>
-            )}
+            ) : null}
 
             {/* Top toolbar */}
             <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
