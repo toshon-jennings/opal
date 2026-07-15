@@ -238,6 +238,14 @@ body {
     text-align: right;
 }
 
+.auth-status {
+    max-width: 280px;
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    line-height: 1.25;
+    text-align: right;
+}
+
 /* Category Filter Pills */
 .category-filters {
     display: flex;

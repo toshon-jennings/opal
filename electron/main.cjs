@@ -1455,6 +1455,7 @@ const GDASH_TOKENS_KEY = 'gdash_google_tokens';
 // Google endpoints. Freshness is decided per-call via opts.maxAgeMs.
 const GDASH_CACHE_TTL_MS = 2 * 60 * 1000;
 let gdashCache = { data: null, fetchedAt: 0 };
+let gdashActiveOAuth = null;
 const GDASH_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GDASH_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
 const GDASH_SCOPES = [
@@ -1515,8 +1516,22 @@ async function gdashClearTokens() {
 function gdashStartLoopback(expectedState) {
   return new Promise((resolve, reject) => {
     let settle;
+    let settled = false;
+    let listening = false;
     const codePromise = new Promise((res, rej) => { settle = { res, rej }; });
-    const timeout = setTimeout(() => settle.rej(new Error('Sign-in timed out. Try again.')), 5 * 60 * 1000);
+    let timeout;
+    const settleOnce = (error, code) => {
+      if (settled) return false;
+      settled = true;
+      clearTimeout(timeout);
+      if (error) settle.rej(error);
+      else settle.res(code);
+      return true;
+    };
+    const cancel = (reason = 'Sign-in cancelled.') => settleOnce(
+      reason instanceof Error ? reason : new Error(String(reason)),
+    );
+    timeout = setTimeout(() => cancel('Sign-in timed out. Try again.'), 5 * 60 * 1000);
 
     const server = http.createServer((req, res) => {
       let parsed;
@@ -1524,24 +1539,31 @@ function gdashStartLoopback(expectedState) {
       if (parsed.pathname !== '/' && parsed.pathname !== '/callback') { res.writeHead(404); res.end(); return; }
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       res.end(GDASH_CALLBACK_HTML);
-      clearTimeout(timeout);
       const err = parsed.searchParams.get('error');
       const code = parsed.searchParams.get('code');
       const state = parsed.searchParams.get('state');
-      if (err) return settle.rej(new Error(err));
-      if (state !== expectedState) return settle.rej(new Error('State mismatch — sign-in aborted.'));
-      if (!code) return settle.rej(new Error('No authorization code returned.'));
-      return settle.res(code);
+      if (err) return cancel(err);
+      if (state !== expectedState) return cancel('State mismatch — sign-in aborted.');
+      if (!code) return cancel('No authorization code returned.');
+      return settleOnce(null, code);
     });
-    server.on('error', reject);
-    server.listen(0, '127.0.0.1', () => resolve({ server, port: server.address().port, codePromise }));
+    server.on('error', (err) => {
+      cancel(err);
+      if (!listening) reject(err);
+    });
+    server.listen(0, '127.0.0.1', () => {
+      listening = true;
+      resolve({ server, port: server.address().port, codePromise, cancel });
+    });
   });
 }
 
 async function gdashRunOAuth(clientId, clientSecret) {
   const { verifier, challenge } = gdashPkce();
   const state = gdashBase64Url(randomBytes(16));
-  const { server, port, codePromise } = await gdashStartLoopback(state);
+  const loopback = await gdashStartLoopback(state);
+  const { server, port, codePromise } = loopback;
+  gdashActiveOAuth = loopback;
   const redirectUri = `http://127.0.0.1:${port}`;
 
   const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
@@ -1561,6 +1583,7 @@ async function gdashRunOAuth(clientId, clientSecret) {
   try {
     code = await codePromise;
   } finally {
+    if (gdashActiveOAuth === loopback) gdashActiveOAuth = null;
     server.close();
   }
 
@@ -1717,6 +1740,7 @@ ipcMain.handle('gdash:status', async () => {
 
 ipcMain.handle('gdash:connect', async () => {
   try {
+    if (gdashActiveOAuth) return { ok: false, error: 'A Google sign-in is already in progress.' };
     const clientId = await gdashReadClientId();
     if (!clientId) return { ok: false, error: 'no-client-id' };
     const clientSecret = await gdashReadClientSecret();
@@ -1733,6 +1757,12 @@ ipcMain.handle('gdash:connect', async () => {
     console.error('[gdash] connect failed:', err.message);
     return { ok: false, error: err.message || 'connect-failed' };
   }
+});
+
+ipcMain.handle('gdash:cancel-connect', () => {
+  if (!gdashActiveOAuth) return { ok: false, error: 'No Google sign-in is in progress.' };
+  gdashActiveOAuth.cancel('Sign-in cancelled.');
+  return { ok: true };
 });
 
 ipcMain.handle('gdash:disconnect', async () => {

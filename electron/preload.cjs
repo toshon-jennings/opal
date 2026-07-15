@@ -110,6 +110,7 @@ contextBridge.exposeInMainWorld('electron', {
   // G-Dash (Google Workspace dashboard) — BYO OAuth client; tokens stay in main.
   gdashStatus: () => ipcRenderer.invoke('gdash:status'),
   gdashConnect: () => ipcRenderer.invoke('gdash:connect'),
+  gdashCancelConnect: () => ipcRenderer.invoke('gdash:cancel-connect'),
   gdashDisconnect: () => ipcRenderer.invoke('gdash:disconnect'),
   gdashDashboard: (opts) => ipcRenderer.invoke('gdash:dashboard', opts),
   // Eidos — persistent memory service (Docker/OrbStack lifecycle + dashboard).

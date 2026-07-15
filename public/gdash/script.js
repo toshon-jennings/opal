@@ -463,6 +463,12 @@ authError.className = 'auth-error';
 authError.setAttribute('role', 'alert');
 authError.hidden = true;
 document.querySelector('.user-area').appendChild(authError);
+const authStatus = document.createElement('div');
+authStatus.className = 'auth-status';
+authStatus.setAttribute('role', 'status');
+authStatus.hidden = true;
+document.querySelector('.user-area').appendChild(authStatus);
+let isConnecting = false;
 
 function escapeHtml(value) {
     return String(value ?? '')
@@ -499,6 +505,11 @@ function showAuthError(message) {
     authError.hidden = !message;
 }
 
+function showAuthStatus(message) {
+    authStatus.textContent = message || '';
+    authStatus.hidden = !message;
+}
+
 function applyDashboard(data) {
     if (data && data.connected) {
         dashboardData = data;
@@ -521,17 +532,24 @@ window.addEventListener('message', (event) => {
     if (!msg || msg.source !== 'gdash-host') return;
     switch (msg.type) {
         case 'dashboard:result':
+            isConnecting = false;
             showAuthError('');
+            showAuthStatus('');
             refreshBtn.classList.remove('spinning');
             applyDashboard(msg.data);
             break;
         case 'connecting':
-            authText.textContent = 'Connecting…';
+            isConnecting = true;
+            authText.textContent = 'Cancel sign-in';
+            authBtn.title = 'Click to cancel Google sign-in';
+            showAuthStatus(msg.message || 'Complete Google sign-in in your default browser.');
             break;
         case 'connect:error':
+            isConnecting = false;
             isConnected = false;
             refreshBtn.classList.remove('spinning');
             handleSignOut();
+            showAuthStatus('');
             showAuthError(
                 msg.error === 'no-client-id'
                     ? 'Add your Google client ID in Perci Settings to connect.'
@@ -592,6 +610,11 @@ document.addEventListener('visibilitychange', () => {
 // Auth button toggles: connect when signed out, disconnect when signed in.
 authBtn.addEventListener('click', () => {
     showAuthError('');
+    if (isConnecting) {
+        authText.textContent = 'Cancelling…';
+        postToHost('connect:cancel');
+        return;
+    }
     if (isConnected) {
         postToHost('disconnect');
         authText.textContent = 'Connect';
@@ -607,6 +630,7 @@ authBtn.addEventListener('click', () => {
 
 
 function handleAuthSuccess() {
+    isConnecting = false;
     document.body.classList.add('is-signed-in');
     authBtn.classList.add('signed-in');
     authError.hidden = true;
@@ -617,8 +641,10 @@ function handleAuthSuccess() {
 }
 
 function handleSignOut() {
+    isConnecting = false;
     document.body.classList.remove('is-signed-in');
     authBtn.classList.remove('signed-in');
+    authBtn.title = '';
     authText.textContent = 'Connect';
     // Clear widgets
     document.querySelectorAll('.service-card').forEach(card => {

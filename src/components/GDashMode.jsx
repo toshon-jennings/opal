@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { KeyRound, Settings as SettingsIcon } from 'lucide-react';
 
 // G-Dash window surface. Hosts the reused google-connect static bundle
@@ -18,6 +18,7 @@ const FRAME_ORIGIN = window.location.origin && window.location.origin !== 'null'
 
 export default function GDashMode({ onOpenSettings }) {
     const iframeRef = useRef(null);
+    const connectingRef = useRef(false);
     const [needsClientId, setNeedsClientId] = useState(false);
     const hasBridge = Boolean(window.electron?.gdashDashboard);
 
@@ -46,11 +47,13 @@ export default function GDashMode({ onOpenSettings }) {
     }, [postToFrame]);
 
     const handleConnect = useCallback(async () => {
+        if (connectingRef.current) return;
         if (!window.electron?.gdashConnect) {
             postToFrame('connect:error', { error: 'desktop-only' });
             return;
         }
-        postToFrame('connecting');
+        connectingRef.current = true;
+        postToFrame('connecting', { message: 'Complete Google sign-in in your default browser.' });
         try {
             const result = await window.electron.gdashConnect();
             if (result?.ok) {
@@ -62,8 +65,22 @@ export default function GDashMode({ onOpenSettings }) {
             }
         } catch (err) {
             postToFrame('connect:error', { error: err?.message || 'connect-failed' });
+        } finally {
+            connectingRef.current = false;
         }
     }, [postToFrame, pushDashboard]);
+
+    const handleCancelConnect = useCallback(async () => {
+        try {
+            const result = await window.electron?.gdashCancelConnect?.();
+            if (!result?.ok) throw new Error(result?.error || 'Unable to cancel Google sign-in.');
+            postToFrame('connect:error', { error: 'Sign-in cancelled.' });
+        } catch (err) {
+            postToFrame('connect:error', { error: err?.message || 'Unable to cancel Google sign-in.' });
+        } finally {
+            connectingRef.current = false;
+        }
+    }, [postToFrame]);
 
     const handleDisconnect = useCallback(async () => {
         try { await window.electron?.gdashDisconnect?.(); } catch { /* best-effort */ }
@@ -80,13 +97,14 @@ export default function GDashMode({ onOpenSettings }) {
             switch (msg.type) {
                 case 'dashboard:request': void pushDashboard({ force: Boolean(msg.force) }); break;
                 case 'connect': void handleConnect(); break;
+                case 'connect:cancel': void handleCancelConnect(); break;
                 case 'disconnect': void handleDisconnect(); break;
                 default: break;
             }
         }
         window.addEventListener('message', onMessage);
         return () => window.removeEventListener('message', onMessage);
-    }, [pushDashboard, handleConnect, handleDisconnect]);
+    }, [pushDashboard, handleConnect, handleCancelConnect, handleDisconnect]);
 
     // Surface the "set your client ID" banner up front, before the user clicks.
     useEffect(() => {
