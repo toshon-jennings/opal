@@ -167,6 +167,23 @@ export function AgentsIcon(props) {
     );
 }
 
+/* Codex Micro — a compact control deck with status keys and a reasoning dial. */
+export function CodexMicroIcon(props) {
+    return (
+        <Svg {...props}>
+            <rect x="3" y="3" width="18" height="18" rx="4" {...shell} />
+            <circle cx="8" cy="8" r="2.2" />
+            <path d="M8 6.6v1.5l1 .7" />
+            <rect x="12.5" y="6" width="3" height="3" rx="0.8" {...ink} />
+            <rect x="16.5" y="6" width="2" height="3" rx="0.7" />
+            <rect x="6" y="12.5" width="3" height="3" rx="0.8" />
+            <rect x="10.5" y="12.5" width="3" height="3" rx="0.8" {...ink} />
+            <rect x="15" y="12.5" width="3" height="3" rx="0.8" />
+            <path d="M7 18h10" />
+        </Svg>
+    );
+}
+
 /* Office — twin towers with windows and a door (Perci HQ). */
 export function OfficeIcon(props) {
     return (

@@ -23,6 +23,7 @@ export const MODES = {
     CODE: 'code',      // Code editor interface (Legacy/Direct)
     BUILD: 'build',    // Advanced build/deploy interface (future)
     AGENTS: 'agents',  // AI agent control center
+    CODEX_MICRO: 'codex-micro', // Compact digital control surface for Codex jobs
     AUTORESEARCH: 'autoresearch', // Karpathy prompt-optimization loop monitor
     OFFICE: 'office',  // Animated agent office scene (Perci HQ)
     LIGHTHOUSE: 'lighthouse', // Port scanning and conflict detection
@@ -73,6 +74,7 @@ export const WINDOW_TITLES = {
     [MODES.COWORK]: 'Cowork',
     [MODES.CODE]: 'Code',
     [MODES.AGENTS]: 'Agents',
+    [MODES.CODEX_MICRO]: 'Codex Micro',
     [MODES.MISSION]: 'Mission Control',
     [MODES.BUILD]: 'Build',
     [MODES.AUTORESEARCH]: 'Autoresearch',
@@ -119,6 +121,9 @@ export const WINDOW_TITLES = {
 const NO_WHIRLPOOL_IDS = new Set([OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, YOUTUBE_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, AUTOFORGE_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID, SIMPLEX_WINDOW_ID, PXPIPE_WINDOW_ID, KEYSAFE_WINDOW_ID, APFEL_WINDOW_ID, GITHUB_OVERVIEW_WINDOW_ID]);
 
 const WINDOW_DEFAULTS = { width: 960, height: 640, minWidth: 420, minHeight: 300, cascade: 34 };
+const MODE_DEFAULT_SIZES = {
+    [MODES.CODEX_MICRO]: { width: 760, height: 760 },
+};
 const DOCK_RESERVED_HEIGHT = 64;
 const DESKTOP_HOST_SELECTOR = '.perci-desktop-host';
 const DESKTOP_SURFACE_SELECTOR = '.perci-dock-reserved';
@@ -141,10 +146,11 @@ function viewportSize() {
     return { width: window.innerWidth, height: Math.max(0, window.innerHeight - DOCK_RESERVED_HEIGHT) };
 }
 
-function defaultBounds(index = 0) {
+function defaultBounds(index = 0, modeId) {
     const { width: vw, height: vh } = viewportSize();
-    const width = Math.min(WINDOW_DEFAULTS.width, Math.round(vw * 0.72));
-    const height = Math.min(WINDOW_DEFAULTS.height, Math.max(WINDOW_DEFAULTS.minHeight, Math.round((vh - 120) * 0.94)));
+    const preferred = MODE_DEFAULT_SIZES[modeId] || WINDOW_DEFAULTS;
+    const width = Math.min(preferred.width, Math.round(vw * 0.72));
+    const height = Math.min(preferred.height, Math.max(WINDOW_DEFAULTS.minHeight, Math.round((vh - 120) * 0.94)));
     const offset = (index % 6) * WINDOW_DEFAULTS.cascade;
     return { x: 80 + offset, y: 36 + offset, width, height };
 }
@@ -175,7 +181,7 @@ function hydrateWindows(saved) {
             state: validStates.has(w.state) ? w.state : 'normal',
             z: Number(w.z) || 20,
             focusedAt: Number(w.focusedAt) || Date.now(),
-            bounds: clampBounds(w.bounds && typeof w.bounds === 'object' ? w.bounds : defaultBounds(0)),
+            bounds: clampBounds(w.bounds && typeof w.bounds === 'object' ? w.bounds : defaultBounds(0, w.modeId)),
             restoreBounds: w.restoreBounds && typeof w.restoreBounds === 'object' ? clampBounds(w.restoreBounds) : undefined,
             noWhirlpool: NO_WHIRLPOOL_IDS.has(w.modeId),
         }));
@@ -376,7 +382,7 @@ export function ModeProvider({ children }) {
                     ? { ...w, z: nextZ, focusedAt: Date.now(), state: w.state === 'minimized' ? 'normal' : w.state }
                     : w);
             }
-            const bounds = clampBounds(windowBoundsRef.current[modeId] || defaultBounds(ws.length));
+            const bounds = clampBounds(windowBoundsRef.current[modeId] || defaultBounds(ws.length, modeId));
             return [...ws, {
                 id: modeId,
                 modeId,

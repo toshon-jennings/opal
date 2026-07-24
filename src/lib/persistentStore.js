@@ -55,6 +55,7 @@ const PERSISTED_KEYS = [
     'cowork_routines',
     'perci-agents-recent-jobs',
     'perci-agents-model-by-agent',
+    'perci_codex_micro:v1',
     'perci_bars_ideas:v1',
     'perci_bars_ai_settings:v1',
     'perci_shipyard:v1',

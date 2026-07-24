@@ -39,9 +39,16 @@ export default function SimplexMode() {
         try {
             const cwd = '/Users/toshonjennings/opal';
             
-            // 1. Check if simplex-chat CLI is on the system path
+            // 1. Check if simplex-chat CLI is on the system path. `which` alone
+            // misses our own install target: runLocalCommand spawns from the
+            // Electron main process's inherited PATH (no login-shell profile,
+            // so ~/.local/bin is absent), while the install button's PTY
+            // terminal does source a profile — so a real install can succeed
+            // there and still show as missing here. Also check the known
+            // install path directly, same pattern as the desktop-app check below.
             const cliCheck = await window.electron.runLocalCommand('which', ['simplex-chat'], cwd);
-            const cliInstalled = cliCheck && cliCheck.exitCode === 0;
+            const localBinCheck = await window.electron.runLocalCommand('ls', ['-d', '/Users/toshonjennings/.local/bin/simplex-chat'], cwd);
+            const cliInstalled = (cliCheck && cliCheck.exitCode === 0) || (localBinCheck && localBinCheck.exitCode === 0);
 
             // 2. Check if the SimpleX desktop app exists in /Applications
             const appCheck = await window.electron.runLocalCommand('ls', ['-d', '/Applications/SimpleX.app'], cwd);
@@ -85,7 +92,7 @@ export default function SimplexMode() {
 
     const handleInstall = useCallback(() => {
         if (terminalRef.current) {
-            const installCmd = 'ARCH=$(uname -m); mkdir -p ~/.local/bin; if [ "$ARCH" = "arm64" ]; then echo "Downloading Apple Silicon binary..."; curl -L -o ~/.local/bin/simplex-chat https://github.com/simplex-chat/simplex-chat/releases/download/v6.5.5/simplex-chat-macos-aarch64; ln -s /opt/homebrew/opt/openssl@3 /opt/homebrew/opt/openssl@3.0 2>/dev/null || true; else echo "Downloading Intel x86_64 binary..."; curl -L -o ~/.local/bin/simplex-chat https://github.com/simplex-chat/simplex-chat/releases/download/v6.5.5/simplex-chat-macos-x86-64; ln -s /usr/local/opt/openssl@3 /usr/local/opt/openssl@3.0 2>/dev/null || true; fi; chmod +x ~/.local/bin/simplex-chat; simplex-chat --version\n';
+            const installCmd = 'ARCH=$(uname -m); mkdir -p ~/.local/bin; if [ "$ARCH" = "arm64" ]; then echo "Downloading Apple Silicon binary..."; curl -L -o ~/.local/bin/simplex-chat https://github.com/simplex-chat/simplex-chat/releases/download/v6.5.5/simplex-chat-macos-aarch64; ln -s /opt/homebrew/opt/openssl@3 /opt/homebrew/opt/openssl@3.0 2>/dev/null || true; else echo "Downloading Intel x86_64 binary..."; curl -L -o ~/.local/bin/simplex-chat https://github.com/simplex-chat/simplex-chat/releases/download/v6.5.5/simplex-chat-macos-x86-64; ln -s /usr/local/opt/openssl@3 /usr/local/opt/openssl@3.0 2>/dev/null || true; fi; chmod +x ~/.local/bin/simplex-chat; codesign --force --sign - ~/.local/bin/simplex-chat; simplex-chat --version\n';
             terminalRef.current.sendInput(installCmd);
             terminalRef.current.focus();
         }

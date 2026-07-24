@@ -8,6 +8,7 @@ import CoworkMode from './components/CoworkMode';
 import MissionControl from './components/MissionControl';
 import BuildMode from './components/BuildMode';
 import AgentsPanel from './components/AgentsPanel';
+import CodexMicroMode from './components/CodexMicroMode';
 import AutoresearchPanel from './components/AutoresearchPanel';
 import OfficePanel from './components/OfficePanel';
 import HermesMode from './components/HermesMode';
@@ -602,6 +603,7 @@ function AppContent() {
             case MODES.COWORK: return <CoworkMode />;
             case MODES.CODE: return <CodeMode />;
             case MODES.AGENTS: return <AgentsPanel />;
+            case MODES.CODEX_MICRO: return <CodexMicroMode />;
             case MODES.AUTORESEARCH: return <AutoresearchPanel />;
             case MODES.OFFICE: return <OfficePanel />;
             case MODES.BUILD: return <BuildMode />;

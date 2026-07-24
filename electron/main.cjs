@@ -691,8 +691,32 @@ function startTerminalServer() {
 
   console.log(`Starting Perci Terminal Server from: ${serverPath}`);
   
-  // Use Electron's process.execPath to ensure node is available even if not in system PATH
-  terminalServerProcess = spawn(process.execPath, [serverPath], {
+  // On macOS, spawn the background Helper executable instead of the main executable
+  // to prevent an extra dock icon from showing.
+  let execPath = process.execPath;
+  if (process.platform === 'darwin') {
+    const mainDir = path.dirname(process.execPath);
+    const appName = path.basename(process.execPath);
+    const helperName = appName === 'Electron' ? 'Electron Helper' : `${appName} Helper`;
+    const helperAppPath = path.join(
+      mainDir,
+      '..',
+      'Frameworks',
+      `${helperName}.app`,
+      'Contents',
+      'MacOS',
+      helperName
+    );
+    try {
+      if (require('fs').existsSync(helperAppPath)) {
+        execPath = helperAppPath;
+      }
+    } catch (e) {
+      console.error('Error checking helper app path:', e);
+    }
+  }
+
+  terminalServerProcess = spawn(execPath, [serverPath], {
     env: { 
       ...process.env, 
       ELECTRON_RUN_AS_NODE: '1',
@@ -3608,9 +3632,16 @@ const AGENT_SPAWN_CONFIG = {
     // Codex needs `exec` for non-interactive runs; without it the CLI starts an
     // interactive session and hangs on the generic stdin pipe. A PTY also keeps
     // Codex's terminal/auth assumptions intact.
-    command: 'codex',
+    // The ChatGPT desktop app ships a self-contained Codex binary on macOS.
+    // Prefer it over an npm wrapper, which can remain on PATH after its optional
+    // platform package has gone missing.
+    command: process.platform === 'darwin'
+      ? '/Applications/ChatGPT.app/Contents/Resources/codex'
+      : 'codex',
+    fallbackCommands: ['codex'],
     subcommand: 'exec',
     modelFlag: '--model',
+    supportsReasoningEffort: true,
     pty: true,
     promptDelivery: 'stdin',
     stdinPromptArg: '-',
@@ -3743,7 +3774,7 @@ function resolveAgentCommand(config) {
   return { command: null, candidates };
 }
 
-function buildAgentSpawnArgs(config, prompt, requestedModel) {
+function buildAgentSpawnArgs(config, prompt, requestedModel, requestedReasoningEffort = '') {
   const args = [
     ...asArray(config.subcommand),
     ...asArray(config.leadingArgs),
@@ -3751,6 +3782,10 @@ function buildAgentSpawnArgs(config, prompt, requestedModel) {
 
   if (requestedModel && config.modelFlag && config.modelPosition !== 'afterPrompt') {
     args.push(config.modelFlag, requestedModel);
+  }
+
+  if (requestedReasoningEffort && config.supportsReasoningEffort) {
+    args.push('--config', `model_reasoning_effort="${requestedReasoningEffort}"`);
   }
 
   if (config.promptDelivery === 'stdin' && config.stdinPromptArg) {
@@ -3915,6 +3950,7 @@ function attachAgentChildProcess(jobRecord, config, command, args, cwd, env, pro
 // `claude-opus-4-8`, and provider/model forms like `openai/o4-mini`). Anything
 // outside this set is rejected before spawn to avoid shell injection.
 const SAFE_MODEL_PATTERN = /^[A-Za-z0-9._:/-]+$/;
+const SAFE_CODEX_REASONING_EFFORTS = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra']);
 
 function serializeJob(jobRecord) {
   const { childProcess: _cp, ...safe } = jobRecord;
@@ -4005,13 +4041,17 @@ ipcMain.handle('agent-jobs:activity', async () => {
   return result;
 });
 
-ipcMain.handle('agent-jobs:queue', async (event, { agent, prompt, working_directory, model } = {}) => {
+ipcMain.handle('agent-jobs:queue', async (event, { agent, prompt, working_directory, model, reasoning_effort } = {}) => {
   if (!agent || !prompt) {
     return { ok: false, error: 'Missing agent or prompt.' };
   }
   const requestedModel = typeof model === 'string' ? model.trim() : '';
   if (requestedModel && !SAFE_MODEL_PATTERN.test(requestedModel)) {
     return { ok: false, error: 'Model name contains unsupported characters.' };
+  }
+  const requestedReasoningEffort = typeof reasoning_effort === 'string' ? reasoning_effort.trim() : '';
+  if (requestedReasoningEffort && (agent !== 'codex' || !SAFE_CODEX_REASONING_EFFORTS.has(requestedReasoningEffort))) {
+    return { ok: false, error: 'Unsupported Codex reasoning effort.' };
   }
 
   // Refresh the active-ports snapshot so the agent we're about to spawn can read
@@ -4051,6 +4091,7 @@ ipcMain.handle('agent-jobs:queue', async (event, { agent, prompt, working_direct
     prompt_preview: prompt?.slice(0, 120) || null,
     working_directory: config.usesWorkingDirectory === false ? null : working_directory || null,
     model: requestedModel || null,
+    reasoning_effort: requestedReasoningEffort || null,
     source: 'agents_page',
     created_at: now,
     started_at: null,
@@ -4068,7 +4109,7 @@ ipcMain.handle('agent-jobs:queue', async (event, { agent, prompt, working_direct
   const cwd = config.usesWorkingDirectory === false
     ? process.env.HOME || '/tmp'
     : working_directory || process.env.HOME || '/tmp';
-  const spawnArgs = buildAgentSpawnArgs(config, prompt, requestedModel);
+  const spawnArgs = buildAgentSpawnArgs(config, prompt, requestedModel, requestedReasoningEffort);
 
   let child = null;
   try {

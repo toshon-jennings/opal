@@ -3,7 +3,7 @@ import {
     Sparkles, Server, Radar, Layers, Globe, GitMerge, TerminalSquare, Container, Database,
 } from 'lucide-react';
 import {
-    ChatIcon, CoworkIcon, CodeIcon, NotesIcon, AgentsIcon, ResearchIcon,
+    ChatIcon, CoworkIcon, CodeIcon, NotesIcon, AgentsIcon, CodexMicroIcon, ResearchIcon,
     OfficeIcon, MissionIcon, BuildIcon, ProjectsIcon, SkillsIcon, SurfaceMapIcon, PerciNowIcon, PerciDeskIcon, PackagesIcon, IptvIcon, ShipyardIcon,
 } from '../components/ModeIcons';
 import { MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID, CLEANMAC_WINDOW_ID, PACKAGES_WINDOW_ID, AGENTMAIL_WINDOW_ID, AUTOFORGE_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID, IPTV_WINDOW_ID, SIMPLEX_WINDOW_ID, PXPIPE_WINDOW_ID, KEYSAFE_WINDOW_ID, APFEL_WINDOW_ID, ALIAS_MANAGER_WINDOW_ID, DOCKER_WINDOW_ID, DB_INSPECTOR_WINDOW_ID, GITHUB_OVERVIEW_WINDOW_ID } from '../context/ModeContext';
@@ -45,6 +45,8 @@ import pxpipeBg from '../assets/pxpipe-bg.jpeg';
 import dockerBg from '../assets/docker-bg.jpg';
 import githubOverviewLogo from '../assets/github-overview-logo.png';
 import githubOverviewBg from '../assets/github-overview-bg.jpeg';
+import codexMicroLogo from '../assets/codex-micro-logo.png';
+import codexMicroBg from '../assets/codex-micro-bg.jpeg';
 
 // pxpipe sphere icon component — gradient filled circle
 function SphereIcon(props) {
@@ -133,11 +135,12 @@ export const NATIVE_TILES = [
 // Perci launcher, so both render the same artwork (white backing vs.
 // edge-to-edge cover) instead of drifting apart.
 export const LOGO_WHITE_BOX_IDS = new Set([GDASH_WINDOW_ID, MODES.STUDIOOS, MODES.LIGHTHOUSE, HERMES_WINDOW_ID, CLEANMAC_WINDOW_ID, GITHUB_OVERVIEW_WINDOW_ID]);
-export const LOGO_FILL_COVER_IDS = new Set([EIDOS_WINDOW_ID, KLIPIT_WINDOW_ID, MODES.BARS, MODES.MARKITDOWN, MODES.CONCERNS, AUTOFORGE_WINDOW_ID, AGENTMAIL_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID, IPTV_WINDOW_ID, SIMPLEX_WINDOW_ID, KEYSAFE_WINDOW_ID]);
+export const LOGO_FILL_COVER_IDS = new Set([EIDOS_WINDOW_ID, KLIPIT_WINDOW_ID, MODES.BARS, MODES.MARKITDOWN, MODES.CONCERNS, AUTOFORGE_WINDOW_ID, AGENTMAIL_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID, IPTV_WINDOW_ID, SIMPLEX_WINDOW_ID, KEYSAFE_WINDOW_ID, MODES.CODEX_MICRO]);
 
 // OS-level tools and external runtimes. Bars belongs here when its Perci
 // surface is wired, not in the native Perci app group.
 export const SYSTEM_TILES = [
+    { id: MODES.CODEX_MICRO, icon: CodexMicroIcon, logo: codexMicroLogo, title: 'Codex Micro', desc: 'Digital Codex command center', hue: '#0ea5e9', artwork: true, bgImage: codexMicroBg },
     { id: MODES.LIGHTHOUSE, icon: Radar, logo: lhLogo, title: 'Lighthouse', desc: 'Scan ports and find conflicts', hue: '#ffbf45', artwork: true, bgImage: lighthouseBg },
     { id: OPENCLAW_WINDOW_ID, icon: Server, logo: openclawLogo, title: 'OpenClaw', desc: 'Chat with your always-on agent', hue: '#ef4444', artwork: true, bgImage: openclawBg },
     { id: HERMES_WINDOW_ID, icon: null, logo: hermesLogo, title: 'Hermes', desc: 'CLI agent — chat, console, sessions', hue: '#eab308', artwork: true },

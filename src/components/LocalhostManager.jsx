@@ -3,7 +3,7 @@ import { readStringStorage, writeStringStorage } from '../lib/persistentStore';
 import {
     Plus, X, Play, Square, Power, PowerOff,
     ChevronDown, ChevronUp, ExternalLink, RefreshCw,
-    Server, Terminal, AlertCircle, CheckCircle, Globe
+    Server, Terminal, AlertCircle, CheckCircle, Globe, Pencil
 } from 'lucide-react';
 
 const STORAGE_KEY = 'perci_localhost_manager_apps';
@@ -21,6 +21,7 @@ const DEFAULT_APPS = [
     { id: 'lfm-harness', name: 'LFM Harness', port: 6270, url: 'http://localhost:6270', startCommand: 'node ~/lfm-harness/server.js', cwd: '~/lfm-harness', autoStart: false },
     { id: 'apfel-harness', name: 'Apfel Harness', port: 6271, url: 'http://localhost:6271', startCommand: 'node ~/apfel-harness/server.js', cwd: '~/apfel-harness', autoStart: false },
     { id: 'ollama', name: 'Ollama', port: 11434, url: 'http://localhost:11434', startCommand: 'ollama serve', cwd: '', autoStart: false },
+    { id: 'tcs-it-dashboard', name: 'TCS IT Dashboard', port: 8788, url: 'http://localhost:8788', startCommand: 'cd ~/it-milestone-agent && source venv/bin/activate && python server.py', cwd: '~/it-milestone-agent', autoStart: false },
 ];
 
 function plistLabel(id) { return `local.perci.${id}`; }
@@ -71,10 +72,11 @@ function readApps() {
             const s = savedMap.get(def.id);
             if (!s) return def;
             
-            // For default apps, ONLY preserve the autoStart state from storage.
-            // This ensures any source-code updates (commands, ports, etc.) take effect immediately.
+            // For default apps, merge saved fields on top of defaults so user edits persist.
+            // This ensures any source-code updates still take effect for unedited fields.
             return {
                 ...def,
+                ...s,
                 autoStart: !!s.autoStart
             };
         }).concat(saved.filter(s => !DEFAULT_APPS.find(d => d.id === s.id)));
@@ -106,6 +108,11 @@ export default function LocalhostManager({ onNavigate }) {
     const [hostsContent, setHostsContent] = useState('');
     const [savingHosts, setSavingHosts] = useState(false);
     const [expandedSection, setExpandedSection] = useState('all'); // 'all' | 'running' | 'stopped'
+    const [editingAppId, setEditingAppId] = useState(null);
+    const [editName, setEditName] = useState('');
+    const [editPort, setEditPort] = useState('');
+    const [editCwd, setEditCwd] = useState('');
+    const [editCommand, setEditCommand] = useState('');
 
     // Resolve home directory from Electron main process
     useEffect(() => {
@@ -274,10 +281,54 @@ export default function LocalhostManager({ onNavigate }) {
     }, [runningPorts]);
 
     const orderedApps = useMemo(() => {
-        const running = apps.filter(a => isRunning(a));
-        const stopped = apps.filter(a => !isRunning(a));
+        const sortByName = (a, b) => a.name.localeCompare(b.name);
+        const running = apps.filter(a => isRunning(a)).sort(sortByName);
+        const stopped = apps.filter(a => !isRunning(a)).sort(sortByName);
         return { running, stopped };
     }, [apps, isRunning]);
+
+    // ── Edit app ──────────────────────────────────────────────────────
+    const startEdit = useCallback((app) => {
+        setEditingAppId(app.id);
+        setEditName(app.name);
+        setEditPort(app.port > 0 ? app.port.toString() : '');
+        setEditCwd(app.cwd || '');
+        setEditCommand(app.startCommand || '');
+    }, []);
+
+    const cancelEdit = useCallback(() => {
+        setEditingAppId(null);
+        setEditName('');
+        setEditPort('');
+        setEditCwd('');
+        setEditCommand('');
+    }, []);
+
+    const saveEdit = useCallback(() => {
+        if (!editName.trim()) return;
+        setApps(prev => {
+            const next = prev.map(a => {
+                if (a.id !== editingAppId) return a;
+                const port = parseInt(editPort) || 0;
+                return {
+                    ...a,
+                    name: editName.trim(),
+                    port,
+                    url: port ? `http://localhost:${port}` : '',
+                    cwd: editCwd.trim(),
+                    startCommand: editCommand.trim(),
+                };
+            });
+            writeApps(next);
+            return next;
+        });
+        setEditingAppId(null);
+        setEditName('');
+        setEditPort('');
+        setEditCwd('');
+        setEditCommand('');
+        showToast('Changes saved');
+    }, [editingAppId, editName, editPort, editCwd, editCommand, showToast]);
 
     return (
         <div className="h-full w-full flex flex-col bg-[var(--bg-primary)] overflow-y-auto">
@@ -426,6 +477,18 @@ export default function LocalhostManager({ onNavigate }) {
                                 onEnableAutoStart={enableAutoStart}
                                 onDisableAutoStart={disableAutoStart}
                                 onRemove={removeApp}
+                                editingAppId={editingAppId}
+                                onEditStart={startEdit}
+                                onEditSave={saveEdit}
+                                onEditCancel={cancelEdit}
+                                editName={editName}
+                                setEditName={setEditName}
+                                editPort={editPort}
+                                setEditPort={setEditPort}
+                                editCwd={editCwd}
+                                setEditCwd={setEditCwd}
+                                editCommand={editCommand}
+                                setEditCommand={setEditCommand}
                             />
                         )}
                     </div>
@@ -460,6 +523,18 @@ export default function LocalhostManager({ onNavigate }) {
                                     onEnableAutoStart={enableAutoStart}
                                     onDisableAutoStart={disableAutoStart}
                                     onRemove={removeApp}
+                                    editingAppId={editingAppId}
+                                    onEditStart={startEdit}
+                                    onEditSave={saveEdit}
+                                    onEditCancel={cancelEdit}
+                                    editName={editName}
+                                    setEditName={setEditName}
+                                    editPort={editPort}
+                                    setEditPort={setEditPort}
+                                    editCwd={editCwd}
+                                    setEditCwd={setEditCwd}
+                                    editCommand={editCommand}
+                                    setEditCommand={setEditCommand}
                                 />
                             )}
                         </div>
@@ -546,9 +621,50 @@ export default function LocalhostManager({ onNavigate }) {
 }
 
 // ── Compact app card (2-column grid) ────────────────────────────────────
-function AppRow({ app, isRunning, busy, onNavigate, onStart, onEnableAutoStart, onDisableAutoStart, onRemove }) {
+function AppRow({ app, isRunning, busy, onNavigate, onStart, onEnableAutoStart, onDisableAutoStart, onRemove, isEditing, onEditStart, onEditSave, onEditCancel, editName, setEditName, editPort, setEditPort, editCwd, setEditCwd, editCommand, setEditCommand }) {
     const hasCommand = !!app.startCommand;
     const running = isRunning(app);
+
+    if (isEditing) {
+        return (
+            <div className="col-span-1 rounded-lg border border-[var(--accent)]/30 bg-[var(--bg-secondary)] p-2.5">
+                <div className="flex flex-col gap-1.5">
+                    <label className="text-[9px] font-medium text-[var(--text-tertiary)]">Name</label>
+                    <input
+                        type="text"
+                        value={editName}
+                        onChange={e => setEditName(e.target.value)}
+                        className="w-full rounded-md border border-[var(--border)] bg-[var(--bg-primary)] px-2 py-1 text-[10px] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]/50"
+                    />
+                    <label className="text-[9px] font-medium text-[var(--text-tertiary)]">Port</label>
+                    <input
+                        type="number"
+                        value={editPort}
+                        onChange={e => setEditPort(e.target.value)}
+                        className="w-full rounded-md border border-[var(--border)] bg-[var(--bg-primary)] px-2 py-1 text-[10px] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]/50"
+                    />
+                    <label className="text-[9px] font-medium text-[var(--text-tertiary)]">Working Dir</label>
+                    <input
+                        type="text"
+                        value={editCwd}
+                        onChange={e => setEditCwd(e.target.value)}
+                        className="w-full rounded-md border border-[var(--border)] bg-[var(--bg-primary)] px-2 py-1 text-[10px] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]/50"
+                    />
+                    <label className="text-[9px] font-medium text-[var(--text-tertiary)]">Start Command</label>
+                    <input
+                        type="text"
+                        value={editCommand}
+                        onChange={e => setEditCommand(e.target.value)}
+                        className="w-full rounded-md border border-[var(--border)] bg-[var(--bg-primary)] px-2 py-1 text-[10px] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]/50"
+                    />
+                    <div className="mt-1 flex justify-end gap-2">
+                        <button type="button" onClick={onEditCancel} className="rounded-md px-2 py-1 text-[10px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]">Cancel</button>
+                        <button type="button" onClick={onEditSave} className="rounded-md bg-[var(--accent)] px-2 py-1 text-[10px] font-medium text-white hover:bg-[var(--accent-hover)]">Save</button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className={`group relative flex flex-col gap-1.5 rounded-lg border px-2.5 py-2 transition-all ${
@@ -610,6 +726,14 @@ function AppRow({ app, isRunning, busy, onNavigate, onStart, onEnableAutoStart, 
                     </button>
                 )}
                 <div className="flex-1" />
+                <button
+                    type="button"
+                    onClick={() => onEditStart(app)}
+                    className="micro-interaction rounded-md p-1 text-[var(--text-tertiary)] opacity-0 transition-all hover:text-[var(--accent)] group-hover:opacity-100"
+                    title="Edit app"
+                >
+                    <Pencil size={10} />
+                </button>
                 {app.autoStart ? (
                     <button
                         type="button"
@@ -651,7 +775,7 @@ function AppRow({ app, isRunning, busy, onNavigate, onStart, onEnableAutoStart, 
     );
 }
 
-function AppList({ apps, isRunning, busyIds, onNavigate, onStart, onEnableAutoStart, onDisableAutoStart, onRemove }) {
+function AppList({ apps, isRunning, busyIds, onNavigate, onStart, onEnableAutoStart, onDisableAutoStart, onRemove, editingAppId, onEditStart, onEditSave, onEditCancel, editName, setEditName, editPort, setEditPort, editCwd, setEditCwd, editCommand, setEditCommand }) {
     return (
         <div className="grid grid-cols-2 gap-1.5">
             {apps.map(app => (
@@ -665,6 +789,18 @@ function AppList({ apps, isRunning, busyIds, onNavigate, onStart, onEnableAutoSt
                     onEnableAutoStart={onEnableAutoStart}
                     onDisableAutoStart={onDisableAutoStart}
                     onRemove={onRemove}
+                    isEditing={editingAppId === app.id}
+                    onEditStart={onEditStart}
+                    onEditSave={onEditSave}
+                    onEditCancel={onEditCancel}
+                    editName={editName}
+                    setEditName={setEditName}
+                    editPort={editPort}
+                    setEditPort={setEditPort}
+                    editCwd={editCwd}
+                    setEditCwd={setEditCwd}
+                    editCommand={editCommand}
+                    setEditCommand={setEditCommand}
                 />
             ))}
         </div>
