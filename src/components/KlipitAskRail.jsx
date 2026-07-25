@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import { ArrowUp, Check, RefreshCw, Square } from 'lucide-react';
 import { useChat } from '../context/ChatContext';
 import { LLMFactory } from '../lib/llm/clients';
+import { embed } from '../lib/embedJs';
 import './KlipitAskRail.css';
 
 // Runs inside the page's webview. Prefers the user's selection; falls back to
@@ -52,14 +53,6 @@ const KEEP_SCRIPT = (payloadJson) => `(async () => {
     }
     return 'ok';
 })()`;
-
-// JSON is valid JS source except for these two separators, which are legal
-// inside a JSON string but historically illegal in a JS string literal.
-function embed(value) {
-    return JSON.stringify(value)
-        .replace(/\u2028/g, '\\u2028')
-        .replace(/\u2029/g, '\\u2029');
-}
 
 function countWords(text) {
     if (!text) return 0;

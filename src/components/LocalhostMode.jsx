@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { ArrowLeft, ArrowRight, ArrowUp, ArrowDown, ExternalLink, Globe, Home, RefreshCw, Settings, Plus, X, PanelRight, Radar, Play, ChevronDown, ChevronUp, Bookmark, Star, Search, History, Trash2, Pin, Server, Sparkles } from 'lucide-react';
 import { readStringStorage, writeStringStorage, removeStorageKey } from '../lib/persistentStore';
+import { embed } from '../lib/embedJs';
 import { useTheme } from '../context/ThemeContext';
 import { useMode, MODES } from '../context/ModeContext';
 import KlipitAskRail from './KlipitAskRail';
@@ -243,6 +244,31 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, onUrlChange, isKl
         };
     }, [isDarkMode, klipitId, isKlipit]);
     
+    // Electron never marks a <webview> as the active chrome.tab, so the Klipit
+    // extension's own tabs.query can't find the page this tab is showing. Hand
+    // it over directly, and again whenever the panel reloads.
+    useEffect(() => {
+        const webview = klipitWebviewRef.current;
+        if (!webview || !isKlipit) return;
+
+        const pushActiveTab = () => {
+            try {
+                webview.executeJavaScript(
+                    `globalThis.klippitHost && klippitHost.setActiveTab(${embed({ url, title })})`
+                ).catch(() => {
+                    // Ignore errors if context is destroyed or not ready
+                });
+            } catch (err) {
+                // Ignore synchronous "WebView must be attached" errors
+            }
+        };
+
+        webview.addEventListener('dom-ready', pushActiveTab);
+        pushActiveTab();
+
+        return () => webview.removeEventListener('dom-ready', pushActiveTab);
+    }, [url, title, klipitId, isKlipit]);
+
     useEffect(() => {
         const handleMouseMove = (e) => {
             if (!isDragging.current) return;
