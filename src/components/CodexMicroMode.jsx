@@ -37,11 +37,45 @@ import './CodexMicroMode.css';
 
 const JOB_LIMIT = 24;
 
-const KEYBOARD_ROWS = [
-    ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
-    ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
-    ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';'],
-    ['shift', 'z', 'x', 'c', 'v', 'b', 'n', 'm', '.', 'backspace'],
+const HARDWARE_KEYBOARD_ROWS = [
+    [
+        { key: '1', sub: '!' }, { key: '2', sub: '@' }, { key: '3', sub: '#' },
+        { key: '4', sub: '$' }, { key: '5', sub: '%' }, { key: '6', sub: '^' },
+        { key: '7', sub: '&' }, { key: '8', sub: '*' }, { key: '9', sub: '(' },
+        { key: '0', sub: ')' },
+    ],
+    [
+        { key: 'q', sub: '[' }, { key: 'w', sub: ']' }, { key: 'e', sub: '{' },
+        { key: 'r', sub: '}' }, { key: 't', sub: '<' }, { key: 'y', sub: '>' },
+        { key: 'u', sub: '/' }, { key: 'i', sub: '\\' }, { key: 'o', sub: '|' },
+        { key: 'p', sub: '~' },
+    ],
+    [
+        { key: 'a', sub: '+' }, { key: 's', sub: '-' }, { key: 'd', sub: '*' },
+        { key: 'f', sub: '=' }, { key: 'g', sub: '%' }, { key: 'h', sub: '&' },
+        { key: 'j', sub: ':' }, { key: 'k', sub: ';' }, { key: 'l', sub: '"' },
+        { key: ';', sub: "'" },
+    ],
+    [
+        { key: 'shift', special: true, label: '⇧ Shift' },
+        { key: 'z', sub: '_' }, { key: 'x', sub: '?' }, { key: 'c', sub: '!' },
+        { key: 'v', sub: ',' }, { key: 'b', sub: '.' }, { key: 'n', sub: '-' },
+        { key: 'm', sub: '`' },
+        { key: 'alt', special: true, label: '⌥ Sym' },
+        { key: 'backspace', special: true, label: '⌫' },
+    ],
+];
+
+const SHIFT_NUM_MAP = {
+    '1': '!', '2': '@', '3': '#', '4': '$', '5': '%',
+    '6': '^', '7': '&', '8': '*', '9': '(', '0': ')'
+};
+
+const SYMBOL_CATEGORIES = [
+    { label: 'Code', items: ['{', '}', '[', ']', '(', ')', '=>', ';', ':', '=', '"', "'"] },
+    { label: 'Punct', items: ['!', '?', '@', '#', '$', '&', '%', '*', '^', '~', '`'] },
+    { label: 'Math', items: ['+', '-', '*', '/', '=', '%', '<', '>', '|'] },
+    { label: 'Paths', items: ['/', '\\', '~', '.', '_', '-'] },
 ];
 
 const SUGGESTED_DIRS = [
@@ -141,6 +175,8 @@ export default function CodexMicroMode() {
     const [connectionWarning, setConnectionWarning] = useState('');
     const [listening, setListening] = useState(false);
     const [shifted, setShifted] = useState(false);
+    const [altActive, setAltActive] = useState(false);
+    const [activeSymbolCategory, setActiveSymbolCategory] = useState(0);
     const [browsingFolder, setBrowsingFolder] = useState(false);
     const [browsePath, setBrowsePath] = useState('');
     const [pressedKeys, setPressedKeys] = useState(() => new Set());
@@ -170,6 +206,7 @@ export default function CodexMicroMode() {
     const model = readCodexModel();
     const promptLoad = Math.min(100, Math.max(8, Math.round((prompt.length / 420) * 100)));
     const reasoningLoad = Math.min(100, Math.max(22, (reasoningIndex + 1) * 24));
+
 
     // Build suggested dirs including the current workspace and its parent
     const allSuggestedDirs = useMemo(() => {
@@ -374,91 +411,104 @@ export default function CodexMicroMode() {
         window.requestAnimationFrame(() => promptRef.current?.focus());
     }, []);
 
-    const stageWorkflowDirection = useCallback((direction) => {
-        const workflow = CODEX_WORKFLOWS.find((item) => item.direction === direction);
-        if (workflow) stageWorkflow(workflow);
-    }, [stageWorkflow]);
+    const newTask = useCallback(() => {
+        setPrompt('');
+        setNotice('Fresh prompt ready');
+        promptRef.current?.focus();
+    }, []);
 
     const moveJoystick = useCallback((clientX, clientY) => {
         const drag = joystickDragRef.current;
         if (!drag) return;
-        const x = clientX - drag.centerX;
-        const y = clientY - drag.centerY;
-        const distance = Math.hypot(x, y);
-        const scale = distance > drag.limit ? drag.limit / distance : 1;
-        setJoystickVector({ x: x * scale, y: y * scale });
-        if (distance > 7) drag.moved = true;
-    }, []);
+        const dx = clientX - drag.centerX;
+        const dy = clientY - drag.centerY;
+        const dist = Math.hypot(dx, dy);
 
-    const releaseJoystick = useCallback((event) => {
-        const drag = joystickDragRef.current;
-        if (!drag || drag.pointerId !== event.pointerId) return;
-        moveJoystick(event.clientX, event.clientY);
-        const x = event.clientX - drag.centerX;
-        const y = event.clientY - drag.centerY;
-        if (Math.hypot(x, y) > 10) {
-            joystickSuppressClickRef.current = true;
-            stageWorkflowDirection(Math.abs(x) > Math.abs(y)
-                ? (x > 0 ? 'right' : 'left')
-                : (y > 0 ? 'down' : 'up'));
+        if (dist > 6) drag.moved = true;
+
+        const clampedDist = Math.min(dist, drag.limit);
+        const angle = Math.atan2(dy, dx);
+        const x = Math.cos(angle) * clampedDist;
+        const y = Math.sin(angle) * clampedDist;
+
+        setJoystickVector({ x, y });
+
+        if (dist > drag.limit * 0.45) {
+            const deg = (Math.atan2(dy, dx) * 180) / Math.PI;
+            let dir = 'up';
+            if (deg >= -45 && deg < 45) dir = 'right';
+            else if (deg >= 45 && deg < 135) dir = 'down';
+            else if (deg >= 135 || deg < -135) dir = 'left';
+
+            const targetWorkflow = CODEX_WORKFLOWS.find((w) => w.direction === dir);
+            if (targetWorkflow && targetWorkflow.id !== workflowId) {
+                stageWorkflow(targetWorkflow);
+            }
         }
-        event.currentTarget.releasePointerCapture?.(event.pointerId);
+    }, [workflowId, stageWorkflow]);
+
+    const releaseJoystick = useCallback(() => {
+        if (joystickDragRef.current?.moved) {
+            joystickSuppressClickRef.current = true;
+        }
         joystickDragRef.current = null;
         setJoystickVector({ x: 0, y: 0 });
-    }, [moveJoystick, stageWorkflowDirection]);
+    }, []);
 
     const handleJoystickKeyDown = useCallback((event) => {
-        const direction = {
+        const keyDirMap = {
             ArrowUp: 'up',
             ArrowRight: 'right',
             ArrowDown: 'down',
             ArrowLeft: 'left',
-        }[event.key];
-        if (!direction) return;
-        event.preventDefault();
-        stageWorkflowDirection(direction);
-    }, [stageWorkflowDirection]);
+        };
+        const dir = keyDirMap[event.key];
+        if (!dir) return;
 
-    const newTask = useCallback(() => {
-        setPrompt('');
-        setWorkflowId(null);
-        setNotice('Fresh task ready.');
-        window.requestAnimationFrame(() => promptRef.current?.focus());
-    }, []);
+        event.preventDefault();
+        const targetWorkflow = CODEX_WORKFLOWS.find((w) => w.direction === dir);
+        if (targetWorkflow) {
+            stageWorkflow(targetWorkflow);
+        }
+    }, [stageWorkflow]);
 
     const toggleDictation = useCallback(() => {
         if (listening) {
-            speechRef.current?.stop();
+            if (speechRef.current) {
+                speechRef.current.stop();
+                speechRef.current = null;
+            }
+            setListening(false);
             return;
         }
 
-        const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!Recognition) {
-            promptRef.current?.focus();
-            setNotice('Browser dictation is unavailable. Focus is in the prompt—use macOS Dictation.');
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            setNotice('Speech recognition is not supported in this browser. Use macOS Dictation.');
             return;
         }
 
-        const recognition = new Recognition();
-        dictationBaseRef.current = prompt.trim();
+        dictationBaseRef.current = prompt;
+        const recognition = new SpeechRecognition();
         recognition.continuous = true;
         recognition.interimResults = true;
-        recognition.lang = navigator.language || 'en-US';
+        recognition.lang = 'en-US';
+
         recognition.onstart = () => {
             setListening(true);
-            setNotice('Listening… press the mic again to stop.');
+            setNotice('Listening… Speak your prompt.');
         };
         recognition.onresult = (event) => {
             let transcript = '';
-            for (let index = 0; index < event.results.length; index += 1) {
+            for (let index = event.resultIndex; index < event.results.length; index += 1) {
                 transcript += event.results[index][0]?.transcript || '';
             }
             setPrompt([dictationBaseRef.current, transcript.trim()].filter(Boolean).join(' '));
         };
         recognition.onerror = (event) => {
             setNotice(event.error === 'not-allowed'
-                ? 'Microphone access was denied. Use macOS Dictation in the prompt.'
-                : 'Dictation stopped unexpectedly.');
+                ? 'Microphone access was denied. Use macOS Dictation.'
+                : 'Dictation stopped.');
         };
         recognition.onend = () => {
             setListening(false);
@@ -468,6 +518,16 @@ export default function CodexMicroMode() {
         recognition.start();
     }, [listening, prompt]);
 
+    const insertSymbol = useCallback((sym) => {
+        if (browsingFolder) {
+            setBrowsePath((prev) => prev + sym);
+            if (browseInputRef.current) browseInputRef.current.focus();
+        } else {
+            setPrompt((prev) => prev + sym);
+            if (promptRef.current) promptRef.current.focus();
+        }
+    }, [browsingFolder]);
+
     const handlePromptKeyDown = useCallback((event) => {
         if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
             event.preventDefault();
@@ -475,78 +535,70 @@ export default function CodexMicroMode() {
         }
     }, [runTask]);
 
-    const handleBrowseKeyDown = useCallback((event) => {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            const trimmed = browsePath.trim();
-            if (trimmed) {
-                setWorkspace(trimmed);
-            }
-        }
-    }, [browsePath, setWorkspace]);
+    const handleHardwareKeyClick = useCallback((item) => {
+        const isFolder = browsingFolder;
+        const updateTarget = (updater) => {
+            if (isFolder) setBrowsePath(updater);
+            else setPrompt(updater);
+        };
 
-    const handleKeyboardKeyClick = useCallback((key) => {
-        const textarea = browsingFolder ? browseInputRef.current : promptRef.current;
-        if (!textarea) return;
+        const textarea = isFolder ? browseInputRef.current : promptRef.current;
+        if (textarea) textarea.focus();
 
-        textarea.focus();
-
-        if (browsingFolder) {
-            switch (key) {
+        if (item.special) {
+            switch (item.key) {
                 case 'shift':
                     setShifted((prev) => !prev);
                     break;
+                case 'alt':
+                    setAltActive((prev) => !prev);
+                    break;
                 case 'backspace':
-                    setBrowsePath((prev) => prev.slice(0, -1));
+                    updateTarget((prev) => prev.slice(0, -1));
                     break;
                 case 'space':
-                    setBrowsePath((prev) => prev + ' ');
+                    updateTarget((prev) => prev + ' ');
                     break;
                 case 'enter':
-                    if (browsePath.trim()) {
-                        setWorkspace(browsePath.trim());
+                    if (isFolder) {
+                        if (browsePath.trim()) setWorkspace(browsePath.trim());
+                    } else {
+                        void runTask();
                     }
                     break;
                 default:
-                    setBrowsePath((prev) => prev + (shifted ? key.toUpperCase() : key));
+                    break;
             }
             return;
         }
 
-        switch (key) {
-            case 'shift':
-                setShifted((prev) => !prev);
-                break;
-            case 'backspace':
-                setPrompt((prev) => prev.slice(0, -1));
-                break;
-            case 'space':
-                setPrompt((prev) => prev + ' ');
-                break;
-            case 'enter':
-                void runTask();
-                break;
-            default:
-                setPrompt((prev) => prev + (shifted ? key.toUpperCase() : key));
+        if (altActive && item.sub) {
+            updateTarget((prev) => prev + item.sub);
+        } else if (shifted && item.sub && !isNaN(Number(item.key))) {
+            updateTarget((prev) => prev + item.sub);
+        } else if (shifted) {
+            updateTarget((prev) => prev + item.key.toUpperCase());
+        } else {
+            updateTarget((prev) => prev + item.key);
         }
-    }, [runTask, shifted, browsingFolder, browsePath, setWorkspace]);
+    }, [browsingFolder, browsePath, setWorkspace, runTask, shifted, altActive]);
 
     return (
         <section className="codex-micro" ref={rootRef}>
             <header className="cm-header">
                 <div>
-                    <p className="cm-eyebrow">Work Louder concept · digital control surface</p>
-                    <h1>Codex Micro</h1>
+                    <p className="cm-eyebrow">Perci concept · digital control deck</p>
+                    <h1>Perci Pocket</h1>
                 </div>
                 <div className="cm-live-summary" aria-live="polite">
                     <span className={`cm-live-dot${activeJob ? ' is-active' : ''}`} aria-hidden="true" />
-                    {activeJob ? 'Codex is working' : `${visibleJobs.length} recent ${visibleJobs.length === 1 ? 'job' : 'jobs'}`}
+                    {activeJob ? 'Perci is working' : `${visibleJobs.length} recent ${visibleJobs.length === 1 ? 'job' : 'jobs'}`}
                 </div>
             </header>
 
             <div className="cm-device-wrap">
                 <div className="cm-device">
-                    <span className="cm-board-copy cm-board-copy-left">A Perci Design for OpenAI 2026</span>
+                    <span className="cm-board-copy cm-board-copy-left">A Perci Design 2026</span>
                     <span className="cm-board-copy cm-board-copy-right">You can just build things</span>
                     <span className="cm-board-copy cm-board-copy-bottom">Let&apos;s build</span>
 
@@ -591,7 +643,7 @@ export default function CodexMicroMode() {
                                         className="cm-screen-browse-input"
                                         value={browsePath.replace(/^~/, '')}
                                         onChange={(e) => setBrowsePath('~/' + e.target.value.replace(/^\//, ''))}
-                                        onKeyDown={handleBrowseKeyDown}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') setWorkspace(browsePath); }}
                                         placeholder="/path/to/project"
                                     />
                                     <button
@@ -609,7 +661,7 @@ export default function CodexMicroMode() {
                             <>
                                 <div className="cm-screen-status">
                                     <span className={`cm-live-dot${activeJob ? ' is-active' : ''}`} aria-hidden="true" />
-                                    <span className="cm-screen-model">{model || 'Codex'}</span>
+                                    <span className="cm-screen-model">{model || 'Perci'}</span>
                                     <span className="cm-screen-reasoning">{reasoningLevel.label}</span>
                                     <span className="cm-screen-persist">{folderName(workingDirectory)}</span>
                                 </div>
@@ -646,6 +698,33 @@ export default function CodexMicroMode() {
                                         </p>
                                     )}
                                 </div>
+                                <div className="cm-screen-symbols" role="toolbar" aria-label="Quick symbol tray">
+                                    <div className="cm-screen-sym-pills">
+                                        {SYMBOL_CATEGORIES[activeSymbolCategory].items.map((sym) => (
+                                            <button
+                                                key={sym}
+                                                type="button"
+                                                className="cm-screen-sym-pill"
+                                                onClick={() => insertSymbol(sym)}
+                                                title={`Insert ${sym}`}
+                                            >
+                                                {sym}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <div className="cm-screen-sym-tabs">
+                                        {SYMBOL_CATEGORIES.map((cat, idx) => (
+                                            <button
+                                                key={cat.label}
+                                                type="button"
+                                                className={`cm-screen-sym-tab${activeSymbolCategory === idx ? ' is-active' : ''}`}
+                                                onClick={() => setActiveSymbolCategory(idx)}
+                                            >
+                                                {cat.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
                                 <div className="cm-screen-input-row">
                                     <span className="cm-screen-prompt-char">{shifted ? '$' : '>'}</span>
                                     <textarea
@@ -654,7 +733,7 @@ export default function CodexMicroMode() {
                                         value={prompt}
                                         onChange={(e) => setPrompt(e.target.value)}
                                         onKeyDown={handlePromptKeyDown}
-                                        placeholder="Tell Codex what to build…"
+                                        placeholder="Tell Perci what to build…"
                                         rows={1}
                                     />
                                     <button
@@ -662,7 +741,7 @@ export default function CodexMicroMode() {
                                         className="cm-screen-run"
                                         disabled={!prompt.trim() || queueing}
                                         onClick={() => void runTask()}
-                                        title="Run Codex task"
+                                        title="Run task"
                                     >
                                         {queueing ? <Loader2 size={14} className="cm-spin" /> : <Zap size={14} />}
                                     </button>
@@ -672,25 +751,48 @@ export default function CodexMicroMode() {
                     </div>
 
                     <div className="cm-grid">
-                        <label className="cm-dial" title={`Reasoning: ${reasoningLevel.label}`}>
-                            <span
-                                className="cm-dial-knob"
-                                style={{ transform: `rotate(${reasoningLevel.angle}deg)` }}
-                                aria-hidden="true"
-                            >
-                                <span />
-                            </span>
-                            <input
-                                type="range"
-                                min="0"
-                                max={CODEX_REASONING_LEVELS.length - 1}
-                                step="1"
-                                value={reasoningIndex}
-                                aria-label={`Reasoning effort: ${reasoningLevel.label}`}
-                                onChange={(event) => setReasoning(CODEX_REASONING_LEVELS[Number(event.target.value)].id)}
-                            />
-                            <span className="cm-control-label">{reasoningLevel.label}</span>
-                        </label>
+                        <div className="cm-dial-block">
+                            <div className="cm-dial-top-controls">
+                                <button
+                                    type="button"
+                                    className="cm-top-key cm-top-new"
+                                    onClick={newTask}
+                                    title="Start a fresh task"
+                                >
+                                    <Brain size={14} />
+                                    <span>New</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`cm-top-key cm-top-dictate${listening ? ' is-listening' : ''}`}
+                                    onClick={toggleDictation}
+                                    title={listening ? 'Stop dictation' : 'Start dictation'}
+                                >
+                                    {listening ? <MicOff size={14} /> : <Mic size={14} />}
+                                    <span>{listening ? 'Stop' : 'Dictate'}</span>
+                                </button>
+                            </div>
+
+                            <label className="cm-dial" title={`Reasoning: ${reasoningLevel.label}`}>
+                                <span
+                                    className="cm-dial-knob"
+                                    style={{ transform: `rotate(${reasoningLevel.angle}deg)` }}
+                                    aria-hidden="true"
+                                >
+                                    <span />
+                                </span>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max={CODEX_REASONING_LEVELS.length - 1}
+                                    step="1"
+                                    value={reasoningIndex}
+                                    aria-label={`Reasoning effort: ${reasoningLevel.label}`}
+                                    onChange={(event) => setReasoning(CODEX_REASONING_LEVELS[Number(event.target.value)].id)}
+                                />
+                                <span className="cm-control-label">{reasoningLevel.label}</span>
+                            </label>
+                        </div>
 
                         <AgentKey index={0} job={visibleJobs[0]} selected={selectedJob?.id === visibleJobs[0]?.id} onSelect={setSelectedJobId} />
                         <AgentKey index={1} job={visibleJobs[1]} selected={selectedJob?.id === visibleJobs[1]?.id} onSelect={setSelectedJobId} />
@@ -713,7 +815,7 @@ export default function CodexMicroMode() {
                                     type="button"
                                     className="cm-joystick-stick"
                                     style={{ '--stick-x': `${joystickVector.x}px`, '--stick-y': `${joystickVector.y}px` }}
-                                    aria-label="Workflow joystick. Drag or use arrow keys: up Review, right Debug, down Refactor, left Tests."
+                                    aria-label="Workflow joystick. Drag or use arrow keys."
                                     title="Drag toward a workflow or use the arrow keys"
                                     onPointerDown={(event) => {
                                         const rect = joystickGateRef.current?.getBoundingClientRect();
@@ -734,11 +836,7 @@ export default function CodexMicroMode() {
                                         }
                                     }}
                                     onPointerUp={releaseJoystick}
-                                    onPointerCancel={(event) => {
-                                        if (joystickDragRef.current?.pointerId !== event.pointerId) return;
-                                        joystickDragRef.current = null;
-                                        setJoystickVector({ x: 0, y: 0 });
-                                    }}
+                                    onPointerCancel={releaseJoystick}
                                     onKeyDown={handleJoystickKeyDown}
                                     onClick={() => {
                                         if (joystickSuppressClickRef.current) {
@@ -773,7 +871,7 @@ export default function CodexMicroMode() {
                             className="cm-key cm-command-key cm-command-run"
                             disabled={!prompt.trim() || queueing}
                             onClick={() => void runTask()}
-                            title="Run Codex task"
+                            title="Run task"
                         >
                             {queueing ? <Loader2 size={24} className="cm-spin" /> : <Zap size={24} />}
                             <span>Run</span>
@@ -793,7 +891,7 @@ export default function CodexMicroMode() {
                             className="cm-key cm-command-key cm-command-cancel"
                             disabled={!cancellableJob}
                             onClick={() => void cancelJob()}
-                            title="Cancel active Codex job"
+                            title="Cancel active job"
                         >
                             <X size={24} />
                             <span>Cancel</span>
@@ -807,44 +905,38 @@ export default function CodexMicroMode() {
                             <Expand size={24} />
                             <span>Agents</span>
                         </button>
-
                     </div>
 
                     <div className="cm-input-deck">
-                        <button
-                            type="button"
-                            className={`cm-side-key cm-side-dictate${listening ? ' is-listening' : ''}`}
-                            onClick={toggleDictation}
-                            title={listening ? 'Stop dictation' : 'Start dictation'}
-                        >
-                            {listening ? <MicOff size={18} /> : <Mic size={18} />}
-                            <span>{listening ? 'Stop' : 'Dictate'}</span>
-                        </button>
-
-                        <div className="cm-keyboard" role="group" aria-label="Keyboard">
-                            {KEYBOARD_ROWS.map((row, rowIndex) => (
+                        <div className="cm-keyboard" role="group" aria-label="Physical Hardware Keyboard">
+                            {HARDWARE_KEYBOARD_ROWS.map((row, rowIndex) => (
                                 <div key={rowIndex} className="cm-keyboard-row">
-                                    {row.map((key) => {
-                                        const isSpecial = key === 'shift' || key === 'backspace' || key === 'space' || key === 'enter';
-                                        const specialClass = key === 'shift' && shifted ? 'is-active' : '';
+                                    {row.map((item) => {
+                                        const isSpecial = item.special;
+                                        const specialClass = (item.key === 'shift' && shifted) || (item.key === 'alt' && altActive) ? 'is-active' : '';
+
                                         return (
                                             <button
-                                                key={key}
+                                                key={item.key}
                                                 type="button"
-                                                className={`cm-kb-key${isSpecial ? ` cm-kb-${key}` : ''} ${specialClass}${pressedKeys.has(key) ? ' is-pressed' : ''}`}
-                                                onClick={() => handleKeyboardKeyClick(key)}
-                                                aria-label={
-                                                    key === 'shift' ? 'Shift (toggle caps)' :
-                                                    key === 'backspace' ? 'Backspace' :
-                                                    key === 'space' ? 'Space' :
-                                                    key === 'enter' ? 'Enter (run)' :
-                                                    shifted ? key.toUpperCase() : key
-                                                }
+                                                className={`cm-kb-key${isSpecial ? ` cm-kb-${item.key}` : ''} ${specialClass}${pressedKeys.has(item.key) ? ' is-pressed' : ''}`}
+                                                onClick={() => handleHardwareKeyClick(item)}
+                                                aria-label={item.label || `${item.key} key (sub-legend: ${item.sub || 'none'})`}
                                             >
-                                                {key === 'shift' ? '⇧' :
-                                                 key === 'backspace' ? '⌫' :
-                                                 key === 'space' ? '' :
-                                                 shifted ? key.toUpperCase() : key}
+                                                {isSpecial ? (
+                                                    <span className="cm-kb-main-label">{item.label}</span>
+                                                ) : (
+                                                    <div className="cm-kb-dual-legend">
+                                                        {item.sub && (
+                                                            <span className={`cm-kb-sub-legend${altActive || (shifted && !isNaN(Number(item.key))) ? ' is-lit' : ''}`}>
+                                                                {item.sub}
+                                                            </span>
+                                                        )}
+                                                        <span className="cm-kb-main-legend">
+                                                            {shifted && !item.sub ? item.key.toUpperCase() : item.key}
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </button>
                                         );
                                     })}
@@ -854,12 +946,12 @@ export default function CodexMicroMode() {
                                 <div
                                     className="cm-kb-folder"
                                     role="group"
-                                    aria-label={`Codex Micro device status. Current workspace: ${workingDirectory || 'home folder'}`}
+                                    aria-label={`Perci Pocket device status. Current workspace: ${workingDirectory || 'home folder'}`}
                                     title={'Workspace: ' + (workingDirectory || 'home folder')}
                                 >
                                     <div className="cm-status-screen">
                                         <div className="cm-status-topline">
-                                            <span>codex-micro</span>
+                                            <span>perci-pocket</span>
                                             <span>{clockTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
                                         </div>
                                         <div className="cm-status-bars" aria-hidden="true">
@@ -885,24 +977,24 @@ export default function CodexMicroMode() {
                                         </div>
                                     </div>
                                 </div>
-                                <button type="button" className={`cm-kb-key cm-kb-space${pressedKeys.has('space') ? ' is-pressed' : ''}`} onClick={() => handleKeyboardKeyClick('space')} aria-label="Space">
+                                <button
+                                    type="button"
+                                    className={`cm-kb-key cm-kb-space${pressedKeys.has('space') ? ' is-pressed' : ''}`}
+                                    onClick={() => handleHardwareKeyClick({ key: 'space', special: true })}
+                                    aria-label="Space"
+                                >
                                     Space
                                 </button>
-                                <button type="button" className={`cm-kb-key cm-kb-enter${pressedKeys.has('enter') ? ' is-pressed' : ''}`} onClick={() => handleKeyboardKeyClick('enter')} aria-label="Enter (run)">
+                                <button
+                                    type="button"
+                                    className={`cm-kb-key cm-kb-enter${pressedKeys.has('enter') ? ' is-pressed' : ''}`}
+                                    onClick={() => handleHardwareKeyClick({ key: 'enter', special: true })}
+                                    aria-label="Enter (run)"
+                                >
                                     ⏎
                                 </button>
                             </div>
                         </div>
-
-                        <button
-                            type="button"
-                            className="cm-side-key cm-side-new-task"
-                            onClick={newTask}
-                            title="Start a fresh task"
-                        >
-                            <Brain size={18} />
-                            <span>New</span>
-                        </button>
                     </div>
                 </div>
             </div>

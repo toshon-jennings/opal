@@ -35,6 +35,7 @@ export const MODES = {
     PROJECTS: 'projects', // Project-based terminal command center
     ENSEMBLE: 'ensemble', // Multi-model deliberation (panel → judge → synthesis)
     SHIPYARD: 'shipyard', // AI project manager — kanban board with GitHub rail + Jules
+    DOCKET: 'docket', // Intake queue + device fleet ledger, stored as Notes
 };
 
 // Non-mode windows (surfaces that open as windows but aren't in the MODES enum).
@@ -74,7 +75,7 @@ export const WINDOW_TITLES = {
     [MODES.COWORK]: 'Cowork',
     [MODES.CODE]: 'Code',
     [MODES.AGENTS]: 'Agents',
-    [MODES.CODEX_MICRO]: 'Codex Micro',
+    [MODES.CODEX_MICRO]: 'Perci Pocket',
     [MODES.MISSION]: 'Mission Control',
     [MODES.BUILD]: 'Build',
     [MODES.AUTORESEARCH]: 'Autoresearch',
@@ -88,6 +89,7 @@ export const WINDOW_TITLES = {
     [MODES.PROJECTS]: 'Git Shells',
     [MODES.ENSEMBLE]: 'Ensemble',
     [MODES.SHIPYARD]: 'Shipyard',
+    [MODES.DOCKET]: 'Docket',
     [OPENCLAW_WINDOW_ID]: 'OpenClaw',
     [HERMES_WINDOW_ID]: 'Hermes',
     [YOUTUBE_WINDOW_ID]: 'YouTube',

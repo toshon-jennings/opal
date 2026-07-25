@@ -2,7 +2,7 @@ import React from 'react';
 import { useMode, MODES, LOCALHOST_WINDOW_ID } from '../context/ModeContext';
 import {
     DashboardIcon, ChatIcon, EnsembleIcon, CoworkIcon, CodeIcon, NotesIcon, ResearchIcon,
-    AgentsIcon, OfficeIcon, BuildIcon, MissionIcon, ProjectsIcon, SurfaceMapIcon, PerciNowIcon, PerciDeskIcon, ShipyardIcon,
+    AgentsIcon, OfficeIcon, BuildIcon, MissionIcon, ProjectsIcon, SurfaceMapIcon, PerciNowIcon, PerciDeskIcon, ShipyardIcon, DocketIcon,
 } from './ModeIcons';
 import { Globe } from 'lucide-react';
 
@@ -31,6 +31,7 @@ export default function ModeSwitcher() {
         { id: MODES.COWORK, icon: CoworkIcon,       label: 'Cowork' },
         { id: MODES.CODE,   icon: CodeIcon,         label: 'Code' },
         { id: MODES.SHIPYARD, icon: ShipyardIcon,   label: 'Shipyard' },
+        { id: MODES.DOCKET, icon: DocketIcon,       label: 'Docket' },
         { id: MODES.PROJECTS, icon: ProjectsIcon,   label: 'Git Shells' },
         { id: MODES.NOTES,  icon: NotesIcon,        label: 'Notes' },
         { id: MODES.AUTORESEARCH, icon: ResearchIcon, label: 'Autoresearch' },

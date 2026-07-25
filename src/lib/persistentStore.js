@@ -59,6 +59,7 @@ const PERSISTED_KEYS = [
     'perci_bars_ideas:v1',
     'perci_bars_ai_settings:v1',
     'perci_shipyard:v1',
+    'perci_docket_view:v1',
     'perci_pet_pos',
     'user_name',
     'custom_instructions',

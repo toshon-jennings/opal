@@ -114,6 +114,31 @@ export function buildNoteOKF(fields, body) {
     return lines.join('\n') + '\n\n' + (body || '').replace(/^\n+/, '');
 }
 
+// Generic counterparts to parseNoteOKF/buildNoteOKF: any frontmatter key round
+// -trips, not just the fixed type/title/description/resource/timestamp shape.
+// Used by record types (e.g. Docket's Ticket/Device) that need their own
+// fields (status, channel, assignee...) without inventing a parallel parser.
+export function parseNoteFields(content) {
+    const { frontmatter, body } = splitFrontmatter(content);
+    const fields = parseFrontmatterFields(frontmatter);
+    const tags = parseTagsFromFrontmatter(frontmatter);
+    return { fields, tags, body, hasOKF: frontmatter !== null };
+}
+
+export function buildNoteFields(fields, body) {
+    const lines = ['---'];
+    Object.entries(fields || {}).forEach(([key, value]) => {
+        if (key === 'tags' || value === undefined || value === null || value === '') return;
+        const needsQuote = typeof value === 'string' && /[:#{}[\],&*!|>'"%@`]/.test(value);
+        lines.push(`${key}: ${needsQuote ? `"${String(value).replace(/"/g, '\\"')}"` : value}`);
+    });
+    if (fields?.tags?.length > 0) {
+        lines.push(`tags: [${fields.tags.map(t => `"${String(t).replace(/"/g, '\\"')}"`).join(', ')}]`);
+    }
+    lines.push('---');
+    return lines.join('\n') + '\n\n' + (body || '').replace(/^\n+/, '');
+}
+
 export function migrateLegacyFrontmatter(content) {
     const { frontmatter, body } = splitFrontmatter(content);
     if (!frontmatter) return null;

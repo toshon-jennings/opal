@@ -26,6 +26,7 @@ const GLYPHS = {
     [MODES.CONCERNS]: 'BB',
     [MODES.ENSEMBLE]: 'EN',
     [MODES.SHIPYARD]: 'SY',
+    [MODES.DOCKET]: 'DK',
     [OPENCLAW_WINDOW_ID]: 'OC',
     [HERMES_WINDOW_ID]: 'HM',
     [YOUTUBE_WINDOW_ID]: 'YT',

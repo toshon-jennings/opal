@@ -1,0 +1,78 @@
+/* Docket status/channel pills — small enough to sit inline in a row list,
+   colour-coded by the same semantics as Shipyard's chips (amber = waiting,
+   green = resolved/good, neutral = in progress). */
+
+.dk-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    background: rgba(148, 163, 184, 0.16);
+    color: var(--text-secondary);
+}
+
+:root.dark .dk-pill { background: rgba(255, 255, 255, 0.08); }
+
+.dk-pill.is-open { background: rgba(59, 130, 246, 0.16); color: #2563eb; }
+:root.dark .dk-pill.is-open { color: #60a5fa; }
+
+.dk-pill.is-assigned { background: rgba(99, 102, 241, 0.16); color: #4f46e5; }
+:root.dark .dk-pill.is-assigned { color: #818cf8; }
+
+.dk-pill.is-mssp { background: rgba(234, 179, 8, 0.2); color: #a16207; }
+:root.dark .dk-pill.is-mssp { color: #eab308; }
+
+.dk-pill.is-closed,
+.dk-pill.is-retired {
+    background: rgba(34, 197, 94, 0.18);
+    color: #16a34a;
+}
+:root.dark .dk-pill.is-closed,
+:root.dark .dk-pill.is-retired { color: #4ade80; }
+
+.dk-pill.is-lost,
+.dk-pill.is-repair {
+    background: rgba(239, 68, 68, 0.16);
+    color: #dc2626;
+}
+:root.dark .dk-pill.is-lost,
+:root.dark .dk-pill.is-repair { color: #f87171; }
+
+/* Capture — the field that has to be faster than opening a browser tab. */
+
+.dk-capture-field {
+    font-size: 15px;
+}
+
+.dk-capture-channels {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.dk-channel-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.7rem;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    background: var(--bg-primary);
+    transition: border-color 120ms ease, color 120ms ease, background-color 120ms ease;
+}
+
+.dk-channel-chip:hover { color: var(--text-primary); border-color: var(--accent); }
+
+.dk-channel-chip.is-active {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+}

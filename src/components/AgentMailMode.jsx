@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     AlertCircle,
     ExternalLink,
@@ -16,26 +16,42 @@ export default function AgentMailMode() {
     const [error, setError] = useState('');
     const webviewRef = useRef(null);
 
-    const handleLoadStart = useCallback(() => {
-        setLoading(true);
-        setError('');
-    }, []);
+    // <webview> emits plain DOM events, not React synthetic ones, so these have
+    // to be attached to the element rather than passed as JSX props.
+    useEffect(() => {
+        if (error) return; // the error screen unmounts the webview
+        const webview = webviewRef.current;
+        if (!webview) return;
 
-    const handleLoadStop = useCallback(() => {
-        setLoading(false);
-    }, []);
-
-    const handleLoadFailed = useCallback((event) => {
-        setLoading(false);
-        if (event.errorCode !== -3) { // -3 = ABORTED (user navigated away)
+        const handleLoadStart = () => setLoading(true);
+        const handleLoadStop = () => setLoading(false);
+        const handleLoadFailed = (event) => {
+            if (!event.isMainFrame || event.errorCode === -3) return; // -3 = ABORTED
+            setLoading(false);
             setError(`Failed to load AgentMail: ${event.errorDescription || 'Unknown error'}`);
-        }
-    }, []);
+        };
+
+        webview.addEventListener('did-start-loading', handleLoadStart);
+        webview.addEventListener('did-stop-loading', handleLoadStop);
+        webview.addEventListener('did-fail-load', handleLoadFailed);
+        return () => {
+            webview.removeEventListener('did-start-loading', handleLoadStart);
+            webview.removeEventListener('did-stop-loading', handleLoadStop);
+            webview.removeEventListener('did-fail-load', handleLoadFailed);
+        };
+    }, [error]);
 
     const handleRefresh = useCallback(() => {
         if (webviewRef.current) {
             webviewRef.current.reload();
         }
+    }, []);
+
+    // Clearing the error remounts the webview; reloading the ref would not work
+    // here because the error screen has already unmounted it.
+    const handleRetry = useCallback(() => {
+        setError('');
+        setLoading(true);
     }, []);
 
     const handleOpenInBrowser = useCallback(() => {
@@ -54,7 +70,7 @@ export default function AgentMailMode() {
                     <div className="mt-4 flex items-center justify-center gap-3">
                         <button
                             type="button"
-                            onClick={handleRefresh}
+                            onClick={handleRetry}
                             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--accent)] text-white text-sm font-medium hover:bg-[var(--accent-hover)] transition-colors"
                         >
                             <RefreshCw size={14} />
@@ -114,9 +130,6 @@ export default function AgentMailMode() {
                     partition="persist:perci-agentmail"
                     allowpopups="true"
                     webpreferences="contextIsolation=true, nodeIntegration=false, sandbox=false"
-                    onLoadStart={handleLoadStart}
-                    onLoadStop={handleLoadStop}
-                    onDidFailLoad={handleLoadFailed}
                 />
             </div>
         </div>

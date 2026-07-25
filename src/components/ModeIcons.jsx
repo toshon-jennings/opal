@@ -287,6 +287,19 @@ export function ShipyardIcon(props) {
     );
 }
 
+/* Docket — clipboard with an intake tray checkmark. */
+export function DocketIcon(props) {
+    return (
+        <Svg {...props}>
+            <rect x="4.5" y="3.5" width="15" height="17" rx="1.8" {...shell} />
+            <rect x="9" y="2.3" width="6" height="3" rx="1.2" {...ink} />
+            <path d="M8 12h5" />
+            <path d="M8 15.5h8" />
+            <path d="M7.7 8.6l1 1 1.8-1.8" />
+        </Svg>
+    );
+}
+
 /* Ports — radar with sweep wedge and a blip. */
 export function PortsIcon(props) {
     return (

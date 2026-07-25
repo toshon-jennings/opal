@@ -44,6 +44,7 @@ import DbInspectorMode from './components/DbInspectorMode';
 import GithubOverviewMode from './components/GithubOverviewMode';
 import AliasManagerMode from './components/AliasManagerMode';
 import ShipyardMode from './components/ShipyardMode';
+import DocketMode from './components/DocketMode';
 import PerciPet from './components/PerciPet';
 import { SettingsModal } from './components/SettingsModal';
 import DesktopHost from './components/windows/DesktopHost';
@@ -616,6 +617,7 @@ function AppContent() {
             case MODES.PROJECTS: return <ProjectsMode />;
             case MODES.ENSEMBLE: return <EnsembleMode />;
             case MODES.SHIPYARD: return <ShipyardMode openClawStatus={openClawStatus} />;
+            case MODES.DOCKET: return <DocketMode />;
             case MODES.MISSION:
                 return (
                     <MissionControl

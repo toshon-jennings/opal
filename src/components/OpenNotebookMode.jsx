@@ -86,6 +86,34 @@ export default function OpenNotebookMode() {
         }
     }, [url]);
 
+    // <webview> emits plain DOM events, not React synthetic ones, so these have
+    // to be attached to the element rather than passed as JSX props. Re-runs
+    // when dockerState changes because that gates whether the webview mounts.
+    useEffect(() => {
+        const webview = webviewRef.current;
+        if (!webview) return;
+
+        const handleStart = () => {
+            setIsLoading(true);
+            setLoadError(null);
+        };
+        const handleStop = () => setIsLoading(false);
+        const handleFail = (event) => {
+            if (!event.isMainFrame || event.errorCode === -3) return; // -3 = ABORTED
+            setIsLoading(false);
+            setLoadError(event.errorDescription || `Failed to load (code ${event.errorCode})`);
+        };
+
+        webview.addEventListener('did-start-loading', handleStart);
+        webview.addEventListener('did-stop-loading', handleStop);
+        webview.addEventListener('did-fail-load', handleFail);
+        return () => {
+            webview.removeEventListener('did-start-loading', handleStart);
+            webview.removeEventListener('did-stop-loading', handleStop);
+            webview.removeEventListener('did-fail-load', handleFail);
+        };
+    }, [dockerState]);
+
     // ── Non-Electron fallback ─────────────────────────────────────────────
     if (!isElectron) {
         return (
@@ -216,12 +244,6 @@ export default function OpenNotebookMode() {
                     partition="persist:perci-notebook"
                     allowpopups="true"
                     webpreferences="contextIsolation=yes, javascript=yes"
-                    onError={(e) => {
-                        setLoadError(e.errorDescription || `Failed to load (code ${e.errorCode})`);
-                        setIsLoading(false);
-                    }}
-                    onDidStartLoading={() => { setIsLoading(true); setLoadError(null); }}
-                    onDidStopLoading={() => setIsLoading(false)}
                 />
             </div>
         </div>
