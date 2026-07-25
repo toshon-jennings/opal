@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMode, MODES } from '../context/ModeContext';
 import { useChat } from '../context/ChatContext';
 import { LLMFactory } from '../lib/llm/clients';
@@ -15,6 +15,8 @@ import './PerciPet.css';
 
 const POS_KEY = 'perci_pet_pos';
 const SPEAK_COOLDOWN_MS = 90_000;
+const PET_WIDTH_PX = 84;
+const PANEL_WIDTH_PX = 240;
 
 // What the pet says for a Shipyard event, gated by the project's
 // assertiveness dial. Returning null stays quiet.
@@ -100,9 +102,9 @@ export default function PerciPet({ openClawStatus = {} }) {
             const dy = ev.clientY - drag.startY;
             if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
             setPos({
-                // x is the pet's right-edge fraction; keep it far enough from the
-                // left edge that the 240px panel opening leftward stays on-screen.
-                x: Math.min(0.99, Math.max(0.2, drag.origin.x + dx / window.innerWidth)),
+                // x is the pet's right-edge fraction. Clamp by the pet's own
+                // width so its left edge can sit flush with the viewport.
+                x: Math.min(0.99, Math.max(PET_WIDTH_PX / window.innerWidth, drag.origin.x + dx / window.innerWidth)),
                 y: Math.min(0.94, Math.max(0.02, drag.origin.y + dy / window.innerHeight)),
             });
         };
@@ -202,11 +204,17 @@ ${workspaceSummary}`;
     const doing = project
         ? `${project.cards.length} card${project.cards.length === 1 ? '' : 's'} on ${project.name}`
         : 'Workspace companion';
+    const panelOpensRight = pos.x * window.innerWidth < PANEL_WIDTH_PX;
 
     return (
         <div
-            className="perci-pet"
-            style={{ right: `${(1 - pos.x) * 100}%`, top: `${pos.y * 100}%` }}
+            className={`perci-pet${panelOpensRight ? ' opens-right' : ''}`}
+            style={{
+                '--perci-pet-size': `${PET_WIDTH_PX}px`,
+                '--perci-pet-panel-width': `${PANEL_WIDTH_PX}px`,
+                right: `${(1 - pos.x) * 100}%`,
+                top: `${pos.y * 100}%`,
+            }}
         >
             {bubble && <div className="perci-pet-bubble">{bubble}</div>}
             {open && (
