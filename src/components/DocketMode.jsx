@@ -3,6 +3,7 @@ import {
     ClipboardList, Phone, Mail, Ticket as TicketIcon, Footprints, HelpCircle,
     Laptop, Search, Plus, Link2, FolderOpen,
 } from 'lucide-react';
+import { DocketIcon } from './ModeIcons';
 import { useMode } from '../context/ModeContext';
 import { readStringStorage, writeStringStorage } from '../lib/persistentStore';
 import {
@@ -500,8 +501,8 @@ export default function DocketMode() {
         <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)]">
             <header className="flex shrink-0 items-center justify-between gap-4 border-b border-[var(--border)] bg-[var(--bg-secondary)] px-4 py-3">
                 <div className="flex min-w-0 items-center gap-3">
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-orange-500/25 bg-orange-500/10 text-orange-400">
-                        <ClipboardList size={19} />
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-orange-500/25 bg-orange-500/10 text-orange-400" style={{ '--mi-primary': '#fb923c', '--mi-secondary': 'color-mix(in srgb, #fb923c 32%, transparent)' }}>
+                        <DocketIcon size={19} />
                     </span>
                     <div className="min-w-0">
                         <h1 className="m-0 truncate text-base font-semibold leading-5">Docket</h1>

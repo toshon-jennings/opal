@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     Bot,
-    Brain,
     Check,
     ChevronLeft,
     Expand,
@@ -13,6 +12,7 @@ import {
     X,
     Zap,
 } from 'lucide-react';
+import chatGptLogo from '../assets/chatgpt-logo.png';
 import { useMode } from '../context/ModeContext';
 import {
     readJsonStorage,
@@ -758,18 +758,18 @@ export default function CodexMicroMode() {
                                     className="cm-top-key cm-top-new"
                                     onClick={newTask}
                                     title="Start a fresh task"
+                                    aria-label="Start a fresh task"
                                 >
-                                    <Brain size={14} />
-                                    <span>New</span>
+                                    <img src={chatGptLogo} alt="" aria-hidden="true" />
                                 </button>
                                 <button
                                     type="button"
                                     className={`cm-top-key cm-top-dictate${listening ? ' is-listening' : ''}`}
                                     onClick={toggleDictation}
                                     title={listening ? 'Stop dictation' : 'Start dictation'}
+                                    aria-label={listening ? 'Stop dictation' : 'Start dictation'}
                                 >
                                     {listening ? <MicOff size={14} /> : <Mic size={14} />}
-                                    <span>{listening ? 'Stop' : 'Dictate'}</span>
                                 </button>
                             </div>
 

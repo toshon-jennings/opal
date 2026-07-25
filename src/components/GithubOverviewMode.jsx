@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertCircle, ExternalLink, RefreshCw } from 'lucide-react';
+import { AlertCircle, ExternalLink, RefreshCw, RotateCw } from 'lucide-react';
 
 const GH_ORIGIN = 'http://127.0.0.1:6282';
 
@@ -10,6 +10,7 @@ export default function GithubOverviewMode() {
     const [status, setStatus] = useState('loading'); // 'loading' | 'online' | 'offline'
     const [contentReady, setContentReady] = useState(false);
     const [loadError, setLoadError] = useState(null);
+    const [refreshingAll, setRefreshingAll] = useState(false);
 
     useEffect(() => {
         let active = true;
@@ -55,6 +56,17 @@ export default function GithubOverviewMode() {
         setFrameKey(k => k + 1);
     }, []);
 
+    const handleRefreshAll = useCallback(async () => {
+        setRefreshingAll(true);
+        try {
+            await fetch(`${GH_ORIGIN}/repos/poll-all`, { method: 'POST' });
+        } catch (err) {
+            console.error('Failed to trigger refresh all:', err);
+        } finally {
+            setTimeout(() => setRefreshingAll(false), 800);
+        }
+    }, []);
+
     const isOffline = status === 'offline' || Boolean(loadError);
 
     return (
@@ -63,9 +75,9 @@ export default function GithubOverviewMode() {
                 <button
                     onClick={reload}
                     className="p-1 rounded text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
-                    title="Reload"
+                    title="Reload page"
                 >
-                    <RefreshCw size={14} />
+                    <RotateCw size={14} />
                 </button>
                 <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--bg-tertiary)] text-xs font-mono text-[var(--text-secondary)]">
                     <span className={`w-2 h-2 rounded-full shrink-0 ${status === 'online' ? 'bg-emerald-400' : status === 'loading' ? 'bg-yellow-400 animate-pulse' : 'bg-red-400'}`} />

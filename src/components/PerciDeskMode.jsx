@@ -5,7 +5,6 @@ import {
     Bot,
     CheckCircle2,
     CircleDollarSign,
-    ClipboardList,
     Clock3,
     ListChecks,
     Plus,
@@ -13,6 +12,7 @@ import {
     Search,
     Send,
 } from 'lucide-react';
+import { PerciDeskIcon } from './ModeIcons';
 import { useMode, MODES } from '../context/ModeContext';
 import { MISSION_UPDATED_EVENT, readMissionRuns } from '../lib/missionControl';
 import { readStringStorage, writeStringStorage } from '../lib/persistentStore';
@@ -196,7 +196,7 @@ export default function PerciDeskMode({ openClawStatus }) {
             <div className="perci-desk-shell" style={{ '--perci-desk-left-width': `${leftWidth}px` }}>
                 <aside className="perci-desk-left" aria-label="Desk telemetry">
                     <header className="perci-desk-brand">
-                        <span><ClipboardList size={15} /> Perci OS</span>
+                        <span style={{ '--mi-primary': '#0f766e', '--mi-secondary': 'color-mix(in srgb, #0f766e 32%, transparent)' }}><PerciDeskIcon size={15} /> Perci OS</span>
                         <strong>Desk</strong>
                     </header>
 
