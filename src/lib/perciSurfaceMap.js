@@ -183,6 +183,7 @@ export const PERCI_SURFACE_STATIONS = [
     { id: 'openclaw', targetId: OPENCLAW_WINDOW_ID, label: 'OpenClaw', kind: 'system', districtId: 'operations-terminal', x: 1160, y: 310, description: 'Gateway dashboard and local agent runtime surface.' },
     { id: 'hermes', targetId: HERMES_WINDOW_ID, label: 'Hermes', kind: 'system', districtId: 'operations-terminal', x: 980, y: 170, description: 'CLI agent dashboard and memory/session surface.' },
     { id: 'skills', targetId: SKILLS_WINDOW_ID, label: 'Skills', kind: 'native', districtId: 'operations-terminal', x: 1160, y: 170, description: 'System skills, agent CLIs, safety scans, and tool readiness.' },
+    { id: 'docket', targetId: MODES.DOCKET, label: 'Docket', kind: 'native', districtId: 'operations-terminal', x: 890, y: 250, description: 'Intake queue and device fleet ledger for managing incoming work and devices.' },
     { id: 'git-shells', targetId: MODES.PROJECTS, label: 'Git Shells', kind: 'native', districtId: 'local-systems-depot', x: 800, y: 510, description: 'Project terminal command center.' },
     { id: 'localhost', targetId: LOCALHOST_WINDOW_ID, label: 'Localhost', kind: 'system', districtId: 'local-systems-depot', x: 800, y: 690, description: 'Preview and inspect local development servers.' },
     { id: 'lighthouse', targetId: MODES.LIGHTHOUSE, label: 'Lighthouse', kind: 'system', districtId: 'local-systems-depot', x: 980, y: 510, description: 'Port scanning, active-process context, and conflict detection.' },
@@ -203,8 +204,8 @@ export const PERCI_SURFACE_STATIONS = [
 
 export const PERCI_SURFACE_ROUTES = [
     { id: 'circle-line', type: 'movement', label: 'Circle Line', stationIds: ['dashboard', 'perci-map', 'perci-now', 'perci-desk', 'workspace', 'chat', 'ensemble', 'cowork', 'code', 'shipyard', 'git-shells', 'lighthouse', 'mission', 'agents', 'office', 'dashboard'] },
-    { id: 'workspace-context', type: 'context', label: 'Workspace Context', stationIds: ['notes', 'bars', 'eidos', 'workspace', 'perci-desk', 'mission', 'cowork', 'code', 'git-shells'] },
-    { id: 'agent-rail', type: 'automation', label: 'Agent Rail', stationIds: ['office', 'mission', 'perci-now', 'agents', 'openclaw', 'hermes', 'skills', 'shipyard'] },
+    { id: 'workspace-context', type: 'context', label: 'Workspace Context', stationIds: ['notes', 'bars', 'eidos', 'workspace', 'perci-desk', 'docket', 'mission', 'cowork', 'code', 'git-shells'] },
+    { id: 'agent-rail', type: 'automation', label: 'Agent Rail', stationIds: ['office', 'mission', 'perci-now', 'agents', 'docket', 'openclaw', 'hermes', 'skills', 'shipyard'] },
     { id: 'build-main', type: 'creation', label: 'Build Main', stationIds: ['chat', 'ensemble', 'compare', 'cowork', 'code', 'build', 'artifacts', 'localhost'] },
     { id: 'research-loop', type: 'research', label: 'Research Loop', stationIds: ['chat', 'research', 'research-results', 'notes', 'workspace'] },
     { id: 'local-runtime', type: 'runtime', label: 'Runtime Connector', stationIds: ['markitdown', 'localhost', 'git-shells', 'lighthouse', 'openclaw', 'studioos', 'open-notebook', 'klipit', 'pxpipe', 'keysafe', 'apfel', 'docker', 'db-inspector', 'github-overview'] },
