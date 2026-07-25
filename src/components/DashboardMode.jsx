@@ -1,4 +1,3 @@
-/* global __APP_VERSION__ */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {

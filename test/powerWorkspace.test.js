@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readJsonStorage, readStringStorage, writeStringStorage } from '../src/lib/persistentStore.js';
 import {
     POWER_WORKSPACE_CHAT_HANDOFF_KEY,
     POWER_WORKSPACE_COWORK_HANDOFF_KEY,
@@ -19,33 +20,33 @@ import {
     setWorkspaceLink,
 } from '../src/lib/powerWorkspace.js';
 
-function memoryStorage(values = {}) {
-    const data = new Map(Object.entries(values));
-    return {
-        getItem: (key) => data.has(key) ? data.get(key) : null,
-        setItem: (key, value) => data.set(key, value),
-        removeItem: (key) => data.delete(key),
-    };
+// powerWorkspace reads and writes through persistentStore rather than taking an
+// injected storage object, so cases seed the store directly. test/setup.js
+// resets the store before each case.
+function seedStorage(values = {}) {
+    for (const [key, value] of Object.entries(values)) {
+        writeStringStorage(key, value);
+    }
 }
 
 describe('powerWorkspace', () => {
     it('normalizes a workspace from the current working directory fallback', () => {
-        const storage = memoryStorage({ working_directory: '/Users/toshonjennings/opal' });
-        const snapshot = readPowerWorkspaceSnapshot(storage);
+        seedStorage({ working_directory: '/Users/toshonjennings/opal' });
+        const snapshot = readPowerWorkspaceSnapshot();
 
         expect(snapshot.workspace.name).toBe('opal');
         expect(snapshot.workspace.folderPath).toBe('/Users/toshonjennings/opal');
     });
 
     it('prefers the active Git Shells project over a bare working directory', () => {
-        const storage = memoryStorage({
+        seedStorage({
             working_directory: '/tmp/other',
             supaterm_active_project_id: 'perci',
             gitshells_projects: JSON.stringify([
                 { id: 'perci', name: 'Perci', path: '/Users/toshonjennings/opal', terminals: [{ id: 't1' }] },
             ]),
         });
-        const snapshot = readPowerWorkspaceSnapshot(storage);
+        const snapshot = readPowerWorkspaceSnapshot();
 
         expect(snapshot.workspace.name).toBe('Perci');
         expect(snapshot.gitShells.terminalCount).toBe(1);
@@ -66,7 +67,7 @@ describe('powerWorkspace', () => {
     });
 
     it('prioritizes explicit validation state and scopes memory records', () => {
-        const storage = memoryStorage({
+        seedStorage({
             perci_power_workspace: JSON.stringify({
                 name: 'Perci',
                 folderPath: '/Users/toshonjennings/opal',
@@ -91,7 +92,7 @@ describe('powerWorkspace', () => {
                 { id: 'memory-2', scope: '/tmp/other', text: 'Other lesson.' },
             ]),
         });
-        const snapshot = readPowerWorkspaceSnapshot(storage);
+        const snapshot = readPowerWorkspaceSnapshot();
         const action = chooseNextWorkspaceAction({
             workspace: snapshot.workspace,
             missionRuns: snapshot.missionRuns,
@@ -118,18 +119,18 @@ describe('powerWorkspace', () => {
     });
 
     it('stores explicit workspace idea links on the workspace record', () => {
-        const storage = memoryStorage({
+        seedStorage({
             perci_power_workspace: JSON.stringify({ name: 'Perci', goal: 'Improve power users' }),
         });
-        const linked = setWorkspaceLink(readPowerWorkspaceSnapshot(storage).workspace, 'linkedIdeaIds', 'idea-1', true, storage);
-        const unlinked = setWorkspaceLink(linked, 'linkedIdeaIds', 'idea-1', false, storage);
+        const linked = setWorkspaceLink(readPowerWorkspaceSnapshot().workspace, 'linkedIdeaIds', 'idea-1', true);
+        const unlinked = setWorkspaceLink(linked, 'linkedIdeaIds', 'idea-1', false);
 
         expect(linked.linkedIdeaIds).toEqual(['idea-1']);
         expect(unlinked.linkedIdeaIds).toEqual([]);
     });
 
     it('surfaces linked ideas before merely recent ideas', () => {
-        const storage = memoryStorage({
+        seedStorage({
             perci_power_workspace: JSON.stringify({
                 name: 'Perci',
                 goal: 'Improve power users',
@@ -140,7 +141,7 @@ describe('powerWorkspace', () => {
                 { id: 'older-linked', title: 'Linked', updatedAt: '2026-06-20T10:00:00Z' },
             ]),
         });
-        const snapshot = readPowerWorkspaceSnapshot(storage);
+        const snapshot = readPowerWorkspaceSnapshot();
 
         expect(snapshot.ideas[0].id).toBe('older-linked');
         expect(snapshot.ideas[0].linked).toBe(true);
@@ -170,30 +171,28 @@ describe('powerWorkspace', () => {
     });
 
     it('prepares and consumes a direct surface handoff once', () => {
-        const storage = memoryStorage();
-        const prepared = prepareWorkspaceSurfaceHandoff('notes', '[[Power User Brief]]', storage);
-        const consumed = consumeWorkspaceSurfaceHandoff('notes', storage);
+        const prepared = prepareWorkspaceSurfaceHandoff('notes', '[[Power User Brief]]');
+        const consumed = consumeWorkspaceSurfaceHandoff('notes');
 
         expect(prepared.itemRef).toBe('[[Power User Brief]]');
         expect(consumed.itemRef).toBe('[[Power User Brief]]');
-        expect(storage.getItem(POWER_WORKSPACE_SURFACE_HANDOFF_KEY)).toBeNull();
-        expect(consumeWorkspaceSurfaceHandoff('notes', storage)).toBeNull();
+        expect(readJsonStorage(POWER_WORKSPACE_SURFACE_HANDOFF_KEY, null)).toBeNull();
+        expect(consumeWorkspaceSurfaceHandoff('notes')).toBeNull();
     });
 
     it('prepares Cowork with the workspace prompt and folder context', () => {
-        const storage = memoryStorage();
         const handoff = prepareWorkspaceCoworkHandoff({
             name: 'Perci',
             folderPath: '/Users/toshonjennings/opal',
             goal: 'Improve Perci for power users',
             linkedNoteRefs: ['Power User Brief.md'],
-        }, storage);
+        });
 
-        expect(storage.getItem('working_directory')).toBe('/Users/toshonjennings/opal');
+        expect(readStringStorage('working_directory')).toBe('/Users/toshonjennings/opal');
         expect(handoff.prompt).toContain('Improve Perci for power users');
         expect(handoff.prompt).toContain('Power User Brief.md');
         expect(handoff.sessionTitle).toBe('Perci workspace');
-        expect(JSON.parse(storage.getItem(POWER_WORKSPACE_COWORK_HANDOFF_KEY)).folderPath).toBe('/Users/toshonjennings/opal');
+        expect(readJsonStorage(POWER_WORKSPACE_COWORK_HANDOFF_KEY, null).folderPath).toBe('/Users/toshonjennings/opal');
     });
 
     it('summarizes workspace-scoped Cowork activity', () => {
@@ -218,7 +217,6 @@ describe('powerWorkspace', () => {
     });
 
     it('scopes Chat conversations and prepares a non-sending workspace prompt', () => {
-        const storage = memoryStorage();
         const workspace = normalizePowerWorkspace({
             name: 'Perci',
             folderPath: '/Users/toshonjennings/opal',
@@ -229,20 +227,19 @@ describe('powerWorkspace', () => {
             { id: 'older', title: 'Perci decisions', workspaceId: workspace.id, messages: [{ role: 'user' }], updatedAt: 1 },
             { id: 'newer', title: 'Perci validation', workingDirectory: workspace.folderPath, messages: [], updatedAt: 2 },
         ]);
-        const handoff = prepareWorkspaceChatHandoff(workspace, 'newer', storage);
+        const handoff = prepareWorkspaceChatHandoff(workspace, 'newer');
 
         expect(chats.map(chat => chat.id)).toEqual(['newer', 'older']);
         expect(handoff.prompt).toContain('Improve power-user continuity');
-        expect(JSON.parse(storage.getItem(POWER_WORKSPACE_CHAT_HANDOFF_KEY)).chatId).toBe('newer');
+        expect(readJsonStorage(POWER_WORKSPACE_CHAT_HANDOFF_KEY, null).chatId).toBe('newer');
     });
 
     it('prepares Cowork with selected BARS context for planning', () => {
-        const storage = memoryStorage();
         const handoff = prepareWorkspaceCoworkHandoff({
             name: 'Perci',
             folderPath: '/Users/toshonjennings/opal',
             goal: 'Improve Perci for power users',
-        }, storage, {
+        }, {
             type: 'bars',
             title: 'Power user workspace',
             status: 'Exploring',
@@ -257,7 +254,7 @@ describe('powerWorkspace', () => {
         const noteHandoff = prepareWorkspaceCoworkHandoff({
             name: 'Perci',
             goal: 'Improve Perci for power users',
-        }, storage, {
+        }, {
             type: 'notes',
             ref: '[[Power User Brief]]',
         });
@@ -265,7 +262,7 @@ describe('powerWorkspace', () => {
     });
 
     it('prepares Git Shells by selecting a matching project and terminal', () => {
-        const storage = memoryStorage({
+        seedStorage({
             gitshells_projects: JSON.stringify([
                 { id: 'perci', name: 'Perci', path: '/Users/toshonjennings/opal', terminals: [{ id: 'term-1' }] },
             ]),
@@ -274,12 +271,12 @@ describe('powerWorkspace', () => {
             name: 'Perci',
             folderPath: '/Users/toshonjennings/opal',
             goal: 'Improve Perci for power users',
-        }, storage);
+        });
 
-        expect(storage.getItem('working_directory')).toBe('/Users/toshonjennings/opal');
-        expect(storage.getItem('supaterm_active_project_id')).toBe('perci');
-        expect(storage.getItem('supaterm_active_terminal_id')).toBe('term-1');
-        expect(JSON.parse(storage.getItem(POWER_WORKSPACE_PROJECT_HANDOFF_KEY)).matchedProjectId).toBe('perci');
+        expect(readStringStorage('working_directory')).toBe('/Users/toshonjennings/opal');
+        expect(readStringStorage('supaterm_active_project_id')).toBe('perci');
+        expect(readStringStorage('supaterm_active_terminal_id')).toBe('term-1');
+        expect(readJsonStorage(POWER_WORKSPACE_PROJECT_HANDOFF_KEY, null).matchedProjectId).toBe('perci');
         expect(handoff.matchedTerminalId).toBe('term-1');
     });
 });

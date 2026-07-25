@@ -29,5 +29,13 @@
     "registryName": "config-map",
     "installCommand": "npm install -g perci-config-map",
     "description": "A beautiful terminal map of your configuration files."
+  },
+  {
+    "name": "lighthouse",
+    "registry": "npm",
+    "githubRepo": "toshon-jennings/lighthouse",
+    "registryName": "@toshon-jennings/lighthouse",
+    "installCommand": "npm install -g @toshon-jennings/lighthouse",
+    "description": "Local developer port awareness."
   }
 ]

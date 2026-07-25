@@ -30,7 +30,12 @@ describe('perciNow', () => {
         expect(snapshot.counts.attentionMissions).toBe(1);
         expect(snapshot.counts.activeAgentJobs).toBe(1);
         expect(snapshot.visibleWindows.map(windowState => windowState.title)).toEqual(['Perci Map']);
-        expect(snapshot.districtActivity).toEqual([{ id: 'core-concourse', label: 'Core Concourse', count: 1 }]);
+        // District activity counts every open window, minimized included, so the
+        // docked Mission window still shows up under Operations Terminal.
+        expect(snapshot.districtActivity).toEqual([
+            { id: 'core-concourse', label: 'Core Concourse', count: 1 },
+            { id: 'operations-terminal', label: 'Operations Terminal', count: 1 },
+        ]);
         expect(snapshot.openClaw.summary).toBe('1 agent, 2 active tasks');
     });
 });

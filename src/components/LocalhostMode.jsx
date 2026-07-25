@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
-import { ArrowLeft, ArrowRight, ArrowUp, ArrowDown, ExternalLink, Globe, Home, RefreshCw, Settings, Plus, X, PanelRight, Radar, Play, ChevronDown, ChevronUp, Bookmark, Star, Search, History, Trash2, Pin, Server } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowUp, ArrowDown, ExternalLink, Globe, Home, RefreshCw, Settings, Plus, X, PanelRight, Radar, Play, ChevronDown, ChevronUp, Bookmark, Star, Search, History, Trash2, Pin, Server, Sparkles } from 'lucide-react';
 import { readStringStorage, writeStringStorage, removeStorageKey } from '../lib/persistentStore';
 import { useTheme } from '../context/ThemeContext';
 import { useMode, MODES } from '../context/ModeContext';
+import KlipitAskRail from './KlipitAskRail';
 import klipitLogo from '../assets/klipit-logo.png';
 import localhostBg from '../assets/localhost-bg.jpeg';
 import lhLogo from '../assets/lh-logo.png';
@@ -59,7 +60,35 @@ const getStorageKeys = (isKlipit) => ({
     HISTORY: isKlipit ? 'perci_klipit_history' : 'perci_localhost_history',
     SEARCH_ENGINE: isKlipit ? 'perci_klipit_search' : 'perci_localhost_search',
     PINNED_TABS: isKlipit ? 'perci_klipit_pinned_tabs' : 'perci_localhost_pinned_tabs',
+    ASK_THREAD: isKlipit ? 'perci_klipit_ask_thread' : 'perci_localhost_ask_thread',
 });
+
+const MAX_ASK_TURNS = 40;
+
+// The Ask thread is one notebook per window, not per tab: tab ids are
+// regenerated on every load, so a per-tab key could never survive a reload,
+// and two rails writing the same key would overwrite each other.
+function readAskThread(key) {
+    try {
+        const parsed = JSON.parse(readStringStorage(key, '[]'));
+        if (!Array.isArray(parsed)) return [];
+        return parsed
+            .filter((turn) => turn && typeof turn.question === 'string' && turn.question.trim())
+            .map((turn) => ({
+                id: typeof turn.id === 'string' ? turn.id : createTabId(),
+                question: turn.question,
+                answer: typeof turn.answer === 'string' ? turn.answer : '',
+                pageUrl: typeof turn.pageUrl === 'string' ? turn.pageUrl : '',
+                pageTitle: typeof turn.pageTitle === 'string' ? turn.pageTitle : '',
+                kept: turn.kept === true,
+                error: null,     // transient — a failed turn shouldn't come back
+                keepError: null,
+            }))
+            .slice(-MAX_ASK_TURNS);
+    } catch {
+        return [];
+    }
+}
 
 function createTabId() {
     return `tab-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -130,7 +159,7 @@ function isBlockedInsecureUrl(url, allowHttp) {
 }
 
 
-function LocalhostTab({ id, initialUrl, hidden, onTitleChange, onUrlChange, isKlipit, isDarkMode, onNewTab }) {
+function LocalhostTab({ id, initialUrl, hidden, onTitleChange, onUrlChange, isKlipit, isDarkMode, onNewTab, askTurns, setAskTurns }) {
     const keys = useMemo(() => getStorageKeys(isKlipit), [isKlipit]);
     const initialAllowHttp = readStringStorage(keys.ALLOW_HTTP, 'false') === 'true';
     const blockedInitialUrl = isBlockedInsecureUrl(initialUrl, initialAllowHttp);
@@ -163,6 +192,7 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, onUrlChange, isKl
     const [klipitError, setKlipitError] = useState(null);
     const [sidebarWidth, setSidebarWidth] = useState(320); // default 320px
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [sidebarTab, setSidebarTab] = useState('clip'); // 'clip' = Klipit extension, 'ask' = page assistant
     const isDragging = useRef(false);
     const webviewRef = useRef(null);
     const klipitWebviewRef = useRef(null);
@@ -192,7 +222,7 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, onUrlChange, isKl
                     } else {
                         document.documentElement.classList.remove('theme-dark');
                     }
-                `).catch(err => {
+                `).catch(() => {
                     // Ignore errors if context is destroyed or not ready
                 });
             } catch (err) {
@@ -572,9 +602,26 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, onUrlChange, isKl
                 {isKlipit && (
                     <button
                         type="button"
+                        onClick={() => {
+                            if (isSidebarOpen && sidebarTab === 'ask') {
+                                setIsSidebarOpen(false);
+                            } else {
+                                setSidebarTab('ask');
+                                setIsSidebarOpen(true);
+                            }
+                        }}
+                        className={`micro-interaction rounded-md p-1.5 transition-colors ${isSidebarOpen && sidebarTab === 'ask' ? 'text-[#8f4f1e] bg-[#8f4f1e]/10 dark:text-[#d08b4e] dark:bg-[#d08b4e]/10' : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'}`}
+                        title="Ask about this page"
+                    >
+                        <Sparkles size={14} />
+                    </button>
+                )}
+                {isKlipit && (
+                    <button
+                        type="button"
                         onClick={() => setIsSidebarOpen(o => !o)}
                         className={`micro-interaction rounded-md p-1.5 transition-colors ${isSidebarOpen ? 'text-[var(--accent)] bg-[var(--accent)]/10' : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'}`}
-                        title={isSidebarOpen ? "Hide Klipit" : "Show Klipit"}
+                        title={isSidebarOpen ? "Hide sidebar" : "Show sidebar"}
                     >
                         <PanelRight size={14} />
                     </button>
@@ -900,28 +947,61 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, onUrlChange, isKl
                             }}
                             onMouseDown={handleMouseDown}
                         />
-                        <div 
+                        <div
                             style={{ width: sidebarWidth }}
                             className="flex-shrink-0 border-l border-[var(--border)] flex flex-col z-10 overflow-hidden shadow-[-4px_0_15px_rgba(0,0,0,0.1)] bg-[var(--bg-secondary)] relative"
                         >
-                            {klipitError ? (
-                                <div className="p-6 text-red-500 font-medium text-sm flex flex-col gap-2">
-                                    <strong>Klipit Load Error:</strong>
-                                    <span>{klipitError}</span>
-                                </div>
-                            ) : !klipitId ? (
-                                <div className="p-6 text-[var(--text-tertiary)] font-medium text-sm">
-                                    Loading Klipit Extension...
-                                </div>
-                            ) : (
-                                <webview
-                                    id={`klipit-webview-${id}`}
-                                    ref={klipitWebviewRef}
-                                    src={`chrome-extension://${klipitId}/src/sidepanel.html`}
-                                    className="w-full h-full border-0 bg-white"
-                                    partition="persist:perci-localhost"
+                            <div className="flex h-8 shrink-0 items-center gap-0.5 border-b border-[#dac39c] bg-[#f1e4cf] px-1 dark:border-[#3a3327] dark:bg-[#141009]">
+                                {[
+                                    { key: 'clip', label: 'Clip' },
+                                    { key: 'ask', label: 'Ask' },
+                                ].map(({ key, label }) => (
+                                    <button
+                                        key={key}
+                                        type="button"
+                                        onClick={() => setSidebarTab(key)}
+                                        className={`rounded-[2px] px-2 py-1 font-mono text-[9.5px] font-semibold uppercase tracking-[0.13em] transition-colors ${
+                                            sidebarTab === key
+                                                ? 'bg-[#fff8e9] text-[#a8632c] dark:bg-[#211c14] dark:text-[#d08b4e]'
+                                                : 'text-[#695442] hover:text-[#251d17] dark:text-[#b3a994] dark:hover:text-[#f0e9da]'
+                                        }`}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Both panes stay mounted — unmounting the extension webview reloads it. */}
+                            <div className={`min-h-0 flex-1 ${sidebarTab === 'clip' ? 'flex flex-col' : 'hidden'}`}>
+                                {klipitError ? (
+                                    <div className="p-6 text-red-500 font-medium text-sm flex flex-col gap-2">
+                                        <strong>Klipit Load Error:</strong>
+                                        <span>{klipitError}</span>
+                                    </div>
+                                ) : !klipitId ? (
+                                    <div className="p-6 text-[var(--text-tertiary)] font-medium text-sm">
+                                        Loading Klipit Extension...
+                                    </div>
+                                ) : (
+                                    <webview
+                                        id={`klipit-webview-${id}`}
+                                        ref={klipitWebviewRef}
+                                        src={`chrome-extension://${klipitId}/src/sidepanel.html`}
+                                        className="w-full h-full border-0 bg-white"
+                                        partition="persist:perci-localhost"
+                                    />
+                                )}
+                            </div>
+                            <div className={`min-h-0 flex-1 ${sidebarTab === 'ask' ? 'flex flex-col' : 'hidden'}`}>
+                                <KlipitAskRail
+                                    webviewRef={webviewRef}
+                                    klipitWebviewRef={klipitWebviewRef}
+                                    pageUrl={url}
+                                    pageTitle={title}
+                                    turns={askTurns}
+                                    setTurns={setAskTurns}
                                 />
-                            )}
+                            </div>
                         </div>
                     </>
                 )}
@@ -990,6 +1070,12 @@ export default function LocalhostMode({ isKlipit }) {
             .slice(0, MAX_PINNED_TABS);
         writeStringStorage(storageKeys.PINNED_TABS, JSON.stringify(pinnedTabs));
     }, [tabs, storageKeys.PINNED_TABS]);
+
+    const [askTurns, setAskTurns] = useState(() => readAskThread(storageKeys.ASK_THREAD));
+
+    useEffect(() => {
+        writeStringStorage(storageKeys.ASK_THREAD, JSON.stringify(askTurns.slice(-MAX_ASK_TURNS)));
+    }, [askTurns, storageKeys.ASK_THREAD]);
 
     const handleTitleChange = useCallback((id, title) => {
         setTabs(currentTabs => currentTabs.map(t => t.id === id ? { ...t, title } : t));
@@ -1062,7 +1148,7 @@ export default function LocalhostMode({ isKlipit }) {
                     </div>
                     <h2 className="text-lg font-semibold text-[var(--text-primary)]">Localhost requires the desktop app</h2>
                     <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                        Embedding local dev servers needs Electron's webview. Open Perci from the desktop app to use this.
+                        Embedding local dev servers needs Electron&rsquo;s webview. Open Perci from the desktop app to use this.
                     </p>
                 </div>
             </div>
@@ -1300,6 +1386,8 @@ export default function LocalhostMode({ isKlipit }) {
                             isKlipit={isKlipit}
                             isDarkMode={isDarkMode}
                             onNewTab={handleNewTab}
+                            askTurns={askTurns}
+                            setAskTurns={setAskTurns}
                         />
                     ))
                 )}

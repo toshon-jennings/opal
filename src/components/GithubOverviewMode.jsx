@@ -16,10 +16,11 @@ export default function GithubOverviewMode() {
         setStatus('loading');
         setContentReady(false);
         setLoadError(null);
-        fetch(GH_ORIGIN, { cache: 'no-store' })
+        if (canUseWebview) return () => { active = false; };
+        fetch(GH_ORIGIN, { cache: 'no-store', mode: 'no-cors' })
             .then(res => {
                 if (!active) return;
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                if (res.type !== 'opaque' && !res.ok) throw new Error(`HTTP ${res.status}`);
                 setStatus('online');
             })
             .catch(err => {
@@ -28,7 +29,7 @@ export default function GithubOverviewMode() {
                 setStatus('offline');
             });
         return () => { active = false; };
-    }, [frameKey]);
+    }, [canUseWebview, frameKey]);
 
     useEffect(() => {
         if (!canUseWebview) return undefined;

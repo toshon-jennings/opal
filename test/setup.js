@@ -2,6 +2,7 @@
 // localStorage) can run under the Node-based Vitest environment without
 // pulling in a full DOM implementation.
 import { beforeEach, vi } from 'vitest';
+import { resetPersistenceCache } from '../src/lib/persistentStore.js';
 
 class MemoryStorage {
     constructor() {
@@ -26,8 +27,10 @@ class MemoryStorage {
 globalThis.localStorage = new MemoryStorage();
 
 // Each test starts from a clean storage slate so memory/budget/diff state
-// never leaks between cases.
+// never leaks between cases. persistentStore reads go through its own
+// in-memory cache, so that has to be reset too — not just localStorage.
 beforeEach(() => {
     globalThis.localStorage.clear();
+    resetPersistenceCache();
     vi.restoreAllMocks();
 });

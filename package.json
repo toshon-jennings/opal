@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite --no-open",
     "build": "vite build",
-    "lint": "eslint .",
+    "lint": "eslint . --ext .js,.jsx,.cjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "story": "node scripts/perci-chronicle.mjs",

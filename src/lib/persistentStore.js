@@ -140,6 +140,15 @@ function writeToCache(key, value) {
     }
 }
 
+/**
+ * Drop every cached value. Reads fall back to their defaults again until the
+ * cache is repopulated. Used by the test setup so cases stay isolated —
+ * clearing localStorage alone does not reach this cache.
+ */
+export function resetPersistenceCache() {
+    memoryStore = {};
+}
+
 // ── Electron detection ────────────────────────────────────────────────────
 
 export function hasElectronStore() {

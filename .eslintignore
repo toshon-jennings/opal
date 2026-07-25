@@ -3,4 +3,6 @@ dist_electron/
 node_modules/
 coverage/
 public/gdash/
+public/vendor/
+timesfm-venv/
 index-*.js

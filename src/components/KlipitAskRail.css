@@ -1,0 +1,404 @@
+/* Klipit Ask rail — "marginalia".
+   Questions and answers are written down the margin of the page you're reading,
+   bound to one continuous rule, the way notes sit beside a commonplace book
+   entry. No bubbles: this is annotation, not chat. Palette inherits the Klipit
+   paper surface already used in LocalhostMode.jsx. */
+
+.klipit-ask {
+    --ka-paper: #f1e4cf;
+    --ka-leaf: #fff8e9;
+    --ka-rule: #dac39c;
+    --ka-rule-soft: #e5d7bd;
+    --ka-ink: #251d17;
+    --ka-ink-soft: #695442;
+    --ka-mark: #8f4f1e; /* 5.06:1 on paper — the mark doubles as link colour */
+    --ka-slip: #2f6b6b;
+
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    background: var(--ka-paper);
+    color: var(--ka-ink);
+    font-family: 'DM Sans', system-ui, sans-serif;
+}
+
+:root.dark .klipit-ask {
+    --ka-paper: #141009;
+    --ka-leaf: #211c14;
+    --ka-rule: #3a3327;
+    --ka-rule-soft: #2b2519;
+    --ka-ink: #f0e9da;
+    --ka-ink-soft: #b3a994;
+    --ka-mark: #d08b4e;
+    --ka-slip: #6fb0ad;
+}
+
+/* --- context slip -------------------------------------------------------- */
+/* A librarian's slip: what text is actually attached to the next question. */
+
+.ka-slip {
+    flex-shrink: 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.6rem 0.75rem 0.6rem 0.65rem;
+    border-bottom: 1px solid var(--ka-rule);
+    border-left: 2px solid var(--ka-slip);
+    background: var(--ka-leaf);
+}
+
+.ka-slip-body {
+    min-width: 0;
+    flex: 1;
+}
+
+.ka-slip-label {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--ka-slip);
+}
+
+.ka-slip-preview {
+    margin-top: 0.2rem;
+    font-size: 11.5px;
+    font-style: italic;
+    line-height: 1.4;
+    color: var(--ka-ink-soft);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.ka-slip-refresh {
+    flex-shrink: 0;
+    margin-top: -0.1rem;
+    padding: 0.2rem;
+    border-radius: 2px;
+    color: var(--ka-ink-soft);
+    transition: color 120ms ease, background-color 120ms ease;
+}
+
+.ka-slip-refresh:hover {
+    color: var(--ka-ink);
+    background: var(--ka-rule-soft);
+}
+
+/* --- thread -------------------------------------------------------------- */
+
+.ka-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0.9rem 0.85rem 0.5rem;
+}
+
+.ka-thread {
+    position: relative;
+    padding-left: 1.05rem;
+}
+
+/* the continuous margin rule every turn hangs from */
+.ka-thread::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.35rem;
+    bottom: 0.35rem;
+    width: 1px;
+    background: var(--ka-rule);
+}
+
+.ka-heading {
+    margin: 1.1rem 0 0.7rem -1.05rem;
+    padding-left: 1.05rem;
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ka-ink-soft);
+    background: var(--ka-paper);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ka-heading:first-child {
+    margin-top: 0;
+}
+
+.ka-turn {
+    position: relative;
+    padding-bottom: 1.35rem;
+    animation: ka-rise 220ms ease-out both;
+}
+
+/* the mark sits on the rule and breaks it — the signature of the panel */
+.ka-q {
+    position: relative;
+    font-family: 'Fraunces', ui-serif, Georgia, serif;
+    font-style: italic;
+    font-size: 15px;
+    line-height: 1.45;
+    color: var(--ka-ink);
+}
+
+.ka-q::before {
+    content: '';
+    position: absolute;
+    left: -1.05rem;
+    top: 0.42em;
+    width: 5px;
+    height: 5px;
+    margin-left: -2px;
+    background: var(--ka-mark);
+    box-shadow: 0 0 0 3px var(--ka-paper);
+}
+
+.ka-a {
+    margin-top: 0.55rem;
+    font-size: 13.5px;
+    line-height: 1.62;
+    color: var(--ka-ink-soft);
+    overflow-wrap: anywhere;
+}
+
+.ka-a > :first-child { margin-top: 0; }
+.ka-a p { margin-top: 0.65em; }
+.ka-a strong { color: var(--ka-ink); font-weight: 600; }
+.ka-a ul, .ka-a ol { margin-top: 0.65em; padding-left: 1.05rem; }
+.ka-a ul { list-style: disc; }
+.ka-a ol { list-style: decimal; }
+.ka-a li { margin-top: 0.28em; }
+.ka-a h1, .ka-a h2, .ka-a h3 {
+    margin-top: 0.9em;
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--ka-ink);
+}
+.ka-a a { color: var(--ka-mark); text-decoration: underline; text-underline-offset: 2px; }
+.ka-a code {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 11.5px;
+    padding: 0.08em 0.3em;
+    border-radius: 2px;
+    background: var(--ka-leaf);
+    color: var(--ka-ink);
+}
+.ka-a pre {
+    margin-top: 0.65em;
+    padding: 0.6rem;
+    border: 1px solid var(--ka-rule);
+    border-radius: 2px;
+    background: var(--ka-leaf);
+    overflow-x: auto;
+}
+.ka-a pre code { padding: 0; background: none; }
+.ka-a blockquote {
+    margin-top: 0.65em;
+    padding-left: 0.6rem;
+    border-left: 2px solid var(--ka-rule);
+    font-style: italic;
+}
+.ka-a table { margin-top: 0.65em; width: 100%; border-collapse: collapse; font-size: 12px; }
+.ka-a th, .ka-a td { border: 1px solid var(--ka-rule); padding: 0.28rem 0.4rem; text-align: left; }
+.ka-a th { color: var(--ka-ink); font-weight: 600; }
+
+.ka-caret {
+    display: inline-block;
+    width: 1px;
+    height: 1em;
+    margin-left: 1px;
+    vertical-align: -0.15em;
+    background: var(--ka-mark);
+    animation: ka-blink 900ms steps(2, start) infinite;
+}
+
+/* Keep — the one place an exchange leaves the margin and enters the book. */
+
+.ka-actions {
+    margin-top: 0.6rem;
+}
+
+.ka-keep,
+.ka-kept {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.ka-keep {
+    padding-bottom: 1px;
+    color: var(--ka-ink-soft);
+    border-bottom: 1px solid var(--ka-rule);
+    transition: color 120ms ease, border-color 120ms ease;
+}
+
+.ka-keep:hover:not(:disabled) {
+    color: var(--ka-mark);
+    border-bottom-color: var(--ka-mark);
+}
+
+.ka-keep:disabled {
+    opacity: 0.5;
+    border-bottom-color: transparent;
+}
+
+.ka-kept {
+    color: var(--ka-slip);
+}
+
+.ka-error {
+    margin-top: 0.55rem;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: #a33726;
+}
+
+:root.dark .ka-error { color: #e08b76; }
+
+/* --- empty state --------------------------------------------------------- */
+
+.ka-empty {
+    padding: 1.6rem 0.4rem 0;
+    text-align: left;
+}
+
+.ka-empty-title {
+    font-family: 'Fraunces', ui-serif, Georgia, serif;
+    font-style: italic;
+    font-size: 16px;
+    line-height: 1.35;
+    color: var(--ka-ink);
+}
+
+.ka-empty-note {
+    margin-top: 0.45rem;
+    font-size: 12px;
+    line-height: 1.55;
+    color: var(--ka-ink-soft);
+    max-width: 30ch;
+}
+
+/* --- composer ------------------------------------------------------------ */
+
+.ka-foot {
+    flex-shrink: 0;
+    border-top: 1px solid var(--ka-rule);
+    padding: 0.6rem 0.75rem 0.65rem;
+    background: var(--ka-paper);
+}
+
+.ka-quick {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-bottom: 0.5rem;
+}
+
+.ka-chip {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 9.5px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.24rem 0.45rem;
+    border: 1px solid var(--ka-rule);
+    border-radius: 2px;
+    color: var(--ka-ink-soft);
+    background: transparent;
+    transition: color 120ms ease, background-color 120ms ease, border-color 120ms ease;
+}
+
+.ka-chip:hover:not(:disabled) {
+    color: var(--ka-ink);
+    border-color: var(--ka-mark);
+    background: var(--ka-leaf);
+}
+
+.ka-chip:disabled { opacity: 0.4; }
+
+.ka-input-wrap {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.4rem;
+    padding: 0.4rem 0.4rem 0.4rem 0.55rem;
+    border: 1px solid var(--ka-rule);
+    border-radius: 3px;
+    background: var(--ka-leaf);
+    transition: border-color 120ms ease;
+}
+
+.ka-input-wrap:focus-within { border-color: var(--ka-mark); }
+
+.ka-input {
+    flex: 1;
+    min-width: 0;
+    max-height: 5.4em;
+    resize: none;
+    border: 0;
+    background: transparent;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--ka-ink);
+    outline: none;
+}
+
+.ka-input::placeholder { color: var(--ka-ink-soft); opacity: 0.75; }
+
+.ka-send {
+    flex-shrink: 0;
+    padding: 0.3rem;
+    border-radius: 2px;
+    color: var(--ka-mark);
+    transition: background-color 120ms ease, opacity 120ms ease;
+}
+
+.ka-send:hover:not(:disabled) { background: var(--ka-rule-soft); }
+.ka-send:disabled { opacity: 0.3; }
+
+.ka-meta {
+    margin-top: 0.45rem;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 9px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ka-ink-soft);
+}
+
+.ka-meta-sep { opacity: 0.5; }
+
+.klipit-ask :focus-visible {
+    outline: 1px solid var(--ka-mark);
+    outline-offset: 2px;
+}
+
+@keyframes ka-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+
+@keyframes ka-rise {
+    from { opacity: 0; transform: translateY(2px); }
+    to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ka-turn { animation: none; }
+    .ka-caret { animation: none; opacity: 1; }
+}
