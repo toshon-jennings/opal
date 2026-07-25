@@ -141,7 +141,7 @@ export const SURFACE_MAP_DISTRICTS = [
         x: 700,
         y: 420,
         width: 560,
-        height: 360,
+        height: 420,
     },
     {
         id: 'business-office',
