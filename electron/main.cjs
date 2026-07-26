@@ -627,6 +627,9 @@ async function discoverModelProviders() {
 // Track the two conditions required before revealing the main window
 const splashGate = { mainReady: false, splashDone: false };
 
+// Upper bound on how long the splash may hold the main window back.
+const SPLASH_REVEAL_TIMEOUT_MS = 15000;
+
 function tryRevealMain() {
   if (!splashGate.mainReady || !splashGate.splashDone) return;
 
@@ -671,12 +674,26 @@ function createSplashWindow() {
     alwaysOnTop: true,
     backgroundColor: '#1c1c1c',
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'splash-preload.cjs'),
     },
   });
   splashWindow.loadFile(path.join(__dirname, 'splash.html'));
   splashWindow.on('closed', () => { splashWindow = null; });
+
+  // Failsafe. The main window is created hidden and is revealed only by
+  // tryRevealMain(), which will not fire until the splash reports in. If the
+  // splash renderer ever fails to send that signal the app hangs on the splash
+  // forever, with no way out but force-quit — so the gate times out instead of
+  // trusting the renderer. splash.html has its own 12s fallback; this sits
+  // past it so the normal path always wins.
+  setTimeout(() => {
+    if (splashGate.splashDone) return;
+    appendRendererLog('splash:done not received within timeout — revealing main window anyway');
+    splashGate.splashDone = true;
+    tryRevealMain();
+  }, SPLASH_REVEAL_TIMEOUT_MS);
 }
 
 function startTerminalServer() {

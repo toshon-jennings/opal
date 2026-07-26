@@ -24,13 +24,15 @@
     <source src="splash.mp4" type="video/mp4" />
   </video>
   <script>
-    const { ipcRenderer } = require('electron');
     const video = document.getElementById('v');
     let sent = false;
     function done() {
       if (sent) return;
       sent = true;
-      ipcRenderer.send('splash:done');
+      // Provided by splash-preload.cjs. Optional-chained on purpose: if the
+      // bridge is ever missing, the main process watchdog still reveals the
+      // window, so a broken preload cannot strand the app on the splash.
+      window.splashAPI?.done();
     }
     video.addEventListener('ended', done);
     video.addEventListener('error', done);
