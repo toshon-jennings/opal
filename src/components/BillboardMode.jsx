@@ -2,10 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     Plus, Edit3, Trash2, Copy, Eye, EyeOff, ExternalLink,
     Download, Upload, Lock, Unlock, Shield, ShieldOff, FileSpreadsheet, X, BookOpen,
-    ArrowRight, Globe2, Link2,
+    ArrowRight, Calculator, Globe2, Link2,
 } from 'lucide-react';
 import billboardLogo from '../assets/billboard-logo.svg';
 import './BillboardMode.css';
+import BillboardPricingPanel from './BillboardPricingPanel';
 import { readStringStorage, writeStringStorage, removeStorageKey } from '../lib/persistentStore';
 import {
     createProviderAccountFromLink,
@@ -179,6 +180,8 @@ export default function BillboardMode() {
     const [filterCat, setFilterCat]     = useState('all');
     const [filterStatus, setFilterStatus] = useState('all');
     const [quickLink, setQuickLink] = useState('');
+    const [pricingOpen, setPricingOpen] = useState(false);
+    const [pricingTarget, setPricingTarget] = useState(null);
 
     // Modal state
     const [editing, setEditing]    = useState(null);   // service object or null
@@ -243,6 +246,15 @@ export default function BillboardMode() {
         setEditing(concern);
         setFormData({ ...concern });
         setTagsInput(concern.tags.join(', '));
+    }, []);
+
+    const openPricing = useCallback((concern = null) => {
+        setPricingTarget(concern);
+        setPricingOpen(true);
+    }, []);
+
+    const closePricing = useCallback(() => {
+        setPricingOpen(false);
     }, []);
 
     const closeModal = useCallback(() => {
@@ -545,6 +557,9 @@ export default function BillboardMode() {
                     <button className="cn-btn" onClick={() => setShowGuideModal(true)} title="Show Guide Modal">
                         <BookOpen size={14} /> Guide
                     </button>
+                    <button className="cn-btn" onClick={() => openPricing()} title="Look up model pricing">
+                        <Calculator size={14} /> Pricing
+                    </button>
                     <button className="cn-btn cn-btn-accent" onClick={openAdd} title="Add service">
                         <Plus size={14} /> Add
                     </button>
@@ -641,6 +656,7 @@ export default function BillboardMode() {
                                 revealed={revealedKeys.has(concern.id)}
                                 onToggleReveal={() => toggleReveal(concern.id)}
                                 onCopyKey={() => copyKey(concern.apiKey)}
+                                onPrice={() => openPricing(concern)}
                                 onEdit={() => openEdit(concern)}
                                 onDelete={() => deleteConcern(concern.id)}
                                 onUpdateField={updateConcernField}
@@ -947,13 +963,20 @@ export default function BillboardMode() {
                     </div>
                 </div>
             )}
+
+            {pricingOpen && (
+                <BillboardPricingPanel
+                    account={pricingTarget}
+                    onClose={closePricing}
+                />
+            )}
         </div>
     );
 }
 
 // ── Service Card ──────────────────────────────────────────────────
 
-function ServiceCard({ concern, revealed, onToggleReveal, onCopyKey, onEdit, onDelete, onUpdateField }) {
+function ServiceCard({ concern, revealed, onToggleReveal, onCopyKey, onPrice, onEdit, onDelete, onUpdateField }) {
     const days = daysUntil(concern.nextBillingDate);
     const billingLabel = concern.billingCycle === 'annual'
         ? `${formatCost(concern.monthlyCost)}/yr`
@@ -1107,6 +1130,9 @@ function ServiceCard({ concern, revealed, onToggleReveal, onCopyKey, onEdit, onD
             </div>
 
             <div className="cn-card-actions">
+                <button className="cn-card-action" onClick={onPrice}>
+                    <Calculator size={12} /> Pricing
+                </button>
                 <button className="cn-card-action" onClick={onEdit}>
                     <Edit3 size={12} /> Edit
                 </button>
