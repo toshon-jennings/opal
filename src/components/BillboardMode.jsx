@@ -1,11 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Plus, Search, Edit3, Trash2, Copy, Eye, EyeOff, ExternalLink,
+    Plus, Edit3, Trash2, Copy, Eye, EyeOff, ExternalLink,
     Download, Upload, Lock, Unlock, Shield, ShieldOff, FileSpreadsheet, X, BookOpen,
+    ArrowRight, Globe2, Link2,
 } from 'lucide-react';
 import billboardLogo from '../assets/billboard-logo.svg';
 import './BillboardMode.css';
 import { readStringStorage, writeStringStorage, removeStorageKey } from '../lib/persistentStore';
+import {
+    createProviderAccountFromLink,
+    describeProviderLink,
+    normalizeProviderAccount,
+    providerAccountHasUrl,
+} from '../lib/billboardProviders';
 
 // ── localStorage keys ────────────────────────────────────────────
 const CONCERNS_KEY   = 'perci_concerns:v1';
@@ -20,6 +27,9 @@ const CATEGORIES = [
 
 const BILLING_CYCLES = ['monthly', 'annual', 'one-time', 'usage-based', 'free'];
 const STATUSES       = ['active', 'paused', 'cancelled'];
+const MAX_SERVICES   = 500;
+const MAX_MANAGEMENT_LINKS = 24;
+const MAX_IMPORT_BYTES = 1_000_000;
 const SORT_OPTIONS   = [
     { value: 'name-asc',     label: 'Name A→Z' },
     { value: 'name-desc',    label: 'Name Z→A' },
@@ -43,6 +53,7 @@ const STARTER = [{
     nextBillingDate: '',
     notes: 'Serverless GPU inference. Keep balance topped up.',
     tags: ['api', 'ai', 'image-gen'],
+    links: [],
     status: 'active',
     valueRating: 0,
     createdAt: new Date().toISOString().slice(0, 10),
@@ -79,22 +90,15 @@ async function encryptData(data, password) {
     });
 }
 
-async function decryptData(blob, password) {
-    const key     = await deriveKey(password);
-    const { iv, data } = JSON.parse(blob);
-    const pt = await crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv: new Uint8Array(iv) }, key, new Uint8Array(data),
-    );
-    return JSON.parse(new TextDecoder().decode(pt));
-}
-
 // ── Persistence helpers ──────────────────────────────────────────
 function loadConcerns() {
     try {
         const raw = readStringStorage(CONCERNS_KEY, "[]");
         if (!raw) return STARTER;
         const parsed = JSON.parse(raw);
-        return Array.isArray(parsed) && parsed.length > 0 ? parsed : STARTER;
+        return Array.isArray(parsed) && parsed.length > 0
+            ? parsed.slice(0, MAX_SERVICES).map(normalizeProviderAccount)
+            : STARTER;
     } catch { return STARTER; }
 }
 
@@ -148,8 +152,17 @@ function blankService() {
         name: '', category: CATEGORIES[0], url: '', purpose: '',
         apiKey: '', monthlyCost: 0, billingCycle: 'monthly',
         nextBillingDate: '', notes: '', tags: [], status: 'active',
+        links: [],
         valueRating: 0,
         createdAt: today, updatedAt: today,
+    };
+}
+
+function blankManagementLink() {
+    return {
+        id: crypto.randomUUID(),
+        label: '',
+        url: '',
     };
 }
 
@@ -160,11 +173,12 @@ function blankService() {
 export default function BillboardMode() {
     // ── State ────────────────────────────────────────────────────
     const [concerns, setConcerns] = useState(loadConcerns);
-    const [settings, setSettings] = useState(loadSettings);
+    const [, setSettings] = useState(loadSettings);
     const [search, setSearch]     = useState('');
     const [sort, setSort]         = useState(() => loadSettings().sort || 'name-asc');
     const [filterCat, setFilterCat]     = useState('all');
     const [filterStatus, setFilterStatus] = useState('all');
+    const [quickLink, setQuickLink] = useState('');
 
     // Modal state
     const [editing, setEditing]    = useState(null);   // service object or null
@@ -238,12 +252,23 @@ export default function BillboardMode() {
 
     const saveConcern = useCallback(() => {
         if (!formData || !formData.name.trim()) return;
-        const updated = {
+        if (formData.url.trim() && !describeProviderLink(formData.url)) {
+            showToast('Primary link must be a valid http or https URL');
+            return;
+        }
+        const invalidManagementLink = (formData.links || []).find(link =>
+            (link.label.trim() || link.url.trim()) && !describeProviderLink(link.url)
+        );
+        if (invalidManagementLink) {
+            showToast(`${invalidManagementLink.label.trim() || 'Management'} link is invalid`);
+            return;
+        }
+        const updated = normalizeProviderAccount({
             ...formData,
             name: formData.name.trim(),
             tags: parseTags(tagsInput),
             updatedAt: new Date().toISOString().slice(0, 10),
-        };
+        });
         setConcerns(prev => {
             const idx = prev.findIndex(c => c.id === updated.id);
             if (idx >= 0) {
@@ -251,11 +276,55 @@ export default function BillboardMode() {
                 next[idx] = updated;
                 return next;
             }
-            return [...prev, updated];
+            return [updated, ...prev].slice(0, MAX_SERVICES);
         });
         closeModal();
         showToast('Saved');
     }, [formData, tagsInput, closeModal, showToast]);
+
+    const addFromLink = useCallback((event) => {
+        event.preventDefault();
+        const account = createProviderAccountFromLink(quickLink);
+        if (!account) {
+            showToast('Enter a valid http or https link');
+            return;
+        }
+        if (providerAccountHasUrl(concerns, account.url)) {
+            showToast('That link is already tracked');
+            return;
+        }
+
+        setConcerns(prev => [account, ...prev].slice(0, MAX_SERVICES));
+        setQuickLink('');
+        showToast(`${account.name} added`);
+    }, [quickLink, concerns, showToast]);
+
+    const addManagementLink = useCallback(() => {
+        if ((formData?.links || []).length >= MAX_MANAGEMENT_LINKS) {
+            showToast(`Up to ${MAX_MANAGEMENT_LINKS} management links per provider`);
+            return;
+        }
+        setFormData(prev => prev
+            ? { ...prev, links: [...(prev.links || []), blankManagementLink()] }
+            : prev);
+    }, [formData, showToast]);
+
+    const updateManagementLink = useCallback((id, field, value) => {
+        setFormData(prev => prev
+            ? {
+                ...prev,
+                links: (prev.links || []).map(link =>
+                    link.id === id ? { ...link, [field]: value } : link
+                ),
+            }
+            : prev);
+    }, []);
+
+    const removeManagementLink = useCallback((id) => {
+        setFormData(prev => prev
+            ? { ...prev, links: (prev.links || []).filter(link => link.id !== id) }
+            : prev);
+    }, []);
 
     const updateConcernField = useCallback((id, field, value) => {
         setConcerns(prev => prev.map(c =>
@@ -326,10 +395,16 @@ export default function BillboardMode() {
     }, [concerns, showToast]);
 
     const exportCSV = useCallback(() => {
-        const headers = ['Name', 'Category', 'Status', 'Monthly Cost', 'Billing Cycle', 'Purpose', 'URL', 'Next Billing', 'Tags', 'Notes', 'Value Rating'];
+        const headers = ['Name', 'Category', 'Status', 'Monthly Cost', 'Billing Cycle', 'Purpose', 'URL', 'Management Links', 'Next Billing', 'Tags', 'Notes', 'Value Rating'];
         const rows = concerns.map(c => [
             c.name, c.category, c.status, c.monthlyCost, c.billingCycle,
-            c.purpose, c.url, c.nextBillingDate, c.tags.join('; '), c.notes, c.valueRating || 0,
+            c.purpose,
+            c.url,
+            (c.links || []).map(link => `${link.label}: ${link.url}`).join('; '),
+            c.nextBillingDate,
+            c.tags.join('; '),
+            c.notes,
+            c.valueRating || 0,
         ].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','));
         const csv = [headers.join(','), ...rows].join('\n');
         const blob = new Blob([csv], { type: 'text/csv' });
@@ -345,13 +420,19 @@ export default function BillboardMode() {
     const handleImport = useCallback((e) => {
         const file = e.target.files?.[0];
         if (!file) return;
+        if (file.size > MAX_IMPORT_BYTES) {
+            showToast('Import must be 1 MB or smaller');
+            e.target.value = '';
+            return;
+        }
         const reader = new FileReader();
         reader.onload = () => {
             try {
                 const data = JSON.parse(reader.result);
                 if (Array.isArray(data) && data.length > 0 && data[0].id && data[0].name) {
-                    setConcerns(data);
-                    showToast(`Imported ${data.length} services`);
+                    const imported = data.slice(0, MAX_SERVICES).map(normalizeProviderAccount);
+                    setConcerns(imported);
+                    showToast(`Imported ${imported.length} services`);
                 } else {
                     showToast('Invalid JSON format');
                 }
@@ -470,6 +551,33 @@ export default function BillboardMode() {
                 </div>
             </div>
 
+            <form className="cn-link-intake" onSubmit={addFromLink}>
+                <div className="cn-link-intake-icon" aria-hidden="true">
+                    <Link2 size={17} />
+                </div>
+                <div className="cn-link-intake-copy">
+                    <label className="cn-link-intake-label" htmlFor="billboard-provider-link">
+                        Add from link
+                    </label>
+                    <span className="cn-link-intake-hint">Name and favicon are filled automatically.</span>
+                </div>
+                <input
+                    id="billboard-provider-link"
+                    className="cn-link-intake-input"
+                    type="text"
+                    inputMode="url"
+                    autoComplete="url"
+                    value={quickLink}
+                    onChange={event => setQuickLink(event.target.value)}
+                    placeholder="Paste a provider usage or dashboard link"
+                    aria-label="Provider dashboard link"
+                    maxLength={2048}
+                />
+                <button className="cn-link-intake-submit" type="submit" disabled={!quickLink.trim()}>
+                    Track provider <ArrowRight size={14} />
+                </button>
+            </form>
+
             {/* Stats bar */}
             <div className="cn-stats">
                 <div className="cn-stat">
@@ -582,7 +690,7 @@ export default function BillboardMode() {
 
                         <div className="cn-form-group">
                             <label className="cn-form-label">Service name *</label>
-                            <input className="cn-form-input" value={formData.name} onChange={e => updateField('name', e.target.value)} placeholder="e.g. fal.ai" autoFocus />
+                            <input className="cn-form-input" value={formData.name} onChange={e => updateField('name', e.target.value)} placeholder="e.g. fal.ai" maxLength={120} autoFocus />
                         </div>
 
                         <div className="cn-form-row">
@@ -602,17 +710,67 @@ export default function BillboardMode() {
 
                         <div className="cn-form-group">
                             <label className="cn-form-label">Purpose</label>
-                            <input className="cn-form-input" value={formData.purpose} onChange={e => updateField('purpose', e.target.value)} placeholder="What do you use it for?" />
+                            <input className="cn-form-input" value={formData.purpose} onChange={e => updateField('purpose', e.target.value)} placeholder="What do you use it for?" maxLength={500} />
                         </div>
 
                         <div className="cn-form-group">
-                            <label className="cn-form-label">URL</label>
-                            <input className="cn-form-input" type="url" value={formData.url} onChange={e => updateField('url', e.target.value)} placeholder="https://…" />
+                            <label className="cn-form-label" htmlFor="billboard-primary-link">Primary dashboard or usage link</label>
+                            <input id="billboard-primary-link" className="cn-form-input" type="url" value={formData.url} onChange={e => updateField('url', e.target.value)} placeholder="https://…" maxLength={2048} />
+                        </div>
+
+                        <div className="cn-form-group">
+                            <div className="cn-management-form-header">
+                                <div>
+                                    <span className="cn-form-label">Management links</span>
+                                    <span className="cn-form-help">Usage, billing, API keys, docs, status, or any provider page.</span>
+                                </div>
+                                <button className="cn-management-add" type="button" onClick={addManagementLink}>
+                                    <Plus size={12} /> Add link
+                                </button>
+                            </div>
+                            {(formData.links || []).length > 0 ? (
+                                <div className="cn-management-form-list">
+                                    {formData.links.map(link => (
+                                        <div className="cn-management-form-row" key={link.id}>
+                                            <input
+                                                className="cn-form-input cn-management-label-input"
+                                                value={link.label}
+                                                onChange={event => updateManagementLink(link.id, 'label', event.target.value)}
+                                                placeholder="Usage"
+                                                aria-label="Management link label"
+                                                maxLength={60}
+                                            />
+                                            <input
+                                                className="cn-form-input"
+                                                type="url"
+                                                value={link.url}
+                                                onChange={event => updateManagementLink(link.id, 'url', event.target.value)}
+                                                placeholder="https://…"
+                                                aria-label={`${link.label || 'Management'} link URL`}
+                                                maxLength={2048}
+                                            />
+                                            <button
+                                                className="cn-management-remove"
+                                                type="button"
+                                                onClick={() => removeManagementLink(link.id)}
+                                                aria-label={`Remove ${link.label || 'management'} link`}
+                                                title="Remove link"
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <button className="cn-management-empty" type="button" onClick={addManagementLink}>
+                                    Add a shortcut to usage, billing, keys, or documentation
+                                </button>
+                            )}
                         </div>
 
                         <div className="cn-form-group">
                             <label className="cn-form-label">API Key</label>
-                            <input className="cn-form-input" value={formData.apiKey} onChange={e => updateField('apiKey', e.target.value)} placeholder="Paste key here (stored locally)" style={{ fontFamily: "'SF Mono', 'Fira Code', monospace" }} />
+                            <input className="cn-form-input" value={formData.apiKey} onChange={e => updateField('apiKey', e.target.value)} placeholder="Paste key here (stored locally)" maxLength={8192} style={{ fontFamily: "'SF Mono', 'Fira Code', monospace" }} />
                         </div>
 
                         <div className="cn-form-row">
@@ -668,12 +826,12 @@ export default function BillboardMode() {
 
                         <div className="cn-form-group">
                             <label className="cn-form-label">Tags (comma-separated)</label>
-                            <input className="cn-form-input" value={tagsInput} onChange={e => setTagsInput(e.target.value)} placeholder="api, ai, image-gen" />
+                            <input className="cn-form-input" value={tagsInput} onChange={e => setTagsInput(e.target.value)} placeholder="api, ai, image-gen" maxLength={3000} />
                         </div>
 
                         <div className="cn-form-group">
                             <label className="cn-form-label">Notes</label>
-                            <textarea className="cn-form-input" value={formData.notes} onChange={e => updateField('notes', e.target.value)} placeholder="Anything else to remember…" rows={3} />
+                            <textarea className="cn-form-input" value={formData.notes} onChange={e => updateField('notes', e.target.value)} placeholder="Anything else to remember…" rows={3} maxLength={10000} />
                         </div>
 
                         <div className="cn-dialog-footer">
@@ -698,7 +856,7 @@ export default function BillboardMode() {
                             <>
                                 <p className="cn-encryption-info">
                                     Set a master password to encrypt your API keys in localStorage using AES-256-GCM.
-                                    You'll need this password if you ever clear your browser data and re-import.
+                                    You will need this password if you ever clear your browser data and re-import.
                                 </p>
                                 <div className="cn-form-group">
                                     <label className="cn-form-label">Password</label>
@@ -768,8 +926,8 @@ export default function BillboardMode() {
                             <div className="cn-guide-step">
                                 <span className="cn-guide-step-num">2</span>
                                 <div className="cn-guide-step-content">
-                                    <strong>AI Agent-Aware Vault</strong>
-                                    <p>AI agents in Perci can securely read this local file (under optional AES-256 encryption) to authorize API calls automatically.</p>
+                                    <strong>Provider Control Shortcuts</strong>
+                                    <p>Paste a provider page once, then keep usage, billing, API keys, documentation, and status links together on its card.</p>
                                 </div>
                             </div>
                             <div className="cn-guide-step">
@@ -804,6 +962,39 @@ function ServiceCard({ concern, revealed, onToggleReveal, onCopyKey, onEdit, onD
         : concern.billingCycle === 'usage-based' ? 'Usage-based'
         : `${formatCost(concern.monthlyCost)}/mo`;
     const rating = concern.valueRating || 0;
+    const primaryLink = describeProviderLink(concern.url);
+    const managementLinks = Array.isArray(concern.links) ? concern.links : [];
+    const [faviconFailed, setFaviconFailed] = useState(false);
+
+    useEffect(() => {
+        setFaviconFailed(false);
+    }, [primaryLink?.faviconUrl]);
+
+    const identity = (
+        <>
+            <span className="cn-favicon-shell" aria-hidden="true">
+                {primaryLink && !faviconFailed ? (
+                    <img
+                        className="cn-favicon"
+                        src={primaryLink.faviconUrl}
+                        alt=""
+                        onError={() => setFaviconFailed(true)}
+                    />
+                ) : (
+                    <Globe2 size={18} />
+                )}
+            </span>
+            <span className="cn-card-identity-copy">
+                <span className="cn-card-name">{concern.name}</span>
+                {primaryLink && (
+                    <span className="cn-card-host">
+                        {primaryLink.hostname}
+                        <ExternalLink size={10} />
+                    </span>
+                )}
+            </span>
+        </>
+    );
 
     return (
         <div className={`cn-card cn-card-${concern.status}`}>
@@ -814,7 +1005,19 @@ function ServiceCard({ concern, revealed, onToggleReveal, onCopyKey, onEdit, onD
             <div className="cn-bolt br" />
 
             <div className="cn-card-head">
-                <div className="cn-card-name">{concern.name}</div>
+                {primaryLink ? (
+                    <a
+                        className="cn-card-identity"
+                        href={primaryLink.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={`Open ${concern.name}`}
+                    >
+                        {identity}
+                    </a>
+                ) : (
+                    <div className="cn-card-identity">{identity}</div>
+                )}
                 <div className={`cn-card-cost${!concern.monthlyCost ? ' zero' : ''}`}>
                     {billingLabel}
                 </div>
@@ -829,13 +1032,25 @@ function ServiceCard({ concern, revealed, onToggleReveal, onCopyKey, onEdit, onD
                 <span className={`cn-status-badge ${concern.status}`}>
                     {concern.status}
                 </span>
-                {concern.url && (
-                    <a className="cn-url-link" href={concern.url} target="_blank" rel="noopener noreferrer" title={concern.url}>
-                        <ExternalLink size={10} />
-                        {new URL(concern.url).hostname.replace('www.', '')}
-                    </a>
-                )}
             </div>
+
+            {managementLinks.length > 0 && (
+                <div className="cn-management-links" aria-label={`${concern.name} management links`}>
+                    {managementLinks.map(link => (
+                        <a
+                            className="cn-management-link"
+                            key={link.id}
+                            href={link.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={link.url}
+                        >
+                            {link.label}
+                            <ExternalLink size={10} />
+                        </a>
+                    ))}
+                </div>
+            )}
 
             {concern.apiKey && (
                 <div className="cn-key-row">
