@@ -34,6 +34,8 @@ contextBridge.exposeInMainWorld('electron', {
   getAgentJob: (id) => ipcRenderer.invoke('agent-jobs:get', id),
   queueAgentJob: (job) => ipcRenderer.invoke('agent-jobs:queue', job),
   cancelAgentJob: (id) => ipcRenderer.invoke('agent-jobs:cancel', id),
+  getCodexPocketStatus: () => ipcRenderer.invoke('codex-pocket:status'),
+  loginCodexWithChatGPT: () => ipcRenderer.invoke('codex-pocket:login'),
   queueJulesJob: (job) => ipcRenderer.invoke('jules:queue', job),
   listGitHubRepos: () => ipcRenderer.invoke('github:list-repos'),
   detectLocalRepo: () => ipcRenderer.invoke('git:detect-local-repo'),

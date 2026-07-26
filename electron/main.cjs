@@ -1,6 +1,14 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu, shell, safeStorage, session, nativeImage } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const { installRedactedConsole, redactSecrets } = require('./redact-console.cjs');
+const {
+  CodexAccountClient,
+  codexStatusFromAccount,
+  inspectCodexAccount,
+  normalizeWorkingDirectory,
+  resolveCodexInstallation,
+  trustedCodexAuthUrl,
+} = require('./codex-account.cjs');
 const supermemoryProcess = require('./lib/supermemory-process.cjs');
 const path = require('path');
 const fsSync = require('fs');
@@ -10,6 +18,7 @@ const http = require('http');
 const https = require('https');
 const net = require('net');
 const isDev = process.env.NODE_ENV === 'development';
+const codexAccountClient = new CodexAccountClient();
 
 const allowedPaths = new Set();
 
@@ -1219,6 +1228,10 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+app.on('before-quit', () => {
+  codexAccountClient.stop();
 });
 
 app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
@@ -3623,6 +3636,25 @@ function checkCommandCodeAuth({ command, env }) {
   };
 }
 
+async function readCodexPocketStatus() {
+  const installation = await resolveCodexInstallation();
+  if (!installation) return inspectCodexAccount(null);
+  try {
+    const account = await codexAccountClient.getAccount();
+    return codexStatusFromAccount(installation, account);
+  } catch {
+    return inspectCodexAccount(installation);
+  }
+}
+
+async function checkCodexAuth() {
+  if ((await readCodexPocketStatus()).authenticated) return { ok: true };
+  return {
+    ok: false,
+    error: 'Codex is not signed in. Open Perci Pocket and choose Sign in with ChatGPT to use your Codex plan.',
+  };
+}
+
 // Jules intentionally stays out of this local spawn map; it queues through the
 // separate `jules:queue` cloud IPC path below.
 const AGENT_SPAWN_CONFIG = {
@@ -3657,20 +3689,20 @@ const AGENT_SPAWN_CONFIG = {
     // Codex needs `exec` for non-interactive runs; without it the CLI starts an
     // interactive session and hangs on the generic stdin pipe. A PTY also keeps
     // Codex's terminal/auth assumptions intact.
-    // The ChatGPT desktop app ships a self-contained Codex binary on macOS.
-    // Prefer it over an npm wrapper, which can remain on PATH after its optional
-    // platform package has gone missing.
-    command: process.platform === 'darwin'
-      ? '/Applications/ChatGPT.app/Contents/Resources/codex'
-      : 'codex',
-    fallbackCommands: ['codex'],
+    // Use the user's Codex installation first so its local ChatGPT sign-in and
+    // subscription entitlement are authoritative. App bundles are fallbacks.
+    command: 'codex',
+    commandSearchDescription: 'user Codex installation or Codex app bundle',
+    resolveCommand: async () => (await resolveCodexInstallation())?.path || null,
     subcommand: 'exec',
+    leadingArgs: ['--skip-git-repo-check'],
     modelFlag: '--model',
     supportsReasoningEffort: true,
     pty: true,
     promptDelivery: 'stdin',
     stdinPromptArg: '-',
-    needsAuth: false,
+    authCheck: checkCodexAuth,
+    needsAuth: true,
   },
   command_code: {
     // Command Code's non-interactive mode is `cmd -p`, and automated runs should
@@ -3782,8 +3814,14 @@ function asArray(value) {
   return Array.isArray(value) ? value : [value];
 }
 
-function resolveAgentCommand(config) {
+async function resolveAgentCommand(config) {
   const candidates = [config.command, ...asArray(config.fallbackCommands)].filter(Boolean);
+  if (typeof config.resolveCommand === 'function') {
+    return {
+      command: await config.resolveCommand(),
+      candidates: config.commandSearchDescription ? [config.commandSearchDescription] : candidates,
+    };
+  }
   for (const candidate of candidates) {
     if (candidate.includes(path.sep)) {
       try {
@@ -3982,6 +4020,25 @@ function serializeJob(jobRecord) {
   return safe;
 }
 
+ipcMain.handle('codex-pocket:status', async () => {
+  return readCodexPocketStatus();
+});
+
+ipcMain.handle('codex-pocket:login', async () => {
+  if (!await resolveCodexInstallation()) {
+    return { ok: false, error: 'Install Codex before signing in.' };
+  }
+  try {
+    const result = await codexAccountClient.startChatGptLogin();
+    const authUrl = trustedCodexAuthUrl(result.authUrl);
+    if (!authUrl) return { ok: false, error: 'Codex returned an untrusted sign-in URL.' };
+    await shell.openExternal(authUrl);
+    return { ok: true, loginId: result.loginId };
+  } catch (error) {
+    return { ok: false, error: error?.message || 'Could not start Codex sign-in.' };
+  }
+});
+
 ipcMain.handle('agent-jobs:list', async (event, options = {}) => {
   const limit = Number(options.limit) || 24;
   const source = options.source || null;
@@ -4087,7 +4144,7 @@ ipcMain.handle('agent-jobs:queue', async (event, { agent, prompt, working_direct
   if (!config) {
     return { ok: false, error: `Unknown agent: ${agent}. No CLI command is configured.` };
   }
-  const { command, candidates } = resolveAgentCommand(config);
+  const { command, candidates } = await resolveAgentCommand(config);
   if (!command) {
     return { ok: false, error: `No CLI command found for ${agent}. Tried: ${candidates.join(', ') || 'none'}.` };
   }
@@ -4098,7 +4155,7 @@ ipcMain.handle('agent-jobs:queue', async (event, { agent, prompt, working_direct
   }
   if (config.needsAuth) {
     const authResult = typeof config.authCheck === 'function'
-      ? config.authCheck({ command, env: spawnEnv })
+      ? await config.authCheck({ command, env: spawnEnv })
       : { ok: false, error: `${agent} requires authentication before it can run.` };
     if (!authResult.ok) return authResult;
   }
@@ -4133,7 +4190,7 @@ ipcMain.handle('agent-jobs:queue', async (event, { agent, prompt, working_direct
 
   const cwd = config.usesWorkingDirectory === false
     ? process.env.HOME || '/tmp'
-    : working_directory || process.env.HOME || '/tmp';
+    : normalizeWorkingDirectory(working_directory, app.getPath('home'));
   const spawnArgs = buildAgentSpawnArgs(config, prompt, requestedModel, requestedReasoningEffort);
 
   let child = null;

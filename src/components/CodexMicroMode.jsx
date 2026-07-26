@@ -86,6 +86,19 @@ const SUGGESTED_DIRS = [
     { label: 'Downloads', path: '~/Downloads' },
 ];
 
+function emptyCodexStatus({ checking = false, desktop = false } = {}) {
+    return {
+        checking,
+        desktop,
+        installed: false,
+        authenticated: false,
+        subscription: false,
+        authMode: null,
+        path: null,
+        version: null,
+    };
+}
+
 function readPersistedCodexJobs() {
     try {
         const jobsByAgent = JSON.parse(readStringStorage(CODEX_AGENT_JOBS_PERSIST_KEY, '{}'));
@@ -173,6 +186,11 @@ export default function CodexMicroMode() {
     const [queueing, setQueueing] = useState(false);
     const [notice, setNotice] = useState('');
     const [connectionWarning, setConnectionWarning] = useState('');
+    const [codexStatus, setCodexStatus] = useState(() => emptyCodexStatus({
+        checking: true,
+        desktop: Boolean(window.electron?.getCodexPocketStatus),
+    }));
+    const [signingIn, setSigningIn] = useState(false);
     const [listening, setListening] = useState(false);
     const [shifted, setShifted] = useState(false);
     const [altActive, setAltActive] = useState(false);
@@ -206,6 +224,17 @@ export default function CodexMicroMode() {
     const model = readCodexModel();
     const promptLoad = Math.min(100, Math.max(8, Math.round((prompt.length / 420) * 100)));
     const reasoningLoad = Math.min(100, Math.max(22, (reasoningIndex + 1) * 24));
+    const codexConnectionLabel = codexStatus.checking
+        ? 'Checking Codex'
+        : !codexStatus.desktop
+            ? 'Desktop app required'
+            : codexStatus.subscription
+                ? 'Codex plan ready'
+                : codexStatus.authenticated
+                    ? 'Codex API ready'
+                    : codexStatus.installed
+                        ? 'Sign in to Codex'
+                        : 'Install Codex';
 
 
     // Build suggested dirs including the current workspace and its parent
@@ -268,11 +297,51 @@ export default function CodexMicroMode() {
         }
     }, []);
 
+    const loadCodexStatus = useCallback(async () => {
+        if (!window.electron?.getCodexPocketStatus) {
+            const browserStatus = emptyCodexStatus();
+            setCodexStatus(browserStatus);
+            return browserStatus;
+        }
+        try {
+            const status = await window.electron.getCodexPocketStatus();
+            const next = { ...status, checking: false, desktop: true };
+            setCodexStatus(next);
+            return next;
+        } catch {
+            const unavailableStatus = emptyCodexStatus({ desktop: true });
+            setCodexStatus(unavailableStatus);
+            return unavailableStatus;
+        }
+    }, []);
+
     useEffect(() => {
         void loadJobs();
         const interval = window.setInterval(() => void loadJobs(), hasActiveJob ? 2500 : 7000);
         return () => window.clearInterval(interval);
     }, [hasActiveJob, loadJobs]);
+
+    useEffect(() => {
+        void loadCodexStatus();
+        const interval = window.setInterval(() => void loadCodexStatus(), 30000);
+        return () => window.clearInterval(interval);
+    }, [loadCodexStatus]);
+
+    useEffect(() => {
+        if (!signingIn) return undefined;
+        const startedAt = Date.now();
+        const interval = window.setInterval(async () => {
+            const status = await loadCodexStatus();
+            if (status.subscription) {
+                setSigningIn(false);
+                setNotice('ChatGPT plan connected. Pocket is ready.');
+            } else if (Date.now() - startedAt > 180000) {
+                setSigningIn(false);
+                setNotice('Sign-in is still incomplete. Choose Sign in to try again.');
+            }
+        }, 1500);
+        return () => window.clearInterval(interval);
+    }, [loadCodexStatus, signingIn]);
 
     useEffect(() => () => {
         try {
@@ -336,11 +405,45 @@ export default function CodexMicroMode() {
         };
     }, []);
 
+    const connectCodex = useCallback(async () => {
+        if (!codexStatus.desktop) {
+            setNotice('Codex connection requires the Perci desktop app.');
+            return;
+        }
+        if (!codexStatus.installed) {
+            await window.electron.openExternal?.('https://developers.openai.com/codex/cli/');
+            setNotice('Install Codex, then return here to connect your ChatGPT plan.');
+            return;
+        }
+        if (!window.electron?.loginCodexWithChatGPT || signingIn) return;
+
+        setSigningIn(true);
+        setNotice('');
+        try {
+            const result = await window.electron.loginCodexWithChatGPT();
+            if (!result?.ok) {
+                setSigningIn(false);
+                setNotice(result?.error || 'Could not start Codex sign-in.');
+                return;
+            }
+            setNotice('Finish signing in with ChatGPT in your browser.');
+        } catch (error) {
+            setSigningIn(false);
+            setNotice(error?.message || 'Could not start Codex sign-in.');
+        }
+    }, [codexStatus.desktop, codexStatus.installed, signingIn]);
+
     const runTask = useCallback(async () => {
         const task = prompt.trim();
         if (!task || queueing) return;
         if (!window.electron?.queueAgentJob) {
             setNotice('Codex jobs require the Perci desktop app.');
+            return;
+        }
+        if (!codexStatus.authenticated) {
+            setNotice(codexStatus.installed
+                ? 'Sign in to Codex before starting a task.'
+                : 'Install Codex before starting a task.');
             return;
         }
 
@@ -369,7 +472,17 @@ export default function CodexMicroMode() {
         } finally {
             setQueueing(false);
         }
-    }, [model, prompt, queueing, reasoning, reasoningLevel.label, updateJobs, workingDirectory]);
+    }, [
+        codexStatus.authenticated,
+        codexStatus.installed,
+        model,
+        prompt,
+        queueing,
+        reasoning,
+        reasoningLevel.label,
+        updateJobs,
+        workingDirectory,
+    ]);
 
     const cancelJob = useCallback(async () => {
         if (!cancellableJob || !window.electron?.cancelAgentJob) return;
@@ -590,10 +703,17 @@ export default function CodexMicroMode() {
                     <p className="cm-eyebrow">Perci concept · digital control deck</p>
                     <h1>Perci Pocket</h1>
                 </div>
-                <div className="cm-live-summary" aria-live="polite">
-                    <span className={`cm-live-dot${activeJob ? ' is-active' : ''}`} aria-hidden="true" />
-                    {activeJob ? 'Perci is working' : `${visibleJobs.length} recent ${visibleJobs.length === 1 ? 'job' : 'jobs'}`}
-                </div>
+                <button
+                    type="button"
+                    className="cm-live-summary cm-codex-connection"
+                    aria-live="polite"
+                    onClick={() => void connectCodex()}
+                    disabled={codexStatus.checking || signingIn || codexStatus.subscription}
+                    title={codexStatus.path || codexConnectionLabel}
+                >
+                    <span className={`cm-live-dot${activeJob ? ' is-active' : codexStatus.subscription ? ' is-connected' : ''}`} aria-hidden="true" />
+                    {activeJob ? 'Perci is working' : signingIn ? 'Waiting for sign-in' : codexConnectionLabel}
+                </button>
             </header>
 
             <div className="cm-device-wrap">
@@ -661,7 +781,12 @@ export default function CodexMicroMode() {
                             <>
                                 <div className="cm-screen-status">
                                     <span className={`cm-live-dot${activeJob ? ' is-active' : ''}`} aria-hidden="true" />
-                                    <span className="cm-screen-model">{model || 'Perci'}</span>
+                                    <span className="cm-screen-model">{model || 'Codex'}</span>
+                                    {codexStatus.authenticated && (
+                                        <span className="cm-screen-account">
+                                            {codexStatus.subscription ? 'plan' : 'api'}
+                                        </span>
+                                    )}
                                     <span className="cm-screen-reasoning">{reasoningLevel.label}</span>
                                     <span className="cm-screen-persist">{folderName(workingDirectory)}</span>
                                 </div>
@@ -690,6 +815,18 @@ export default function CodexMicroMode() {
                                     {!selectedJob && !activeJob && (
                                         <p className="cm-screen-line cm-screen-idle">
                                             Stage a workflow or write a task.
+                                        </p>
+                                    )}
+                                    {!codexStatus.checking && !codexStatus.authenticated && (
+                                        <p className="cm-screen-line cm-screen-notice is-warning">
+                                            {codexStatus.installed
+                                                ? 'Sign in with ChatGPT to use your Codex plan.'
+                                                : 'Install Codex to connect Pocket.'}
+                                        </p>
+                                    )}
+                                    {codexStatus.authenticated && !codexStatus.subscription && (
+                                        <p className="cm-screen-line cm-screen-notice is-warning">
+                                            API-key auth active. Connect ChatGPT to use your plan.
                                         </p>
                                     )}
                                     {(notice || connectionWarning) && (
@@ -739,7 +876,7 @@ export default function CodexMicroMode() {
                                     <button
                                         type="button"
                                         className="cm-screen-run"
-                                        disabled={!prompt.trim() || queueing}
+                                        disabled={!prompt.trim() || queueing || !codexStatus.authenticated}
                                         onClick={() => void runTask()}
                                         title="Run task"
                                     >
@@ -869,7 +1006,7 @@ export default function CodexMicroMode() {
                         <button
                             type="button"
                             className="cm-key cm-command-key cm-command-run"
-                            disabled={!prompt.trim() || queueing}
+                            disabled={!prompt.trim() || queueing || !codexStatus.authenticated}
                             onClick={() => void runTask()}
                             title="Run task"
                         >

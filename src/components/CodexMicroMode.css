@@ -60,12 +60,26 @@
     white-space: nowrap;
 }
 
+.cm-codex-connection {
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.cm-codex-connection:disabled {
+    cursor: default;
+}
+
 .cm-live-dot {
     width: 7px;
     height: 7px;
     border-radius: 50%;
     background: var(--text-tertiary);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--text-tertiary) 12%, transparent);
+}
+
+.cm-live-dot.is-connected {
+    background: var(--status-success);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--status-success) 16%, transparent);
 }
 
 .cm-live-dot.is-active {
@@ -174,6 +188,11 @@
 .cm-screen-model {
     color: #6af;
     font-weight: 600;
+}
+
+.cm-screen-account {
+    font-weight: 700;
+    text-transform: uppercase;
 }
 
 .cm-screen-reasoning {
