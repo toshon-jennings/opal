@@ -1060,7 +1060,6 @@ Write ONE improved web search query (2-7 words, no quotes, no explanation) that 
      * Minimum research time: 3 minutes (180s)
      */
     async deepResearch(userQuery, onProgress = null) {
-        console.log('🚀 Starting Deep Research Scientist Mode for:', userQuery);
         if (!this.hasWebSearch()) {
             return this.modelOnlyResearch(userQuery, onProgress);
         }
