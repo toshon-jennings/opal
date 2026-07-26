@@ -1387,6 +1387,493 @@ textarea.cn-form-input {
     box-shadow: 0 0 6px rgba(251, 191, 36, 0.3);
 }
 
+/* ── Model pricing calculator ─────────────────────────────────── */
+
+.cn-pricing-panel {
+    width: min(760px, 94%);
+    max-width: 760px;
+    padding: 0;
+    overflow-x: hidden;
+}
+
+.perci-dock-reserved:has(.cn-pricing-panel) .perci-pet {
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.cn-pricing-heading {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 12px;
+    padding: 20px;
+    border-bottom: 1px solid var(--cn-border);
+}
+
+.cn-pricing-heading-icon {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--cn-accent-dim);
+    border-radius: 8px;
+    background: var(--cn-accent-glow);
+    color: var(--cn-accent);
+}
+
+.cn-pricing-kicker,
+.cn-pricing-field > span,
+.cn-pricing-field > label,
+.cn-pricing-workload-field > span,
+.cn-pricing-selection span,
+.cn-pricing-rate-grid span,
+.cn-pricing-estimate span,
+.cn-pricing-extras > span {
+    color: var(--cn-text-muted);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.cn-pricing-heading h2 {
+    margin: 3px 0 2px;
+    color: var(--cn-text);
+    font-size: 18px;
+}
+
+.cn-pricing-heading p {
+    margin: 0;
+    color: var(--cn-text-muted);
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.cn-pricing-close {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--cn-text-muted);
+    cursor: pointer;
+}
+
+.cn-pricing-close:hover,
+.cn-pricing-close:focus-visible {
+    border-color: var(--cn-border);
+    background: var(--cn-bg);
+    color: var(--cn-text);
+    outline: none;
+}
+
+.cn-pricing-controls {
+    display: grid;
+    grid-template-columns: minmax(180px, 0.7fr) minmax(220px, 1.3fr);
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--cn-border);
+}
+
+.cn-pricing-field {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.cn-pricing-field select,
+.cn-pricing-search-wrap,
+.cn-pricing-number-wrap {
+    border: 1px solid var(--cn-border);
+    border-radius: 8px;
+    background: var(--cn-bg);
+    color: var(--cn-text);
+}
+
+.cn-pricing-field select {
+    width: 100%;
+    min-height: 36px;
+    padding: 0 10px;
+    font: inherit;
+    font-size: 12px;
+    outline: none;
+}
+
+.cn-pricing-search-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 34px;
+    padding: 0 10px;
+    color: var(--cn-text-muted);
+}
+
+.cn-pricing-search-wrap input {
+    width: 100%;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    color: var(--cn-text);
+    font: inherit;
+    font-size: 12px;
+    outline: none;
+}
+
+.cn-pricing-field select:focus-visible,
+.cn-pricing-search-wrap:focus-within,
+.cn-pricing-number-wrap:focus-within {
+    border-color: var(--cn-accent);
+    box-shadow: 0 0 0 2px var(--cn-accent-glow);
+}
+
+.cn-pricing-model-results {
+    position: absolute;
+    top: 64px;
+    right: 0;
+    left: 0;
+    z-index: 4;
+    display: flex;
+    flex-direction: column;
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 5px;
+    border: 1px solid var(--cn-border-light);
+    border-radius: 8px;
+    background: var(--cn-surface);
+    box-shadow: 0 14px 32px color-mix(in srgb, var(--cn-bg) 75%, transparent);
+}
+
+.cn-pricing-model-results button {
+    overflow: hidden;
+    padding: 7px 8px;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--cn-text-muted);
+    font: inherit;
+    font-size: 11px;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.cn-pricing-model-results button:hover,
+.cn-pricing-model-results button:focus-visible {
+    background: var(--cn-accent-glow);
+    color: var(--cn-accent);
+    outline: none;
+}
+
+.cn-pricing-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 120px;
+    padding: 20px;
+    color: var(--cn-text-muted);
+    font-size: 12px;
+    text-align: center;
+}
+
+.cn-pricing-state-error {
+    color: var(--cn-red);
+}
+
+.cn-pricing-state button {
+    border: 0;
+    background: transparent;
+    color: var(--cn-accent);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.cn-pricing-spin {
+    animation: cn-pricing-spin 0.8s linear infinite;
+}
+
+@keyframes cn-pricing-spin {
+    to { transform: rotate(360deg); }
+}
+
+.cn-pricing-selection {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 20px 10px;
+}
+
+.cn-pricing-selection > div:first-child {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.cn-pricing-selection strong {
+    overflow: hidden;
+    color: var(--cn-text);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cn-pricing-mode {
+    display: inline-flex;
+    padding: 3px;
+    border: 1px solid var(--cn-border);
+    border-radius: 7px;
+    background: var(--cn-bg);
+}
+
+.cn-pricing-mode button {
+    padding: 5px 8px;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--cn-text-muted);
+    font: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.cn-pricing-mode button.active {
+    background: var(--cn-accent-dim);
+    color: var(--cn-action-text);
+}
+
+.cn-pricing-rate-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    padding: 0 20px 16px;
+}
+
+.cn-pricing-rate-grid > div {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    padding: 10px;
+    border: 1px solid var(--cn-border);
+    border-radius: 8px;
+    background: var(--cn-bg);
+}
+
+.cn-pricing-rate-grid strong {
+    overflow: hidden;
+    color: var(--cn-accent);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cn-pricing-workload {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 12px;
+    padding: 16px 20px;
+    border-top: 1px solid var(--cn-border);
+}
+
+.cn-pricing-workload-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+}
+
+.cn-pricing-number-wrap {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    min-height: 34px;
+    padding: 0 10px;
+}
+
+.cn-pricing-number-wrap input {
+    width: 100%;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    color: var(--cn-text);
+    font: inherit;
+    font-size: 12px;
+    outline: none;
+}
+
+.cn-pricing-number-wrap span {
+    color: var(--cn-text-muted);
+    font-size: 10px;
+}
+
+.cn-pricing-estimate {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 8px 16px;
+    margin: 0 20px 16px;
+    padding: 13px 14px;
+    border: 1px solid var(--cn-accent-dim);
+    border-radius: 8px;
+    background: var(--cn-accent-glow);
+}
+
+.cn-pricing-estimate > div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.cn-pricing-estimate strong {
+    color: var(--cn-text);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 21px;
+}
+
+.cn-pricing-estimate small {
+    color: var(--cn-text-muted);
+    font-size: 10px;
+    line-height: 1.5;
+}
+
+.cn-pricing-extras {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding: 0 20px 16px;
+}
+
+.cn-pricing-extras > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.cn-pricing-extras > div span {
+    padding: 4px 7px;
+    border: 1px solid var(--cn-border);
+    border-radius: 5px;
+    background: var(--cn-bg);
+    color: var(--cn-text-muted);
+    font-size: 10px;
+}
+
+.cn-pricing-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 20px;
+    border-top: 1px solid var(--cn-border);
+}
+
+.cn-pricing-source,
+.cn-pricing-footer-actions,
+.cn-pricing-footer-actions button,
+.cn-pricing-footer-actions a {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.cn-pricing-source {
+    min-width: 0;
+    color: var(--cn-text-muted);
+    font-size: 9px;
+    text-decoration: none;
+}
+
+.cn-pricing-source span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cn-pricing-source:hover,
+.cn-pricing-source:focus-visible {
+    color: var(--cn-accent);
+    outline: none;
+}
+
+.cn-pricing-footer-actions {
+    flex-shrink: 0;
+}
+
+.cn-pricing-footer-actions button,
+.cn-pricing-footer-actions a {
+    padding: 5px 7px;
+    border: 1px solid var(--cn-border);
+    border-radius: 6px;
+    background: var(--cn-bg);
+    color: var(--cn-text-muted);
+    font: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.cn-pricing-footer-actions button:hover,
+.cn-pricing-footer-actions button:focus-visible,
+.cn-pricing-footer-actions a:hover,
+.cn-pricing-footer-actions a:focus-visible {
+    border-color: var(--cn-accent-dim);
+    color: var(--cn-accent);
+    outline: none;
+}
+
+.cn-pricing-research {
+    display: grid;
+    gap: 6px;
+    padding: 12px 20px 16px;
+    border-top: 1px solid var(--cn-border);
+}
+
+.cn-pricing-research strong {
+    color: var(--cn-text);
+    font-size: 11px;
+}
+
+.cn-pricing-research a {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    overflow: hidden;
+    padding: 6px 8px;
+    border-radius: 5px;
+    background: var(--cn-bg);
+    color: var(--cn-text-muted);
+    font-size: 10px;
+    text-decoration: none;
+}
+
+.cn-pricing-research a span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cn-pricing-research-error {
+    margin: 0;
+    padding: 10px 20px 16px;
+    border-top: 1px solid var(--cn-border);
+    color: var(--cn-text-muted);
+    font-size: 10px;
+    line-height: 1.5;
+}
+
 /* ── Theme response ───────────────────────────────────────────── */
 
 :root:not(.dark) .concerns-root {
@@ -1514,5 +2001,25 @@ textarea.cn-form-input {
 
     .cn-management-remove {
         justify-self: end;
+    }
+
+    .cn-pricing-controls,
+    .cn-pricing-workload,
+    .cn-pricing-estimate {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .cn-pricing-rate-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .cn-pricing-footer,
+    .cn-pricing-selection {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .cn-pricing-footer-actions {
+        flex-wrap: wrap;
     }
 }
