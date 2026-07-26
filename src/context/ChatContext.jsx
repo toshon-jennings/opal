@@ -506,6 +506,7 @@ export function ChatProvider({ children }) {
         openai: [],
         gemini: [],
         openrouter: [],
+        deepinfra: [],
         anthropic: [],
         mistral: []
     });
@@ -636,11 +637,12 @@ export function ChatProvider({ children }) {
             const allModelIds = [...Object.values(models).flat().map(m => m.id), ...customModelIds];
             const storedModelStillValid = selectedModel && allModelIds.includes(selectedModel);
             if (!storedModelStillValid) {
-                // OpenRouter's list now loads without a key (public catalog), so
-                // don't auto-select a provider the user can't actually use yet —
-                // skip key-required providers that have no key configured.
-                const needsKey = new Set(['openrouter', 'groq', 'openai', 'anthropic', 'mistral', 'gemini']);
-                for (const provider of ['openrouter', 'groq', 'openai', 'anthropic', 'mistral', 'gemini', 'ollama', 'lmstudio', 'jan']) {
+                // OpenRouter's and DeepInfra's lists load without a key (public
+                // catalogs), so don't auto-select a provider the user can't
+                // actually use yet — skip key-required providers that have no
+                // key configured.
+                const needsKey = new Set(['openrouter', 'deepinfra', 'groq', 'openai', 'anthropic', 'mistral', 'gemini']);
+                for (const provider of ['openrouter', 'deepinfra', 'groq', 'openai', 'anthropic', 'mistral', 'gemini', 'ollama', 'lmstudio', 'jan']) {
                     if (!models[provider] || models[provider].length === 0) continue;
                     if (needsKey.has(provider) && !apiKeys[provider]) continue;
                     setSelectedProvider(provider);
@@ -658,7 +660,7 @@ export function ChatProvider({ children }) {
     // Fetch models on mount and whenever API keys or local model endpoints change
     useEffect(() => {
         fetchModels();
-    }, [apiKeys.groq, apiKeys.openai, apiKeys.gemini, apiKeys.openrouter, apiKeys.anthropic, apiKeys.mistral, lmStudioUrl, janUrl]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [apiKeys.groq, apiKeys.openai, apiKeys.gemini, apiKeys.openrouter, apiKeys.deepinfra, apiKeys.anthropic, apiKeys.mistral, lmStudioUrl, janUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Update capabilities when model changes
     useEffect(() => {

@@ -253,6 +253,8 @@ export class LLMFactory {
                 return new JanClient(options.janUrl);
             case 'openrouter':
                 return new OpenRouterClient(apiKey);
+            case 'deepinfra':
+                return new DeepInfraClient(apiKey);
             case 'anthropic':
                 return new AnthropicClient(apiKey);
             case 'mistral':
@@ -307,6 +309,82 @@ class BaseClient {
                 }
             }
         }));
+    }
+
+    /**
+     * Shared plain-streaming logic for OpenAI-compatible chat endpoints.
+     * Companion to _openAIStreamWithTools below, which covers the tool path.
+     * Kept in one place deliberately: the SSE line buffer here is a real fix
+     * (see the comment in the read loop) and past regressions came from a
+     * provider copying this loop without it.
+     */
+    async _openAICompatibleStream(url, headers, messages, onChunk, modelId, options, errorLabel) {
+        const streamOptions = normalizeStreamOptions(options);
+        const tagParser = new StreamingTagParser();
+        const config = THINKING_CONFIG.fields.openai;
+
+        const formattedMessages = messages.map(m => {
+            if (m.images && m.images.length > 0) {
+                const content = [{ type: 'text', text: m.content || '' }];
+                for (const img of m.images) {
+                    content.push({
+                        type: 'image_url',
+                        image_url: { url: img.dataUrl || `data:${img.type || 'image/png'};base64,${img.base64}` }
+                    });
+                }
+                return { role: m.role, content };
+            }
+            return { role: m.role, content: m.content };
+        });
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...headers },
+            body: JSON.stringify({ model: modelId, messages: formattedMessages, stream: true }),
+            signal: streamOptions.signal
+        });
+
+        if (!response.ok) {
+            throw new Error(await this._readErrorMessage(response, errorLabel));
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        // Buffer partial SSE lines across reads: a `data:` line can be split
+        // mid-JSON by a network chunk boundary. Without this, both halves fail
+        // JSON.parse and the delta — often a whitespace/newline-only token — is
+        // silently dropped, jamming the streamed text together (no spaces or
+        // paragraph breaks). Mirrors the AnthropicClient stream loop below.
+        let buffer = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+                if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+                    try {
+                        const data = JSON.parse(line.slice(6));
+                        const extracted = extractThinking(data.choices?.[0], config);
+
+                        if (extracted.thinking) onChunk(extracted.thinking, { isThinking: true });
+                        if (extracted.content) {
+                            for (const r of tagParser.processChunk(extracted.content)) {
+                                onChunk(r.content, { isThinking: r.isThinking });
+                            }
+                        }
+
+                        const finishReason = data.choices?.[0]?.finish_reason;
+                        if (finishReason) onChunk('', { finishReason });
+                    } catch { /* ignore malformed chunks */ }
+                }
+            }
+        }
+        flushUnclosedThinking(tagParser, onChunk);
     }
 
     /**
@@ -1114,79 +1192,15 @@ export class JanClient extends LMStudioClient {
 export class OpenRouterClient extends BaseClient {
     async streamChat(messages, onChunk, modelId = 'openai/gpt-4o', options = {}) {
         if (!this.apiKey) throw new Error('OpenRouter API Key missing');
-
-        const streamOptions = normalizeStreamOptions(options);
-        const tagParser = new StreamingTagParser();
-        const config = THINKING_CONFIG.fields.openai;
-
-        const formattedMessages = messages.map(m => {
-            if (m.images && m.images.length > 0) {
-                const content = [{ type: 'text', text: m.content || '' }];
-                for (const img of m.images) {
-                    content.push({
-                        type: 'image_url',
-                        image_url: { url: img.dataUrl || `data:${img.type || 'image/png'};base64,${img.base64}` }
-                    });
-                }
-                return { role: m.role, content };
-            }
-            return { role: m.role, content: m.content };
-        });
-
-        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
+        return this._openAICompatibleStream(
+            'https://openrouter.ai/api/v1/chat/completions',
+            {
                 'Authorization': `Bearer ${this.apiKey}`,
                 'HTTP-Referer': 'https://perci.app',
                 'X-Title': 'Perci'
             },
-            body: JSON.stringify({ model: modelId, messages: formattedMessages, stream: true }),
-            signal: streamOptions.signal
-        });
-
-        if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.error?.message || 'OpenRouter API Error');
-        }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        // Buffer partial SSE lines across reads: a `data:` line can be split
-        // mid-JSON by a network chunk boundary. Without this, both halves fail
-        // JSON.parse and the delta — often a whitespace/newline-only token — is
-        // silently dropped, jamming the streamed text together (no spaces or
-        // paragraph breaks). Mirrors the AnthropicClient stream loop below.
-        let buffer = '';
-
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
-
-            for (const line of lines) {
-                if (line.startsWith('data: ') && line !== 'data: [DONE]') {
-                    try {
-                        const data = JSON.parse(line.slice(6));
-                        const extracted = extractThinking(data.choices?.[0], config);
-
-                        if (extracted.thinking) onChunk(extracted.thinking, { isThinking: true });
-                        if (extracted.content) {
-                            for (const r of tagParser.processChunk(extracted.content)) {
-                                onChunk(r.content, { isThinking: r.isThinking });
-                            }
-                        }
-
-                        const finishReason = data.choices?.[0]?.finish_reason;
-                        if (finishReason) onChunk('', { finishReason });
-                    } catch (e) { /* ignore malformed chunks */ }
-                }
-            }
-        }
-        flushUnclosedThinking(tagParser, onChunk);
+            messages, onChunk, modelId, options, 'OpenRouter API Error'
+        );
     }
 
     async streamChatWithTools(messages, tools, onChunk, modelId = 'openai/gpt-4o', options = {}) {
@@ -1198,6 +1212,32 @@ export class OpenRouterClient extends BaseClient {
                 'HTTP-Referer': window.location.origin,
                 'X-Title': 'Perci'
             },
+            messages, tools, onChunk, modelId, options
+        );
+    }
+}
+
+// ── DeepInfra Client ──────────────────────────────────────────────────────────
+// OpenAI-compatible. Note the path ordering: the base is /v1/openai, NOT the
+// /openai/v1 the rest of the industry uses — the other spelling 404s.
+
+const DEEPINFRA_CHAT_URL = 'https://api.deepinfra.com/v1/openai/chat/completions';
+
+export class DeepInfraClient extends BaseClient {
+    async streamChat(messages, onChunk, modelId = 'zai-org/GLM-5.2', options = {}) {
+        if (!this.apiKey) throw new Error('DeepInfra API Key missing');
+        return this._openAICompatibleStream(
+            DEEPINFRA_CHAT_URL,
+            { 'Authorization': `Bearer ${this.apiKey}` },
+            messages, onChunk, modelId, options, 'DeepInfra API Error'
+        );
+    }
+
+    async streamChatWithTools(messages, tools, onChunk, modelId = 'zai-org/GLM-5.2', options = {}) {
+        if (!this.apiKey) throw new Error('DeepInfra API Key missing');
+        return this._openAIStreamWithTools(
+            DEEPINFRA_CHAT_URL,
+            { 'Authorization': `Bearer ${this.apiKey}` },
             messages, tools, onChunk, modelId, options
         );
     }

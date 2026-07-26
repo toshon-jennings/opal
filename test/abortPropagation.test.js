@@ -5,6 +5,7 @@ import {
     AnthropicClient,
     MistralClient,
     OpenRouterClient,
+    DeepInfraClient,
 } from '../src/lib/llm/clients.js';
 
 // A streaming Response stand-in that yields a single SSE chunk then closes,
@@ -43,6 +44,7 @@ const clients = [
     ['Groq', () => new GroqClient('test-key'), 'llama-3.3-70b-versatile'],
     ['Mistral', () => new MistralClient('test-key'), 'mistral-large-latest'],
     ['OpenRouter', () => new OpenRouterClient('test-key'), 'openai/gpt-4o'],
+    ['DeepInfra', () => new DeepInfraClient('test-key'), 'zai-org/GLM-5.2'],
 ];
 
 afterEach(() => {
