@@ -198,6 +198,19 @@ function codexStatusFromAccount(installation, response) {
   };
 }
 
+function selectCodexSubscriptionModel(requestedModel, models) {
+  const requested = typeof requestedModel === 'string' ? requestedModel.trim() : '';
+  if (!requested) return { model: '', requestedModel: null };
+  const available = Array.isArray(models)
+    ? models.filter((model) => model && typeof model.model === 'string' && !model.hidden)
+    : [];
+  if (available.some((model) => model.model === requested)) {
+    return { model: requested, requestedModel: null };
+  }
+  const fallback = available.find((model) => model.isDefault)?.model || '';
+  return { model: fallback, requestedModel: requested };
+}
+
 async function inspectCodexAccount(installation) {
   if (!installation) {
     return emptyCodexAccountStatus();
@@ -235,6 +248,7 @@ class CodexAccountClient extends EventEmitter {
     this.ready = null;
     this.pending = new Map();
     this.nextId = 1;
+    this.modelsCache = null;
   }
 
   start() {
@@ -357,6 +371,32 @@ class CodexAccountClient extends EventEmitter {
     return result;
   }
 
+  async listModels() {
+    if (this.modelsCache && Date.now() < this.modelsCache.expiresAt) {
+      return this.modelsCache.models;
+    }
+    await this.start();
+    const models = [];
+    let cursor = null;
+    do {
+      const result = await this.request('model/list', {
+        cursor,
+        limit: 100,
+        includeHidden: false,
+      });
+      if (!result || !Array.isArray(result.data)) {
+        throw new Error('Codex returned an invalid model catalog.');
+      }
+      for (const model of result.data) {
+        if (model && typeof model.model === 'string' && !model.hidden) models.push(model);
+      }
+      cursor = typeof result.nextCursor === 'string' && result.nextCursor ? result.nextCursor : null;
+      if (models.length > 1000) throw new Error('Codex model catalog exceeded the supported size.');
+    } while (cursor);
+    this.modelsCache = { models, expiresAt: Date.now() + 300_000 };
+    return models;
+  }
+
   stop() {
     if (this.process && !this.process.killed) this.process.kill();
     this.process = null;
@@ -373,5 +413,6 @@ module.exports = {
   normalizeWorkingDirectory,
   parseCodexLoginStatus,
   resolveCodexInstallation,
+  selectCodexSubscriptionModel,
   trustedCodexAuthUrl,
 };

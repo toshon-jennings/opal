@@ -8,6 +8,7 @@ const {
     normalizeWorkingDirectory,
     parseCodexLoginStatus,
     resolveCodexInstallation,
+    selectCodexSubscriptionModel,
     trustedCodexAuthUrl,
 } = codexAccount;
 
@@ -106,6 +107,26 @@ describe('Codex account bridge', () => {
         });
     });
 
+    it('keeps supported subscription models and replaces stale models with Codex default', () => {
+        const models = [
+            { model: 'gpt-5.6-sol', isDefault: true },
+            { model: 'gpt-5.4-mini', isDefault: false },
+        ];
+
+        expect(selectCodexSubscriptionModel('gpt-5.4-mini', models)).toEqual({
+            model: 'gpt-5.4-mini',
+            requestedModel: null,
+        });
+        expect(selectCodexSubscriptionModel('gpt-5.4-nano', models)).toEqual({
+            model: 'gpt-5.6-sol',
+            requestedModel: 'gpt-5.4-nano',
+        });
+        expect(selectCodexSubscriptionModel('gpt-5.4-nano', [])).toEqual({
+            model: '',
+            requestedModel: 'gpt-5.4-nano',
+        });
+    });
+
     it('requests the official ChatGPT browser login from Codex app-server', async () => {
         const client = new CodexAccountClient();
         const calls = [];
@@ -131,6 +152,31 @@ describe('Codex account bridge', () => {
                 useHostedLoginSuccessPage: true,
                 appBrand: 'codex',
             },
+        }]);
+    });
+
+    it('loads and caches the subscription model catalog from Codex app-server', async () => {
+        const client = new CodexAccountClient();
+        const calls = [];
+        client.start = async () => {};
+        client.request = async (method, params) => {
+            calls.push({ method, params });
+            return {
+                data: [
+                    { model: 'gpt-5.6-sol', hidden: false, isDefault: true },
+                    { model: 'internal', hidden: true, isDefault: false },
+                ],
+                nextCursor: null,
+            };
+        };
+
+        await expect(client.listModels()).resolves.toEqual([
+            { model: 'gpt-5.6-sol', hidden: false, isDefault: true },
+        ]);
+        await client.listModels();
+        expect(calls).toEqual([{
+            method: 'model/list',
+            params: { cursor: null, limit: 100, includeHidden: false },
         }]);
     });
 });

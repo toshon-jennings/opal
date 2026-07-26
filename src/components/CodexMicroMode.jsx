@@ -117,6 +117,18 @@ function readCodexModel() {
     }
 }
 
+function persistCodexModel(model) {
+    try {
+        const current = JSON.parse(readStringStorage(CODEX_AGENT_MODEL_PERSIST_KEY, '{}'));
+        writeStringStorage(CODEX_AGENT_MODEL_PERSIST_KEY, JSON.stringify({
+            ...(current && typeof current === 'object' ? current : {}),
+            codex: model,
+        }));
+    } catch {
+        writeStringStorage(CODEX_AGENT_MODEL_PERSIST_KEY, JSON.stringify({ codex: model }));
+    }
+}
+
 function persistCodexJobs(jobs) {
     try {
         const current = JSON.parse(readStringStorage(CODEX_AGENT_JOBS_PERSIST_KEY, '{}'));
@@ -466,7 +478,14 @@ export default function CodexMicroMode() {
             setSelectedJobId(result.job.id);
             setPrompt('');
             setWorkflowId(null);
-            setNotice(`Codex started with ${reasoningLevel.label.toLowerCase()} reasoning.`);
+            if (result.job.requested_model) {
+                persistCodexModel(result.job.model || '');
+                setNotice(result.job.model
+                    ? `${result.job.requested_model} is not available on this ChatGPT plan. Using ${result.job.model}.`
+                    : `Using the Codex subscription default instead of ${result.job.requested_model}.`);
+            } else {
+                setNotice(`Codex started with ${reasoningLevel.label.toLowerCase()} reasoning.`);
+            }
         } catch (error) {
             setNotice(error?.message || 'Could not start Codex.');
         } finally {

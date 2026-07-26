@@ -7,6 +7,7 @@ const {
   inspectCodexAccount,
   normalizeWorkingDirectory,
   resolveCodexInstallation,
+  selectCodexSubscriptionModel,
   trustedCodexAuthUrl,
 } = require('./codex-account.cjs');
 const supermemoryProcess = require('./lib/supermemory-process.cjs');
@@ -3648,7 +3649,8 @@ async function readCodexPocketStatus() {
 }
 
 async function checkCodexAuth() {
-  if ((await readCodexPocketStatus()).authenticated) return { ok: true };
+  const status = await readCodexPocketStatus();
+  if (status.authenticated) return { ok: true, codexStatus: status };
   return {
     ok: false,
     error: 'Codex is not signed in. Open Perci Pocket and choose Sign in with ChatGPT to use your Codex plan.',
@@ -4153,11 +4155,29 @@ ipcMain.handle('agent-jobs:queue', async (event, { agent, prompt, working_direct
   if (typeof config.prepareEnv === 'function') {
     spawnEnv = config.prepareEnv(spawnEnv);
   }
+  let codexStatus = null;
   if (config.needsAuth) {
     const authResult = typeof config.authCheck === 'function'
       ? await config.authCheck({ command, env: spawnEnv })
       : { ok: false, error: `${agent} requires authentication before it can run.` };
     if (!authResult.ok) return authResult;
+    codexStatus = authResult.codexStatus || null;
+  }
+
+  let effectiveModel = requestedModel;
+  let replacedModel = null;
+  if (agent === 'codex' && requestedModel && codexStatus?.subscription) {
+    try {
+      const selection = selectCodexSubscriptionModel(
+        requestedModel,
+        await codexAccountClient.listModels(),
+      );
+      effectiveModel = selection.model;
+      replacedModel = selection.requestedModel;
+    } catch {
+      effectiveModel = '';
+      replacedModel = requestedModel;
+    }
   }
 
   const jobId = generateJobId();
@@ -4172,7 +4192,8 @@ ipcMain.handle('agent-jobs:queue', async (event, { agent, prompt, working_direct
     prompt_text: prompt,
     prompt_preview: prompt?.slice(0, 120) || null,
     working_directory: config.usesWorkingDirectory === false ? null : working_directory || null,
-    model: requestedModel || null,
+    model: effectiveModel || null,
+    ...(replacedModel ? { requested_model: replacedModel } : {}),
     reasoning_effort: requestedReasoningEffort || null,
     source: 'agents_page',
     created_at: now,
@@ -4191,7 +4212,7 @@ ipcMain.handle('agent-jobs:queue', async (event, { agent, prompt, working_direct
   const cwd = config.usesWorkingDirectory === false
     ? process.env.HOME || '/tmp'
     : normalizeWorkingDirectory(working_directory, app.getPath('home'));
-  const spawnArgs = buildAgentSpawnArgs(config, prompt, requestedModel, requestedReasoningEffort);
+  const spawnArgs = buildAgentSpawnArgs(config, prompt, effectiveModel, requestedReasoningEffort);
 
   let child = null;
   try {
