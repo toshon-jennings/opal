@@ -683,15 +683,21 @@ function createSplashWindow() {
   splashWindow.on('closed', () => { splashWindow = null; });
 
   // Failsafe. The main window is created hidden and is revealed only by
-  // tryRevealMain(), which will not fire until the splash reports in. If the
-  // splash renderer ever fails to send that signal the app hangs on the splash
-  // forever, with no way out but force-quit — so the gate times out instead of
-  // trusting the renderer. splash.html has its own 12s fallback; this sits
-  // past it so the normal path always wins.
+  // tryRevealMain(), which waits on BOTH gate conditions. If either one never
+  // arrives the app sits on the splash forever with no way out but force-quit:
+  // `splashDone` is lost if the splash renderer fails to report in, and
+  // `mainReady` is lost if the main window never paints. Force both rather
+  // than only the splash side — a blank window the user can close and inspect
+  // beats a frozen splash they cannot. splash.html has its own 12s fallback,
+  // so this sits past it and the normal path always wins.
   setTimeout(() => {
-    if (splashGate.splashDone) return;
-    appendRendererLog('splash:done not received within timeout — revealing main window anyway');
+    if (splashGate.splashDone && splashGate.mainReady) return;
+    appendRendererLog(
+      `splash watchdog fired after ${SPLASH_REVEAL_TIMEOUT_MS}ms ` +
+      `(mainReady=${splashGate.mainReady} splashDone=${splashGate.splashDone}) — forcing reveal`
+    );
     splashGate.splashDone = true;
+    splashGate.mainReady = true;
     tryRevealMain();
   }, SPLASH_REVEAL_TIMEOUT_MS);
 }
