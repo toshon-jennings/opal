@@ -14,6 +14,7 @@ export const API_KEY_STORAGE_KEYS = [
     'groq_key',
     'gemini_key',
     'openrouter_key',
+    'deepinfra_key',
     'anthropic_key',
     'mistral_key',
     'github_key',

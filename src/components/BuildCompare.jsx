@@ -10,7 +10,7 @@ import { buildCodeGenSystemPrompt, parseGeneratedFiles, PROVIDERS_REQUIRING_API_
 
 const MAX_MODELS = 4;
 const PROVIDER_LABELS = {
-    openrouter: 'OpenRouter', anthropic: 'Anthropic', mistral: 'Mistral', groq: 'Groq',
+    openrouter: 'OpenRouter', deepinfra: 'DeepInfra', anthropic: 'Anthropic', mistral: 'Mistral', groq: 'Groq',
     openai: 'OpenAI', gemini: 'Gemini', ollama: 'Ollama', lmstudio: 'LM Studio', jan: 'Jan'
 };
 

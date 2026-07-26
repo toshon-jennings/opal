@@ -236,6 +236,7 @@ export class ModelService {
             openai: { models: null, timestamp: null },
             gemini: { models: null, timestamp: null },
             openrouter: { models: null, timestamp: null },
+            deepinfra: { models: null, timestamp: null },
             anthropic: { models: null, timestamp: null },
             mistral: { models: null, timestamp: null }
         };
@@ -556,6 +557,60 @@ export class ModelService {
         }
     }
 
+    // Fetch models from DeepInfra
+    //
+    // DeepInfra returns its whole catalog — image, video, speech, embedding and
+    // reranker models alongside chat ones — so this filters on the declared
+    // `tags` rather than the id. Name matching is not good enough here: only 5
+    // of the 24 embedding models have "embed" in the id, and nothing in the id
+    // marks FLUX/TTS/video models as unusable for chat.
+    //
+    // Tags also carry vision support, which is why capabilities are taken from
+    // them instead of getModelCapabilities()'s name patterns. Those patterns
+    // know nothing about DeepInfra's naming and would report `google/gemma-4-
+    // 31B-it` (tagged vlm+vision) as text-only, silently disabling images.
+    async fetchDeepInfraModels(apiKey) {
+        try {
+            if (this.cache.deepinfra.models && (Date.now() - this.cache.deepinfra.timestamp < this.CACHE_DURATION)) {
+                return this.cache.deepinfra.models;
+            }
+
+            // Public catalog — no key needed to browse, same as OpenRouter.
+            const headers = {};
+            if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+            const response = await fetch('https://api.deepinfra.com/v1/openai/models', { headers });
+
+            if (!response.ok) throw new Error('Failed to fetch DeepInfra models');
+
+            const NON_CHAT_TAGS = new Set(['image-gen', 'embed', 'tts', 'video-gen', 'stt']);
+            const data = await response.json();
+            const models = (data.data || [])
+                .filter(m => m.id)
+                .map(m => ({ model: m, tags: new Set(m.metadata?.tags || []) }))
+                .filter(({ tags }) => ![...tags].some(t => NON_CHAT_TAGS.has(t)))
+                .map(({ model, tags }) => ({
+                    id: model.id,
+                    name: model.id,
+                    provider: 'deepinfra',
+                    contextWindow: model.metadata?.context_length,
+                    capabilities: {
+                        text: true,
+                        image: tags.has('vision') || tags.has('vlm'),
+                        audio: false,
+                        video: false
+                    }
+                }))
+                .sort((a, b) => a.id.localeCompare(b.id));
+
+            this.cache.deepinfra = { models, timestamp: Date.now() };
+            return models;
+        } catch (error) {
+            console.error('Error fetching DeepInfra models:', error);
+            return [];
+        }
+    }
+
     // Fetch Anthropic models (curated catalog - API doesn't expose a /models list)
     async fetchAnthropicModels(apiKey) {
         if (!apiKey) return [];
@@ -628,6 +683,7 @@ export class ModelService {
             openai: [],
             gemini: [],
             openrouter: [],
+            deepinfra: [],
             anthropic: [],
             mistral: []
         };
@@ -659,6 +715,9 @@ export class ModelService {
         // Fetch OpenRouter models — public catalog, loads with or without a key
         // so users can browse and pick from the full list before adding a key.
         allModels.openrouter = await this.fetchOpenRouterModels(apiKeys.openrouter);
+
+        // Fetch DeepInfra models — public catalog, same keyless-browse behavior
+        allModels.deepinfra = await this.fetchDeepInfraModels(apiKeys.deepinfra);
 
         // Fetch Anthropic models
         if (apiKeys.anthropic) {

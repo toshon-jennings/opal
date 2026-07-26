@@ -423,16 +423,19 @@ export function SettingsModal({ isOpen, onClose }) {
 
     if (!isOpen) return null;
 
+    // iconClass holds the full Tailwind class as a literal — a composed
+    // `text-${color}-500` is invisible to Tailwind's scanner and gets purged.
     const providers = [
-        { id: 'openrouter', name: 'OpenRouter', needsKey: true, color: 'violet', badge: 'Recommended' },
-        { id: 'anthropic',  name: 'Anthropic',  needsKey: true, color: 'amber'  },
-        { id: 'mistral',    name: 'Mistral',    needsKey: true, color: 'sky'    },
-        { id: 'groq',       name: 'Groq',       needsKey: true, color: 'orange' },
-        { id: 'openai',     name: 'OpenAI',     needsKey: true, color: 'green'  },
-        { id: 'gemini',     name: 'Gemini',     needsKey: true, color: 'blue'   },
-        { id: 'ollama',     name: 'Ollama',     needsKey: false, color: 'purple', local: true },
-        { id: 'lmstudio',  name: 'LM Studio',  needsKey: false, color: 'pink',   local: true },
-        { id: 'jan',        name: 'Jan',        needsKey: false, color: 'teal',   local: true },
+        { id: 'openrouter', name: 'OpenRouter', needsKey: true, iconClass: 'text-violet-500', badge: 'Recommended' },
+        { id: 'deepinfra',  name: 'DeepInfra',  needsKey: true, iconClass: 'text-emerald-500' },
+        { id: 'anthropic',  name: 'Anthropic',  needsKey: true, iconClass: 'text-amber-500'  },
+        { id: 'mistral',    name: 'Mistral',    needsKey: true, iconClass: 'text-sky-500'    },
+        { id: 'groq',       name: 'Groq',       needsKey: true, iconClass: 'text-orange-500' },
+        { id: 'openai',     name: 'OpenAI',     needsKey: true, iconClass: 'text-green-500'  },
+        { id: 'gemini',     name: 'Gemini',     needsKey: true, iconClass: 'text-blue-500'   },
+        { id: 'ollama',     name: 'Ollama',     needsKey: false, iconClass: 'text-purple-500', local: true },
+        { id: 'lmstudio',  name: 'LM Studio',  needsKey: false, iconClass: 'text-pink-500',   local: true },
+        { id: 'jan',        name: 'Jan',        needsKey: false, iconClass: 'text-teal-500',   local: true },
     ];
 
     const currentProviderModels = availableModels[selectedProvider] || [];
@@ -1136,8 +1139,8 @@ export function SettingsModal({ isOpen, onClose }) {
                                         )}
                                         <div className="flex items-center gap-2">
                                             {provider.local
-                                                ? (isAvailable ? <Wifi size={15} className={`text-${provider.color}-500`} /> : <WifiOff size={15} className="text-gray-500" />)
-                                                : <Globe size={15} className={isAvailable ? `text-${provider.color}-500` : 'text-gray-500'} />
+                                                ? (isAvailable ? <Wifi size={15} className={provider.iconClass} /> : <WifiOff size={15} className="text-gray-500" />)
+                                                : <Globe size={15} className={isAvailable ? provider.iconClass : 'text-gray-500'} />
                                             }
                                             <span className="font-medium text-sm text-[var(--text-primary)] truncate">{provider.name}</span>
                                             {isSelected && (

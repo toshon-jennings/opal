@@ -273,6 +273,30 @@ function OpenRouterTab({ onGetOpenRouterKey }) {
                 </button>
             </GuideSection>
 
+            <GuideSection title="Or try DeepInfra" icon={Cloud}>
+                <p>
+                    <strong>DeepInfra</strong> is a second pay-as-you-go option, focused on{' '}
+                    <strong>open models</strong> — Llama, Qwen, GLM, Kimi, Gemma and friends — usually at lower
+                    per-token prices than the big closed models. Perci treats it exactly like OpenRouter, so you can
+                    keep both keys and switch per conversation.
+                </p>
+                <ol className="space-y-2.5">
+                    <Step n={1}>
+                        Go to <Cmd>deepinfra.com</Cmd> and sign in with GitHub or Google.
+                    </Step>
+                    <Step n={2}>
+                        Open <Cmd>deepinfra.com/dash/api_keys</Cmd> → <strong>New token</strong> → copy it.
+                    </Step>
+                    <Step n={3}>
+                        Paste it into <strong>Settings → DeepInfra</strong>, then pick a model and start chatting.
+                    </Step>
+                </ol>
+                <p className="text-[13px] text-[var(--text-tertiary)]">
+                    You can browse the full DeepInfra model list in Perci before adding a key — search for a model in
+                    the picker and the catalog is already there.
+                </p>
+            </GuideSection>
+
             <GuideSection title="Keep your key safe" icon={ShieldCheck} image={GUIDE_IMAGES.safety}>
                 <BulletList
                     items={[

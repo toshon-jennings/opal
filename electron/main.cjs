@@ -1286,6 +1286,7 @@ const apiKeyStorageKeys = new Set([
   'groq_key',
   'gemini_key',
   'openrouter_key',
+  'deepinfra_key',
   'anthropic_key',
   'mistral_key',
   'github_key',
@@ -2398,6 +2399,18 @@ const BARS_CLOUD_PROVIDERS = [
     chatPath: 'https://openrouter.ai/api/v1/chat/completions',
     api: 'openai',
     extraHeaders: { 'HTTP-Referer': 'https://perci.local', 'X-Title': 'Perci Bars' }
+  },
+  {
+    id: 'deepinfra',
+    name: 'DeepInfra',
+    kind: 'cloud',
+    keyName: 'deepinfra_key',
+    defaultModel: 'zai-org/GLM-5.2',
+    models: ['zai-org/GLM-5.2'],
+    // Base path is /v1/openai, not the more common /openai/v1.
+    modelsPath: 'https://api.deepinfra.com/v1/openai/models',
+    chatPath: 'https://api.deepinfra.com/v1/openai/chat/completions',
+    api: 'openai'
   }
 ];
 
@@ -2498,11 +2511,23 @@ async function clearBarsApiKeys() {
   return getBarsApiKeyStatus();
 }
 
+// OpenRouter and DeepInfra both publish their catalog publicly in the OpenAI
+// {data:[{id}]} shape, so neither needs a key to list models.
+const BARS_PUBLIC_CATALOG_PROVIDERS = new Set(['openrouter', 'deepinfra']);
+// DeepInfra returns image, video, speech, embedding and reranker models
+// alongside chat ones; only the tags distinguish them (ids do not).
+const DEEPINFRA_NON_CHAT_TAGS = new Set(['image-gen', 'embed', 'tts', 'video-gen', 'stt']);
+
 async function fetchBarsCloudModels(provider, key) {
-  if (provider.id === 'openrouter') {
+  if (BARS_PUBLIC_CATALOG_PROVIDERS.has(provider.id)) {
     const result = await requestJson(provider.modelsPath, 12000, { Accept: 'application/json' });
     if (result.ok) {
-      const ids = Array.isArray(result.data?.data) ? result.data.data.map(model => model.id).filter(Boolean) : [];
+      const entries = Array.isArray(result.data?.data) ? result.data.data : [];
+      const ids = entries
+        .filter(model => provider.id !== 'deepinfra'
+          || !(model?.metadata?.tags || []).some(tag => DEEPINFRA_NON_CHAT_TAGS.has(tag)))
+        .map(model => model.id)
+        .filter(Boolean);
       return Array.from(new Set([provider.defaultModel, ...ids].filter(Boolean)));
     }
     return provider.models;
@@ -7558,6 +7583,19 @@ const DEFAULT_USAGE_TRACKER_DATA = {
             top_up_url: 'https://openrouter.ai/credits',
             check_url: 'https://openrouter.ai/api/v1/auth/key',
             notes: 'API key billing.',
+        },
+        {
+            id: 'deepinfra',
+            name: 'DeepInfra',
+            type: 'balance',
+            balance: null,
+            currency: 'usd',
+            daily_burn_estimate: null,
+            top_up_url: 'https://deepinfra.com/dash/billing',
+            // No check_url: DeepInfra publishes no documented balance endpoint.
+            // /v1/me exists but is auth-gated and its shape is unverified, so
+            // this stays a link-first card rather than a polled balance.
+            notes: 'Pay-as-you-go API billing. Balance is not auto-checked.',
         },
         {
             id: 'fal-ai',

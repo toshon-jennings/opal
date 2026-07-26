@@ -3,6 +3,7 @@ import { Check, ChevronDown, Monitor, Search, X } from 'lucide-react';
 
 const PROVIDER_LABELS = {
     openrouter: 'OpenRouter',
+    deepinfra: 'DeepInfra',
     anthropic: 'Anthropic',
     mistral: 'Mistral',
     groq: 'Groq',
