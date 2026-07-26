@@ -26,6 +26,7 @@ import {
     CODEX_MICRO_PERSIST_KEY,
     CODEX_REASONING_LEVELS,
     CODEX_WORKFLOWS,
+    codexJobResponse,
     codexJobTone,
     isCodexJobActive,
     mergeCodexJobs,
@@ -228,6 +229,7 @@ export default function CodexMicroMode() {
     const reasoningLevel = CODEX_REASONING_LEVELS[reasoningIndex];
     const visibleJobs = useMemo(() => selectCodexMicroJobs(jobs), [jobs]);
     const selectedJob = visibleJobs.find((job) => job.id === selectedJobId) || visibleJobs[0] || null;
+    const selectedJobResponse = codexJobResponse(selectedJob);
     const activeJob = jobs.find(isCodexJobActive) || null;
     const activeJobId = activeJob?.id || null;
     const hasActiveJob = Boolean(activeJob);
@@ -826,9 +828,9 @@ export default function CodexMicroMode() {
                                             {selectedJob.prompt_preview || selectedJob.prompt_text}
                                         </p>
                                     )}
-                                    {selectedJob?.output_preview && (
+                                    {selectedJobResponse && (
                                         <p className="cm-screen-line cm-screen-output">
-                                            {selectedJob.output_preview}
+                                            {selectedJobResponse}
                                         </p>
                                     )}
                                     {!selectedJob && !activeJob && (

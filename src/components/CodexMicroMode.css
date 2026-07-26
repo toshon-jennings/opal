@@ -250,6 +250,9 @@
 .cm-screen-output {
     color: #888;
     font-style: italic;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: pre-wrap;
 }
 
 .cm-screen-notice {

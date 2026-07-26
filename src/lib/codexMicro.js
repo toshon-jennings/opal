@@ -92,6 +92,39 @@ export function codexJobTone(status) {
     return 'idle';
 }
 
+export function codexJobResponse(job) {
+    const raw = typeof job?.output_preview === 'string' && job.output_preview.trim()
+        ? job.output_preview
+        : job?.output;
+    if (typeof raw !== 'string' || !raw.trim()) return '';
+
+    const escapeCharacter = String.fromCharCode(27);
+    const backspaceCharacter = String.fromCharCode(8);
+    const ansiPattern = new RegExp(`${escapeCharacter}\\[[0-?]*[ -/]*[@-~]`, 'g');
+    const clean = raw
+        .replace(ansiPattern, '')
+        .split(backspaceCharacter).join('')
+        .replace(/\r/g, '');
+    const lines = clean.split('\n');
+    let responseStart = -1;
+
+    for (let index = 0; index < lines.length; index += 1) {
+        if (lines[index].trim() === 'codex') responseStart = index + 1;
+    }
+
+    if (responseStart >= 0) {
+        const responseEndOffset = lines
+            .slice(responseStart)
+            .findIndex((line) => line.trim() === 'tokens used');
+        const responseEnd = responseEndOffset >= 0
+            ? responseStart + responseEndOffset
+            : lines.length;
+        return lines.slice(responseStart, responseEnd).join('\n').trim();
+    }
+
+    return clean.trim();
+}
+
 export function isCodexJobActive(job) {
     return Boolean(job && CODEX_ACTIVE_JOB_STATUSES.has(job.status));
 }

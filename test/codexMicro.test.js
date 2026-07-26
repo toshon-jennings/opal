@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
     CODEX_REASONING_LEVELS,
     CODEX_WORKFLOWS,
+    codexJobResponse,
     codexJobTone,
     mergeCodexJobs,
     normalizeCodexMicroSettings,
@@ -86,5 +87,22 @@ describe('Codex Micro model', () => {
         expect(codexJobTone('completed')).toBe('complete');
         expect(codexJobTone('failed')).toBe('failed');
         expect(codexJobTone('cancelled')).toBe('cancelled');
+    });
+
+    it('extracts the visible assistant response from completed Codex terminal output', () => {
+        const output = [
+            'Are you here?\r',
+            '^D\b\bOpenAI Codex v0.144.1\r',
+            '\u001b[36muser\u001b[0m\r',
+            'Are you here?\r',
+            '\u001b[35m\u001b[3mcodex\u001b[0m\u001b[0m\r',
+            'Yep, I’m here. What do you need?\r',
+            '\u001b[2mtokens used\u001b[0m\r',
+            '27,081\r',
+        ].join('\n');
+
+        expect(codexJobResponse({ status: 'completed', output })).toBe(
+            'Yep, I’m here. What do you need?'
+        );
     });
 });
