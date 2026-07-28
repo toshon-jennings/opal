@@ -340,7 +340,7 @@ export default function CleanmacMode() {
                         )}
 
                         {dockerInspection && (
-                            <div className="mt-3 rounded-lg border border-amber-500/20 bg-[var(--bg-primary)] p-3">
+                            <div className="mt-3 overflow-hidden rounded-lg border border-amber-500/20 bg-[var(--bg-primary)] p-3">
                                 {!dockerInspection.ok ? (
                                     <div className="text-xs leading-5 text-red-500">
                                         Inspection failed: {dockerInspection.error || 'Unknown Docker inspection error.'}
@@ -349,7 +349,7 @@ export default function CleanmacMode() {
                                     <div className="text-xs leading-5 text-[var(--text-secondary)]">
                                         Docker is not reachable right now, so the Docker block in the script should be skipped. If Docker or OrbStack starts later, inspect again before running.
                                         {dockerInspection.error && (
-                                            <div className="mt-2 font-mono text-[11px] text-[var(--text-tertiary)]">{dockerInspection.error}</div>
+                                            <div className="mt-2 break-all font-mono text-[11px] text-[var(--text-tertiary)]">{dockerInspection.error}</div>
                                         )}
                                     </div>
                                 ) : dockerCandidateCount === 0 ? (
