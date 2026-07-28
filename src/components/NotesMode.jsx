@@ -14,6 +14,7 @@ import { normalizeNoteTags, parseNoteTags, setNoteTags, stripNoteFrontmatter, ta
 import { parseNoteOKF, ensureOKFDefaults, buildNoteOKF, updateOKFTags } from '../lib/notesOKF';
 import { NotesOKFPanel } from './NotesOKFPanel';
 import { notesMarkdownTableComponents } from './NotesMarkdownTable';
+import { notesMarkdownListComponents } from './NotesMarkdownList';
 import {
     POWER_WORKSPACE_SURFACE_HANDOFF_EVENT,
     consumeWorkspaceSurfaceHandoff,
@@ -1120,6 +1121,7 @@ export default function NotesMode() {
 
     const renderMarkdownComponents = useMemo(() => ({
         ...notesMarkdownTableComponents,
+        ...notesMarkdownListComponents,
         h1: ({ children }) => (
             <h1 className="text-2xl font-bold border-b border-[var(--border)] pb-2 mt-6 mb-4 text-[var(--text-primary)] tracking-tight">
                 {children}
@@ -1149,11 +1151,6 @@ export default function NotesMode() {
             <ul className="list-disc pl-5 mb-4 space-y-1.5 text-sm text-[var(--text-secondary)]">
                 {children}
             </ul>
-        ),
-        ol: ({ children }) => (
-            <ol className="list-decimal pl-5 mb-4 space-y-1.5 text-sm text-[var(--text-secondary)]">
-                {children}
-            </ol>
         ),
         li: ({ children }) => (
             <li className="leading-relaxed mb-0.5">
