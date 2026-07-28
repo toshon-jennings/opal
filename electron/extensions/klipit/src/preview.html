@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Klipit — design preview</title>
+    <link rel="stylesheet" href="fonts.css" />
+    <link rel="stylesheet" href="sidepanel.css" />
+    <style>
+      /* Frame the side panel at its real width so the preview is honest. */
+      html,
+      body { height: 100%; }
+      body { background: #3a342b; }
+      #frame {
+        width: 384px;
+        height: 100vh;
+        margin: 0 auto;
+        box-shadow: 0 0 60px rgba(0, 0, 0, 0.4);
+        overflow: hidden;
+        /* Mirror the panel body's atmospheric wash (body paints it in the real
+           extension; here the frame must, or the preview shows flat paper). */
+        background:
+          radial-gradient(120% 45% at 18% -6%, color-mix(in srgb, var(--teal) 7%, transparent), transparent 70%),
+          radial-gradient(120% 50% at 92% 108%, color-mix(in srgb, var(--ochre) 9%, transparent), transparent 70%),
+          var(--paper);
+        display: flex;
+        flex-direction: column;
+        position: relative;
+      }
+      /* The real panel markup is injected into #frame by the harness below. */
+    </style>
+  </head>
+  <body>
+    <div id="frame"></div>
+
+    <!-- ===== mock extension environment (preview only) ===== -->
+    <script>
+      (() => {
+        const mem = {};
+        const clone = (v) => JSON.parse(JSON.stringify(v));
+        const pick = (keys) => {
+          if (keys == null) return clone(mem);
+          if (typeof keys === 'string') return { [keys]: clone(mem[keys]) };
+          if (Array.isArray(keys)) {
+            const o = {};
+            keys.forEach((k) => (o[k] = clone(mem[k])));
+            return o;
+          }
+          const o = {};
+          for (const k of Object.keys(keys)) o[k] = k in mem ? clone(mem[k]) : keys[k];
+          return o;
+        };
+
+        // Seed a believable archive so the design shows real content.
+        const now = Date.now();
+        const m = 60000;
+        mem['klippit:schema'] = 1;
+        mem['klippit:items'] = {
+          itm_a: { id: 'itm_a', type: 'link', url: 'https://www.are.na/about', title: 'Are.na — a tool for thought and care', favicon: '', note: 'Their philosophy of slow, intentional collecting is exactly the feeling I want Klipit to have.', tags: ['design', 'philosophy'], createdAt: now - 4 * m, updatedAt: now - 4 * m },
+          itm_b: { id: 'itm_b', type: 'note', url: null, title: 'On commonplace books', favicon: null, note: 'A commonplace book is not an archive — it’s a thinking surface. The act of copying a quote by hand is the point.', tags: ['philosophy', 'writing'], source: { url: 'https://maggieappleton.com/garden-history', title: 'A Brief History & Ethos of the Digital Garden' }, createdAt: now - 30 * m, updatedAt: now - 30 * m },
+          itm_c: { id: 'itm_c', type: 'link', url: 'https://maggieappleton.com/garden-history', title: 'A Brief History & Ethos of the Digital Garden', favicon: '', note: '', tags: ['design', 'writing'], createdAt: now - 3 * 3600000, updatedAt: now - 3 * 3600000 },
+          itm_d: { id: 'itm_d', type: 'link', url: 'https://developer.mozilla.org/en-US/docs/Web/CSS/font-variation-settings', title: 'font-variation-settings — CSS', favicon: '', note: 'Reference for driving the Fraunces SOFT/WONK axes.', tags: ['css', 'reference'], createdAt: now - 26 * 3600000, updatedAt: now - 26 * 3600000 },
+          itm_e: { id: 'itm_e', type: 'link', url: 'https://example.com/typography', title: 'Practical Typography', favicon: '', note: '', tags: ['design', 'typography', 'reference'], createdAt: now - 28 * 3600000, updatedAt: now - 28 * 3600000 },
+          itm_f: { id: 'itm_f', type: 'note', url: null, title: 'Reading list', favicon: null, note: 'Books to get to this winter.', tags: ['books', 'todo'], createdAt: now - 50 * 3600000, updatedAt: now - 50 * 3600000 },
+          itm_g: { id: 'itm_g', type: 'link', url: 'https://example.com/rust-async', title: 'Async Rust, demystified', favicon: '', note: 'Bookmarked for the project rewrite.', tags: ['rust', 'programming'], createdAt: now - 60 * 3600000, updatedAt: now - 60 * 3600000 },
+          itm_h: { id: 'itm_h', type: 'link', url: 'https://example.com/gardening', title: 'No-dig gardening basics', favicon: '', note: '', tags: ['gardening', 'home', 'todo'], createdAt: now - 80 * 3600000, updatedAt: now - 80 * 3600000 },
+          itm_i: { id: 'itm_i', type: 'note', url: null, title: 'Recipe ideas', favicon: null, note: 'Miso butter, preserved lemon, etc.', tags: ['cooking', 'home', 'todo'], createdAt: now - 100 * 3600000, updatedAt: now - 100 * 3600000 },
+          itm_j: { id: 'itm_j', type: 'link', url: 'https://example.com/svelte', title: 'Svelte 5 runes overview', favicon: '', note: '', tags: ['programming', 'frontend'], createdAt: now - 120 * 3600000, updatedAt: now - 120 * 3600000 },
+        };
+        mem['klippit:connections'] = {
+          con_1: { id: 'con_1', a: 'itm_a', b: 'itm_b', label: 'same idea, different words', createdAt: now - 20 * m },
+          con_2: { id: 'con_2', a: 'itm_b', b: 'itm_c', label: '', createdAt: now - 18 * m },
+          con_3: { id: 'con_3', a: 'itm_c', b: 'itm_e', label: 'typography', createdAt: now - 16 * m },
+          con_4: { id: 'con_4', a: 'itm_a', b: 'itm_c', label: '', createdAt: now - 15 * m },
+          con_5: { id: 'con_5', a: 'itm_g', b: 'itm_j', label: 'rewrite stack', createdAt: now - 14 * m },
+        };
+
+        const handle = (msg) => {
+          const s = globalThis.klippitStorage;
+          switch (msg && msg.type) {
+            case 'klippit:get-active-tab':
+              return { ok: true, tab: { url: 'https://example.com/article', title: 'A page you might clip', favicon: '', capturable: true } };
+            case 'klippit:capture-active-tab':
+              return s.saveLink({ url: 'https://example.com/article-' + Date.now(), title: 'A freshly clipped page', favicon: '', note: msg.note || '' });
+            case 'klippit:open-url':
+              window.open(msg.url, '_blank');
+              return { ok: true };
+            default:
+              return undefined;
+          }
+        };
+
+        const listeners = [];
+        window.chrome = {
+          runtime: {
+            id: 'preview',
+            lastError: null,
+            onMessage: { addListener: (fn) => listeners.push(fn), removeListener: () => {} },
+            sendMessage: (msg, cb) => {
+              Promise.resolve(handle(msg)).then((res) => cb && cb(res));
+            },
+          },
+          storage: {
+            local: {
+              get: (keys, cb) => cb(pick(keys)),
+              set: (obj, cb) => { Object.assign(mem, clone(obj)); cb && cb(); },
+              remove: (k, cb) => { delete mem[k]; cb && cb(); },
+            },
+          },
+          tabs: {
+            query: (q, cb) => cb([{ url: 'https://example.com/article', title: 'A page you might clip', favIconUrl: '' }]),
+            create: (o, cb) => { window.open(o.url, '_blank'); cb && cb({}); },
+            onActivated: { addListener: () => {} },
+          },
+          action: { setBadgeText: () => {}, setBadgeBackgroundColor: () => {} },
+          commands: { onCommand: { addListener: () => {} } },
+        };
+      })();
+    </script>
+
+    <!-- Pull the real side-panel markup into the frame, then boot the real code. -->
+    <script>
+      const bust = '?t=' + Date.now(); // always pull the latest during dev
+      fetch('sidepanel.html' + bust)
+        .then((r) => r.text())
+        .then((html) => {
+          const doc = new DOMParser().parseFromString(html, 'text/html');
+          const frame = document.getElementById('frame');
+          // Move the parsed body's children in (the inline <script> tags it
+          // contains won't auto-run; we load the real scripts manually below).
+          while (doc.body.firstChild) frame.appendChild(doc.body.firstChild);
+          // load the real scripts in order
+          // bust cached stylesheets too, so CSS edits show without a hard reload
+          document.querySelectorAll('link[rel="stylesheet"]').forEach((l) => {
+            l.href = l.getAttribute('href').split('?')[0] + bust;
+          });
+          const load = (src) =>
+            new Promise((res) => {
+              const s = document.createElement('script');
+              s.src = src + bust;
+              s.onload = res;
+              document.body.appendChild(s);
+            });
+          return load('../vendor/browser-polyfill.min.js')
+            .then(() => load('storage.js'))
+            .then(() => load('graph.js'))
+            .then(() => load('sidepanel.js'));
+        });
+    </script>
+  </body>
+</html>

@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('electron', {
   getAppDataPath: () => ipcRenderer.invoke('app-data:path'),
   getTerminalConnectionInfo: () => ipcRenderer.invoke('terminal:get-connection-info'),
   getKlipitExtensionId: () => ipcRenderer.invoke('get-klipit-extension-id'),
+  getKlipitHealth: () => ipcRenderer.invoke('get-klipit-health'),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   webSearch: (query, options) => ipcRenderer.invoke('web-search', { query, options }),
   showContextMenu: (params) => ipcRenderer.send('show-context-menu', params),
