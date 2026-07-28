@@ -13,6 +13,7 @@ import { readStringStorage, writeStringStorage } from '../lib/persistentStore';
 import { normalizeNoteTags, parseNoteTags, setNoteTags, stripNoteFrontmatter, tagKey } from '../lib/notesTags';
 import { parseNoteOKF, ensureOKFDefaults, buildNoteOKF, updateOKFTags } from '../lib/notesOKF';
 import { NotesOKFPanel } from './NotesOKFPanel';
+import { notesMarkdownTableComponents } from './NotesMarkdownTable';
 import {
     POWER_WORKSPACE_SURFACE_HANDOFF_EVENT,
     consumeWorkspaceSurfaceHandoff,
@@ -1118,6 +1119,7 @@ export default function NotesMode() {
     }, [activeNote, activeNoteLinked, workspaceSnapshot.workspace]);
 
     const renderMarkdownComponents = useMemo(() => ({
+        ...notesMarkdownTableComponents,
         h1: ({ children }) => (
             <h1 className="text-2xl font-bold border-b border-[var(--border)] pb-2 mt-6 mb-4 text-[var(--text-primary)] tracking-tight">
                 {children}
