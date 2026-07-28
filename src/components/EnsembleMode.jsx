@@ -5,6 +5,7 @@ import {
     Play, Square, Plus, X, ChevronDown, Check, Copy, Loader2, AlertCircle,
     Sparkles, Users, Scale, Settings2, GitMerge, FileText, FolderOpen, Search,
 } from 'lucide-react';
+import { EnsembleIcon } from './ModeIcons';
 import { useChat } from '../context/ChatContext';
 import { useTheme } from '../context/ThemeContext';
 import { readJsonStorage, writeStringStorage, serializeJson } from '../lib/persistentStore';
@@ -442,7 +443,7 @@ export default function EnsembleMode() {
             {/* Header */}
             <div className="flex h-12 shrink-0 items-center justify-between border-b border-[var(--border)] bg-[var(--bg-secondary)]/30 px-4">
                 <div className="flex items-center gap-2">
-                    <GitMerge size={16} className="text-[var(--accent)]" />
+                    <EnsembleIcon size={16} style={{ '--mi-primary': '#818cf8', '--mi-secondary': 'color-mix(in srgb, #818cf8 32%, transparent)' }} />
                     <span className="text-sm font-semibold">Ensemble</span>
                     <span className="text-[11px] text-[var(--text-tertiary)]">panel → judge → synthesis</span>
                 </div>

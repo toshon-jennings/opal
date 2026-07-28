@@ -2,9 +2,9 @@ import React from 'react';
 import { useMode, MODES, LOCALHOST_WINDOW_ID } from '../context/ModeContext';
 import {
     DashboardIcon, ChatIcon, EnsembleIcon, CoworkIcon, CodeIcon, NotesIcon, ResearchIcon,
-    AgentsIcon, OfficeIcon, BuildIcon, MissionIcon, ProjectsIcon, SurfaceMapIcon, PerciNowIcon, PerciDeskIcon, ShipyardIcon, DocketIcon,
+    AgentsIcon, OfficeIcon, BuildIcon, MissionIcon, ProjectsIcon, SurfaceMapIcon, PerciNowIcon, PerciDeskIcon, DocketIcon,
 } from './ModeIcons';
-import { Globe } from 'lucide-react';
+import { Globe, Ship, Rocket } from 'lucide-react';
 
 // Duotone palettes for the custom mode icons (see ModeIcons.jsx).
 // Secondary is a translucent tint so the primary outline/detail stays
@@ -30,7 +30,8 @@ export default function ModeSwitcher() {
         { id: MODES.ENSEMBLE, icon: EnsembleIcon,   label: 'Ensemble' },
         { id: MODES.COWORK, icon: CoworkIcon,       label: 'Cowork' },
         { id: MODES.CODE,   icon: CodeIcon,         label: 'Code' },
-        { id: MODES.SHIPYARD, icon: ShipyardIcon,   label: 'Shipyard' },
+        { id: MODES.SHIPYARD, icon: Ship,   label: 'Shipyard', color: '#f97316' },
+        { id: MODES.POWER_WORKSPACE, icon: Rocket, label: 'Power Ws', color: '#f97316' },
         { id: MODES.DOCKET, icon: DocketIcon,       label: 'Docket' },
         { id: MODES.PROJECTS, icon: ProjectsIcon,   label: 'Git Shells' },
         { id: MODES.NOTES,  icon: NotesIcon,        label: 'Notes' },

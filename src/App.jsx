@@ -64,7 +64,7 @@ import nousLogo from './assets/nousresearch.png';
 import openClawLogo from './assets/openclaw-color.png';
 import autoforgeLogo from './assets/autoforge-logo.png';
 import agentmailLogo from './assets/agentmail-logo.png';
-import { Moon, Sun, Monitor, Lock, Unlock, Plus, Terminal as TerminalIcon, Server, RefreshCw, ExternalLink, AlertCircle, BookOpen, Cpu, Download, Puzzle, Sparkles, Package, ClipboardList, MessageSquare } from 'lucide-react';
+import { Moon, Sun, Monitor, Lock, Unlock, Plus, Terminal as TerminalIcon, Server, RefreshCw, ExternalLink, AlertCircle, BookOpen, Cpu, Download, Puzzle, Package, MessageSquare } from 'lucide-react';
 import { useTheme, ThemeProvider } from './context/ThemeContext';
 import { useChat } from './context/ChatContext';
 import TerminalPanel from './components/Terminal';
@@ -1071,32 +1071,6 @@ function AppContent() {
                             <span className="hidden lg:inline text-sm font-medium">Chat Guide</span>
                         </button>
                     )}
-
-                    <button
-                        onClick={() => openWindow(MODES.PERCI_DESK)}
-                        className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 transition-colors ${
-                            perciDeskOpen
-                                ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30'
-                                : 'text-emerald-600 dark:text-emerald-300 hover:bg-emerald-500/10 border border-transparent'
-                        }`}
-                        title="Desk — Perci-wide actions and obligations"
-                    >
-                        <ClipboardList size={16} />
-                        <span className="hidden lg:inline text-sm font-medium">Desk</span>
-                    </button>
-
-                    <button
-                        onClick={() => openWindow(MODES.POWER_WORKSPACE)}
-                        className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 transition-colors ${
-                            windows.some(w => w.modeId === MODES.POWER_WORKSPACE && w.state !== 'minimized')
-                                ? 'bg-[rgba(249,115,22,0.2)] text-[#f97316] border border-[rgba(249,115,22,0.3)]'
-                                : 'text-[var(--accent)] hover:text-[var(--accent-hover)] hover:bg-[var(--bg-hover)]'
-                        }`}
-                        title="Power Workspace — ideas, runs & next action"
-                    >
-                        <Sparkles size={16} />
-                        <span className="hidden lg:inline text-sm font-medium">Power Workspace</span>
-                    </button>
 
                     <div className="h-6 w-px bg-[var(--border)] mx-2" />
 
