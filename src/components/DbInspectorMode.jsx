@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     ChevronRight,
     Database,
@@ -141,7 +141,11 @@ export default function DbInspectorMode() {
 
     const selectTable = useCallback((name) => {
         setSelectedTable(name);
-        const sql = `SELECT * FROM "${name}" LIMIT ${PAGE_SIZE}`;
+        // Table names come from the opened file's own schema, not a fixed list —
+        // a crafted .db could name a table to break out of the quoted identifier
+        // (SQL params can't bind identifiers, so we escape per SQLite's own rule).
+        const escapedName = name.replace(/"/g, '""');
+        const sql = `SELECT * FROM "${escapedName}" LIMIT ${PAGE_SIZE}`;
         setQueryText(sql);
         runQuery(selectedPath, sql);
     }, [selectedPath, runQuery]);
