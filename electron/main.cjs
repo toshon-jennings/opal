@@ -4634,12 +4634,33 @@ ipcMain.handle('run-local-command', async (event, { command, args = [], cwd } = 
 });
 
 // ── Localhost Manager: launchctl / registry wrappers ────────────────────
+
+// Autostart plists are always ~/Library/LaunchAgents/local.perci.<id>.plist,
+// where <id> is a slug. The path arrives from the renderer, so re-derive and
+// confine it here before it reaches writeFile/unlink or launchctl — otherwise
+// it is an arbitrary file write and delete. Restricting the basename as well as
+// the directory keeps a compromised renderer from touching login items that
+// belong to other apps. Returns the resolved path, or null if it does not fit.
+const LAUNCH_AGENT_BASENAME = /^local\.perci\.[a-z0-9-]+\.plist$/;
+
+function resolveLaunchAgentPath(candidate) {
+  if (!candidate || typeof candidate !== 'string') return null;
+  const root = path.join(require('os').homedir(), 'Library', 'LaunchAgents');
+  const resolved = path.resolve(candidate);
+  const relative = path.relative(root, resolved);
+  if (!relative || relative.startsWith('..') || relative.includes(path.sep)) return null;
+  if (!LAUNCH_AGENT_BASENAME.test(path.basename(resolved))) return null;
+  return resolved;
+}
+
 ipcMain.handle('localhost:enable-autostart', async (event, { label, plistContent, plistPath, command, cwd } = {}) => {
   try {
     if (process.platform === 'darwin') {
-      await fs.writeFile(plistPath, plistContent, 'utf-8');
-      const { execSync } = require('child_process');
-      execSync(`launchctl load -w "${plistPath}"`, { stdio: 'pipe', timeout: 10000 });
+      const target = resolveLaunchAgentPath(plistPath);
+      if (!target) return { ok: false, error: 'Autostart path must be a .plist directly inside ~/Library/LaunchAgents.' };
+      await fs.writeFile(target, plistContent, 'utf-8');
+      const { execFileSync } = require('child_process');
+      execFileSync('launchctl', ['load', '-w', target], { stdio: 'pipe', timeout: 10000 });
     } else if (process.platform === 'win32') {
       // Windows: write to HKCU Run registry key for autostart
       const { execSync } = require('child_process');
@@ -4674,9 +4695,11 @@ ipcMain.handle('localhost:enable-autostart', async (event, { label, plistContent
 ipcMain.handle('localhost:disable-autostart', async (event, { plistPath, label } = {}) => {
   try {
     if (process.platform === 'darwin') {
-      const { execSync } = require('child_process');
-      execSync(`launchctl unload -w "${plistPath}"`, { stdio: 'pipe', timeout: 10000, ignoreStderr: true });
-      try { await fs.unlink(plistPath); } catch (_) { /* already gone */ }
+      const target = resolveLaunchAgentPath(plistPath);
+      if (!target) return { ok: false, error: 'Autostart path must be a .plist directly inside ~/Library/LaunchAgents.' };
+      const { execFileSync } = require('child_process');
+      execFileSync('launchctl', ['unload', '-w', target], { stdio: 'pipe', timeout: 10000 });
+      try { await fs.unlink(target); } catch (_) { /* already gone */ }
     } else if (process.platform === 'win32') {
       // Windows: remove from HKCU Run registry key
       const { execSync } = require('child_process');

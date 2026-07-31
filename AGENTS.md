@@ -60,8 +60,6 @@ Rules:
   See `docs/architecture/GRAPHIFY.md` for usage.
 - **Electron main process:** The OpenClaw IPC bridge lives in `electron/main.cjs`
   and `electron/preload.cjs` — not indexed by graphify. Read source directly.
-- **Dead code:** `main.cjs` (root, not `electron/`) is a legacy orphan — do not
-  edit it. It is not loaded by the app.
 - **Eidos integration:** Eidos (`~/eidos`) is embedded in Perci as a first-class
   window (`EIDOS_WINDOW_ID`). Perci manages the Docker/OrbStack lifecycle, dashboard
   spawning, and health polling via `eidos:*` IPC handlers in `electron/main.cjs`.
