@@ -23,16 +23,52 @@ function buildPlayerUrl(streamUrl) {
   return `${PLAYER_HTML}?${params.toString()}`;
 }
 
+// YouTube's /embed/ endpoint now serves a bare player with no native controls —
+// the control chrome (CC toggle, settings gear) isn't rendered at all, so
+// hovering does nothing. The full /watch and channel pages still render the
+// full control bar. In Electron the YouTube player is a <webview> (a full
+// top-level browsing context), so load the full page there; in a plain
+// <iframe> we must keep the embed URL because YouTube refuses to be framed.
+// The embed URL remains what's stored/rendered elsewhere, so map it to its
+// full-page equivalent at render time.
+function fullPageUrlFromEmbed(embedUrl) {
+  if (!embedUrl) return embedUrl;
+  try {
+    const url = new URL(embedUrl);
+    if (!url.hostname.includes('youtube.com')) return embedUrl;
+
+    if (url.pathname === '/embed/live_stream') {
+      const channel = url.searchParams.get('channel');
+      if (channel) {
+        return channel.startsWith('@')
+          ? `https://www.youtube.com/${channel}`
+          : `https://www.youtube.com/channel/${channel}`;
+      }
+      return embedUrl;
+    }
+
+    const videoId = /^\/embed\/([^/]+)/.exec(url.pathname)?.[1];
+    if (!videoId) return embedUrl;
+
+    const params = new URLSearchParams();
+    if (url.searchParams.get('autoplay') === '1') params.set('autoplay', '1');
+    if (url.searchParams.get('mute') === '1') params.set('mute', '1');
+    const query = params.toString();
+    return `https://www.youtube.com/watch?v=${videoId}${query ? `&${query}` : ''}`;
+  } catch {
+    return embedUrl;
+  }
+}
+
 function canUseWebview() {
   return typeof window !== 'undefined' && !!window.electron;
 }
 
 // The YouTube <webview> guest is a separate top-level browsing context, not a
 // child iframe, so the postMessage-based IFrame Player API (which relies on a
-// parent/child window relationship) doesn't reach it. Its embed page still
-// exposes the player instance's controls directly on the #movie_player element
-// though, so drive mute/volume by running them inside the guest via
-// executeJavaScript.
+// parent/child window relationship) doesn't reach it. Its page still exposes
+// the player instance's controls directly on the #movie_player element though,
+// so drive mute/volume by running them inside the guest via executeJavaScript.
 function runYouTubePlayerCommand(webview, expr) {
   webview?.executeJavaScript(`
     (function() {
@@ -169,7 +205,7 @@ export default function RetroTvPlayer({
                 React.createElement('webview', {
                   key: `${videoProvider}-webview-${youtubeUrl}`,
                   ref: youtubeWebviewRef,
-                  src: youtubeUrl,
+                  src: fullPageUrlFromEmbed(youtubeUrl),
                   className: 'retro-tv__iframe',
                   partition: `persist:perci-${videoProvider}`,
                   useragent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
