@@ -328,7 +328,7 @@ h2 em { font-style: italic; font-weight: 700; }
 
 .shot-media {
   position: relative;
-  aspect-ratio: 2000 / 1300;
+  aspect-ratio: 2000 / 1299;
   /* placeholder surface: the desktop wallpaper, waiting for its screenshot */
   background:
     radial-gradient(560px 300px at 50% 108%, rgba(249, 115, 22, 0.06), transparent 70%),
@@ -374,7 +374,43 @@ h2 em { font-style: italic; font-weight: 700; }
   text-align: center;
 }
 /* JS marks confirmed-missing files; the wallpaper + label stand in */
-.shot-media.missing img { display: none; }
+/* --- Light/dark screenshot swap -----------------------------------------
+   Perci ships both themes, so the hero shows both. Without JS the toggle is
+   never injected and the dark shot stands alone, which is the page's theme. */
+.shot-img.is-light { display: none; }
+.shot-media.show-light .shot-img.is-dark  { display: none; }
+.shot-media.show-light .shot-img.is-light { display: block; }
+
+/* A file that fails to load drops back to the placeholder surface. Must sit
+   after the swap rules — it ties them on specificity and wins on order, so a
+   missing light shot can't be forced visible by .show-light. */
+.shot-media .shot-img.missing { display: none; }
+
+.shot-actions { margin-left: auto; }
+
+.theme-toggle {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.25);
+}
+.theme-toggle button {
+  padding: 3px 11px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  font: 600 10.5px/1 var(--font-b);
+  letter-spacing: 0.03em;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.theme-toggle button:hover { color: var(--ink); }
+.theme-toggle button[aria-pressed="true"] {
+  background: var(--accent);
+  color: #170D05;
+}
 
 .shot-inline { margin-top: 40px; }
 

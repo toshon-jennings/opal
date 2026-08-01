@@ -8,7 +8,7 @@
   /* --- Screenshot frames: if a file is absent, show the placeholder
          surface instead of a broken-image glyph --- */
   document.querySelectorAll(".shot-media img").forEach(function (img) {
-    var markMissing = function () { img.parentElement.classList.add("missing"); };
+    var markMissing = function () { img.classList.add("missing"); };
     img.addEventListener("error", markMissing);
     if (img.complete && img.naturalWidth === 0) markMissing();
   });
@@ -27,6 +27,34 @@
     revealed.forEach(function (el) { io.observe(el); });
   } else {
     revealed.forEach(function (el) { el.classList.add("in"); });
+  }
+
+  /* --- Hero screenshot: swap between Perci's light and dark themes.
+         Injected rather than authored so the control never appears
+         without the JS that makes it work. --- */
+  var themeSlot = document.querySelector("[data-theme-slot]");
+  var themeMedia = themeSlot && themeSlot.closest(".shot").querySelector(".shot-media");
+  if (themeSlot && themeMedia && themeMedia.querySelector(".shot-img.is-light")) {
+    var group = document.createElement("div");
+    group.className = "theme-toggle";
+    group.setAttribute("role", "group");
+    group.setAttribute("aria-label", "Screenshot theme");
+
+    ["Dark", "Light"].forEach(function (name) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = name;
+      b.setAttribute("aria-pressed", String(name === "Dark"));
+      b.addEventListener("click", function () {
+        themeMedia.classList.toggle("show-light", name === "Light");
+        group.querySelectorAll("button").forEach(function (other) {
+          other.setAttribute("aria-pressed", String(other === b));
+        });
+      });
+      group.appendChild(b);
+    });
+
+    themeSlot.appendChild(group);
   }
 
   /* --- Copy the install commands --- */
