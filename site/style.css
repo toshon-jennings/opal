@@ -414,6 +414,14 @@ h2 em { font-style: italic; font-weight: 700; }
 
 .shot-inline { margin-top: 40px; }
 
+.shot-cap {
+  margin-top: 14px;
+  font: 400 13.5px/1.6 var(--font-b);
+  color: var(--ink-3);
+  text-align: center;
+  text-wrap: balance;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .shot-hero { animation: rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both; }
 }
