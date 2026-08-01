@@ -24,13 +24,12 @@
     <source src="splash.mp4" type="video/mp4" />
   </video>
   <script>
-    const { ipcRenderer } = require('electron');
     const video = document.getElementById('v');
     let sent = false;
     function done() {
       if (sent) return;
       sent = true;
-      ipcRenderer.send('splash:done');
+      window.splashAPI.sendDone();
     }
     video.addEventListener('ended', done);
     video.addEventListener('error', done);
