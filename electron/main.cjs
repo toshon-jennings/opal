@@ -1166,9 +1166,23 @@ app.whenReady().then(() => {
       // the system browser. Plain <a> links are handled by the will-navigate
       // branch below, since they navigate in place rather than opening a window.
       if (contents.getType() === 'webview') {
-        appendRendererLog(`webview-new-window-routed-to-tab url=${url}`);
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('webview:open-in-tab', url);
+        try {
+          const parsed = new URL(url);
+          const isLocalhost = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1' || parsed.hostname === '::1';
+          if (isLocalhost) {
+            appendRendererLog(`webview-new-window-routed-to-tab url=${url}`);
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('webview:open-in-tab', url);
+            }
+            return { action: 'deny' };
+          }
+          if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+            appendRendererLog(`webview-new-window-open-external url=${url}`);
+            shell.openExternal(url);
+            return { action: 'deny' };
+          }
+        } catch (err) {
+          appendRendererLog(`blocked-webview-window-open invalid-url=${url}`);
         }
         return { action: 'deny' };
       }

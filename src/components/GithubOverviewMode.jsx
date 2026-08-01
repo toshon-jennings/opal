@@ -42,11 +42,23 @@ export default function GithubOverviewMode() {
             setLoadError(event.errorDescription || `Failed to load (code ${event.errorCode})`);
             setStatus('offline');
         };
+        const onNewWindow = (event) => {
+            if (event.url && (event.url.startsWith('http://') || event.url.startsWith('https://'))) {
+                event.preventDefault();
+                if (window.electron?.openExternal) {
+                    window.electron.openExternal(event.url);
+                } else {
+                    window.open(event.url, '_blank', 'noopener,noreferrer');
+                }
+            }
+        };
         webview.addEventListener('dom-ready', onReady);
         webview.addEventListener('did-fail-load', onFail);
+        webview.addEventListener('new-window', onNewWindow);
         return () => {
             webview.removeEventListener('dom-ready', onReady);
             webview.removeEventListener('did-fail-load', onFail);
+            webview.removeEventListener('new-window', onNewWindow);
         };
     }, [canUseWebview, frameKey]);
 
