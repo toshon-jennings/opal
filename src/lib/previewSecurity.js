@@ -23,7 +23,7 @@ export function getPreviewSandbox({ scripts = false, forms = false } = {}) {
 
 export function getPreviewCsp({ scripts = false, styles = false, images = true } = {}) {
     const scriptSrc = scripts
-        ? `'unsafe-inline' 'unsafe-eval' ${Object.values(PREVIEW_CDN_URLS).map(url => new URL(url).origin).join(' ')}`
+        ? `'unsafe-inline' ${Object.values(PREVIEW_CDN_URLS).map(url => new URL(url).origin).join(' ')}`
         : "'none'";
     const styleSrc = styles ? "'unsafe-inline'" : "'none'";
     const imgSrc = images ? 'data: blob: https:' : "'none'";
