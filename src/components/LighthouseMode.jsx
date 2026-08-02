@@ -297,11 +297,19 @@ export default function LighthouseMode() {
     setResolving(r => ({ ...r, applying: true }));
     const errors = [];
     let killedCount = 0;
-    for (const proc of (conflict.processes || [])) {
-      if (!kills[proc.pid]) continue;
-      const res = await window.electron.lighthouseKillProcess(proc.pid);
+
+    const killPromises = (conflict.processes || [])
+      .filter(proc => kills[proc.pid])
+      .map(async proc => {
+        const res = await window.electron.lighthouseKillProcess(proc.pid);
+        return { proc, res };
+      });
+
+    const killResults = await Promise.all(killPromises);
+    for (const { proc, res } of killResults) {
       if (res.ok) killedCount++; else errors.push(`kill ${proc.pid}: ${res.error || 'failed'}`);
     }
+
     let applied = 0;
     for (let i = 0; i < refs.length; i++) {
       if (!refChecks[i]) continue;
