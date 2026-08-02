@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Code, Eye, Maximize2, X, Copy, Check, Download, FileText, Pencil, Sun, Moon } from 'lucide-react';
+import { Code, Eye, Maximize2, X, Copy, Check, Download, FileText, Sun, Moon } from 'lucide-react';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { SyntaxHighlighter } from '../lib/syntaxHighlighter';
 import ReactMarkdown from 'react-markdown';
