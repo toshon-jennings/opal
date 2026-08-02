@@ -565,7 +565,41 @@ export async function runPmAgentTurn({ projectId, client, model, history = [], u
             tool_calls: toolCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: JSON.stringify(tc.args) } })),
         }];
 
-        const results = await Promise.all(toolCalls.map(tc => executePmTool(tc.name, tc.args, { projectId })));
+        const results = [];
+        const parallelPromises = [];
+        for (let i = 0; i < toolCalls.length; i++) {
+            const tc = toolCalls[i];
+            const isGitTool = tc.name === 'git_action' || tc.name === 'dispatch_to_jules';
+
+            if (isGitTool) {
+                // If there are pending parallel operations, flush them first
+                if (parallelPromises.length > 0) {
+                    const batchResults = await Promise.all(parallelPromises.map(p => p.promise));
+                    for (let j = 0; j < batchResults.length; j++) {
+                        results[parallelPromises[j].index] = batchResults[j];
+                    }
+                    parallelPromises.length = 0; // Clear the batch
+                }
+
+                // Execute git tools sequentially
+                const result = await executePmTool(tc.name, tc.args, { projectId });
+                results[i] = result;
+            } else {
+                // Queue for parallel execution
+                parallelPromises.push({
+                    index: i,
+                    promise: executePmTool(tc.name, tc.args, { projectId })
+                });
+            }
+        }
+
+        // Flush any remaining parallel operations
+        if (parallelPromises.length > 0) {
+            const batchResults = await Promise.all(parallelPromises.map(p => p.promise));
+            for (let j = 0; j < batchResults.length; j++) {
+                results[parallelPromises[j].index] = batchResults[j];
+            }
+        }
 
         for (let i = 0; i < toolCalls.length; i++) {
             const tc = toolCalls[i];
