@@ -122,9 +122,24 @@ export function generatePreviewHTML(files, options = {}) {
             }).join('\\n');
             // Executing generated code is the whole point of this sandboxed
             // (allow-scripts) preview iframe; this replaces the prior
-            // <script type="text/babel"> auto-transform. Direct eval keeps the
-            // destructured React hooks above in scope for the transpiled code.
-            eval(__perciOut);
+            // <script type="text/babel"> auto-transform. Dynamically injecting
+            // a script tag avoids 'unsafe-eval' while keeping the destructured
+            // React hooks in scope via an IIFE.
+            const script = document.createElement('script');
+            script.type = 'text/javascript';
+            script.text = \`
+            try {
+                (function(useState, useEffect, useRef, useMemo, useCallback) {
+                    \${__perciOut}
+                })(React.useState, React.useEffect, React.useRef, React.useMemo, React.useCallback);
+            } catch (err) {
+                const errorBox = document.createElement('div');
+                errorBox.style.cssText = 'color: red; padding: 20px; white-space: pre-wrap; font-family: monospace;';
+                errorBox.textContent = err && err.message ? err.message : String(err);
+                document.getElementById('root').replaceChildren(errorBox);
+                console.error(err);
+            }\`;
+            document.body.appendChild(script);
         } catch (err) {
             const errorBox = document.createElement('div');
             errorBox.style.cssText = 'color: red; padding: 20px; white-space: pre-wrap; font-family: monospace;';
