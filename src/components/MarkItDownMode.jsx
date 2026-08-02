@@ -295,6 +295,7 @@ export default function MarkItDownMode() {
                             title="MarkItDownUI"
                             className="absolute inset-0 h-full w-full border-0 bg-white"
                             allowpopups="true"
+                            partition="persist:perci-markitdown"
                         />
                         {!contentReady && (
                             <div className="absolute inset-0 z-10 flex items-center justify-center bg-[var(--bg-primary)]/80 backdrop-blur-sm">

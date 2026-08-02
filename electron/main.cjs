@@ -920,27 +920,6 @@ function createWindow() {
   attachRendererDiagnostics(win);
   appendRendererLog(`createWindow: renderer log at ${getRendererLogPath()}`);
 
-  win.webContents.session.webRequest.onHeadersReceived(
-    { urls: ['http://127.0.0.1:8920/*', 'http://localhost:8920/*'] },
-    (details, callback) => {
-      const responseHeaders = { ...(details.responseHeaders || {}) };
-      for (const key of Object.keys(responseHeaders)) {
-        const lower = key.toLowerCase();
-        if (lower === 'x-frame-options' || lower === 'content-security-policy') {
-          delete responseHeaders[key];
-        }
-      }
-      responseHeaders['Access-Control-Allow-Origin'] = ['*'];
-      responseHeaders['Cross-Origin-Resource-Policy'] = ['cross-origin'];
-      // MarkItDownUI's webview has no explicit `partition`, so it shares this
-      // window's persistent default session — its disk HTTP cache otherwise
-      // survives reloads and app restarts, silently masking fixes to the
-      // local server's own static assets. Force every request fresh.
-      responseHeaders['Cache-Control'] = ['no-store'];
-      callback({ responseHeaders });
-    }
-  );
-
   // Grant clipboard-read/write permission so navigator.clipboard works in the renderer
   win.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
     if (permission === 'clipboard-read' || permission === 'clipboard-write' || permission === 'clipboard-sanitized-write') {
@@ -1018,6 +997,35 @@ function cleanedDesktopUserAgent(rawUa) {
 
 const YOUTUBE_WEBVIEW_REFERRER = 'https://com.perci.ai/';
 
+
+function configureMarkItDownWebviewSession() {
+  const markitdownSession = session.fromPartition('persist:perci-markitdown');
+
+  markitdownSession.webRequest.onHeadersReceived(
+    { urls: ['http://127.0.0.1:8920/*', 'http://localhost:8920/*'] },
+    (details, callback) => {
+      const responseHeaders = { ...(details.responseHeaders || {}) };
+      for (const key of Object.keys(responseHeaders)) {
+        const lower = key.toLowerCase();
+        if (lower === 'x-frame-options' || lower === 'content-security-policy') {
+          delete responseHeaders[key];
+        }
+      }
+      responseHeaders['Access-Control-Allow-Origin'] = ['*'];
+      responseHeaders['Cross-Origin-Resource-Policy'] = ['cross-origin'];
+      callback({ responseHeaders });
+    }
+  );
+
+  markitdownSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    if (permission === 'clipboard-read' || permission === 'clipboard-write' || permission === 'clipboard-sanitized-write') {
+      callback(true);
+      return;
+    }
+    callback(false);
+  });
+}
+
 function configureYouTubeWebviewSession() {
   const youtubeSession = session.fromPartition('persist:perci-youtube');
   youtubeSession.webRequest.onBeforeSendHeaders(
@@ -1040,6 +1048,7 @@ function configureYouTubeWebviewSession() {
 
 app.whenReady().then(() => {
   try {
+    configureMarkItDownWebviewSession();
     configureYouTubeWebviewSession();
 
     const localhostSession = session.fromPartition('persist:perci-localhost');
@@ -2847,6 +2856,14 @@ async function startMarkItDownServer() {
   const current = await getMarkItDownServerStatus();
   if (current.ok) {
     return { ...current, started: false, message: 'MarkItDownUI is already running.' };
+  }
+
+  // Clear the cache for the markitdown partition so local asset fixes apply correctly
+  try {
+    const markitdownSession = session.fromPartition('persist:perci-markitdown');
+    await markitdownSession.clearCache();
+  } catch (err) {
+    console.error('Failed to clear MarkItDownUI cache:', err);
   }
 
   if (markitdownServerProcess && !markitdownServerProcess.killed && markitdownServerProcess.exitCode == null) {
