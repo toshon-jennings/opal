@@ -172,6 +172,12 @@ export const INTEGRATION_TOOLS = [
     }
 ];
 
+// Tools that change state somewhere outside Perci. Read-only calls in a turn
+// are fanned out; a turn containing one of these runs sequentially instead, so
+// that aborting still stops the calls that have not started. Add to this set
+// when adding any tool that writes.
+const MUTATING_TOOL_NAMES = new Set(['github_create_issue']);
+
 const NOTES_TOOLS = [
     {
         name: 'notes_lookup',
@@ -436,21 +442,38 @@ export async function runChatWithTools({
             }
         ];
 
-        const toolResults = await Promise.all(
-            toolCalls.map(async (toolCall) => {
+        const runToolCall = async (toolCall) => {
+            onToolCall?.(toolCall);
+            const result = allowedToolNames.has(toolCall.name)
+                ? await executeTool(toolCall.name, toolCall.args || {})
+                : { error: `Tool is not available in this request: ${toolCall.name}` };
+            return {
+                role: 'tool',
+                tool_call_id: toolCall.id,
+                name: toolCall.name,
+                content: JSON.stringify(result)
+            };
+        };
+
+        // Fanning the calls out is only safe while they are all reads. The
+        // sequential loop's per-iteration abort check is what stops queued
+        // calls once the user hits stop — under Promise.all every call has
+        // already started by the time the first one yields, so aborting
+        // mid-turn stops nothing. That is fine for reads and not fine for a
+        // tool that creates something, so a turn containing one keeps the
+        // sequential path. Result order is preserved either way; the LLM
+        // needs each tool message to line up with its call.
+        let toolResults;
+        if (toolCalls.some(tc => MUTATING_TOOL_NAMES.has(tc.name))) {
+            toolResults = [];
+            for (const toolCall of toolCalls) {
                 if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-                onToolCall?.(toolCall);
-                const result = allowedToolNames.has(toolCall.name)
-                    ? await executeTool(toolCall.name, toolCall.args || {})
-                    : { error: `Tool is not available in this request: ${toolCall.name}` };
-                return {
-                    role: 'tool',
-                    tool_call_id: toolCall.id,
-                    name: toolCall.name,
-                    content: JSON.stringify(result)
-                };
-            })
-        );
+                toolResults.push(await runToolCall(toolCall));
+            }
+        } else {
+            if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+            toolResults = await Promise.all(toolCalls.map(runToolCall));
+        }
         if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
         llmMessages = [...llmMessages, ...toolResults];
     }
