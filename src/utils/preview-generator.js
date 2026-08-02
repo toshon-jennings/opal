@@ -137,11 +137,12 @@ export function generatePreviewHTML(files, options = {}) {
             }).join('\\n');
             // Executing generated code is the whole point of this sandboxed
             // (allow-scripts) preview iframe; this replaces the prior
-            // <script type="text/babel"> auto-transform. Using new Function
-            // prevents leaking local scope variables (like __stripModules) to
-            // the transpiled code. We explicitly pass required React hooks.
-            const __run = new Function('React', 'useState', 'useEffect', 'useRef', 'useMemo', 'useCallback', __perciOut);
-            __run(React, useState, useEffect, useRef, useMemo, useCallback);
+            // <script type="text/babel"> auto-transform. Using an injected
+            // script tag prevents leaking local scope variables to the transpiled
+            // code and avoids needing 'unsafe-eval' in the Content Security Policy.
+            const __script = document.createElement('script');
+            __script.textContent = __perciOut;
+            document.body.appendChild(__script);
         } catch (err) {
             __renderError(err);
         }
