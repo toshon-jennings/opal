@@ -39,7 +39,7 @@ const SETUP_STEPS = [
     { id: 'orbstack', label: 'Checking OrbStack / Docker' },
     { id: 'docker', label: 'Starting Docker runtime' },
     { id: 'compose', label: 'Pulling & starting containers' },
-    { id: 'health', label: 'Waiting for Eidos API' },
+    { id: 'health', label: 'Waiting for Eidos Dashboard' },
 ];
 
 function compactNumber(value) {
@@ -98,6 +98,27 @@ function EidosModeInner({ onOpenGuide }) {
     const [insightsLoading, setInsightsLoading] = useState(false);
     const [insightsError, setInsightsError] = useState('');
     const [contribGraphFailed, setContribGraphFailed] = useState(false);
+    // The contribution graph is an external image, and the likeliest reason it
+    // fails is a startup race — the renderer painting before DNS/network is
+    // ready, or a wake from sleep — rather than the service being down. So
+    // retry a couple of times before giving up, and never unmount the <img>:
+    // if it is removed from the DOM, onLoad can never fire again and a single
+    // transient miss latches the fallback on for the whole session.
+    const [contribAttempt, setContribAttempt] = useState(0);
+    const CONTRIB_MAX_RETRIES = 2;
+
+    const handleContribError = () => {
+        if (contribAttempt < CONTRIB_MAX_RETRIES) {
+            setContribAttempt(attempt => attempt + 1);
+        } else {
+            setContribGraphFailed(true);
+        }
+    };
+
+    const retryContribGraph = () => {
+        setContribGraphFailed(false);
+        setContribAttempt(attempt => attempt + 1);
+    };
     const pollRef = useRef(null);
     const runningRef = useRef(false);
 
@@ -213,7 +234,18 @@ function EidosModeInner({ onOpenGuide }) {
                     setStatus('error');
                     runningRef.current = false;
                     stopPolling();
+                } else if (result.ok || result.state === 'running') {
+                    setStatus('running');
+                    setDashboardReady(true);
+                    setSurface('dashboard');
+                    runningRef.current = false;
+                    stopPolling();
                 }
+            }).catch((err) => {
+                setError(err?.message || 'Failed to start Eidos');
+                setStatus('error');
+                runningRef.current = false;
+                stopPolling();
             });
 
             pollRef.current = setInterval(pollProgress, 2000);
@@ -455,24 +487,53 @@ function EidosModeInner({ onOpenGuide }) {
                                 <ArrowUpRight size={13} />
                             </a>
                         </div>
-                        {contribGraphFailed ? (
+                        {/* The image stays mounted even while the fallback is
+                            showing, so a later successful load can clear the
+                            failure by itself. The retry counter doubles as a
+                            cache-buster — the browser will not re-request an
+                            identical src. */}
+                        <img
+                            src={
+                                contribAttempt === 0
+                                    ? CONTRIBUTIONS_GRAPH_URL
+                                    : `${CONTRIBUTIONS_GRAPH_URL}?retry=${contribAttempt}`
+                            }
+                            alt="GitHub contribution graph for toshon-jennings"
+                            className="eidos-contrib-graph"
+                            loading="eager"
+                            referrerPolicy="no-referrer"
+                            style={contribGraphFailed ? { display: 'none' } : undefined}
+                            onError={handleContribError}
+                            onLoad={() => setContribGraphFailed(false)}
+                        />
+                        {contribGraphFailed && (
                             <div className="eidos-contrib-fallback" role="status">
                                 <Github size={18} aria-hidden="true" />
                                 <div>
                                     <strong>Contribution graph unavailable</strong>
-                                    <span>The external graph image did not render in Perci. Open GitHub for live activity.</span>
+                                    <span>
+                                        Could not load the graph after {CONTRIB_MAX_RETRIES + 1} attempts.
+                                        Open GitHub for live activity.
+                                    </span>
                                 </div>
+                                <button
+                                    type="button"
+                                    onClick={retryContribGraph}
+                                    style={{
+                                        marginLeft: 'auto',
+                                        background: 'transparent',
+                                        border: '1px solid currentColor',
+                                        borderRadius: 6,
+                                        color: 'inherit',
+                                        cursor: 'pointer',
+                                        fontSize: 12,
+                                        opacity: 0.75,
+                                        padding: '4px 10px'
+                                    }}
+                                >
+                                    Retry
+                                </button>
                             </div>
-                        ) : (
-                            <img
-                                src={CONTRIBUTIONS_GRAPH_URL}
-                                alt="GitHub contribution graph for toshon-jennings"
-                                className="eidos-contrib-graph"
-                                loading="eager"
-                                referrerPolicy="no-referrer"
-                                onError={() => setContribGraphFailed(true)}
-                                onLoad={() => setContribGraphFailed(false)}
-                            />
                         )}
                     </section>
     
@@ -652,18 +713,87 @@ function EidosModeInner({ onOpenGuide }) {
     }
 
     return (
-        <div className="eidos-dashboard-root">
-            {body}
-            {status === 'running' && surface === 'dashboard' && (
-                <button
-                    type="button"
-                    onClick={() => setFrameKey(prev => prev + 1)}
-                    className="eidos-floating-reload-btn"
-                    title="Reload Eidos view"
-                >
-                    <RefreshCw size={15} />
-                </button>
+        <div className="eidos-dashboard-root flex flex-col h-full w-full bg-[var(--bg-primary)]">
+            {status === 'running' && (
+                <header className="eidos-top-nav flex items-center justify-between px-4 py-2 border-b border-[var(--border)] bg-[var(--bg-secondary)] text-[var(--text-primary)] shrink-0">
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
+                            <img src={eidosLogo} alt="Eidos" className="w-5 h-5 rounded" />
+                            <span className="font-semibold text-sm text-[var(--text-primary)]">Eidos</span>
+                        </div>
+                        <div className="h-4 w-px bg-[var(--border)]" />
+                        <nav className="flex items-center gap-1">
+                            <button
+                                type="button"
+                                onClick={() => setSurface('dashboard')}
+                                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                                    surface === 'dashboard'
+                                        ? 'bg-[var(--bg-primary)] text-[var(--text-primary)] shadow-sm border border-[var(--border)] font-semibold'
+                                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
+                                }`}
+                            >
+                                Dashboard
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setSurface('overview')}
+                                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                                    surface === 'overview'
+                                        ? 'bg-[var(--bg-primary)] text-[var(--text-primary)] shadow-sm border border-[var(--border)] font-semibold'
+                                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
+                                }`}
+                            >
+                                Git Visualizer
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setSurface('supermemory')}
+                                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                                    surface === 'supermemory'
+                                        ? 'bg-[var(--bg-primary)] text-[var(--text-primary)] shadow-sm border border-[var(--border)] font-semibold'
+                                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
+                                }`}
+                            >
+                                Supermemory
+                            </button>
+                        </nav>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {surface === 'dashboard' && (
+                            <button
+                                type="button"
+                                onClick={() => setFrameKey(prev => prev + 1)}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-[var(--border)] text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+                                title="Reload Dashboard"
+                            >
+                                <RefreshCw size={13} />
+                                Reload
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            onClick={handleOpenDashboardInBrowser}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-[var(--border)] text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+                            title="Open in Browser (http://localhost:3000)"
+                        >
+                            <ExternalLink size={13} />
+                            Browser
+                        </button>
+                        <button
+                            type="button"
+                            onClick={onOpenGuide}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-[var(--border)] text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+                            title="Open Eidos Guide"
+                        >
+                            <BookOpen size={13} />
+                            Guide
+                        </button>
+                    </div>
+                </header>
             )}
+            <div className="flex-1 min-h-0 w-full relative">
+                {body}
+            </div>
         </div>
     );
 }
