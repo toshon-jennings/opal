@@ -28,6 +28,10 @@
     let sent = false;
     function done() {
       if (sent) return;
+      // Only latch once the signal is actually away. If the preload bridge
+      // failed to load, latching first would swallow every later trigger
+      // (click, keypress, the 12s fallback) and strand the splash on screen.
+      if (!window.splashAPI) return;
       sent = true;
       window.splashAPI.sendDone();
     }

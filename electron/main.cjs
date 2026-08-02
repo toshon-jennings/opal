@@ -638,6 +638,9 @@ async function discoverModelProviders() {
 // Track the two conditions required before revealing the main window
 const splashGate = { mainReady: false, splashDone: false };
 
+// Upper bound on how long the splash may hold the main window back.
+const SPLASH_REVEAL_TIMEOUT_MS = 15000;
+
 function tryRevealMain() {
   if (!splashGate.mainReady || !splashGate.splashDone) return;
 
@@ -689,6 +692,25 @@ function createSplashWindow() {
   });
   splashWindow.loadFile(path.join(__dirname, 'splash.html'));
   splashWindow.on('closed', () => { splashWindow = null; });
+
+  // Failsafe. tryRevealMain() waits on BOTH gate conditions, so if either one
+  // never arrives the app sits on the splash forever with no way out but a
+  // force-quit. `splashDone` is now delivered over the preload bridge, which
+  // is one more thing that can fail to load; `mainReady` is lost if the main
+  // window never paints. Force both rather than only the splash side — a blank
+  // window the user can close and inspect beats a frozen splash they cannot.
+  // splash.html has its own 12s fallback, so this sits past it and the normal
+  // path always wins.
+  setTimeout(() => {
+    if (splashGate.splashDone && splashGate.mainReady) return;
+    appendRendererLog(
+      `splash watchdog fired after ${SPLASH_REVEAL_TIMEOUT_MS}ms ` +
+      `(mainReady=${splashGate.mainReady} splashDone=${splashGate.splashDone}) — forcing reveal`
+    );
+    splashGate.splashDone = true;
+    splashGate.mainReady = true;
+    tryRevealMain();
+  }, SPLASH_REVEAL_TIMEOUT_MS);
 }
 
 function startTerminalServer() {
