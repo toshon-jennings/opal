@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Bot, RefreshCw, Send, FolderOpen, Clock, CheckCircle2, AlertTriangle, XCircle, Hourglass, Copy, Check, ChevronRight, TerminalSquare, Search } from 'lucide-react';
+import { Bot, RefreshCw, Send, FolderOpen, CheckCircle2, AlertTriangle, XCircle, Hourglass, Copy, Check, ChevronRight, TerminalSquare, Search } from 'lucide-react';
 import { useMode, HERMES_WINDOW_ID } from '../context/ModeContext';
 import { readStringStorage, writeStringStorage } from '../lib/persistentStore';
 import { upsertMissionRun } from '../lib/missionControl';
