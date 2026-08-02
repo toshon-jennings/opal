@@ -64,7 +64,7 @@ import nousLogo from './assets/nousresearch.png';
 import openClawLogo from './assets/openclaw-color.png';
 import autoforgeLogo from './assets/autoforge-logo.png';
 import agentmailLogo from './assets/agentmail-logo.png';
-import { Moon, Sun, Monitor, Lock, Unlock, Plus, Terminal as TerminalIcon, Server, RefreshCw, ExternalLink, AlertCircle, BookOpen, Cpu, Download, Puzzle, Package, MessageSquare } from 'lucide-react';
+import { Moon, Sun, Monitor, Lock, Unlock, Plus, Terminal as TerminalIcon, Server, RefreshCw, ExternalLink, AlertCircle, BookOpen, Cpu, Download, Puzzle, MessageSquare } from 'lucide-react';
 import { useTheme, ThemeProvider } from './context/ThemeContext';
 import { useChat } from './context/ChatContext';
 import TerminalPanel from './components/Terminal';
