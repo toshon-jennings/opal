@@ -68,10 +68,12 @@ export default function OfficePanel() {
             const jobs = await window.electron.listAgentJobs({ limit: 50, source: 'office_panel' });
             const grouped = {};
             for (const job of jobs || []) {
+                job._ts = job._ts || new Date(job.created_at).getTime();
                 (grouped[job.agent] ??= []).push(job);
             }
-            for (const list of Object.values(grouped)) {
-                list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            const groupedLists = Object.values(grouped);
+            for (const list of groupedLists) {
+                list.sort((a, b) => b._ts - a._ts);
             }
             setJobsByAgent(grouped);
         } catch {
