@@ -436,20 +436,21 @@ export async function runChatWithTools({
             }
         ];
 
-        const toolResults = [];
-        for (const toolCall of toolCalls) {
-            if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-            onToolCall?.(toolCall);
-            const result = allowedToolNames.has(toolCall.name)
-                ? await executeTool(toolCall.name, toolCall.args || {})
-                : { error: `Tool is not available in this request: ${toolCall.name}` };
-            toolResults.push({
-                role: 'tool',
-                tool_call_id: toolCall.id,
-                name: toolCall.name,
-                content: JSON.stringify(result)
-            });
-        }
+        const toolResults = await Promise.all(
+            toolCalls.map(async (toolCall) => {
+                if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+                onToolCall?.(toolCall);
+                const result = allowedToolNames.has(toolCall.name)
+                    ? await executeTool(toolCall.name, toolCall.args || {})
+                    : { error: `Tool is not available in this request: ${toolCall.name}` };
+                return {
+                    role: 'tool',
+                    tool_call_id: toolCall.id,
+                    name: toolCall.name,
+                    content: JSON.stringify(result)
+                };
+            })
+        );
         if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
         llmMessages = [...llmMessages, ...toolResults];
     }
