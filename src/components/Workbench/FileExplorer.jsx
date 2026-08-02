@@ -147,7 +147,6 @@ function FileTreeNode({ node, depth, expandedFolders, onToggleFolder, onFileSele
 async function readDirRecursive(fs, path) {
     try {
         const entries = await fs.readdir(path, { withFileTypes: true });
-        const result = [];
 
         // Ignore list for cleaner explorer
         const ignoreList = [
@@ -160,26 +159,28 @@ async function readDirRecursive(fs, path) {
             return a.isDirectory() ? -1 : 1;
         });
 
-        for (const entry of entries) {
-            if (ignoreList.includes(entry.name)) continue;
+        const promises = entries.map(async (entry) => {
+            if (ignoreList.includes(entry.name)) return null;
 
             const fullPath = path === '.' ? entry.name : `${path}/${entry.name}`;
             if (entry.isDirectory()) {
-                result.push({
+                return {
                     name: entry.name,
                     path: fullPath,
                     type: 'folder',
                     children: await readDirRecursive(fs, fullPath)
-                });
+                };
             } else {
-                result.push({
+                return {
                     name: entry.name,
                     path: fullPath,
                     type: 'file'
-                });
+                };
             }
-        }
-        return result;
+        });
+
+        const resolved = await Promise.all(promises);
+        return resolved.filter(Boolean);
     } catch (e) {
         console.error(`Error reading directory ${path}:`, e);
         return [];
