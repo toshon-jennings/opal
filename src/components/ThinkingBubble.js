@@ -375,36 +375,85 @@ class ThinkingBubble {
      * Create the implicit mode (typing dots) DOM
      */
     #createImplicitDOM() {
-        return `
-      <div class="thinking-bubble__dots" role="status">
-        <span class="thinking-bubble__dot"></span>
-        <span class="thinking-bubble__dot"></span>
-        <span class="thinking-bubble__dot"></span>
-      </div>
-    `;
+        const frag = document.createDocumentFragment();
+        const container = document.createElement('div');
+        container.className = 'thinking-bubble__dots';
+        container.setAttribute('role', 'status');
+
+        for (let i = 0; i < 3; i++) {
+            const dot = document.createElement('span');
+            dot.className = 'thinking-bubble__dot';
+            container.appendChild(dot);
+        }
+
+        frag.appendChild(container);
+        return frag;
     }
 
     /**
      * Create the explicit mode (reasoning text) DOM
      */
     #createExplicitDOM() {
-        return `
-      <div class="thinking-bubble__header thinking-bubble__shimmer">
-        <svg class="thinking-bubble__header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10"/>
-          <path d="M12 6v6l4 2"/>
-        </svg>
-        <span>Thinking...</span>
-      </div>
-      <div class="thinking-bubble__content">
-        <pre class="thinking-bubble__text"></pre>
-        <span class="thinking-bubble__cursor"></span>
-      </div>
-      <div class="thinking-bubble__status">
-        <span class="thinking-bubble__status-dot"></span>
-        <span>Processing reasoning steps</span>
-      </div>
-    `;
+        const frag = document.createDocumentFragment();
+
+        // Header
+        const header = document.createElement('div');
+        header.className = 'thinking-bubble__header thinking-bubble__shimmer';
+
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('class', 'thinking-bubble__header-icon');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        svg.setAttribute('fill', 'none');
+        svg.setAttribute('stroke', 'currentColor');
+        svg.setAttribute('stroke-width', '2');
+
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', '12');
+        circle.setAttribute('cy', '12');
+        circle.setAttribute('r', '10');
+
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', 'M12 6v6l4 2');
+
+        svg.appendChild(circle);
+        svg.appendChild(path);
+
+        const headerText = document.createElement('span');
+        headerText.textContent = 'Thinking...';
+
+        header.appendChild(svg);
+        header.appendChild(headerText);
+        frag.appendChild(header);
+
+        // Content
+        const content = document.createElement('div');
+        content.className = 'thinking-bubble__content';
+
+        const pre = document.createElement('pre');
+        pre.className = 'thinking-bubble__text';
+
+        const cursor = document.createElement('span');
+        cursor.className = 'thinking-bubble__cursor';
+
+        content.appendChild(pre);
+        content.appendChild(cursor);
+        frag.appendChild(content);
+
+        // Status
+        const status = document.createElement('div');
+        status.className = 'thinking-bubble__status';
+
+        const statusDot = document.createElement('span');
+        statusDot.className = 'thinking-bubble__status-dot';
+
+        const statusText = document.createElement('span');
+        statusText.textContent = 'Processing reasoning steps';
+
+        status.appendChild(statusDot);
+        status.appendChild(statusText);
+        frag.appendChild(status);
+
+        return frag;
     }
 
     /**
@@ -427,9 +476,11 @@ class ThinkingBubble {
         this.#bubbleElement.setAttribute('aria-atomic', 'false');
         this.#bubbleElement.setAttribute('aria-label', 'AI is thinking');
 
-        this.#bubbleElement.innerHTML = this.#mode === 'implicit'
+        const contentNodes = this.#mode === 'implicit'
             ? this.#createImplicitDOM()
             : this.#createExplicitDOM();
+
+        this.#bubbleElement.appendChild(contentNodes);
 
         this.#container.appendChild(this.#bubbleElement);
 
