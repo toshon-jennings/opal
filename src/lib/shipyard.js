@@ -564,8 +564,12 @@ export async function runPmAgentTurn({ projectId, client, model, history = [], u
             content: content || null,
             tool_calls: toolCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: JSON.stringify(tc.args) } })),
         }];
-        for (const tc of toolCalls) {
-            const result = await executePmTool(tc.name, tc.args, { projectId });
+
+        const results = await Promise.all(toolCalls.map(tc => executePmTool(tc.name, tc.args, { projectId })));
+
+        for (let i = 0; i < toolCalls.length; i++) {
+            const tc = toolCalls[i];
+            const result = results[i];
             toolEvents.push({ name: tc.name, ok: !result?.error, error: result?.error || null });
             messages.push({ role: 'tool', tool_call_id: tc.id, name: tc.name, content: JSON.stringify(result) });
         }
