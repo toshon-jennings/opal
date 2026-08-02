@@ -641,7 +641,7 @@
     min-height: 0;
     width: 100%;
     border: 0;
-    background: white;
+    background: #000000;
 }
 
 @keyframes eidos-rise {

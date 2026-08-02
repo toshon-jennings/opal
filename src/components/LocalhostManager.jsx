@@ -1,28 +1,16 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { readStringStorage, writeStringStorage } from '../lib/persistentStore';
+import { LOCAL_SERVICES } from '../lib/localServices';
 import {
-    Plus, X, Play, Square, Power, PowerOff,
+    Plus, X, Play, Square, Power, PowerOff, RotateCw,
     ChevronDown, ChevronUp, ExternalLink, RefreshCw,
     Server, Terminal, AlertCircle, CheckCircle, Globe, Pencil
 } from 'lucide-react';
 
 const STORAGE_KEY = 'perci_localhost_manager_apps';
 
-// ── Default app catalog — matches the user's actual project layout ──────
-const DEFAULT_APPS = [
-    { id: 'perci', name: 'Perci (Opal)', port: 5173, url: 'http://localhost:5173', startCommand: 'cd ~/opal && npm run dev', cwd: '~/opal', autoStart: false },
-    { id: 'eidos', name: 'Eidos', port: 3000, url: 'http://localhost:3000', startCommand: 'cd ~/eidos && docker compose up -d', cwd: '~/eidos', autoStart: false },
-    { id: 'open-notebook', name: 'Open Notebook', port: 8502, url: 'http://localhost:8502', startCommand: '', cwd: '~/open-notebook', autoStart: false },
-    { id: 'openclaw', name: 'OpenClaw', port: 18789, url: 'http://localhost:18789', startCommand: '', cwd: '', autoStart: false },
-    { id: 'markitdown', name: 'MarkItDownUI', port: 8920, url: 'http://localhost:8920', startCommand: '', cwd: '', autoStart: false },
-    { id: 'hermes-dash', name: 'Hermes Dashboard', port: 8642, url: 'http://localhost:8642', startCommand: '', cwd: '', autoStart: false },
-    { id: 'keysafe', name: 'KeySafe', port: 4100, url: 'http://127.0.0.1:4100', startCommand: 'cd ~/keysafe && npm run dev', cwd: '~/keysafe', autoStart: false },
-    { id: 'super-memory', name: 'Supermemory', port: 6768, url: 'http://localhost:6768', startCommand: '', cwd: '', autoStart: false },
-    { id: 'lfm-harness', name: 'LFM Harness', port: 6270, url: 'http://localhost:6270', startCommand: 'node ~/lfm-harness/server.js', cwd: '~/lfm-harness', autoStart: false },
-    { id: 'apfel-harness', name: 'Apfel Harness', port: 6271, url: 'http://localhost:6271', startCommand: 'node ~/apfel-harness/server.js', cwd: '~/apfel-harness', autoStart: false },
-    { id: 'ollama', name: 'Ollama', port: 11434, url: 'http://localhost:11434', startCommand: 'ollama serve', cwd: '', autoStart: false },
-    { id: 'tcs-it-dashboard', name: 'TCS IT Dashboard', port: 8788, url: 'http://localhost:8788', startCommand: 'cd ~/it-milestone-agent && source venv/bin/activate && python server.py', cwd: '~/it-milestone-agent', autoStart: false },
-];
+// ── Default app catalog — shared with the surfaces that embed these apps ──
+const DEFAULT_APPS = LOCAL_SERVICES;
 
 function plistLabel(id) { return `local.perci.${id}`; }
 function plistPath(id, homeDir) {
@@ -31,7 +19,6 @@ function plistPath(id, homeDir) {
 }
 
 function buildPlist(label, command, cwd, name, homeDir) {
-    const programArgs = ['-c', command];
     const envDict = cwd
         ? `<key>WorkingDirectory</key><string>${cwd.replace('~', homeDir)}</string>`
         : '';
@@ -66,17 +53,20 @@ function readApps() {
         const saved = JSON.parse(raw);
         if (!Array.isArray(saved)) return [...DEFAULT_APPS];
         
-        // Merge saved auto-start state into defaults
         const savedMap = new Map(saved.map(a => [a.id, a]));
         return DEFAULT_APPS.map(def => {
             const s = savedMap.get(def.id);
             if (!s) return def;
-            
-            // For default apps, merge saved fields on top of defaults so user edits persist.
-            // This ensures any source-code updates still take effect for unedited fields.
+            // Saved state wins, except for a blank launch command or folder:
+            // earlier catalog versions shipped several apps with no command and
+            // persisted those blanks, which would otherwise permanently shadow a
+            // command the catalog has since learned. The user can still clear one
+            // by editing the app.
             return {
                 ...def,
                 ...s,
+                startCommand: s.startCommand || def.startCommand,
+                cwd: s.cwd || def.cwd,
                 autoStart: !!s.autoStart
             };
         }).concat(saved.filter(s => !DEFAULT_APPS.find(d => d.id === s.id)));
@@ -96,6 +86,7 @@ export default function LocalhostManager({ onNavigate }) {
     const [apps, setApps] = useState(() => readApps());
     const [homeDir, setHomeDir] = useState('/Users/toshonjennings');
     const [runningPorts, setRunningPorts] = useState(new Set());
+    const [appHealthMap, setAppHealthMap] = useState({});
     const [scanning, setScanning] = useState(false);
     const [showAddForm, setShowAddForm] = useState(false);
     const [addName, setAddName] = useState('');
@@ -113,8 +104,8 @@ export default function LocalhostManager({ onNavigate }) {
     const [editPort, setEditPort] = useState('');
     const [editCwd, setEditCwd] = useState('');
     const [editCommand, setEditCommand] = useState('');
+    const healthScanSeqRef = useRef(0);
 
-    // Resolve home directory from Electron main process
     useEffect(() => {
         if (window.electron?.getHomeDir) {
             window.electron.getHomeDir().then(dir => {
@@ -123,30 +114,69 @@ export default function LocalhostManager({ onNavigate }) {
         }
     }, []);
 
-    // Re-read port data from Lighthouse scan results
+    const checkAppHealth = useCallback(async (app, scanSeq) => {
+        if (!app.port) return;
+        const targetUrl = app.url || `http://localhost:${app.port}`;
+        if (!window.electron?.localhostCheckHealth) {
+            if (scanSeq !== healthScanSeqRef.current) return;
+            setAppHealthMap(prev => ({ ...prev, [app.id]: { state: 'unavailable' } }));
+            return;
+        }
+        if (scanSeq !== healthScanSeqRef.current) return;
+        setAppHealthMap(prev => ({ ...prev, [app.id]: { state: 'checking' } }));
+        try {
+            const result = await window.electron.localhostCheckHealth(targetUrl);
+            if (scanSeq !== healthScanSeqRef.current) return;
+            const health = result.ok
+                ? { state: 'healthy', status: result.status }
+                : result.reachable
+                    ? { state: 'http-error', status: result.status }
+                    : { state: 'unreachable', error: result.error };
+            setAppHealthMap(prev => ({ ...prev, [app.id]: health }));
+        } catch (err) {
+            if (scanSeq !== healthScanSeqRef.current) return;
+            setAppHealthMap(prev => ({
+                ...prev,
+                [app.id]: { state: 'unreachable', error: err.message },
+            }));
+        }
+    }, []);
+
     const refreshPorts = useCallback(async () => {
         if (!window.electron?.lighthouseScan) return;
+        const scanSeq = ++healthScanSeqRef.current;
         setScanning(true);
         try {
             const result = await window.electron.lighthouseScan();
+            if (scanSeq !== healthScanSeqRef.current) return;
             const ports = (result.ports || [])
                 .filter(p => {
                     const bind = (p.bind_address || '').toLowerCase();
                     return ['127.0.0.1', '::1', 'localhost', '0.0.0.0', '::', ''].includes(bind);
                 });
-            setRunningPorts(new Set(ports.map(p => Number(p.port))));
+            const activePortsSet = new Set(ports.map(p => Number(p.port)));
+            setRunningPorts(activePortsSet);
+
+            // Probe health for apps whose port is listening
+            apps.forEach(app => {
+                if (app.port > 0 && activePortsSet.has(app.port)) {
+                    checkAppHealth(app, scanSeq);
+                } else {
+                    setAppHealthMap(prev => ({ ...prev, [app.id]: { state: 'stopped' } }));
+                }
+            });
         } catch (err) {
             console.error('[LocalhostManager] scan failed:', err);
         } finally {
-            setScanning(false);
+            if (scanSeq === healthScanSeqRef.current) setScanning(false);
         }
-    }, []);
+    }, [apps, checkAppHealth]);
 
     useEffect(() => { refreshPorts(); }, [refreshPorts]);
 
     const showToast = useCallback((msg, type = 'success') => {
         setToast({ msg, type });
-        setTimeout(() => setToast(null), 2500);
+        setTimeout(() => setToast(null), 3000);
     }, []);
 
     // ── Auto-start toggles ──────────────────────────────────────────────
@@ -200,14 +230,25 @@ export default function LocalhostManager({ onNavigate }) {
         setBusyIds(prev => { const n = new Set(prev); n.delete(app.id); return n; });
     }, [showToast, homeDir]);
 
-    // ── Start / Stop app now ────────────────────────────────────────────
+    // ── Start / Stop / Restart app now ────────────────────────────────────────────
     const startNow = useCallback(async (app) => {
-        if (!app.startCommand) {
-            showToast(`${app.name} has no start command configured`, 'error');
-            return;
-        }
         setBusyIds(prev => new Set(prev).add(app.id));
         try {
+            if (app.id === 'eidos' && window.electron?.eidosStart) {
+                showToast('Starting Eidos (Docker + Dashboard)...');
+                const res = await window.electron.eidosStart();
+                if (res && res.error) {
+                    showToast(`Error starting Eidos: ${res.error}`, 'error');
+                } else {
+                    showToast('Eidos started successfully!');
+                    setTimeout(refreshPorts, 2000);
+                }
+                return;
+            }
+            if (!app.startCommand) {
+                showToast(`${app.name} has no start command configured`, 'error');
+                return;
+            }
             const result = await window.electron.localhostStartNow({
                 cwd: app.cwd ? app.cwd.replace('~', homeDir) : null,
                 command: app.startCommand,
@@ -220,8 +261,58 @@ export default function LocalhostManager({ onNavigate }) {
             }
         } catch (err) {
             showToast(`Error starting ${app.name}: ${err.message}`, 'error');
+        } finally {
+            setBusyIds(prev => { const n = new Set(prev); n.delete(app.id); return n; });
         }
-        setBusyIds(prev => { const n = new Set(prev); n.delete(app.id); return n; });
+    }, [showToast, homeDir, refreshPorts]);
+
+    const stopNow = useCallback(async (app) => {
+        setBusyIds(prev => new Set(prev).add(app.id));
+        try {
+            if (app.id === 'eidos' && window.electron?.eidosStop) {
+                await window.electron.eidosStop();
+            } else if (window.electron?.localhostStopNow) {
+                await window.electron.localhostStopNow({ port: app.port, id: app.id });
+            }
+            showToast(`Stopped ${app.name}`);
+            setTimeout(refreshPorts, 1200);
+        } catch (err) {
+            showToast(`Error stopping ${app.name}: ${err.message}`, 'error');
+        } finally {
+            setBusyIds(prev => { const n = new Set(prev); n.delete(app.id); return n; });
+        }
+    }, [showToast, refreshPorts]);
+
+    const restartNow = useCallback(async (app) => {
+        setBusyIds(prev => new Set(prev).add(app.id));
+        try {
+            showToast(`Restarting ${app.name}...`);
+            if (app.id === 'eidos' && window.electron?.eidosStop) {
+                await window.electron.eidosStop();
+            } else if (window.electron?.localhostStopNow) {
+                await window.electron.localhostStopNow({ port: app.port, id: app.id });
+            }
+            await new Promise(r => setTimeout(r, 1200));
+
+            if (app.id === 'eidos' && window.electron?.eidosStart) {
+                const res = await window.electron.eidosStart();
+                if (res && res.error) {
+                    showToast(`Error restarting Eidos: ${res.error}`, 'error');
+                } else {
+                    showToast('Eidos restarted successfully!');
+                }
+            } else if (app.startCommand && window.electron?.localhostStartNow) {
+                await window.electron.localhostStartNow({
+                    cwd: app.cwd ? app.cwd.replace('~', homeDir) : null,
+                    command: app.startCommand,
+                });
+            }
+            setTimeout(refreshPorts, 2000);
+        } catch (err) {
+            showToast(`Error restarting ${app.name}: ${err.message}`, 'error');
+        } finally {
+            setBusyIds(prev => { const n = new Set(prev); n.delete(app.id); return n; });
+        }
     }, [showToast, homeDir, refreshPorts]);
 
     // ── Add custom app ──────────────────────────────────────────────────
@@ -364,7 +455,7 @@ export default function LocalhostManager({ onNavigate }) {
                             onClick={refreshPorts}
                             disabled={scanning}
                             className="micro-interaction rounded-md p-1 text-[var(--text-tertiary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] disabled:opacity-40"
-                            title="Re-scan ports"
+                            title="Re-scan ports & probe health"
                         >
                             <RefreshCw size={12} className={scanning ? 'animate-spin' : ''} />
                         </button>
@@ -471,9 +562,12 @@ export default function LocalhostManager({ onNavigate }) {
                             <AppList
                                 apps={orderedApps.running}
                                 isRunning={isRunning}
+                                appHealthMap={appHealthMap}
                                 busyIds={busyIds}
                                 onNavigate={onNavigate}
                                 onStart={startNow}
+                                onStop={stopNow}
+                                onRestart={restartNow}
                                 onEnableAutoStart={enableAutoStart}
                                 onDisableAutoStart={disableAutoStart}
                                 onRemove={removeApp}
@@ -517,9 +611,12 @@ export default function LocalhostManager({ onNavigate }) {
                                 <AppList
                                     apps={orderedApps.stopped}
                                     isRunning={isRunning}
+                                    appHealthMap={appHealthMap}
                                     busyIds={busyIds}
                                     onNavigate={onNavigate}
                                     onStart={startNow}
+                                    onStop={stopNow}
+                                    onRestart={restartNow}
                                     onEnableAutoStart={enableAutoStart}
                                     onDisableAutoStart={disableAutoStart}
                                     onRemove={removeApp}
@@ -621,9 +718,24 @@ export default function LocalhostManager({ onNavigate }) {
 }
 
 // ── Compact app card (2-column grid) ────────────────────────────────────
-function AppRow({ app, isRunning, busy, onNavigate, onStart, onEnableAutoStart, onDisableAutoStart, onRemove, isEditing, onEditStart, onEditSave, onEditCancel, editName, setEditName, editPort, setEditPort, editCwd, setEditCwd, editCommand, setEditCommand }) {
-    const hasCommand = !!app.startCommand;
+function AppRow({ app, isRunning, appHealthMap, busy, onNavigate, onStart, onStop, onRestart, onEnableAutoStart, onDisableAutoStart, onRemove, isEditing, onEditStart, onEditSave, onEditCancel, editName, setEditName, editPort, setEditPort, editCwd, setEditCwd, editCommand, setEditCommand }) {
+    const hasCommand = !!app.startCommand || app.id === 'eidos';
     const running = isRunning(app);
+    const health = appHealthMap[app.id] || { state: 'unknown' };
+    const healthy = health.state === 'healthy';
+    const degraded = health.state === 'http-error' || health.state === 'unreachable';
+    const healthLabel = health.state === 'http-error'
+        ? `HTTP ${health.status}`
+        : health.state === 'unreachable'
+            ? 'No response'
+            : health.state === 'unavailable'
+                ? 'Restart'
+                : null;
+    let healthTitle = `Running on port :${app.port}; checking HTTP response`;
+    if (healthy) healthTitle = `Running & Healthy on port :${app.port}`;
+    if (health.state === 'http-error') healthTitle = `Port :${app.port} open; HTTP responded ${health.status}`;
+    if (health.state === 'unreachable') healthTitle = `Port :${app.port} open, but its configured URL did not respond`;
+    if (health.state === 'unavailable') healthTitle = 'Restart Perci to enable the HTTP health probe';
 
     if (isEditing) {
         return (
@@ -669,16 +781,34 @@ function AppRow({ app, isRunning, busy, onNavigate, onStart, onEnableAutoStart, 
     return (
         <div className={`group relative flex flex-col gap-1.5 rounded-lg border px-2.5 py-2 transition-all ${
             running
-                ? 'border-green-500/20 bg-green-500/[0.03]'
+                ? degraded
+                    ? 'border-amber-500/30 bg-amber-500/[0.05]'
+                    : healthy
+                        ? 'border-green-500/20 bg-green-500/[0.03]'
+                        : 'border-[var(--border)] bg-[var(--bg-primary)]'
                 : 'border-[var(--border)] bg-[var(--bg-primary)] hover:border-[var(--accent)]/20'
         }`}>
             {/* Top row: status bar + name + auto badge */}
             <div className="flex items-center gap-2">
-                {/* Minimal status indicator */}
-                <div className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                    running ? 'bg-green-400 shadow-[0_0_4px_rgba(74,222,128,0.4)]' : 'bg-[var(--text-tertiary)]'
-                }`} />
+                {/* Health / Status indicator */}
+                <div
+                    className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                        running
+                            ? degraded
+                                ? 'bg-amber-400 shadow-[0_0_4px_rgba(251,191,36,0.5)] animate-pulse'
+                                : healthy
+                                    ? 'bg-green-400 shadow-[0_0_4px_rgba(74,222,128,0.4)]'
+                                    : 'bg-[var(--text-tertiary)]'
+                            : 'bg-[var(--text-tertiary)]'
+                    }`}
+                    title={running ? healthTitle : 'Stopped'}
+                />
                 <span className="min-w-0 flex-1 truncate text-xs font-medium text-[var(--text-primary)]">{app.name}</span>
+                {running && healthLabel && (
+                    <span className="shrink-0 rounded-full border border-[var(--accent)]/30 bg-[var(--accent)]/10 px-1.5 py-[1px] text-[8px] font-medium text-[var(--accent)]">
+                        {healthLabel}
+                    </span>
+                )}
                 {app.autoStart && (
                     <span className="shrink-0 rounded-full bg-[var(--accent)]/10 px-1.5 py-[1px] text-[8px] font-medium text-[var(--accent)]">Auto</span>
                 )}
@@ -725,6 +855,28 @@ function AppRow({ app, isRunning, busy, onNavigate, onStart, onEnableAutoStart, 
                         <Play size={10} />
                     </button>
                 )}
+                {running && (
+                    <>
+                        <button
+                            type="button"
+                            onClick={() => onStop(app)}
+                            disabled={busy}
+                            className="micro-interaction rounded-md p-1 text-[var(--text-tertiary)] transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:opacity-40"
+                            title="Stop process / free port"
+                        >
+                            <Square size={10} />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => onRestart(app)}
+                            disabled={busy}
+                            className="micro-interaction rounded-md p-1 text-[var(--text-tertiary)] transition-colors hover:bg-blue-500/10 hover:text-blue-400 disabled:opacity-40"
+                            title="Restart app"
+                        >
+                            <RotateCw size={10} className={busy ? 'animate-spin' : ''} />
+                        </button>
+                    </>
+                )}
                 <div className="flex-1" />
                 <button
                     type="button"
@@ -759,7 +911,6 @@ function AppRow({ app, isRunning, busy, onNavigate, onStart, onEnableAutoStart, 
                         <Power size={10} />
                     </button>
                 )}
-                {/* Only show remove for non-default apps */}
                 {!DEFAULT_APPS.find(d => d.id === app.id) && (
                     <button
                         type="button"
@@ -775,7 +926,7 @@ function AppRow({ app, isRunning, busy, onNavigate, onStart, onEnableAutoStart, 
     );
 }
 
-function AppList({ apps, isRunning, busyIds, onNavigate, onStart, onEnableAutoStart, onDisableAutoStart, onRemove, editingAppId, onEditStart, onEditSave, onEditCancel, editName, setEditName, editPort, setEditPort, editCwd, setEditCwd, editCommand, setEditCommand }) {
+function AppList({ apps, isRunning, appHealthMap, busyIds, onNavigate, onStart, onStop, onRestart, onEnableAutoStart, onDisableAutoStart, onRemove, editingAppId, onEditStart, onEditSave, onEditCancel, editName, setEditName, editPort, setEditPort, editCwd, setEditCwd, editCommand, setEditCommand }) {
     return (
         <div className="grid grid-cols-2 gap-1.5">
             {apps.map(app => (
@@ -783,9 +934,12 @@ function AppList({ apps, isRunning, busyIds, onNavigate, onStart, onEnableAutoSt
                     key={app.id}
                     app={app}
                     isRunning={isRunning}
+                    appHealthMap={appHealthMap}
                     busy={busyIds.has(app.id)}
                     onNavigate={onNavigate}
                     onStart={onStart}
+                    onStop={onStop}
+                    onRestart={onRestart}
                     onEnableAutoStart={onEnableAutoStart}
                     onDisableAutoStart={onDisableAutoStart}
                     onRemove={onRemove}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertCircle, ExternalLink, RefreshCw, RotateCw } from 'lucide-react';
+import { AlertCircle, ExternalLink, Play, RefreshCw, RotateCw } from 'lucide-react';
+import { launchArgsFor } from '../lib/localServices';
 
 const GH_ORIGIN = 'http://127.0.0.1:6282';
 
@@ -68,6 +69,52 @@ export default function GithubOverviewMode() {
         setFrameKey(k => k + 1);
     }, []);
 
+    // Launch the local server from here rather than sending the user to a
+    // terminal. The command lives in the shared local-service catalog so the
+    // Localhost Manager starts it exactly the same way.
+    const [starting, setStarting] = useState(false);
+    const canStart = Boolean(window.electron?.localhostStartNow) && Boolean(launchArgsFor('github-overview'));
+
+    const startServer = useCallback(async () => {
+        const launch = launchArgsFor('github-overview');
+        if (!launch || !window.electron?.localhostStartNow) return;
+        setStarting(true);
+        setLoadError(null);
+        try {
+            const result = await window.electron.localhostStartNow(launch);
+            if (!result?.ok) throw new Error(result?.error || 'GitHub Overview did not start.');
+            // The binary binds its port a moment after spawn (it prunes its poll
+            // log first), so wait for it to answer before reloading the view.
+            const canProbe = Boolean(window.electron.localhostCheckHealth);
+            for (let attempt = 0; attempt < 10; attempt += 1) {
+                await new Promise(r => setTimeout(r, 500));
+                if (!canProbe) {
+                    // Health bridge missing until Perci restarts; fall back to a
+                    // fixed grace period rather than reloading after one tick.
+                    if (attempt >= 4) break;
+                    continue;
+                }
+                const probe = await window.electron.localhostCheckHealth(GH_ORIGIN);
+                if (probe?.ok) break;
+            }
+            reload();
+        } catch (err) {
+            setLoadError(err.message || 'GitHub Overview did not start.');
+        } finally {
+            setStarting(false);
+        }
+    }, [reload]);
+
+    // GitHub Overview is a first-class window, so opening it starts its server.
+    // One automatic attempt per mount — if the launch fails, the offline screen
+    // keeps its Start button rather than retrying in a loop.
+    const autoStartedRef = useRef(false);
+    useEffect(() => {
+        if (status !== 'offline' || autoStartedRef.current || !canStart) return;
+        autoStartedRef.current = true;
+        startServer();
+    }, [status, canStart, startServer]);
+
     const handleRefreshAll = useCallback(async () => {
         setRefreshingAll(true);
         try {
@@ -92,7 +139,7 @@ export default function GithubOverviewMode() {
                     <RotateCw size={14} />
                 </button>
                 <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--bg-tertiary)] text-xs font-mono text-[var(--text-secondary)]">
-                    <span className={`w-2 h-2 rounded-full shrink-0 ${status === 'online' ? 'bg-emerald-400' : status === 'loading' ? 'bg-yellow-400 animate-pulse' : 'bg-red-400'}`} />
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${status === 'online' ? 'bg-emerald-400' : (status === 'loading' || starting) ? 'bg-yellow-400 animate-pulse' : 'bg-red-400'}`} />
                     {GH_ORIGIN}
                 </div>
                 {window.electron?.openExternal && (
@@ -109,20 +156,26 @@ export default function GithubOverviewMode() {
             {isOffline ? (
                 <div className="flex flex-1 items-center justify-center p-8">
                     <div className="max-w-lg text-center">
-                        <h2 className="text-lg font-semibold text-[var(--text-primary)]">GitHub Overview is not running</h2>
+                        <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+                            {starting ? 'Starting GitHub Overview…' : 'GitHub Overview is not running'}
+                        </h2>
                         <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
                             GitHub Overview is a self-contained Go binary that polls your repos for commits, CI status, alerts, and PRs. It needs to be running locally on port <code className="rounded bg-[var(--bg-tertiary)] px-1.5 py-0.5 text-xs">6282</code>.
                         </p>
-                        <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-3 text-left">
-                            <p className="text-[11px] font-medium text-[var(--text-tertiary)] uppercase tracking-wide mb-2">Install &amp; run</p>
-                            <div className="space-y-1.5 font-mono text-xs text-[var(--text-secondary)]">
-                                <p>git clone https://github.com/toshon-jennings/github-overview ~/github-overview</p>
-                                <p>cd ~/github-overview &amp;&amp; go build -o github-overview .</p>
-                                <p>./github-overview serve</p>
+                        {!canStart && (
+                            <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-3 text-left">
+                                <p className="text-[11px] font-medium text-[var(--text-tertiary)] uppercase tracking-wide mb-2">Install &amp; run</p>
+                                <div className="space-y-1.5 font-mono text-xs text-[var(--text-secondary)]">
+                                    <p>git clone https://github.com/toshon-jennings/github-overview ~/github-overview</p>
+                                    <p>cd ~/github-overview &amp;&amp; go build -o github-overview .</p>
+                                    <p>./github-overview serve</p>
+                                </div>
                             </div>
-                        </div>
+                        )}
                         <p className="mt-3 text-xs text-[var(--text-tertiary)]">
-                            Requires Go 1.25+. A GitHub token is optional but recommended for useful poll rates.
+                            {canStart
+                                ? 'Perci can start it for you from ~/github-overview. A GitHub token is optional but recommended for useful poll rates.'
+                                : 'Requires Go 1.25+. A GitHub token is optional but recommended for useful poll rates.'}
                         </p>
                         {loadError && (
                             <p className="mt-3 inline-flex items-center gap-1.5 text-xs text-red-400">
@@ -130,6 +183,14 @@ export default function GithubOverviewMode() {
                             </p>
                         )}
                         <div className="mt-5 flex justify-center gap-2">
+                            {canStart && (
+                                <button type="button" onClick={startServer} disabled={starting}
+                                    className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--accent-hover)] disabled:opacity-60">
+                                    {starting
+                                        ? <><RefreshCw size={14} className="animate-spin" /> Starting…</>
+                                        : <><Play size={14} /> Start GitHub Overview</>}
+                                </button>
+                            )}
                             <button type="button" onClick={reload}
                                 className="inline-flex items-center gap-2 rounded-lg border border-[var(--border)] px-3 py-2 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]">
                                 <RefreshCw size={14} /> Reload

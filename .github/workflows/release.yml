@@ -62,8 +62,21 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload to release
         run: |
-          for f in artifacts/perci-mac/*.dmg artifacts/perci-win/*.exe; do
-            [ -f "$f" ] && gh release upload "${{ github.ref_name }}" "$f" --repo "${{ github.repository }}" --clobber
+          # electron-updater discovers releases by fetching latest-mac.yml /
+          # latest.yml from the release, and uses the .blockmap files for
+          # differential downloads. Uploading only the installers leaves those
+          # manifests 404ing, which silently disables auto-update entirely --
+          # every release from v0.43.0 to v0.45.8 shipped that way.
+          # `if` rather than `[ -f ... ] &&` so a glob that matches nothing is
+          # unambiguously a skip, not a loop body whose exit status depends on
+          # the shell's `set -e` treatment of `&&` lists.
+          for f in artifacts/perci-mac/*.dmg artifacts/perci-mac/*.dmg.blockmap \
+                   artifacts/perci-mac/latest-mac.yml \
+                   artifacts/perci-win/*.exe artifacts/perci-win/*.exe.blockmap \
+                   artifacts/perci-win/latest.yml; do
+            if [ -f "$f" ]; then
+              gh release upload "${{ github.ref_name }}" "$f" --repo "${{ github.repository }}" --clobber
+            fi
           done
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

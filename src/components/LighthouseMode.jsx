@@ -368,7 +368,7 @@ export default function LighthouseMode() {
                   <li>Helps you spot port conflicts quickly</li>
                   <li>Suggests nearby free ports when a port is already in use</li>
                 </ul>
-                <p className="lh-guide-link"><a href="https://github.com/toshon-jennings/PORTMASTER-md" target="_blank" rel="noopener">What is PORTMASTER.md?</a></p>
+                <p className="lh-guide-link"><a href="https://github.com/toshon-jennings/PORTMASTER-md" target="_blank" rel="noopener noreferrer">What is PORTMASTER.md?</a></p>
               </section>
               <section className="lh-guide-section">
                 <h3>How to use the main table</h3>
@@ -566,7 +566,7 @@ export default function LighthouseMode() {
           <section className="lh-section">
             <div className="lh-section-header lh-section-compact">
               <div>
-                <h2>PORTMASTER.md Files <a href="https://github.com/toshon-jennings/PORTMASTER-md" target="_blank" rel="noopener" className="lh-pm-link">What is this?</a></h2>
+                <h2>PORTMASTER.md Files <a href="https://github.com/toshon-jennings/PORTMASTER-md" target="_blank" rel="noopener noreferrer" className="lh-pm-link">What is this?</a></h2>
                 <p className="lh-section-subtitle">Registered port ledgers found across local workspaces.</p>
               </div>
             </div>
