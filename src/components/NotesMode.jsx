@@ -11,7 +11,7 @@ import { EditableTitle } from './EditableTitle';
 import { encryptNote, decryptNote, isEncrypted } from '../utils/note-crypto';
 import { readStringStorage, writeStringStorage } from '../lib/persistentStore';
 import { normalizeNoteTags, parseNoteTags, setNoteTags, stripNoteFrontmatter, tagKey } from '../lib/notesTags';
-import { parseNoteOKF, ensureOKFDefaults, buildNoteOKF, updateOKFTags } from '../lib/notesOKF';
+import { parseNoteOKF, ensureOKFDefaults, buildNoteOKF } from '../lib/notesOKF';
 import { NotesOKFPanel } from './NotesOKFPanel';
 import { notesMarkdownTableComponents } from './NotesMarkdownTable';
 import { notesMarkdownListComponents } from './NotesMarkdownList';
