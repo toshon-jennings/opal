@@ -363,8 +363,13 @@ export default function useIptvPlaylist() {
     for (const ch of channels) {
       if (ch.group) {
         // Some groups are semicolon-separated: "News;Public"
-        for (const g of ch.group.split(';')) {
-          const trimmed = g.trim();
+        if (ch.group.includes(';')) {
+          for (const g of ch.group.split(';')) {
+            const trimmed = g.trim();
+            if (trimmed) set.add(trimmed);
+          }
+        } else {
+          const trimmed = ch.group.trim();
           if (trimmed) set.add(trimmed);
         }
       }
