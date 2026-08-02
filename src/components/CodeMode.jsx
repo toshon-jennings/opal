@@ -7,7 +7,7 @@ import { LLMFactory } from '../lib/llm/clients';
 import FileExplorer from './FileExplorer';
 import { SecondaryModeNav } from './SecondaryModeNav';
 import { SettingsModal } from './SettingsModal';
-import { Settings, Plus, Send, Code, Terminal, Play, Layout, Users, ChevronRight, Save, Sidebar, Globe, RefreshCw, X, FileCode, MessageSquare, History, Search, FolderOpen, Eye, EyeOff, Columns2 } from 'lucide-react';
+import { Settings, Plus, Send, Code, Save, Sidebar, Globe, X, FileCode, MessageSquare, History, FolderOpen, Eye, EyeOff, Columns2 } from 'lucide-react';
 import { PermissionsDropdown } from './PermissionsDropdown';
 import { CavemanDropdown } from './CavemanDropdown';
 import { cavemanDirective, cavemanReminder } from '../lib/caveman';
