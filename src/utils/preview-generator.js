@@ -84,6 +84,21 @@ export function generatePreviewHTML(files, options = {}) {
         // Prevent common errors
         window.process = { env: { NODE_ENV: 'production' } };
 
+        function __renderError(err) {
+            const errorBox = document.createElement('div');
+            errorBox.style.cssText = 'color: red; padding: 20px; white-space: pre-wrap; font-family: monospace;';
+            errorBox.textContent = err && err.message ? err.message : String(err);
+            document.getElementById('root').replaceChildren(errorBox);
+            console.error(err);
+        }
+
+        window.addEventListener('error', function(event) {
+            __renderError(event.error || event.message);
+        });
+        window.addEventListener('unhandledrejection', function(event) {
+            __renderError(event.reason);
+        });
+
         try {
             // Strip ES module syntax: imports point at bare/relative modules that
             // don't exist here (components share one eval scope), and exports are
@@ -122,15 +137,13 @@ export function generatePreviewHTML(files, options = {}) {
             }).join('\\n');
             // Executing generated code is the whole point of this sandboxed
             // (allow-scripts) preview iframe; this replaces the prior
-            // <script type="text/babel"> auto-transform. Direct eval keeps the
-            // destructured React hooks above in scope for the transpiled code.
-            eval(__perciOut);
+            // <script type="text/babel"> auto-transform. Using new Function
+            // prevents leaking local scope variables (like __stripModules) to
+            // the transpiled code. We explicitly pass required React hooks.
+            const __run = new Function('React', 'useState', 'useEffect', 'useRef', 'useMemo', 'useCallback', __perciOut);
+            __run(React, useState, useEffect, useRef, useMemo, useCallback);
         } catch (err) {
-            const errorBox = document.createElement('div');
-            errorBox.style.cssText = 'color: red; padding: 20px; white-space: pre-wrap; font-family: monospace;';
-            errorBox.textContent = err && err.message ? err.message : String(err);
-            document.getElementById('root').replaceChildren(errorBox);
-            console.error(err);
+            __renderError(err);
         }
     </script>
 </body>
