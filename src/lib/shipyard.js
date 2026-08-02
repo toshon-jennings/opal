@@ -565,7 +565,31 @@ export async function runPmAgentTurn({ projectId, client, model, history = [], u
             tool_calls: toolCalls.map(tc => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: JSON.stringify(tc.args) } })),
         }];
 
-        const results = await Promise.all(toolCalls.map(tc => executePmTool(tc.name, tc.args, { projectId })));
+        const results = new Array(toolCalls.length);
+        let concurrentBatch = [];
+
+        const flushBatch = async () => {
+            if (concurrentBatch.length > 0) {
+                const batchPromises = concurrentBatch.map(async (t) => {
+                    results[t.index] = await executePmTool(t.tc.name, t.tc.args, { projectId });
+                });
+                await Promise.all(batchPromises);
+                concurrentBatch = [];
+            }
+        };
+
+        for (let i = 0; i < toolCalls.length; i++) {
+            const tc = toolCalls[i];
+            const isSequential = ['git_action', 'dispatch_to_jules'].includes(tc.name);
+
+            if (isSequential) {
+                await flushBatch();
+                results[i] = await executePmTool(tc.name, tc.args, { projectId });
+            } else {
+                concurrentBatch.push({ tc, index: i });
+            }
+        }
+        await flushBatch();
 
         for (let i = 0; i < toolCalls.length; i++) {
             const tc = toolCalls[i];
