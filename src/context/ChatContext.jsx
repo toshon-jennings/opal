@@ -28,6 +28,9 @@ const API_KEY_PROVIDERS = API_KEY_STORAGE_KEYS.reduce((providers, storageKey) =>
     return providers;
 }, {});
 
+const PROVIDERS_REQUIRING_KEY = new Set(['openrouter', 'deepinfra', 'groq', 'openai', 'anthropic', 'mistral', 'gemini']);
+const PROVIDER_PRIORITY_ORDER = ['openrouter', 'deepinfra', 'groq', 'openai', 'anthropic', 'mistral', 'gemini', 'ollama', 'lmstudio', 'jan'];
+
 function normalizeLocalServerUrl(url, fallback = DEFAULT_LM_STUDIO_URL) {
     const trimmedUrl = typeof url === 'string' ? url.trim() : '';
     if (!trimmedUrl || trimmedUrl === LEGACY_LM_STUDIO_URL) return fallback;
@@ -641,10 +644,9 @@ export function ChatProvider({ children }) {
                 // catalogs), so don't auto-select a provider the user can't
                 // actually use yet — skip key-required providers that have no
                 // key configured.
-                const needsKey = new Set(['openrouter', 'deepinfra', 'groq', 'openai', 'anthropic', 'mistral', 'gemini']);
-                for (const provider of ['openrouter', 'deepinfra', 'groq', 'openai', 'anthropic', 'mistral', 'gemini', 'ollama', 'lmstudio', 'jan']) {
+                for (const provider of PROVIDER_PRIORITY_ORDER) {
                     if (!models[provider] || models[provider].length === 0) continue;
-                    if (needsKey.has(provider) && !apiKeys[provider]) continue;
+                    if (PROVIDERS_REQUIRING_KEY.has(provider) && !apiKeys[provider]) continue;
                     setSelectedProvider(provider);
                     setSelectedModel(models[provider][0].id);
                     break;
