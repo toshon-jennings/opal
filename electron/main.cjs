@@ -10,6 +10,7 @@ const {
   selectCodexSubscriptionModel,
   trustedCodexAuthUrl,
 } = require('./codex-account.cjs');
+const { probeLocalHttp } = require('./localhost-health.cjs');
 const supermemoryProcess = require('./lib/supermemory-process.cjs');
 const path = require('path');
 const fsSync = require('fs');
@@ -4835,6 +4836,55 @@ ipcMain.handle('localhost:start-now', async (event, { cwd, command } = {}) => {
   });
 });
 
+ipcMain.handle('localhost:check-health', async (event, { url } = {}) => {
+  return probeLocalHttp(url);
+});
+
+ipcMain.handle('localhost:stop-now', async (event, { port, id } = {}) => {
+  if (id === 'eidos') {
+    if (eidosDashboardProcess) {
+      try { eidosDashboardProcess.kill('SIGTERM'); } catch (_) {}
+      eidosDashboardProcess = null;
+    }
+    const dockerPath = eidosDockerPath();
+    if (dockerPath) {
+      try { await eidosStopCompose(dockerPath); } catch (_) {}
+    }
+  }
+
+  const portNum = Number(port);
+  if (!portNum || isNaN(portNum) || portNum <= 0 || portNum > 65535) {
+    return { ok: true };
+  }
+
+  try {
+    const { listeners } = scanSockets();
+    const matchingPids = [...new Set(listeners.filter(l => l.port === portNum && l.pid && l.pid !== process.pid).map(l => l.pid))];
+
+    if (matchingPids.length === 0 && process.platform !== 'win32') {
+      const out = execCmd(`lsof -t -iTCP:${portNum} -sTCP:LISTEN`);
+      const pids = out.split('\n').map(s => parseInt(s.trim(), 10)).filter(p => !isNaN(p) && p > 0 && p !== process.pid);
+      matchingPids.push(...pids);
+    }
+
+    const killed = [];
+    for (const pid of new Set(matchingPids)) {
+      try {
+        process.kill(pid, 'SIGTERM');
+        killed.push(pid);
+      } catch (_) {
+        try {
+          process.kill(pid, 'SIGKILL');
+          killed.push(pid);
+        } catch (_) {}
+      }
+    }
+    return { ok: true, killedPids: killed };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
 ipcMain.handle('get-home-dir', async () => {
   return process.env.HOME || require('os').homedir();
 });
@@ -5835,6 +5885,32 @@ async function eidosStartCompose(dockerPath) {
   }
 }
 
+function eidosStopDashboardProcess() {
+  if (eidosDashboardProcess) {
+    try {
+      if (eidosDashboardProcess.pid) {
+        try { process.kill(-eidosDashboardProcess.pid, 'SIGKILL'); } catch (_) {}
+        try { eidosDashboardProcess.kill('SIGKILL'); } catch (_) {}
+      }
+    } catch (_) {}
+    eidosDashboardProcess = null;
+  }
+  try {
+    const { listeners } = scanSockets();
+    const pids = [...new Set(listeners.filter(l => l.port === EIDOS_DASHBOARD_PORT && l.pid && l.pid !== process.pid).map(l => l.pid))];
+    if (pids.length === 0 && process.platform !== 'win32') {
+      const out = execCmd(`lsof -t -iTCP:${EIDOS_DASHBOARD_PORT} -sTCP:LISTEN`);
+      const p = out.split('\n').map(s => parseInt(s.trim(), 10)).filter(id => !isNaN(id) && id > 0 && id !== process.pid);
+      pids.push(...p);
+    }
+    for (const pid of new Set(pids)) {
+      try { process.kill(pid, 'SIGKILL'); } catch (_) {}
+    }
+  } catch (err) {
+    console.warn('[eidos] Error stopping dashboard process:', err.message);
+  }
+}
+
 // A production build (`next start`) serves precompiled output, so the dashboard
 // paints almost immediately. `next dev` compiles each route on first request,
 // which is the main reason the embedded Eidos window is slow to first load.
@@ -5881,13 +5957,15 @@ async function eidosStartDashboard() {
     const healthy = await eidosCheckDashboardHealth();
     if (healthy) return;
     // Not healthy — kill and restart
-    try { eidosDashboardProcess.kill('SIGTERM'); } catch (_) {}
-    eidosDashboardProcess = null;
+    eidosStopDashboardProcess();
   }
 
   // Check if something is already on port 3000
   const portCheck = await requestText(EIDOS_DASHBOARD_URL, 2000);
   if (portCheck.ok) return; // Something healthy is already serving
+
+  // Clear any dead/unhealthy process on port 3000
+  eidosStopDashboardProcess();
 
   // Prefer serving a production build for fast first paint. Build once if needed;
   // if the build fails (Eidos repo may lag), fall back to `next dev` so the
@@ -5896,6 +5974,13 @@ async function eidosStartDashboard() {
   if (!built && !eidosProductionBuildFailed) {
     built = await eidosBuildDashboard();
     if (!built) eidosProductionBuildFailed = true;
+  }
+  if (!built) {
+    // If no valid production build exists, clear any partial/corrupted .next build directory
+    // so `next dev` doesn't throw ENOENT on missing routes-manifest.json and return 500 errors.
+    try {
+      fsSync.rmSync(path.join(EIDOS_DIR, '.next'), { recursive: true, force: true });
+    } catch (_) {}
   }
   const script = built ? 'start' : 'dev';
 
@@ -6082,10 +6167,7 @@ ipcMain.handle('eidos:insights', async () => {
 ipcMain.handle('eidos:stop', async () => {
   try {
     // Stop the dashboard process first
-    if (eidosDashboardProcess) {
-      try { eidosDashboardProcess.kill('SIGTERM'); } catch (_) {}
-      eidosDashboardProcess = null;
-    }
+    eidosStopDashboardProcess();
 
     // Stop the Docker Compose stack
     const dockerPath = eidosDockerPath();
