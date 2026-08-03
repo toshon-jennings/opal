@@ -15,6 +15,7 @@ const supermemoryProcess = require('./lib/supermemory-process.cjs');
 const path = require('path');
 const fsSync = require('fs');
 const { spawn, spawnSync } = require('child_process');
+const { getKlipitExtensionPath, normalizeKlipitHealth } = require('./lib/klipit.cjs');
 const { randomUUID, randomBytes, createHash } = require('crypto');
 const http = require('http');
 const https = require('https');
@@ -1075,9 +1076,13 @@ app.whenReady().then(() => {
     configureYouTubeWebviewSession();
 
     const localhostSession = session.fromPartition('persist:perci-localhost');
-    const klipitPath = path.join(app.getPath('home'), 'klippit');
+    const klipitSource = app.isPackaged ? 'bundled' : 'development';
+    const klipitPath = getKlipitExtensionPath(process.resourcesPath, app.isPackaged);
+
+    let klipitLoadError = null;
     const klipitLoadPromise = localhostSession.loadExtension(klipitPath, { allowFileAccess: true }).catch(err => {
       console.error('Failed to load Klipit extension:', err);
+      klipitLoadError = err;
       return null;
     });
 
@@ -1086,6 +1091,13 @@ app.whenReady().then(() => {
       const exts = localhostSession.getAllExtensions();
       const klipit = exts.find(e => e.name === 'Klipit');
       return klipit ? klipit.id : null;
+    });
+
+    ipcMain.handle('get-klipit-health', async () => {
+      await klipitLoadPromise;
+      const exts = localhostSession.getAllExtensions();
+      const klipit = exts.find(e => e.name === 'Klipit');
+      return normalizeKlipitHealth(klipit, klipitSource, klipitLoadError);
     });
   } catch (err) {
     console.error('Error setting up localhost session:', err);

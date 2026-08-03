@@ -34,7 +34,8 @@
       "terminal-server.cjs"
     ],
     "asarUnpack": [
-      "node_modules/node-pty/**/*"
+      "node_modules/node-pty/**/*",
+      "electron/extensions/**/*"
     ],
     "mac": {
       "target": [

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Klipit</title>
+    <script>
+      (() => {
+        const t = localStorage.getItem('klippit-theme') || 'system';
+        if (t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('theme-dark');
+        }
+      })();
+    </script>
+    <link rel="stylesheet" href="fonts.css" />
+    <link rel="stylesheet" href="sidepanel.css" />
+  </head>
+  <body>
+    <div class="grain" aria-hidden="true"></div>
+
+    <header class="app-header">
+      <div class="brand">
+        <svg class="brand-mark" width="26" height="26" viewBox="0 0 24 24" aria-hidden="true">
+          <!-- ribbon bookmark, mirroring the app icon: marginalia on a teal marker -->
+          <path d="M7 5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v15.2L12 16.9 7 20.2Z" fill="currentColor" />
+          <rect x="9.2" y="6.8" width="5.6" height="1.7" rx="0.85" fill="#faf6ec" />
+          <rect x="9.2" y="9.9" width="3.8" height="1.7" rx="0.85" fill="#faf6ec" />
+          <rect x="9.2" y="13" width="2.8" height="1.7" rx="0.85" fill="#c9842a" />
+        </svg>
+        <div class="brand-text">
+          <h1>Klipit</h1>
+          <p class="brand-tag">your commonplace book</p>
+        </div>
+      </div>
+      <div class="stats" id="stats" aria-live="polite"></div>
+    </header>
+
+    <!-- Quick capture -->
+    <section class="capture" aria-label="Quick capture">
+      <div class="capture-row">
+        <button id="save-page" class="btn btn-primary" type="button">
+          <svg viewBox="0 0 24 24" class="ic" aria-hidden="true">
+            <path d="M6 3.5h12a1.5 1.5 0 0 1 1.5 1.5v15.2a.8.8 0 0 1-1.27.65L12 16.3l-6.23 4.55A.8.8 0 0 1 4.5 20.2V5A1.5 1.5 0 0 1 6 3.5Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+            <path d="M12 8v5M9.5 10.5h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+          </svg>
+          <span>Clip this page</span>
+        </button>
+        <button id="new-note" class="btn btn-ghost btn-icon" type="button" title="Write a standalone note" aria-label="New note">
+          <svg viewBox="0 0 24 24" class="ic" aria-hidden="true">
+            <path d="M4 20l1-4 9.5-9.5a2.1 2.1 0 0 1 3 3L8 19l-4 1Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+            <path d="M12.5 6.5l3 3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+      <!-- Inline context field, revealed right after a save. Voice-memo-but-typed. -->
+      <div class="context-pane" id="context-pane" hidden>
+        <div class="context-target" id="context-target"></div>
+        <textarea
+          id="context-input"
+          class="context-input"
+          rows="2"
+          placeholder="Why did you save this? — Enter to save, Esc to skip"
+        ></textarea>
+        <input id="context-tags" class="tags-input" type="text" placeholder="tags, comma separated" />
+        <div class="context-actions">
+          <button id="context-save" class="btn btn-primary btn-sm" type="button">Save context</button>
+          <button id="context-skip" class="btn btn-ghost btn-sm" type="button">Skip</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Search + filters -->
+    <section class="toolbar" aria-label="Search and filter">
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" class="search-ic" aria-hidden="true">
+          <circle cx="11" cy="11" r="6.2" fill="none" stroke="currentColor" stroke-width="1.7"/>
+          <path d="M15.6 15.6L20 20" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+        </svg>
+        <input id="search" class="search-input" type="search" placeholder="Search your archive…" autocomplete="off" />
+      </div>
+      <div class="toolbar-row">
+        <div class="filter-types" role="tablist" aria-label="Filter by type">
+          <button class="chip chip-type is-active" data-type="" role="tab" type="button">All</button>
+          <button class="chip chip-type" data-type="link" role="tab" type="button">Links</button>
+          <button class="chip chip-type" data-type="note" role="tab" type="button">Notes</button>
+        </div>
+        <div class="view-switch" role="tablist" aria-label="View mode">
+          <button class="seg is-active" data-view="list" role="tab" type="button" title="Chronological">List</button>
+          <button class="seg" data-view="groups" role="tab" type="button" title="Grouped by tag">Groups</button>
+          <button class="seg" data-view="graph" role="tab" type="button" title="Connections graph">Graph</button>
+        </div>
+      </div>
+      <div class="tag-cloud" id="tag-cloud"></div>
+    </section>
+
+    <!-- Item list -->
+    <main class="list" id="list" aria-live="polite"></main>
+
+    <!-- Connections graph (shown when the Graph view is active) -->
+    <section class="graph-view" id="graph-view" hidden aria-label="Connections graph">
+      <canvas id="graph-canvas"></canvas>
+      <div class="graph-hud">
+        <span class="graph-hint" id="graph-hint"></span>
+        <label class="graph-toggle" title="Faintly link items that share a tag">
+          <input type="checkbox" id="graph-tag-links" checked />
+          <span>tag links</span>
+        </label>
+        <button id="graph-refit" class="graph-btn" type="button" title="Re-center the graph">Re-center</button>
+      </div>
+      <div class="graph-empty" id="graph-empty" hidden>
+        <div class="empty-mark">⁕</div>
+        <strong>Nothing saved yet</strong>
+        <span>Clip a page or write a note — everything you keep appears here, and links form as you connect items or share tags.</span>
+      </div>
+    </section>
+
+    <footer class="app-footer">
+      <button id="export" class="link-btn" type="button">Export</button>
+      <label class="link-btn" for="import-file">Import</label>
+      <input id="import-file" type="file" accept="application/json" hidden />
+      <button id="manage-tags" class="link-btn" type="button">Tags</button>
+      <button id="theme-toggle" class="link-btn" type="button" title="Toggle theme">Theme: System</button>
+      <a href="https://github.com/toshon-jennings/klipit" target="_blank" rel="noopener noreferrer" class="link-btn" title="View Source">GitHub</a>
+      <a href="https://github.com/toshon-jennings" target="_blank" rel="noopener noreferrer" class="link-btn" title="View Profile">@toshon</a>
+      <span class="spacer"></span>
+      <span id="active-tab-hint" class="hint"></span>
+    </footer>
+
+    <!-- Connect picker (hidden until invoked) -->
+    <div class="modal" id="connect-modal" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="connect-title">
+        <div class="modal-head">
+          <h2 id="connect-title">Draw a connection</h2>
+          <button id="connect-close" class="icon-btn" type="button" aria-label="Close">
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <p class="modal-source" id="connect-source"></p>
+        <div class="search-wrap">
+          <svg viewBox="0 0 24 24" class="search-ic" aria-hidden="true"><circle cx="11" cy="11" r="6.2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M15.6 15.6L20 20" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+          <input id="connect-search" class="search-input" type="search" placeholder="Find an item to link…" />
+        </div>
+        <div class="connect-results" id="connect-results"></div>
+        <input id="connect-label" class="tags-input" type="text" placeholder="Why are these related? (optional)" />
+      </div>
+    </div>
+
+    <!-- Note editor (also used for standalone new notes) -->
+    <div class="modal" id="note-modal" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="note-title">
+        <div class="modal-head">
+          <h2 id="note-title">New note</h2>
+          <button id="note-close" class="icon-btn" type="button" aria-label="Close">
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <input id="note-heading" class="tags-input" type="text" placeholder="Title (optional)" />
+        <textarea id="note-body" class="context-input" rows="6" placeholder="Write your note…"></textarea>
+        <input id="note-tags" class="tags-input" type="text" placeholder="tags, comma separated" />
+        <div class="context-actions">
+          <button id="note-save" class="btn btn-primary btn-sm" type="button">Save note</button>
+          <button id="note-cancel" class="btn btn-ghost btn-sm" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tag manager -->
+    <div class="modal" id="tags-modal" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="tags-title">
+        <div class="modal-head">
+          <h2 id="tags-title">Manage tags</h2>
+          <button id="tags-close" class="icon-btn" type="button" aria-label="Close">
+            <svg viewBox="0 0 24 24" class="ic" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <p class="modal-source">Rename, merge, or remove tags everywhere at once.</p>
+        <div class="tag-manager" id="tag-manager"></div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+    <script src="../vendor/browser-polyfill.min.js"></script>
+    <script src="storage.js"></script>
+    <script src="graph.js"></script>
+    <script src="sidepanel.js"></script>
+  </body>
+</html>
