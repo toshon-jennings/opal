@@ -5,10 +5,10 @@
 **The open-source AI workspace for serious work**
 
 [![React](https://img.shields.io/badge/React-18-2361AB.svg)](https://reactjs.org/)
-[![Electron](https://img.shields.io/badge/Electron-39-47848F.svg)](https://electronjs.org/)
+[![Electron](https://img.shields.io/badge/Electron-42-47848F.svg)](https://electronjs.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-[Website](https://toshon-jennings.github.io/perci/) • [Features](#-features) • [Quick Start](#-quick-start) • [Development](#-development)
+[Website](https://toshon-jennings.github.io/perci/) • [Features](#features) • [Download](#download) • [Quick Start](#quick-start) • [Development](#development)
 
 </div>
 
@@ -75,7 +75,43 @@ Watch models think in real-time. Collapsible reasoning sections show the AI's th
 
 ---
 
+## Download
+
+Prebuilt apps live on the [latest release](https://github.com/toshon-jennings/perci/releases/latest).
+
+| Platform | File |
+| --- | --- |
+| macOS (Apple Silicon) | `Perci-<version>-arm64.dmg` |
+| Windows | `Perci-Setup-<version>.exe` |
+
+The `.zip`, `.blockmap`, and `latest*.yml` files in a release are used by the
+in-app updater. You don't need to download them.
+
+### Opening Perci the first time on macOS
+
+Perci isn't signed with an Apple Developer certificate yet, so macOS won't
+verify it and will refuse to open it on the first try.
+
+1. Drag Perci to Applications and double-click it.
+2. When macOS blocks it, open **System Settings → Privacy & Security**.
+3. Scroll to **Security**, find the message about Perci, and click **Open Anyway**.
+
+You only do this once per install. Windows has no equivalent step.
+
+### Updates
+
+Perci checks for updates on launch.
+
+- **Windows** — updates in place. You'll get a prompt to download and restart.
+- **macOS** — manual for now. Download the newest `.dmg` from the latest release
+  and replace the app. macOS refuses to swap in an update whose code signature
+  it can't verify, so automatic updates need the same Apple certificate as above.
+
+---
+
 ## Quick Start
+
+Building from source. If you just want to run Perci, see [Download](#download).
 
 ### Prerequisites
 

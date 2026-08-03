@@ -51,6 +51,8 @@ jobs:
     needs: [build-mac, build-win]
     runs-on: ubuntu-latest
     steps:
+      # Needed for .github/release-install-notes.md in the last step.
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -87,3 +89,23 @@ jobs:
           done
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Prepend install instructions to release notes
+        # A release lists six assets, only two of which a human should download,
+        # and macOS refuses to open the app until the user clicks through
+        # Privacy & Security. Neither is guessable from the file list, so both
+        # go at the top of every release body. Drop this step once the app is
+        # signed with a Developer ID.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          body=$(gh release view "$TAG" --repo "$REPO" --json body --jq .body)
+          # Idempotent: re-running the workflow on an existing tag must not
+          # stack duplicate copies of the install section.
+          case "$body" in
+            *'## Install'*) echo "Install section already present; leaving notes alone."; exit 0 ;;
+          esac
+          sed "s/__VERSION__/${TAG#v}/g" .github/release-install-notes.md > notes.md
+          printf '\n---\n\n%s\n' "$body" >> notes.md
+          gh release edit "$TAG" --repo "$REPO" --notes-file notes.md
