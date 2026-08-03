@@ -1,5 +1,4 @@
 const path = require('path');
-const fs = require('fs');
 
 /**
  * Returns path to the bundled or development Klipit extension.
@@ -9,7 +8,12 @@ const fs = require('fs');
  */
 function getKlipitExtensionPath(appResourcesPath, isPackaged) {
     if (isPackaged) {
-        return path.join(appResourcesPath, 'electron', 'extensions', 'klipit');
+        // Resources/electron/... does not exist in a packaged build: `files`
+        // packs electron/** into app.asar, and the `electron/extensions/**/*`
+        // asarUnpack rule mirrors it out to app.asar.unpacked. The unpacked
+        // copy is the one to load — session.loadExtension needs real files on
+        // disk, since Chromium's extension loader does not read through asar.
+        return path.join(appResourcesPath, 'app.asar.unpacked', 'electron', 'extensions', 'klipit');
     }
     // Development mode, assuming we are running relative to repo root
     return path.join(__dirname, '..', 'extensions', 'klipit');

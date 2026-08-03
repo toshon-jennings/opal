@@ -1,13 +1,29 @@
 import { describe, it, expect } from 'vitest';
 import { getKlipitExtensionPath, normalizeKlipitHealth } from '../electron/lib/klipit.cjs';
 import path from 'path';
+import pkg from '../package.json';
+
+const RESOURCES = '/Applications/Perci.app/Contents/Resources';
 
 describe('klipit.cjs', () => {
     describe('getKlipitExtensionPath', () => {
-        it('resolves packaged path relative to resources', () => {
-            const resourcesPath = '/Applications/Perci.app/Contents/Resources';
-            const expected = path.join(resourcesPath, 'electron', 'extensions', 'klipit');
-            expect(getKlipitExtensionPath(resourcesPath, true)).toBe(expected);
+        it('keeps the extension in asarUnpack so it exists as real files on disk', () => {
+            // session.loadExtension cannot read through asar, so the packaged
+            // path below is only correct while this rule is in place.
+            expect(pkg.build.asarUnpack).toContain('electron/extensions/**/*');
+            expect(pkg.build.files).toContain('electron/**/*');
+        });
+
+        it('resolves the packaged path to the unpacked copy', () => {
+            const expected = path.join(RESOURCES, 'app.asar.unpacked', 'electron', 'extensions', 'klipit');
+            expect(getKlipitExtensionPath(RESOURCES, true)).toBe(expected);
+        });
+
+        it('does not resolve to Resources/electron, which no packaged build contains', () => {
+            // The original bug: `files` packs electron/** into app.asar, so
+            // nothing is ever written to Resources/electron directly.
+            const naive = path.join(RESOURCES, 'electron', 'extensions', 'klipit');
+            expect(getKlipitExtensionPath(RESOURCES, true)).not.toBe(naive);
         });
 
         it('resolves development path relative to lib directory', () => {
