@@ -1,7 +1,19 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
-import { ArrowLeft, ArrowRight, ArrowUp, ArrowDown, ExternalLink, Globe, Home, RefreshCw, Settings, Plus, X, PanelRight, Radar, Play, ChevronDown, ChevronUp, Bookmark, Star, Search, History, Trash2, Pin, Server, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowUp, ArrowDown, ExternalLink, Globe, Home, RefreshCw, Settings, Plus, X, PanelRight, Radar, Play, ChevronDown, ChevronUp, Bookmark, Star, Search, History, Trash2, Pin, Server, Sparkles, Wrench, Bug, Monitor, Braces, AlertTriangle, RotateCcw } from 'lucide-react';
 import { readStringStorage, writeStringStorage, removeStorageKey } from '../lib/persistentStore';
 import { embed } from '../lib/embedJs';
+import {
+    applyBrowserIdentityToWebview,
+    BROWSER_IDENTITY_PROFILES,
+    resolveBrowserIdentityUserAgent,
+} from '../lib/browserIdentity';
+import {
+    appendBrowserDiagnostic,
+    BROWSER_VIEWPORT_PRESETS,
+    browserConsoleLevel,
+    formatJsonDocument,
+    resolveBrowserViewport,
+} from '../lib/browserDeveloperTools';
 import { useTheme } from '../context/ThemeContext';
 import { useMode, MODES } from '../context/ModeContext';
 import KlipitAskRail from './KlipitAskRail';
@@ -10,11 +22,13 @@ import localhostBg from '../assets/localhost-bg.jpeg';
 import lhLogo from '../assets/lh-logo.png';
 import lighthouseBg from '../assets/lighthouse-bg.jpg';
 import LocalhostManager from './LocalhostManager';
+import QuickLinksTab from './QuickLinksTab';
 
 const QUICK_PORTS = [3000, 5173, 8080, 4200];
 const MAX_HISTORY_ITEMS = 80;
 const MAX_PINNED_TABS = 24;
 const MANAGER_TAB_ID = '__manager__';
+const QUICKLINKS_TAB_ID = '__quicklinks__';
 
 const PROCESS_NAME_MAP = {
   'com.docke': 'Docker Desktop', 'Docker': 'Docker Desktop', 'docker': 'Docker',
@@ -188,6 +202,18 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, onUrlChange, isKl
     const [showFindBar, setShowFindBar] = useState(false);
     const [findText, setFindText] = useState('');
     const [findResult, setFindResult] = useState({ activeMatchOrdinal: 0, matches: 0 });
+    const [browserIdentityId, setBrowserIdentityId] = useState('default');
+    const [appliedBrowserIdentityId, setAppliedBrowserIdentityId] = useState('default');
+    const [customUserAgentDraft, setCustomUserAgentDraft] = useState('');
+    const [customUserAgent, setCustomUserAgent] = useState('');
+    const [showDeveloperTools, setShowDeveloperTools] = useState(false);
+    const [viewportId, setViewportId] = useState('fit');
+    const [diagnostics, setDiagnostics] = useState([]);
+    const [guestCrash, setGuestCrash] = useState(null);
+    const [guestReady, setGuestReady] = useState(false);
+    const [webviewGeneration, setWebviewGeneration] = useState(0);
+    const [jsonPreview, setJsonPreview] = useState(null);
+    const [jsonBusy, setJsonBusy] = useState(false);
     const findInputRef = useRef(null);
     const [klipitId, setKlipitId] = useState(null);
     const [klipitError, setKlipitError] = useState(null);
@@ -197,6 +223,32 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, onUrlChange, isKl
     const isDragging = useRef(false);
     const webviewRef = useRef(null);
     const klipitWebviewRef = useRef(null);
+    const lastConsoleDiagnosticAtRef = useRef(0);
+    const defaultUserAgentRef = useRef(
+        typeof navigator === 'undefined' ? '' : navigator.userAgent,
+    );
+
+    const selectedBrowserIdentity = useMemo(
+        () => BROWSER_IDENTITY_PROFILES.find(({ id: profileId }) => profileId === browserIdentityId)
+            || BROWSER_IDENTITY_PROFILES[0],
+        [browserIdentityId],
+    );
+    const appliedBrowserIdentity = useMemo(
+        () => BROWSER_IDENTITY_PROFILES.find(({ id: profileId }) => profileId === appliedBrowserIdentityId)
+            || BROWSER_IDENTITY_PROFILES[0],
+        [appliedBrowserIdentityId],
+    );
+    const appliedUserAgent = useMemo(
+        () => resolveBrowserIdentityUserAgent(appliedBrowserIdentityId, {
+            defaultUserAgent: defaultUserAgentRef.current,
+            customUserAgent,
+        }),
+        [appliedBrowserIdentityId, customUserAgent],
+    );
+    const selectedViewport = useMemo(
+        () => resolveBrowserViewport(viewportId),
+        [viewportId],
+    );
 
     useEffect(() => {
         setHistoryEntries(readHistoryEntries(keys.HISTORY));
@@ -386,6 +438,99 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, onUrlChange, isKl
     }, [keys.HISTORY]);
 
     const isBookmarked = useMemo(() => bookmarks.some(b => b.url === url), [bookmarks, url]);
+    const recordDiagnostic = useCallback((entry) => {
+        setDiagnostics((current) => appendBrowserDiagnostic(current, entry));
+    }, []);
+
+    const openGuestDeveloperTools = useCallback(() => {
+        const webview = webviewRef.current;
+        if (!webview?.openDevTools) return;
+        try {
+            webview.openDevTools();
+            recordDiagnostic({ kind: 'info', level: 'info', message: 'Opened guest DevTools.' });
+        } catch {
+            recordDiagnostic({ kind: 'info', level: 'error', message: 'Could not open guest DevTools.' });
+        }
+    }, [recordDiagnostic]);
+
+    const hardReloadGuest = useCallback(() => {
+        const webview = webviewRef.current;
+        if (!webview) return;
+        try {
+            if (webview.reloadIgnoringCache) {
+                webview.reloadIgnoringCache();
+                recordDiagnostic({ kind: 'navigation', level: 'info', message: 'Hard reloaded without cached resources.' });
+            } else {
+                webview.reload?.();
+                recordDiagnostic({ kind: 'navigation', level: 'warning', message: 'Reloaded; cache bypass was unavailable.' });
+            }
+        } catch {
+            recordDiagnostic({ kind: 'navigation', level: 'error', message: 'Could not reload the browser tab.' });
+        }
+    }, [recordDiagnostic]);
+
+    const formatCurrentJson = useCallback(async () => {
+        const webview = webviewRef.current;
+        if (!webview?.executeJavaScript) return;
+
+        setJsonBusy(true);
+        try {
+            const pageText = await webview.executeJavaScript(
+                'document.body ? document.body.innerText.slice(0, 1000001) : ""',
+                true,
+            );
+            const result = formatJsonDocument(pageText);
+            setJsonPreview(result);
+            recordDiagnostic({
+                kind: 'info',
+                level: result.ok ? 'info' : 'warning',
+                message: result.ok ? 'Formatted the current page as JSON.' : result.error,
+            });
+        } catch {
+            const error = 'Could not read the current page for JSON formatting.';
+            setJsonPreview({ ok: false, error });
+            recordDiagnostic({ kind: 'info', level: 'error', message: error });
+        } finally {
+            setJsonBusy(false);
+        }
+    }, [recordDiagnostic]);
+
+    const recoverGuest = useCallback(() => {
+        setGuestCrash(null);
+        setLoadError(null);
+        setGuestReady(false);
+        setWebviewGeneration((generation) => generation + 1);
+        recordDiagnostic({ kind: 'info', level: 'info', message: 'Restarting the crashed browser tab.' });
+    }, [recordDiagnostic]);
+
+    const applyBrowserIdentity = useCallback((profileId, nextCustomUserAgent = customUserAgent) => {
+        const webview = webviewRef.current;
+        if (appliedBrowserIdentityId === 'default' && webview?.getUserAgent) {
+            defaultUserAgentRef.current = webview.getUserAgent() || defaultUserAgentRef.current;
+        }
+
+        setBrowserIdentityId(profileId);
+        setAppliedBrowserIdentityId(profileId);
+        if (profileId === 'custom') setCustomUserAgent(nextCustomUserAgent.trim().slice(0, 512));
+
+        applyBrowserIdentityToWebview(webview, profileId, {
+            defaultUserAgent: defaultUserAgentRef.current,
+            customUserAgent: nextCustomUserAgent,
+            reload: Boolean(url),
+        });
+    }, [appliedBrowserIdentityId, customUserAgent, url]);
+
+    const handleBrowserIdentitySelection = useCallback((profileId) => {
+        setBrowserIdentityId(profileId);
+        if (profileId !== 'custom') applyBrowserIdentity(profileId);
+    }, [applyBrowserIdentity]);
+
+    const applyCustomUserAgent = useCallback((event) => {
+        event.preventDefault();
+        const nextUserAgent = customUserAgentDraft.trim();
+        if (!nextUserAgent) return;
+        applyBrowserIdentity('custom', nextUserAgent);
+    }, [applyBrowserIdentity, customUserAgentDraft]);
 
     // Handle Find in Page
     useEffect(() => {
@@ -437,6 +582,10 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, onUrlChange, isKl
     const navigate = useCallback((raw) => {
         const next = normalizeAddress(raw, searchEngine);
         if (!next) return;
+        if (!isKlipit) {
+            setGuestReady(false);
+            setGuestCrash(null);
+        }
 
         if (isBlockedInsecureUrl(next, allowHttp)) {
             setLoadError('Blocked: Insecure http:// connection. Enable in settings to proceed.');
@@ -452,7 +601,7 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, onUrlChange, isKl
         setTitle(fallbackTitle);
         onUrlChange?.(id, next, fallbackTitle);
         if (!hidden) writeStringStorage(keys.LAST_URL, next);
-    }, [hidden, allowHttp, keys.LAST_URL, searchEngine, id, onUrlChange]);
+    }, [hidden, allowHttp, keys.LAST_URL, searchEngine, id, isKlipit, onUrlChange]);
 
     const saveHome = useCallback((raw) => {
         const next = normalizeAddress(raw);
@@ -477,8 +626,18 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, onUrlChange, isKl
         const webview = webviewRef.current;
         if (!webview) return;
 
-        const handleStart = () => { setIsLoading(true); setLoadError(null); };
-        const handleStop = () => setIsLoading(false);
+        const handleStart = () => {
+            setIsLoading(true);
+            setGuestReady(false);
+            setLoadError(null);
+        };
+        const handleReady = () => {
+            setGuestReady(true);
+            setGuestCrash(null);
+        };
+        const handleStop = () => {
+            setIsLoading(false);
+        };
         const handleNavigate = (e) => {
             if (e.isMainFrame === false) return; // ignore sub-frame navigations (e.g. iframe embeds)
             setUrl(e.url);
@@ -494,7 +653,29 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, onUrlChange, isKl
         const handleFail = (e) => {
             if (!e.isMainFrame || e.errorCode === -3) return; // ignore sub-frame errors and ERR_ABORTED
             setIsLoading(false);
-            setLoadError(e.errorDescription || `Failed to load (code ${e.errorCode})`);
+            const message = e.errorDescription || `Failed to load (code ${e.errorCode})`;
+            setLoadError(message);
+            if (!isKlipit) recordDiagnostic({ kind: 'navigation', level: 'error', message });
+        };
+        const handleConsoleMessage = (e) => {
+            const level = browserConsoleLevel(e.level);
+            if (level === 'info') return;
+            const now = Date.now();
+            if (now - lastConsoleDiagnosticAtRef.current < 100) return;
+            lastConsoleDiagnosticAtRef.current = now;
+            recordDiagnostic({
+                kind: 'console',
+                level,
+                message: e.message,
+            });
+        };
+        const handleRenderProcessGone = (e) => {
+            const reason = String(e.details?.reason || 'unknown');
+            const message = `Browser tab crashed (${reason}).`;
+            setIsLoading(false);
+            setGuestReady(false);
+            setGuestCrash({ reason, message });
+            recordDiagnostic({ kind: 'crash', level: 'error', message });
         };
         const handleTitle = (e) => {
             if (e.title) {
@@ -528,6 +709,7 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, onUrlChange, isKl
         };
 
         webview.addEventListener('did-start-loading', handleStart);
+        webview.addEventListener('dom-ready', handleReady);
         webview.addEventListener('did-stop-loading', handleStop);
         webview.addEventListener('did-navigate', handleNavigate);
         webview.addEventListener('did-navigate-in-page', handleNavigate);
@@ -536,9 +718,14 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, onUrlChange, isKl
         webview.addEventListener('will-navigate', handleWillNavigate);
         webview.addEventListener('context-menu', handleContextMenu);
         webview.addEventListener('found-in-page', handleFoundInPage);
+        if (!isKlipit) {
+            webview.addEventListener('console-message', handleConsoleMessage);
+            webview.addEventListener('render-process-gone', handleRenderProcessGone);
+        }
 
         return () => {
             webview.removeEventListener('did-start-loading', handleStart);
+            webview.removeEventListener('dom-ready', handleReady);
             webview.removeEventListener('did-stop-loading', handleStop);
             webview.removeEventListener('did-navigate', handleNavigate);
             webview.removeEventListener('did-navigate-in-page', handleNavigate);
@@ -547,8 +734,12 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, onUrlChange, isKl
             webview.removeEventListener('will-navigate', handleWillNavigate);
             webview.removeEventListener('context-menu', handleContextMenu);
             webview.removeEventListener('found-in-page', handleFoundInPage);
+            if (!isKlipit) {
+                webview.removeEventListener('console-message', handleConsoleMessage);
+                webview.removeEventListener('render-process-gone', handleRenderProcessGone);
+            }
         };
-    }, [id, onTitleChange, onUrlChange, allowHttp, hidden, keys.LAST_URL, addHistoryEntry, isKlipit]);
+    }, [id, onTitleChange, onUrlChange, allowHttp, hidden, keys.LAST_URL, addHistoryEntry, isKlipit, recordDiagnostic, webviewGeneration]);
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -625,6 +816,58 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, onUrlChange, isKl
                 >
                     <ExternalLink size={14} />
                 </button>
+                {!isKlipit && appliedBrowserIdentityId !== 'default' && (
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setShowBookmarks(false);
+                            setShowHistory(false);
+                            setShowSettings(true);
+                        }}
+                        className="shrink-0 rounded-md border border-[var(--accent)]/40 bg-[var(--accent)]/10 px-1.5 py-1 font-mono text-[9px] font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--accent)]/15"
+                        title={`Browser identity: ${appliedBrowserIdentity.label}`}
+                        aria-label={`Browser identity: ${appliedBrowserIdentity.label}. Open settings.`}
+                    >
+                        UA·{appliedBrowserIdentity.shortLabel}
+                    </button>
+                )}
+                {!isKlipit && selectedViewport.width && (
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setShowBookmarks(false);
+                            setShowHistory(false);
+                            setShowSettings(false);
+                            setShowDeveloperTools(true);
+                        }}
+                        className="shrink-0 rounded-md border border-[var(--accent)]/40 bg-[var(--accent)]/10 px-1.5 py-1 font-mono text-[9px] font-semibold text-[var(--text-primary)] transition-colors hover:bg-[var(--accent)]/15"
+                        title={`Layout viewport: ${selectedViewport.label}`}
+                        aria-label={`Layout viewport: ${selectedViewport.label}. Open Developer Tools.`}
+                    >
+                        VP·{selectedViewport.width}×{selectedViewport.height}
+                    </button>
+                )}
+                {!isKlipit && (
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setShowBookmarks(false);
+                            setShowHistory(false);
+                            setShowSettings(false);
+                            setShowDeveloperTools((current) => !current);
+                        }}
+                        className={`micro-interaction rounded-md p-1.5 transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] ${
+                            showDeveloperTools
+                                ? 'bg-[var(--bg-hover)] text-[var(--text-primary)]'
+                                : 'text-[var(--text-tertiary)]'
+                        }`}
+                        title="Developer Tools"
+                        aria-label="Toggle Developer Tools"
+                        aria-pressed={showDeveloperTools}
+                    >
+                        <Wrench size={14} />
+                    </button>
+                )}
                 {isKlipit && (
                     <button
                         type="button"
@@ -789,7 +1032,7 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, onUrlChange, isKl
                     {showSettings && (
                         <>
                             <div className="fixed inset-0 z-20" onClick={() => setShowSettings(false)} />
-                            <div className="absolute right-0 top-full z-30 mt-2 w-72 rounded-xl border border-[var(--border)] bg-[var(--bg-primary)] p-3 shadow-xl">
+                            <div className="absolute right-0 top-full z-30 mt-2 max-h-[calc(100vh-5rem)] w-72 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--bg-primary)] p-3 shadow-xl">
                                 <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">Home address</p>
                                 <form
                                     onSubmit={(e) => { e.preventDefault(); saveHome(homeInput); }}
@@ -864,6 +1107,54 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, onUrlChange, isKl
                                         </button>
                                     </div>
                                 </div>
+                                {!isKlipit && (
+                                    <div className="mt-3 border-t border-[var(--border)] pt-3">
+                                        <div className="mb-2 flex items-center justify-between gap-2">
+                                            <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">Device &amp; Browser Testing</p>
+                                            {appliedBrowserIdentityId !== 'default' && (
+                                                <span className="shrink-0 rounded border border-[var(--accent)]/30 bg-[var(--accent)]/10 px-1.5 py-0.5 font-mono text-[9px] font-semibold text-[var(--text-primary)]">
+                                                    {appliedBrowserIdentity.shortLabel}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <label className="block">
+                                            <span className="sr-only">Browser identity for this tab</span>
+                                            <select
+                                                value={browserIdentityId}
+                                                onChange={(event) => handleBrowserIdentitySelection(event.target.value)}
+                                                className="w-full rounded-md border border-[var(--border)] bg-[var(--bg-secondary)] px-2 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                                            >
+                                                {BROWSER_IDENTITY_PROFILES.map((profile) => (
+                                                    <option key={profile.id} value={profile.id}>{profile.label}</option>
+                                                ))}
+                                            </select>
+                                        </label>
+                                        {browserIdentityId === 'custom' && (
+                                            <form className="mt-2 flex items-center gap-2" onSubmit={applyCustomUserAgent}>
+                                                <input
+                                                    type="text"
+                                                    value={customUserAgentDraft}
+                                                    onChange={(event) => setCustomUserAgentDraft(event.target.value)}
+                                                    maxLength={512}
+                                                    placeholder="Mozilla/5.0…"
+                                                    className="min-w-0 flex-1 rounded-md border border-[var(--border)] bg-[var(--bg-secondary)] px-2 py-1.5 font-mono text-[10px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                                                    spellCheck={false}
+                                                    aria-label="Custom User-Agent string"
+                                                />
+                                                <button
+                                                    type="submit"
+                                                    disabled={!customUserAgentDraft.trim()}
+                                                    className="shrink-0 rounded-md border border-[var(--accent)] bg-[var(--accent)]/10 px-2.5 py-1.5 text-xs font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--accent)]/15 disabled:opacity-40"
+                                                >
+                                                    Apply
+                                                </button>
+                                            </form>
+                                        )}
+                                        <p className="mt-2 text-[10px] leading-relaxed text-[var(--text-tertiary)]">
+                                            {selectedBrowserIdentity.description} Changing identity reloads this tab. It changes what the browser reports, not Chromium’s rendering engine or viewport.
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         </>
                     )}
@@ -880,7 +1171,23 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, onUrlChange, isKl
             )}
 
             <div className="flex flex-1 min-h-0 relative">
-                <div className="relative min-h-0 flex-1 bg-white min-w-0">
+                <div className="relative min-h-0 min-w-0 flex-1">
+                    <div className={`h-full min-h-0 min-w-0 overflow-auto ${
+                        selectedViewport.width
+                            ? 'bg-[var(--bg-secondary)] p-4'
+                            : 'bg-white'
+                    }`}>
+                    <div
+                        className={`relative bg-white ${
+                            selectedViewport.width
+                                ? 'mx-auto shrink-0 overflow-hidden rounded-lg outline outline-1 outline-[var(--border)] shadow-lg'
+                                : 'h-full min-h-0 w-full'
+                        }`}
+                        style={selectedViewport.width ? {
+                            width: selectedViewport.width,
+                            height: selectedViewport.height,
+                        } : undefined}
+                    >
                     {showFindBar && (
                         <div className="absolute right-4 top-4 z-10 flex items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--bg-primary)] p-1.5 shadow-lg">
                             <Search size={12} className="ml-1 text-[var(--text-tertiary)]" />
@@ -907,11 +1214,13 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, onUrlChange, isKl
                     )}
                     {url ? (
                         <webview
+                            key={`${id}-${webviewGeneration}`}
                             ref={webviewRef}
                             src={url}
                             title="Localhost"
                             className="absolute inset-0 h-full w-full border-0"
                             partition="persist:perci-localhost"
+                            {...(appliedBrowserIdentityId === 'default' ? {} : { useragent: appliedUserAgent })}
                             allowpopups="true"
                         />
                     ) : isKlipit ? (
@@ -961,7 +1270,164 @@ function LocalhostTab({ id, initialUrl, hidden, onTitleChange, onUrlChange, isKl
                             </div>
                         </div>
                     )}
+                    </div>
+                    </div>
+                    {!isKlipit && guestCrash && (
+                        <div className="absolute inset-0 z-20 flex items-center justify-center bg-[var(--bg-primary)]/95 p-6 text-center backdrop-blur-sm">
+                            <div className="flex max-w-sm flex-col items-center gap-3 rounded-xl border border-red-500/30 bg-red-500/10 p-5 shadow-xl">
+                                <AlertTriangle size={28} className="text-red-500" />
+                                <div>
+                                    <p className="text-sm font-semibold text-[var(--text-primary)]">Browser tab crashed</p>
+                                    <p className="mt-1 text-xs text-[var(--text-secondary)]">{guestCrash.message}</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={recoverGuest}
+                                    className="flex items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--bg-primary)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)]"
+                                >
+                                    <RotateCcw size={13} />
+                                    Recover tab
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
+                {!isKlipit && showDeveloperTools && (
+                    <aside className="flex w-80 shrink-0 flex-col border-l border-[var(--border)] bg-[var(--bg-primary)]">
+                        <div className="flex h-10 shrink-0 items-center justify-between border-b border-[var(--border)] px-3">
+                            <div className="flex items-center gap-2">
+                                <Wrench size={14} className="text-[var(--text-secondary)]" />
+                                <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--text-primary)]">Developer Tools</h3>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowDeveloperTools(false)}
+                                className="rounded-md p-1 text-[var(--text-tertiary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+                                title="Close Developer Tools"
+                                aria-label="Close Developer Tools"
+                            >
+                                <X size={14} />
+                            </button>
+                        </div>
+
+                        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3">
+                            <section>
+                                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">Page actions</p>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button
+                                        type="button"
+                                        disabled={!url || !guestReady || Boolean(guestCrash)}
+                                        onClick={openGuestDeveloperTools}
+                                        className="flex items-center justify-center gap-1.5 rounded-md border border-[var(--border)] px-2 py-1.5 text-xs font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-40"
+                                    >
+                                        <Bug size={13} />
+                                        Inspect
+                                    </button>
+                                    <button
+                                        type="button"
+                                        disabled={!url || !guestReady || Boolean(guestCrash)}
+                                        onClick={hardReloadGuest}
+                                        className="flex items-center justify-center gap-1.5 rounded-md border border-[var(--border)] px-2 py-1.5 text-xs font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-40"
+                                    >
+                                        <RefreshCw size={13} />
+                                        Hard reload
+                                    </button>
+                                    <button
+                                        type="button"
+                                        disabled={!url || !guestReady || Boolean(guestCrash) || jsonBusy}
+                                        onClick={formatCurrentJson}
+                                        className="flex items-center justify-center gap-1.5 rounded-md border border-[var(--border)] px-2 py-1.5 text-xs font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-40"
+                                    >
+                                        <Braces size={13} />
+                                        {jsonBusy ? 'Reading…' : 'Format JSON'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        disabled={diagnostics.length === 0}
+                                        onClick={() => setDiagnostics([])}
+                                        className="flex items-center justify-center gap-1.5 rounded-md border border-[var(--border)] px-2 py-1.5 text-xs font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-40"
+                                    >
+                                        <Trash2 size={13} />
+                                        Clear log
+                                    </button>
+                                </div>
+                            </section>
+
+                            <section className="border-t border-[var(--border)] pt-3">
+                                <label className="block">
+                                    <span className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
+                                        <Monitor size={12} />
+                                        Layout viewport
+                                    </span>
+                                    <select
+                                        value={viewportId}
+                                        onChange={(event) => setViewportId(event.target.value)}
+                                        className="w-full rounded-md border border-[var(--border)] bg-[var(--bg-secondary)] px-2 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                                    >
+                                        {BROWSER_VIEWPORT_PRESETS.map((preset) => (
+                                            <option key={preset.id} value={preset.id}>{preset.label}</option>
+                                        ))}
+                                    </select>
+                                </label>
+                                <p className="mt-2 text-[10px] leading-relaxed text-[var(--text-tertiary)]">
+                                    Resizes Chromium’s layout surface for responsive testing. It does not emulate Safari, touch hardware, or device pixel ratio.
+                                </p>
+                            </section>
+
+                            {jsonPreview && (
+                                <section className="border-t border-[var(--border)] pt-3">
+                                    <div className="mb-2 flex items-center justify-between gap-2">
+                                        <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">JSON preview</p>
+                                        <button
+                                            type="button"
+                                            onClick={() => setJsonPreview(null)}
+                                            className="rounded p-0.5 text-[var(--text-tertiary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+                                            aria-label="Close JSON preview"
+                                        >
+                                            <X size={12} />
+                                        </button>
+                                    </div>
+                                    {jsonPreview.ok ? (
+                                        <pre className="max-h-72 overflow-auto whitespace-pre rounded-md border border-[var(--border)] bg-[var(--bg-secondary)] p-2 font-mono text-[10px] leading-relaxed text-[var(--text-primary)]">
+                                            {jsonPreview.formatted}
+                                        </pre>
+                                    ) : (
+                                        <p className="rounded-md border border-[var(--border)] bg-[var(--bg-secondary)] p-2 text-xs text-[var(--text-secondary)]">
+                                            {jsonPreview.error}
+                                        </p>
+                                    )}
+                                </section>
+                            )}
+
+                            <section className="border-t border-[var(--border)] pt-3">
+                                <div className="mb-2 flex items-center justify-between gap-2">
+                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">Diagnostics</p>
+                                    <span className="font-mono text-[10px] text-[var(--text-tertiary)]">{diagnostics.length}/40</span>
+                                </div>
+                                {diagnostics.length === 0 ? (
+                                    <p className="text-xs text-[var(--text-tertiary)]">Console warnings, navigation failures, and guest crashes will appear here.</p>
+                                ) : (
+                                    <div className="space-y-1.5">
+                                        {diagnostics.map((entry, index) => (
+                                            <div
+                                                key={`${entry.timestamp}-${index}`}
+                                                className="rounded-md border border-[var(--border)] bg-[var(--bg-secondary)] p-2"
+                                            >
+                                                <div className="mb-1 flex items-center justify-between gap-2">
+                                                    <span className="rounded border border-[var(--border)] px-1 py-0.5 font-mono text-[9px] uppercase text-[var(--text-secondary)]">
+                                                        {entry.kind}
+                                                    </span>
+                                                    <span className="font-mono text-[9px] uppercase text-[var(--text-tertiary)]">{entry.level}</span>
+                                                </div>
+                                                <p className="break-words font-mono text-[10px] leading-relaxed text-[var(--text-primary)]">{entry.message}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </section>
+                        </div>
+                    </aside>
+                )}
                 {isKlipit && isSidebarOpen && (
                     <>
                         <div 
@@ -1041,14 +1507,17 @@ export default function LocalhostMode({ isKlipit }) {
     const { isDarkMode } = useTheme();
     const { openWindow } = useMode();
     const storageKeys = useMemo(() => getStorageKeys(isKlipit), [isKlipit]);
+    const isBuiltinTab = useCallback((id) => id === MANAGER_TAB_ID || id === QUICKLINKS_TAB_ID, []);
+
     const [tabs, setTabs] = useState(() => {
         const pinnedTabs = readPinnedTabs(storageKeys.PINNED_TABS);
         const regularTabs = pinnedTabs.length > 0
             ? pinnedTabs
             : [{ id: createTabId(), url: readStringStorage(storageKeys.LAST_URL, ''), title: 'New Tab', pinned: false }];
         const managerTab = { id: MANAGER_TAB_ID, url: '', title: 'Manager', pinned: true, isManager: true };
-        if (regularTabs[0]?.id === MANAGER_TAB_ID) return regularTabs;
-        return [managerTab, ...regularTabs];
+        const quicklinksTab = { id: QUICKLINKS_TAB_ID, url: '', title: 'QuickLinks', pinned: true, isQuickLinks: true };
+        if (regularTabs[0]?.id === MANAGER_TAB_ID || regularTabs[0]?.id === QUICKLINKS_TAB_ID) return regularTabs;
+        return [managerTab, quicklinksTab, ...regularTabs];
     });
     const [activeTabId, setActiveTabId] = useState(tabs[0].id);
     const [draggedTabId, setDraggedTabId] = useState(null);
@@ -1088,14 +1557,14 @@ export default function LocalhostMode({ isKlipit }) {
 
     useEffect(() => {
         const pinnedTabs = tabs
-            .filter((tab) => tab.pinned && tab.url)
+            .filter((tab) => tab.pinned && tab.url && !isBuiltinTab(tab.id))
             .map((tab) => ({
                 url: tab.url,
                 title: tab.title || addressLabel(tab.url) || 'Pinned Tab',
             }))
             .slice(0, MAX_PINNED_TABS);
         writeStringStorage(storageKeys.PINNED_TABS, JSON.stringify(pinnedTabs));
-    }, [tabs, storageKeys.PINNED_TABS]);
+    }, [tabs, storageKeys.PINNED_TABS, isBuiltinTab]);
 
     const [askTurns, setAskTurns] = useState(() => readAskThread(storageKeys.ASK_THREAD));
 
@@ -1148,13 +1617,18 @@ export default function LocalhostMode({ isKlipit }) {
         handleNewTab(url);
     }, [handleNewTab]);
 
-    // Open a port from the manager — creates a new webview tab and switches to it
-    const handleNavigateFromManager = useCallback((port) => {
-        const url = `http://localhost:${port}`;
+    // Open a port or URL from manager/quicklinks — creates a new webview tab and switches to it
+    const handleNavigateFromManager = useCallback((target) => {
+        const targetStr = String(target || '').trim();
+        if (!targetStr) return;
+        const url = /^[a-z][a-z0-9+.-]*:\/\//i.test(targetStr)
+            ? targetStr
+            : `http://localhost:${targetStr}`;
+
         const newId = createTabId();
         setTabs(prev => {
             // Don't duplicate if a tab with this URL already exists
-            const existing = prev.find(t => t.url === url && t.id !== MANAGER_TAB_ID);
+            const existing = prev.find(t => t.url === url && !isBuiltinTab(t.id));
             if (existing) {
                 setActiveTabId(existing.id);
                 return prev;
@@ -1163,7 +1637,7 @@ export default function LocalhostMode({ isKlipit }) {
             return inserted;
         });
         setActiveTabId(newId);
-    }, []);
+    }, [isBuiltinTab]);
 
     if (!isElectron) {
         return (
@@ -1306,7 +1780,23 @@ export default function LocalhostMode({ isKlipit }) {
                     <Server size={12} className={activeTabId === MANAGER_TAB_ID ? 'text-[var(--accent)]' : ''} />
                     <span className="truncate font-medium">Manager</span>
                 </button>
-                {tabs.filter(t => t.id !== MANAGER_TAB_ID).map((tab) => {
+
+                {/* QuickLinks tab */}
+                <button
+                    type="button"
+                    onClick={() => setActiveTabId(QUICKLINKS_TAB_ID)}
+                    className={`group relative flex h-8 min-w-[90px] shrink-0 cursor-pointer items-center gap-1.5 rounded-t-lg border-x border-t px-2.5 text-xs transition-colors ${
+                        activeTabId === QUICKLINKS_TAB_ID
+                            ? 'border-[var(--border)] bg-[var(--bg-primary)] text-[var(--accent)]'
+                            : 'border-transparent bg-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
+                    }`}
+                    title="QuickLinks Toolbar"
+                >
+                    <Bookmark size={12} className={activeTabId === QUICKLINKS_TAB_ID ? 'text-[var(--accent)] fill-current' : ''} />
+                    <span className="truncate font-medium">QuickLinks</span>
+                </button>
+
+                {tabs.filter(t => !isBuiltinTab(t.id)).map((tab) => {
                     const isActive = tab.id === activeTabId;
                     return (
                         <div
@@ -1330,10 +1820,14 @@ export default function LocalhostMode({ isKlipit }) {
                               const targetIndex = tabs.findIndex(t => t.id === tab.id);
                               if (draggedIndex >= 0 && targetIndex >= 0 && draggedIndex !== targetIndex) {
                                 setTabs(prev => {
-                                  const cloned = [...prev.filter(t => t.id !== MANAGER_TAB_ID)];
-                                  const [dragged] = cloned.splice(draggedIndex - 1, 1);
-                                  cloned.splice(targetIndex - 1, 0, dragged);
-                                  return [prev.find(t => t.id === MANAGER_TAB_ID), ...cloned].filter(Boolean);
+                                  const cloned = [...prev.filter(t => !isBuiltinTab(t.id))];
+                                  const [dragged] = cloned.splice(draggedIndex - 2, 1);
+                                  cloned.splice(targetIndex - 2, 0, dragged);
+                                  return [
+                                    prev.find(t => t.id === MANAGER_TAB_ID),
+                                    prev.find(t => t.id === QUICKLINKS_TAB_ID),
+                                    ...cloned
+                                  ].filter(Boolean);
                                 });
                                 setActiveTabId(draggedTabId);
                               }
@@ -1360,17 +1854,21 @@ export default function LocalhostMode({ isKlipit }) {
                                 <Globe size={12} className={isActive ? 'text-[var(--accent)]' : 'text-[var(--text-tertiary)]'} />
                                 <span className="truncate">{tab.title}</span>
                             </div>
-                            {tabs.filter(t => t.id !== MANAGER_TAB_ID).length > 1 && (
+                            {tabs.filter(t => !isBuiltinTab(t.id)).length > 1 && (
                                 <button
                                     type="button"
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        const otherTabs = tabs.filter(t => t.id !== MANAGER_TAB_ID);
+                                        const otherTabs = tabs.filter(t => !isBuiltinTab(t.id));
                                         const nextTabs = otherTabs.filter(t => t.id !== tab.id);
                                         if (tab.id === activeTabId) {
-                                            setActiveTabId(nextTabs[nextTabs.length - 1].id);
+                                            setActiveTabId(nextTabs[nextTabs.length - 1]?.id || MANAGER_TAB_ID);
                                         }
-                                        setTabs([tabs.find(t => t.id === MANAGER_TAB_ID), ...nextTabs].filter(Boolean));
+                                        setTabs([
+                                            tabs.find(t => t.id === MANAGER_TAB_ID),
+                                            tabs.find(t => t.id === QUICKLINKS_TAB_ID),
+                                            ...nextTabs
+                                        ].filter(Boolean));
                                     }}
                                     className="shrink-0 rounded-md p-0.5 text-[var(--text-tertiary)] opacity-0 transition-opacity hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] group-hover:opacity-100 focus:opacity-100"
                                     title="Close tab"
@@ -1398,25 +1896,27 @@ export default function LocalhostMode({ isKlipit }) {
             </div>
             
             <div className="relative min-h-0 flex-1">
-                {activeTabId === MANAGER_TAB_ID ? (
+                {activeTabId === MANAGER_TAB_ID && (
                     <LocalhostManager onNavigate={handleNavigateFromManager} />
-                ) : (
-                    tabs.filter(t => t.id !== MANAGER_TAB_ID).map((tab) => (
-                        <LocalhostTab
-                            key={tab.id}
-                            id={tab.id}
-                            initialUrl={tab.url}
-                            hidden={tab.id !== activeTabId}
-                            onTitleChange={handleTitleChange}
-                            onUrlChange={handleUrlChange}
-                            isKlipit={isKlipit}
-                            isDarkMode={isDarkMode}
-                            onNewTab={handleNewTab}
-                            askTurns={askTurns}
-                            setAskTurns={setAskTurns}
-                        />
-                    ))
                 )}
+                {activeTabId === QUICKLINKS_TAB_ID && (
+                    <QuickLinksTab onNavigate={handleNavigateFromManager} isKlipit={isKlipit} />
+                )}
+                {tabs.filter(t => !isBuiltinTab(t.id)).map((tab) => (
+                    <LocalhostTab
+                        key={tab.id}
+                        id={tab.id}
+                        initialUrl={tab.url}
+                        hidden={tab.id !== activeTabId}
+                        onTitleChange={handleTitleChange}
+                        onUrlChange={handleUrlChange}
+                        isKlipit={isKlipit}
+                        isDarkMode={isDarkMode}
+                        onNewTab={handleNewTab}
+                        askTurns={askTurns}
+                        setAskTurns={setAskTurns}
+                    />
+                ))}
             </div>
         </div>
     );

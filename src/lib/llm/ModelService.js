@@ -675,61 +675,42 @@ export class ModelService {
 
     // Get all available models from all providers
     async getAllModels(apiKeys) {
-        const allModels = {
-            groq: [],
-            ollama: [],
-            lmstudio: [],
-            jan: [],
-            openai: [],
-            gemini: [],
-            openrouter: [],
-            deepinfra: [],
-            anthropic: [],
-            mistral: []
+        const [
+            groq,
+            ollama,
+            lmstudio,
+            jan,
+            openai,
+            gemini,
+            openrouter,
+            deepinfra,
+            anthropic,
+            mistral
+        ] = await Promise.all([
+            apiKeys.groq ? this.fetchGroqModels(apiKeys.groq) : Promise.resolve([]),
+            this.fetchOllamaModels(),
+            this.fetchLMStudioModels(apiKeys.lmStudioUrl),
+            this.fetchJanModels(apiKeys.janUrl),
+            apiKeys.openai ? this.fetchOpenAIModels(apiKeys.openai) : Promise.resolve([]),
+            apiKeys.gemini ? this.fetchGeminiModels(apiKeys.gemini) : Promise.resolve([]),
+            this.fetchOpenRouterModels(apiKeys.openrouter),
+            this.fetchDeepInfraModels(apiKeys.deepinfra),
+            apiKeys.anthropic ? this.fetchAnthropicModels(apiKeys.anthropic) : Promise.resolve([]),
+            apiKeys.mistral ? this.fetchMistralModels(apiKeys.mistral) : Promise.resolve([])
+        ]);
+
+        return {
+            groq,
+            ollama,
+            lmstudio,
+            jan,
+            openai,
+            gemini,
+            openrouter,
+            deepinfra,
+            anthropic,
+            mistral
         };
-
-        // Fetch OpenAI models dynamically
-        if (apiKeys.openai) {
-            allModels.openai = await this.fetchOpenAIModels(apiKeys.openai);
-        }
-
-        // Fetch Groq models
-        if (apiKeys.groq) {
-            allModels.groq = await this.fetchGroqModels(apiKeys.groq);
-        }
-
-        // Fetch Ollama models
-        allModels.ollama = await this.fetchOllamaModels();
-
-        // Fetch LM Studio models
-        allModels.lmstudio = await this.fetchLMStudioModels(apiKeys.lmStudioUrl);
-
-        // Fetch Jan models
-        allModels.jan = await this.fetchJanModels(apiKeys.janUrl);
-
-        // Fetch Gemini models dynamically
-        if (apiKeys.gemini) {
-            allModels.gemini = await this.fetchGeminiModels(apiKeys.gemini);
-        }
-
-        // Fetch OpenRouter models — public catalog, loads with or without a key
-        // so users can browse and pick from the full list before adding a key.
-        allModels.openrouter = await this.fetchOpenRouterModels(apiKeys.openrouter);
-
-        // Fetch DeepInfra models — public catalog, same keyless-browse behavior
-        allModels.deepinfra = await this.fetchDeepInfraModels(apiKeys.deepinfra);
-
-        // Fetch Anthropic models
-        if (apiKeys.anthropic) {
-            allModels.anthropic = await this.fetchAnthropicModels(apiKeys.anthropic);
-        }
-
-        // Fetch Mistral models
-        if (apiKeys.mistral) {
-            allModels.mistral = await this.fetchMistralModels(apiKeys.mistral);
-        }
-
-        return allModels;
     }
 }
 

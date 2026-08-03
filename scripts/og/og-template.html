@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Perci — social preview</title>
+<!--
+  Source for site/assets/perci-og.png (1200×630).
+  Render with:  npm run og
+  Build source, not a deployed page — it lives outside site/ so GitHub Pages
+  doesn't publish it. Tokens mirror site/style.css; keep them in sync.
+-->
+<style>
+  @font-face {
+    font-family: 'Schibsted Grotesk';
+    font-style: normal;
+    font-weight: 400 800;
+    src: url('fonts/schibsted-grotesk-latin.woff2') format('woff2');
+  }
+
+  :root {
+    --bg:        #0C0C0D;
+    --chrome:    #1B1B1E;
+    --ink:       #F5F5F7;
+    --ink-2:     #B0B0B8;
+    --ink-3:     #8E8E97;
+    --line:      rgba(255, 255, 255, 0.08);
+    --accent:    #F97316;
+    --accent-2:  #FB923C;
+    --font-d: 'Schibsted Grotesk', system-ui, sans-serif;
+    --font-m: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 1200px;
+    height: 630px;
+    overflow: hidden;
+    background: var(--bg);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: geometricPrecision;
+  }
+
+  .card {
+    position: relative;
+    width: 1200px;
+    height: 630px;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    overflow: hidden;
+  }
+
+  /* ---------- window chrome ---------- */
+
+  .bar {
+    position: relative;
+    z-index: 3;
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    height: 50px;
+    padding-inline: 21px;
+    background: var(--chrome);
+    border-bottom: 1px solid var(--line);
+  }
+  .dots { display: inline-flex; gap: 8px; flex: none; }
+  .dots i { width: 12px; height: 12px; border-radius: 50%; }
+  .dots i:nth-child(1) { background: #FF5F57; }
+  .dots i:nth-child(2) { background: #FEBC2E; }
+  .dots i:nth-child(3) { background: #28C840; }
+
+  .win-title {
+    font: 600 17px/1 var(--font-d);
+    letter-spacing: 0.01em;
+    color: #D6D6DC;
+  }
+  .bar-right {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    font: 500 13px/1 var(--font-m);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .live {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #28C840;
+    box-shadow: 0 0 0 3px rgba(40, 200, 64, 0.16);
+  }
+
+  /* ---------- desk surface ---------- */
+
+  .body {
+    position: relative;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    padding: 0 72px;
+    overflow: hidden;
+  }
+
+  /* warm ambient light, as on the app's desktop */
+  .glow-a, .glow-b { position: absolute; pointer-events: none; }
+  .glow-a {
+    width: 780px; height: 780px;
+    right: -140px; top: -230px;
+    background: radial-gradient(circle,
+      rgba(249, 115, 22, 0.20) 0%,
+      rgba(249, 115, 22, 0.09) 38%,
+      rgba(249, 115, 22, 0) 68%);
+  }
+  .glow-b {
+    width: 700px; height: 700px;
+    left: -240px; bottom: -330px;
+    background: radial-gradient(circle,
+      rgba(249, 115, 22, 0.14) 0%,
+      rgba(249, 115, 22, 0.05) 42%,
+      rgba(249, 115, 22, 0) 70%);
+  }
+
+  /* faint desk grid */
+  .grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+    background-size: 52px 52px;
+    -webkit-mask-image: radial-gradient(ellipse 90% 80% at 50% 45%, #000 30%, transparent 78%);
+    mask-image: radial-gradient(ellipse 90% 80% at 50% 45%, #000 30%, transparent 78%);
+    pointer-events: none;
+  }
+
+  /* the desk edge Sir Perci stands on — sits at his feet, clear of the copy */
+  .desk {
+    position: absolute;
+    right: 18px;
+    top: 425px;
+    width: 508px;
+    height: 1px;
+    background: linear-gradient(90deg,
+      rgba(249, 115, 22, 0) 0%,
+      rgba(249, 115, 22, 0.34) 40%,
+      rgba(249, 115, 22, 0.46) 66%,
+      rgba(249, 115, 22, 0) 100%);
+  }
+  /* pool of light where he stands */
+  .desk::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: -30px;
+    width: 440px;
+    height: 60px;
+    transform: translateX(-50%);
+    background: radial-gradient(ellipse at 50% 100%,
+      rgba(249, 115, 22, 0.10) 0%,
+      rgba(249, 115, 22, 0.04) 45%,
+      rgba(249, 115, 22, 0) 78%);
+  }
+
+  /* ---------- copy ---------- */
+
+  .copy {
+    position: relative;
+    z-index: 2;
+    width: 664px;
+  }
+
+  .eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    font: 500 14px/1 var(--font-m);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .tick { width: 9px; height: 9px; border-radius: 3px; background: var(--accent); flex: none; }
+
+  h1 {
+    margin-top: 26px;
+    font: 700 70px/1.03 var(--font-d);
+    letter-spacing: -0.028em;
+    color: var(--ink);
+  }
+  h1 .accent { color: var(--accent-2); }
+
+  .sub {
+    margin-top: 24px;
+    width: 600px;
+    font: 400 21px/1.5 var(--font-d);
+    letter-spacing: -0.004em;
+    color: var(--ink-2);
+  }
+
+  /* ---------- status rail (answers the title bar) ---------- */
+
+  .rail {
+    position: relative;
+    z-index: 3;
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    height: 58px;
+    padding-inline: 72px;
+    border-top: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.014);
+    font: 500 15px/1 var(--font-m);
+    letter-spacing: 0.055em;
+    color: var(--ink-3);
+    white-space: nowrap;
+  }
+  .rail b { color: #D6D6DC; font-weight: 600; }
+  .rail .sep { width: 4px; height: 4px; border-radius: 50%; background: rgba(249, 115, 22, 0.55); flex: none; }
+  .rail .repo { margin-left: auto; color: var(--ink-2); letter-spacing: 0.03em; }
+  .rail .repo span { color: var(--accent-2); }
+
+  /* ---------- mascot ---------- */
+
+  .mascot {
+    position: absolute;
+    z-index: 2;
+    right: 76px;
+    top: 122px;
+    width: 380px;
+    height: 335px;
+    filter: drop-shadow(0 20px 44px rgba(0, 0, 0, 0.55));
+  }
+  .mascot svg { display: block; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+
+<div class="card">
+
+  <div class="bar">
+    <span class="dots"><i></i><i></i><i></i></span>
+    <span class="win-title">Perci — desktop</span>
+    <span class="bar-right"><span class="live"></span>Gateway online</span>
+  </div>
+
+  <div class="body">
+    <div class="glow-a"></div>
+    <div class="glow-b"></div>
+    <div class="grid"></div>
+    <div class="desk"></div>
+
+    <div class="copy">
+      <p class="eyebrow"><span class="tick"></span>Open source · Local-first · Free</p>
+      <h1>The whole dev day,<br>on <span class="accent">one desk</span>.</h1>
+      <p class="sub">AI chat across every provider, parallel coding agents, and the daily essentials — ports, keys, notes, containers.</p>
+    </div>
+
+    <!-- Sir Perci — from public/perci-mascot.svg -->
+    <div class="mascot">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 300" role="img" aria-label="Sir Perci">
+        <g fill="#C5692D" stroke="#C5692D" stroke-linecap="round">
+          <line x1="150" y1="107" x2="126" y2="76" stroke-width="13"/>
+          <circle cx="124" cy="72" r="16"/>
+          <line x1="190" y1="107" x2="214" y2="76" stroke-width="13"/>
+          <circle cx="216" cy="72" r="16"/>
+          <line x1="150" y1="228" x2="134" y2="252" stroke-width="13"/>
+          <circle cx="132" cy="256" r="15"/>
+          <line x1="190" y1="228" x2="206" y2="252" stroke-width="13"/>
+          <circle cx="208" cy="256" r="15"/>
+        </g>
+        <path d="M170 90 C208 90 243 119 247 160 C250 191 238 221 208 231
+                 C192 236 148 236 132 231 C102 221 90 191 93 160
+                 C97 119 132 90 170 90 Z" fill="#C5692D"/>
+        <g fill="#C5692D" stroke="#C5692D" stroke-linecap="round">
+          <line x1="206" y1="176" x2="247" y2="204" stroke-width="14"/>
+          <line x1="134" y1="178" x2="92" y2="203" stroke-width="14"/>
+        </g>
+        <circle cx="151" cy="136" r="8" fill="#7A3C16"/>
+        <circle cx="189" cy="136" r="8" fill="#7A3C16"/>
+        <path d="M154 158 Q170 168 186 158" fill="none" stroke="#7A3C16"
+              stroke-width="6" stroke-linecap="round"/>
+        <path d="M92 164 C80 164 80 176 80 188 C80 197 78 202 68 207
+                 C78 212 80 217 80 226 C80 238 80 250 92 250"
+              fill="none" stroke="#CD9A3C" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="92" cy="206" r="12" fill="#C5692D"/>
+        <g transform="rotate(10 248 204)">
+          <path d="M241 190 L255 190 L249 86 C248.5 82 247.5 82 247 86 L241 190 Z"
+                fill="#E7E3DB" stroke="#B9B2A6" stroke-width="1.5" stroke-linejoin="round"/>
+          <line x1="248" y1="186" x2="248" y2="98" stroke="#F5F2EC" stroke-width="2" stroke-linecap="round"/>
+          <rect x="244" y="190" width="8" height="38" rx="4" fill="#7A3C16"/>
+          <circle cx="248" cy="230" r="8" fill="#CD9A3C"/>
+          <path d="M224 192 C224 187 227 186 232 186 C238 186 242 185 244 182
+                   C245.5 180 250.5 180 252 182 C254 185 258 186 264 186
+                   C269 186 272 187 272 192"
+                fill="none" stroke="#CD9A3C" stroke-width="8" stroke-linecap="round"/>
+          <circle cx="248" cy="204" r="11" fill="#C5692D"/>
+        </g>
+      </svg>
+    </div>
+  </div>
+
+  <div class="rail">
+    <b>~50</b> surfaces <span class="sep"></span>
+    <b>8</b> AI providers <span class="sep"></span>
+    macOS &amp; Windows <span class="sep"></span>
+    MIT licensed
+    <span class="repo">github.com/<span>toshon-jennings/perci</span></span>
+  </div>
+
+</div>
+
+</body>
+</html>

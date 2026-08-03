@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Perci — The whole dev day, on one desk.</title>
+  <meta name="description" content="Perci is a free, open-source desktop workspace for developers — AI chat across every major provider, parallel coding agents, and the daily essentials: ports, keys, notes, containers, databases. Around fifty surfaces. One dock. macOS &amp; Windows, MIT licensed.">
+  <link rel="canonical" href="https://toshon-jennings.github.io/perci/">
+  <meta name="theme-color" content="#0C0C0D">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Perci">
+  <meta property="og:url" content="https://toshon-jennings.github.io/perci/">
+  <meta property="og:title" content="Perci — The whole dev day, on one desk.">
+  <meta property="og:description" content="A free, open-source desktop workspace for developers — AI chat across every provider, parallel coding agents, and the daily essentials. Around fifty surfaces. One dock.">
+  <meta property="og:image" content="https://toshon-jennings.github.io/perci/assets/perci-og.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="A dark Perci window titled “Perci — desktop”. The headline reads “The whole dev day, on one desk.” next to Sir Perci, the round orange mascot holding a curly-brace shield and a sword. A status rail lists ~50 surfaces, 8 AI providers, macOS &amp; Windows, MIT licensed.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Perci — The whole dev day, on one desk.">
+  <meta name="twitter:description" content="A free, open-source desktop workspace for developers. Around fifty surfaces. One dock.">
+  <meta name="twitter:image" content="https://toshon-jennings.github.io/perci/assets/perci-og.png">
+  <meta name="twitter:image:alt" content="A dark Perci window titled “Perci — desktop”. The headline reads “The whole dev day, on one desk.” next to Sir Perci, the round orange mascot holding a curly-brace shield and a sword.">
+
+  <link rel="icon" type="image/png" href="assets/perci-icon.png">
+  <link rel="apple-touch-icon" href="assets/perci-icon.png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:ital,wght@0,400..900;1,400..900&amp;display=swap">
+
+  <link rel="stylesheet" href="style.css">
+  <script src="site.js" defer></script>
+</head>
+<body>
+
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="i-radar" viewBox="0 0 24 24"><path d="M5.2 8.6a10.5 10.5 0 0 1 13.6 0"/><path d="M7.9 11.8a6.4 6.4 0 0 1 8.2 0"/><circle cx="12" cy="15.6" r="1.5" fill="currentColor" stroke="none"/><path d="M12 17.4v3.2"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><circle cx="7" cy="12" r="3.1"/><path d="M10.1 12h10.4"/><path d="M17.2 12v3.2"/><path d="M20.5 12v2.4"/></symbol>
+    <symbol id="i-note" viewBox="0 0 24 24"><path d="M6.6 3.9h7.6l3.2 3.2v13H6.6z"/><path d="M14.2 3.9v3.2h3.2"/><path d="M9.3 12h5.4M9.3 15.4h5.4"/></symbol>
+    <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M7 3.9h10v15.9l-1.67-1.3-1.66 1.3-1.67-1.3-1.66 1.3L8.67 18.5 7 19.8z"/><path d="M9.6 8.4h4.8M9.6 11.8h4.8"/></symbol>
+    <symbol id="i-cube" viewBox="0 0 24 24"><path d="M12 3.6l7.6 4.2v8.4L12 20.4l-7.6-4.2V7.8z"/><path d="M4.4 7.8 12 12l7.6-4.2M12 12v8.4"/></symbol>
+    <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="6.8" ry="2.6"/><path d="M5.2 6v12c0 1.44 3.04 2.6 6.8 2.6s6.8-1.16 6.8-2.6V6"/><path d="M5.2 12c0 1.44 3.04 2.6 6.8 2.6s6.8-1.16 6.8-2.6"/></symbol>
+    <symbol id="i-web" viewBox="0 0 24 24"><rect x="3.6" y="5" width="16.8" height="14" rx="2"/><path d="M3.6 8.8h16.8"/><circle cx="6.2" cy="6.9" r=".8" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-term" viewBox="0 0 24 24"><rect x="3.6" y="4.6" width="16.8" height="14.8" rx="2"/><path d="M7.4 9.4l3 2.6-3 2.6M12.8 14.9h4"/></symbol>
+    <symbol id="i-branch" viewBox="0 0 24 24"><circle cx="6.8" cy="6.2" r="2.1"/><circle cx="6.8" cy="17.8" r="2.1"/><circle cx="17.2" cy="8.6" r="2.1"/><path d="M6.8 8.3v7.4"/><path d="M17.2 10.7c0 2.9-2.6 3.5-5.1 4.1-1.9.46-3.6 1-4.2 2.3"/></symbol>
+    <symbol id="i-crate" viewBox="0 0 24 24"><path d="M3.9 8.9 12 4.7l8.1 4.2-8.1 4.2z"/><path d="M3.9 8.9v6.2L12 19.3l8.1-4.2V8.9"/><path d="M12 13.1v6.2"/></symbol>
+    <symbol id="i-swap" viewBox="0 0 24 24"><path d="M7.6 4.9 4.2 8.3l3.4 3.4"/><path d="M4.2 8.3h11.2"/><path d="M16.4 12.3l3.4 3.4-3.4 3.4"/><path d="M19.8 15.7H8.6"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M11 3.8l1.75 4.55L17.3 10.1l-4.55 1.75L11 16.4l-1.75-4.55L4.7 10.1l4.55-1.75z"/><path d="M18.2 15.4l.8 2.05 2.05.8-2.05.8-.8 2.05-.8-2.05-2.05-.8 2.05-.8z"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5.4" y="10.6" width="13.2" height="9.6" rx="2.2"/><path d="M8.6 10.6V8.2a3.4 3.4 0 0 1 6.8 0v2.4"/><circle cx="12" cy="15.2" r="1.3" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="6.7" y="6.7" width="10.6" height="10.6" rx="1.8"/><rect x="10.1" y="10.1" width="3.8" height="3.8" rx=".8"/><path d="M9.4 3.6v3.1M14.6 3.6v3.1M9.4 17.3v3.1M14.6 17.3v3.1M3.6 9.4h3.1M3.6 14.6h3.1M17.3 9.4h3.1M17.3 14.6h3.1"/></symbol>
+    <symbol id="i-scale" viewBox="0 0 24 24"><path d="M12 4.4v15.2M8.4 19.6h7.2"/><path d="M4.8 7.4h14.4"/><path d="M7 7.4 4.4 12.8h5.2z"/><path d="M17 7.4l-2.6 5.4h5.2z"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4.4v10.4"/><path d="M7.6 10.8 12 15.2l4.4-4.4"/><path d="M5.2 19.6h13.6"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4.8 12h14.4"/><path d="M13.6 6.4 19.2 12l-5.6 5.6"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M6 15H5.2A2.2 2.2 0 0 1 3 12.8V5.2A2.2 2.2 0 0 1 5.2 3h7.6A2.2 2.2 0 0 1 15 5.2V6"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M4.8 12.6 9.6 17.4 19.2 7.2"/></symbol>
+    <symbol id="i-github" viewBox="0 0 16 16"><path fill="currentColor" stroke="none" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></symbol>
+  </defs>
+</svg>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="menubar">
+  <div class="menubar-inner container">
+    <a class="brand" href="#top">
+      <img src="assets/perci-logo.svg" alt="" width="30" height="22">
+      <span class="brand-name">Perci</span>
+    </a>
+    <nav class="menubar-links" aria-label="Site">
+      <a href="#features">Features</a>
+      <a href="#toolkit">Toolkit</a>
+      <a href="#story">Story</a>
+    </nav>
+    <div class="menubar-actions">
+      <a class="btn btn-primary btn-sm" href="https://github.com/toshon-jennings/perci/releases/latest">Download</a>
+      <a class="gh-link" href="https://github.com/toshon-jennings/perci" aria-label="Perci on GitHub">
+        <svg width="19" height="19" aria-hidden="true"><use href="#i-github"/></svg>
+      </a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ============================== Hero ============================== -->
+  <section class="hero" id="top">
+    <div class="container hero-copy">
+      <p class="eyebrow"><span class="tick" aria-hidden="true"></span>Open source&ensp;·&ensp;Local-first&ensp;·&ensp;Free</p>
+      <h1>The whole dev day,<br>on <span class="accent">one desk</span>.</h1>
+      <p class="hero-sub">Perci is an open-source desktop workspace for working developers — AI&nbsp;chat across every major provider, parallel coding agents, and the daily essentials: ports, keys, notes, containers, databases, bills. Around fifty surfaces. One&nbsp;dock.</p>
+      <div class="hero-ctas">
+        <a class="btn btn-primary" href="https://github.com/toshon-jennings/perci/releases/latest">
+          <svg width="17" height="17" aria-hidden="true"><use href="#i-down"/></svg>
+          Download Perci — free
+        </a>
+        <a class="btn btn-ghost" href="https://github.com/toshon-jennings/perci">
+          <svg width="16" height="16" aria-hidden="true"><use href="#i-github"/></svg>
+          View on GitHub
+        </a>
+      </div>
+      <p class="hero-meta">macOS &amp; Windows&ensp;·&ensp;MIT licensed</p>
+    </div>
+
+    <!-- Hero screenshot in a window frame -->
+    <div class="container shot-wrap">
+      <figure class="shot shot-hero">
+        <div class="shot-bar">
+          <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="win-title">Perci — desktop</span>
+          <span class="shot-actions" data-theme-slot></span>
+        </div>
+        <div class="shot-media" data-label="perci-desktop.webp">
+          <img class="shot-img is-dark" src="assets/screenshots/perci-desktop.webp" width="2000" height="1299" fetchpriority="high"
+               alt="The Perci desktop in dark mode: an app bar with a large clock, a grid of Perci Native tool tiles, a right rail with Perci Now, Agent Pulse, usage and recent chats, and the dock along the bottom.">
+          <img class="shot-img is-light" src="assets/screenshots/perci-desktop-light.webp" width="2000" height="1299" loading="lazy" decoding="async"
+               alt="The same Perci desktop in light mode — identical layout on a warm off-white background.">
+        </div>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ============================ Proof strip ============================ -->
+  <section class="proof" aria-label="At a glance">
+    <div class="container proof-row rv">
+      <div class="stat"><strong>~50</strong><span>surfaces on the desk</span></div>
+      <div class="stat"><strong>8</strong><span>AI providers, cloud &amp; local</span></div>
+      <div class="stat"><strong>On-device</strong><span>key encryption</span></div>
+      <div class="stat"><strong>MIT</strong><span>licensed, source open</span></div>
+    </div>
+  </section>
+
+  <!-- ============================= Toolkit ============================= -->
+  <section class="section" id="toolkit">
+    <div class="container">
+      <header class="sec-head rv">
+        <p class="eyebrow"><span class="tick" aria-hidden="true"></span>The toolkit</p>
+        <h2>Every tool you reach for. One&nbsp;dock.</h2>
+        <p class="sec-sub">The tools you actually reach for between prompts. Not integrations — first-class windows.</p>
+      </header>
+      <figure class="shot shot-inline rv">
+        <div class="shot-bar">
+          <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="win-title">Perci — floating windows</span>
+        </div>
+        <div class="shot-media" data-label="perci-windows.webp">
+          <img class="shot-img" src="assets/screenshots/perci-windows.webp" width="2000" height="1299" loading="lazy" decoding="async"
+               alt="Two Perci windows floating over the desktop — Lighthouse showing a table of active local ports, and Packages showing registry versions — with the dock along the bottom.">
+        </div>
+      </figure>
+      <div class="cards">
+        <article class="card rv">
+          <div class="card-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><svg class="card-ico" width="16" height="16" aria-hidden="true"><use href="#i-radar"/></svg><h3>Lighthouse</h3></div>
+          <p>Scan ports and catch conflicts before they bite.</p>
+        </article>
+        <article class="card rv">
+          <div class="card-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><svg class="card-ico" width="16" height="16" aria-hidden="true"><use href="#i-key"/></svg><h3>KeySafe</h3></div>
+          <p>API keys and recovery codes, encrypted on-device.</p>
+        </article>
+        <article class="card rv">
+          <div class="card-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><svg class="card-ico" width="16" height="16" aria-hidden="true"><use href="#i-note"/></svg><h3>Workspace Notes</h3></div>
+          <p>Markdown wiki with backlinks and a graph view.</p>
+        </article>
+        <article class="card rv">
+          <div class="card-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><svg class="card-ico" width="16" height="16" aria-hidden="true"><use href="#i-receipt"/></svg><h3>Bill Board</h3></div>
+          <p>Every service, subscription, and key you pay for.</p>
+        </article>
+        <article class="card rv">
+          <div class="card-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><svg class="card-ico" width="16" height="16" aria-hidden="true"><use href="#i-cube"/></svg><h3>Containers</h3></div>
+          <p>Docker with backup-gated removal. Nothing deleted before it’s saved.</p>
+        </article>
+        <article class="card rv">
+          <div class="card-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><svg class="card-ico" width="16" height="16" aria-hidden="true"><use href="#i-db"/></svg><h3>DB Inspector</h3></div>
+          <p>Browse local SQLite schemas and rows.</p>
+        </article>
+        <article class="card rv">
+          <div class="card-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><svg class="card-ico" width="16" height="16" aria-hidden="true"><use href="#i-web"/></svg><h3>Localhost</h3></div>
+          <p>Preview any local dev server in a window.</p>
+        </article>
+        <article class="card rv">
+          <div class="card-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><svg class="card-ico" width="16" height="16" aria-hidden="true"><use href="#i-term"/></svg><h3>Git Shells</h3></div>
+          <p>Terminals, organized by project.</p>
+        </article>
+        <article class="card rv">
+          <div class="card-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><svg class="card-ico" width="16" height="16" aria-hidden="true"><use href="#i-branch"/></svg><h3>GitHub Overview</h3></div>
+          <p>Commits, CI, alerts, and PRs across your repos.</p>
+        </article>
+        <article class="card rv">
+          <div class="card-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><svg class="card-ico" width="16" height="16" aria-hidden="true"><use href="#i-crate"/></svg><h3>Packages</h3></div>
+          <p>A registry dashboard for what needs updating.</p>
+        </article>
+        <article class="card rv">
+          <div class="card-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><svg class="card-ico" width="16" height="16" aria-hidden="true"><use href="#i-swap"/></svg><h3>Alias Manager</h3></div>
+          <p>Your shell aliases, managed.</p>
+        </article>
+        <article class="card rv">
+          <div class="card-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><svg class="card-ico" width="16" height="16" aria-hidden="true"><use href="#i-spark"/></svg><h3>Cleanmac</h3></div>
+          <p>Clear developer caches: npm, brew, Xcode, Docker, more.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================== AI workspace =========================== -->
+  <section class="section" id="features">
+    <div class="container">
+      <header class="sec-head rv">
+        <p class="eyebrow"><span class="tick" aria-hidden="true"></span>The AI workspace</p>
+        <h2>Built for people who work <em>with</em> models — not just talk to them.</h2>
+        <p class="sec-sub">Underneath the toolkit is a full AI workspace.</p>
+      </header>
+      <figure class="shot shot-inline rv">
+        <div class="shot-bar">
+          <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="win-title">Perci — on-device AI</span>
+        </div>
+        <div class="shot-media" data-label="perci-ondevice.webp">
+          <img class="shot-img" src="assets/screenshots/perci-ondevice.webp" width="2000" height="1299" loading="lazy" decoding="async"
+               alt="Three Perci windows side by side: Apfel running Apple Intelligence entirely on-device, with a shell command typed into its prompt and a gauge showing 45 of 4,096 tokens used; Hermes showing thirty days of agent usage — sessions, tool calls and tokens by model; and the BARS notebook behind them.">
+        </div>
+        <figcaption class="shot-cap">A local model explaining a shell command, beside thirty days of agent usage. Neither needed a browser tab.</figcaption>
+      </figure>
+      <div class="feats">
+        <div class="feat rv"><h3>Chat, any model</h3><p>OpenAI, Anthropic, Gemini, Groq, DeepSeek — or local via Ollama, LM&nbsp;Studio, and vLLM. One interface, your pick per task.</p></div>
+        <div class="feat rv"><h3>Cowork</h3><p>Run coding agents — Claude&nbsp;Code, Aider, Codex, Cursor&nbsp;CLI — in parallel, each in its own workspace.</p></div>
+        <div class="feat rv"><h3>Mission Control</h3><p>Supervise agent runs on a transit map: every step, every state change, visible.</p></div>
+        <div class="feat rv"><h3>Ensemble</h3><p>Ask a panel of models, let a judge weigh them, ship the synthesis.</p></div>
+        <div class="feat rv"><h3>Shipyard</h3><p>An AI project manager over a kanban board, wired to GitHub.</p></div>
+        <div class="feat rv"><h3>Deep Research</h3><p>An autonomous research loop that keeps digging and returns cited reports.</p></div>
+        <div class="feat rv"><h3>Artifacts &amp; Live Preview</h3><p>Generated code opens beside the chat, running — iterate on software, not on descriptions of it.</p></div>
+        <div class="feat rv"><h3>Persistent memory</h3><p>Eidos gives agents memory that survives the session.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== Story ============================== -->
+  <section class="section" id="story">
+    <div class="container story rv">
+      <div class="rail" aria-hidden="true"><i class="node hollow"></i><i class="node"></i><i class="node"></i><i class="node now"></i></div>
+      <div class="story-body">
+        <p class="eyebrow"><span class="tick" aria-hidden="true"></span>The story</p>
+        <h2>From a fork nobody would bet&nbsp;on</h2>
+        <p>Perci started life as a fork of a rough open-source take on Claude Desktop. The chat window survived. Almost nothing else did. Tool by tool, window by window, it grew into the thing its builder actually wanted: one place where the whole working day happens.</p>
+        <p>It’s still open source, still local-first, and still growing.</p>
+        <p class="credit">Forked from <a href="https://github.com/Damienchakma/Open-claude">Open-claude</a> by Damien Chakma&ensp;·&ensp;Integrates <a href="https://github.com/openclaw/openclaw">OpenClaw</a></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================== Free forever =========================== -->
+  <section class="section" id="free">
+    <div class="container">
+      <div class="free-plate rv">
+        <div class="free-copy">
+          <h2>Free. Not “free for&nbsp;now.”</h2>
+          <p>Perci, as it exists today, is free and open source — and it will stay that way. Somewhere down the road there may be a <strong>Perci&nbsp;Pro</strong> subscription with expanded features. But everything you see here stays free. No trial clocks, no rug pulls, no features quietly moving behind a paywall.</p>
+          <p class="fine">Pro, if it happens, will be additive — for people who want more, not a toll on people who don’t.</p>
+        </div>
+        <img class="mascot" src="assets/perci-mascot-cut.png" alt="The Perci mascot — a round orange creature holding a sword and a curly brace." width="168" height="168">
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================== Local-first =========================== -->
+  <section class="section" id="trust">
+    <div class="container">
+      <div class="trust rv">
+        <div class="trust-item">
+          <svg width="20" height="20" aria-hidden="true"><use href="#i-lock"/></svg>
+          <h3>Keys never leave</h3>
+          <p>Encrypted with the OS keychain via Electron safeStorage. They’re never sent to a server.</p>
+        </div>
+        <div class="trust-item">
+          <svg width="20" height="20" aria-hidden="true"><use href="#i-cpu"/></svg>
+          <h3>Local models, first-class</h3>
+          <p>Ollama, LM&nbsp;Studio, and vLLM sit beside the cloud providers — same windows, same dock.</p>
+        </div>
+        <div class="trust-item">
+          <svg width="20" height="20" aria-hidden="true"><use href="#i-scale"/></svg>
+          <h3>MIT licensed</h3>
+          <p>The source is right there. Read it, fork it, keep it.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================== Get started =========================== -->
+  <section class="section" id="start">
+    <div class="container start">
+      <header class="sec-head rv">
+        <p class="eyebrow"><span class="tick" aria-hidden="true"></span>Get started</p>
+        <h2>On your desk in four commands</h2>
+      </header>
+      <div class="term rv">
+        <div class="term-bar">
+          <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="win-title">zsh — perci</span>
+          <span class="term-actions" data-copy-slot></span>
+        </div>
+        <pre><code><span class="p" aria-hidden="true">$ </span>git clone https://github.com/toshon-jennings/perci.git
+<span class="p" aria-hidden="true">$ </span>cd perci
+<span class="p" aria-hidden="true">$ </span>npm install
+<span class="p" aria-hidden="true">$ </span>npm run electron:dev</code></pre>
+      </div>
+      <p class="start-alt rv">Or grab a build for macOS or Windows
+        <a class="alt-link" href="https://github.com/toshon-jennings/perci/releases/latest">latest release
+          <svg width="14" height="14" aria-hidden="true"><use href="#i-arrow"/></svg>
+        </a>
+      </p>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <div class="foot-row">
+      <div class="foot-brand">
+        <img src="assets/perci-logo.svg" alt="" width="34" height="25">
+        <p>An open-source AI workspace for the whole dev day.</p>
+      </div>
+      <nav class="foot-links" aria-label="Footer">
+        <a href="https://github.com/toshon-jennings/perci">GitHub</a>
+        <a href="https://github.com/toshon-jennings/perci/releases/latest">Releases</a>
+        <a href="https://github.com/Damienchakma/Open-claude">Upstream</a>
+        <a href="https://github.com/openclaw/openclaw">OpenClaw</a>
+        <a href="https://github.com/toshon-jennings/perci/blob/main/LICENSE">MIT License</a>
+      </nav>
+    </div>
+    <p class="foot-fine">© 2026 Toshon Jennings&ensp;·&ensp;Built with Perci, obviously.</p>
+  </div>
+</footer>
+
+</body>
+</html>

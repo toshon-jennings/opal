@@ -1,10 +1,10 @@
 import React from 'react';
 import {
-    Sparkles, Server, Radar, Layers, Globe, GitMerge, TerminalSquare, Container, Database,
+    Server, Radar, Layers, Globe, TerminalSquare, Container, Database, Ship, Rocket,
 } from 'lucide-react';
 import {
-    ChatIcon, CoworkIcon, CodeIcon, NotesIcon, AgentsIcon, CodexMicroIcon, ResearchIcon,
-    OfficeIcon, MissionIcon, BuildIcon, ProjectsIcon, SkillsIcon, SurfaceMapIcon, PerciNowIcon, PerciDeskIcon, PackagesIcon, IptvIcon, ShipyardIcon, DocketIcon,
+    ChatIcon, CoworkIcon, CodeIcon, NotesIcon, EnsembleIcon, AgentsIcon, CodexMicroIcon, ResearchIcon,
+    OfficeIcon, MissionIcon, BuildIcon, ProjectsIcon, SkillsIcon, SurfaceMapIcon, PerciNowIcon, PerciDeskIcon, PackagesIcon, IptvIcon, DocketIcon,
 } from '../components/ModeIcons';
 import { MODES, OPENCLAW_WINDOW_ID, HERMES_WINDOW_ID, GDASH_WINDOW_ID, EIDOS_WINDOW_ID, LOCALHOST_WINDOW_ID, KLIPIT_WINDOW_ID, SKILLS_WINDOW_ID, CLEANMAC_WINDOW_ID, PACKAGES_WINDOW_ID, AGENTMAIL_WINDOW_ID, AUTOFORGE_WINDOW_ID, OPEN_NOTEBOOK_WINDOW_ID, IPTV_WINDOW_ID, SIMPLEX_WINDOW_ID, PXPIPE_WINDOW_ID, KEYSAFE_WINDOW_ID, APFEL_WINDOW_ID, ALIAS_MANAGER_WINDOW_ID, DOCKER_WINDOW_ID, DB_INSPECTOR_WINDOW_ID, GITHUB_OVERVIEW_WINDOW_ID } from '../context/ModeContext';
 import lhLogo from '../assets/lh-logo.png';
@@ -45,7 +45,7 @@ import pxpipeBg from '../assets/pxpipe-bg.jpeg';
 import dockerBg from '../assets/docker-bg.jpg';
 import githubOverviewLogo from '../assets/github-overview-logo.png';
 import githubOverviewBg from '../assets/github-overview-bg.jpeg';
-import codexMicroLogo from '../assets/codex-micro-logo.png';
+import codexMicroLogo from '../assets/codex-micro-logo.jpeg';
 import codexMicroBg from '../assets/codex-micro-bg.jpeg';
 
 // pxpipe sphere icon component — gradient filled circle
@@ -118,7 +118,7 @@ export const NATIVE_TILES = [
     { id: DB_INSPECTOR_WINDOW_ID, icon: Database, title: 'DB Inspector', desc: 'Browse local SQLite schemas & rows', hue: '#22c55e' },
     { id: MODES.PERCI_DESK, icon: PerciDeskIcon, title: 'Desk', desc: 'Perci-wide action desk', hue: '#0f766e' },
     { id: MODES.DOCKET, icon: DocketIcon, title: 'Docket', desc: 'Intake queue & device fleet ledger', hue: '#fb923c' },
-    { id: MODES.ENSEMBLE, icon: GitMerge, title: 'Ensemble', desc: 'Panel + judge synthesis', hue: '#818cf8' },
+    { id: MODES.ENSEMBLE, icon: EnsembleIcon, title: 'Ensemble', desc: 'Panel + judge synthesis', hue: '#818cf8' },
     { id: MODES.PROJECTS, icon: ProjectsIcon, title: 'Git Shells', desc: 'Manage terminals by project', hue: '#f97316' },
     { id: LOCALHOST_WINDOW_ID, icon: Globe, title: 'Localhost', desc: 'Preview any local dev server', hue: '#f97316', artwork: true, bgImage: localhostBg },
     { id: MODES.MISSION, icon: MissionIcon, title: 'Mission Control', desc: 'Supervise runs and checks', hue: '#60a5fa' },
@@ -127,8 +127,8 @@ export const NATIVE_TILES = [
     { id: PACKAGES_WINDOW_ID, icon: PackagesIcon, title: 'Packages', desc: 'Registry dashboard for package updates', hue: '#8b5cf6' },
     { id: MODES.SURFACE_MAP, icon: SurfaceMapIcon, title: 'Perci Map', desc: 'Surface relationship map', hue: '#14b8a6' },
     { id: MODES.PERCI_NOW, icon: PerciNowIcon, title: 'Perci Now', desc: 'Live workspace state', hue: '#0891b2' },
-    { id: MODES.POWER_WORKSPACE, icon: Sparkles, title: 'Power Workspace', desc: 'Ideas, runs & next action', hue: '#f97316' },
-    { id: MODES.SHIPYARD, icon: ShipyardIcon, title: 'Shipyard', desc: 'AI project manager & kanban board', hue: '#f97316' },
+    { id: MODES.POWER_WORKSPACE, icon: Rocket, title: 'Power Workspace', desc: 'Ideas, runs & next action', hue: '#f97316' },
+    { id: MODES.SHIPYARD, icon: Ship, title: 'Shipyard', desc: 'AI project manager & kanban board', hue: '#f97316' },
     { id: SKILLS_WINDOW_ID, icon: SkillsIcon, title: 'Skills', desc: 'Manage skills & agent CLIs', hue: '#f97316' },
 ];
 

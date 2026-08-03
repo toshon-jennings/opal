@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     AlertCircle,
     ExternalLink,
@@ -129,7 +129,7 @@ export default function AgentMailMode() {
                     className="absolute inset-0 w-full h-full"
                     partition="persist:perci-agentmail"
                     allowpopups="true"
-                    webpreferences="contextIsolation=true, nodeIntegration=false, sandbox=false"
+                    webpreferences="contextIsolation=true, nodeIntegration=false, sandbox=true"
                 />
             </div>
         </div>

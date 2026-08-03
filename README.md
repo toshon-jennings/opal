@@ -8,7 +8,7 @@
 [![Electron](https://img.shields.io/badge/Electron-39-47848F.svg)](https://electronjs.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-[Features](#-features) • [Quick Start](#-quick-start) • [Development](#-development)
+[Website](https://toshon-jennings.github.io/perci/) • [Features](#-features) • [Quick Start](#-quick-start) • [Development](#-development)
 
 </div>
 

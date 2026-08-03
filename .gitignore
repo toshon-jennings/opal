@@ -69,3 +69,12 @@ __pycache__/
 
 # ── Screen recordings / local capture ───────────────────────────────────────────
 *.mov
+
+
+# Personal agent working docs — local to the maintainer, not part of the package
+HANDOFF.md
+SUMMARY.md
+HITL.md
+
+# Personal agent working docs — local to the maintainer, not part of the package
+DECISIONS.md

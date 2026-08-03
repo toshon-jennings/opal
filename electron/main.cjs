@@ -10,6 +10,7 @@ const {
   selectCodexSubscriptionModel,
   trustedCodexAuthUrl,
 } = require('./codex-account.cjs');
+const { probeLocalHttp } = require('./localhost-health.cjs');
 const supermemoryProcess = require('./lib/supermemory-process.cjs');
 const path = require('path');
 const fsSync = require('fs');
@@ -638,6 +639,9 @@ async function discoverModelProviders() {
 // Track the two conditions required before revealing the main window
 const splashGate = { mainReady: false, splashDone: false };
 
+// Upper bound on how long the splash may hold the main window back.
+const SPLASH_REVEAL_TIMEOUT_MS = 15000;
+
 function tryRevealMain() {
   if (!splashGate.mainReady || !splashGate.splashDone) return;
 
@@ -682,12 +686,32 @@ function createSplashWindow() {
     alwaysOnTop: true,
     backgroundColor: '#1c1c1c',
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'splash-preload.cjs'),
     },
   });
   splashWindow.loadFile(path.join(__dirname, 'splash.html'));
   splashWindow.on('closed', () => { splashWindow = null; });
+
+  // Failsafe. tryRevealMain() waits on BOTH gate conditions, so if either one
+  // never arrives the app sits on the splash forever with no way out but a
+  // force-quit. `splashDone` is now delivered over the preload bridge, which
+  // is one more thing that can fail to load; `mainReady` is lost if the main
+  // window never paints. Force both rather than only the splash side — a blank
+  // window the user can close and inspect beats a frozen splash they cannot.
+  // splash.html has its own 12s fallback, so this sits past it and the normal
+  // path always wins.
+  setTimeout(() => {
+    if (splashGate.splashDone && splashGate.mainReady) return;
+    appendRendererLog(
+      `splash watchdog fired after ${SPLASH_REVEAL_TIMEOUT_MS}ms ` +
+      `(mainReady=${splashGate.mainReady} splashDone=${splashGate.splashDone}) — forcing reveal`
+    );
+    splashGate.splashDone = true;
+    splashGate.mainReady = true;
+    tryRevealMain();
+  }, SPLASH_REVEAL_TIMEOUT_MS);
 }
 
 function startTerminalServer() {
@@ -920,27 +944,6 @@ function createWindow() {
   attachRendererDiagnostics(win);
   appendRendererLog(`createWindow: renderer log at ${getRendererLogPath()}`);
 
-  win.webContents.session.webRequest.onHeadersReceived(
-    { urls: ['http://127.0.0.1:8920/*', 'http://localhost:8920/*'] },
-    (details, callback) => {
-      const responseHeaders = { ...(details.responseHeaders || {}) };
-      for (const key of Object.keys(responseHeaders)) {
-        const lower = key.toLowerCase();
-        if (lower === 'x-frame-options' || lower === 'content-security-policy') {
-          delete responseHeaders[key];
-        }
-      }
-      responseHeaders['Access-Control-Allow-Origin'] = ['*'];
-      responseHeaders['Cross-Origin-Resource-Policy'] = ['cross-origin'];
-      // MarkItDownUI's webview has no explicit `partition`, so it shares this
-      // window's persistent default session — its disk HTTP cache otherwise
-      // survives reloads and app restarts, silently masking fixes to the
-      // local server's own static assets. Force every request fresh.
-      responseHeaders['Cache-Control'] = ['no-store'];
-      callback({ responseHeaders });
-    }
-  );
-
   // Grant clipboard-read/write permission so navigator.clipboard works in the renderer
   win.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
     if (permission === 'clipboard-read' || permission === 'clipboard-write' || permission === 'clipboard-sanitized-write') {
@@ -1018,6 +1021,35 @@ function cleanedDesktopUserAgent(rawUa) {
 
 const YOUTUBE_WEBVIEW_REFERRER = 'https://com.perci.ai/';
 
+
+function configureMarkItDownWebviewSession() {
+  const markitdownSession = session.fromPartition('persist:perci-markitdown');
+
+  markitdownSession.webRequest.onHeadersReceived(
+    { urls: ['http://127.0.0.1:8920/*', 'http://localhost:8920/*'] },
+    (details, callback) => {
+      const responseHeaders = { ...(details.responseHeaders || {}) };
+      for (const key of Object.keys(responseHeaders)) {
+        const lower = key.toLowerCase();
+        if (lower === 'x-frame-options' || lower === 'content-security-policy') {
+          delete responseHeaders[key];
+        }
+      }
+      responseHeaders['Access-Control-Allow-Origin'] = ['*'];
+      responseHeaders['Cross-Origin-Resource-Policy'] = ['cross-origin'];
+      callback({ responseHeaders });
+    }
+  );
+
+  markitdownSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    if (permission === 'clipboard-read' || permission === 'clipboard-write' || permission === 'clipboard-sanitized-write') {
+      callback(true);
+      return;
+    }
+    callback(false);
+  });
+}
+
 function configureYouTubeWebviewSession() {
   const youtubeSession = session.fromPartition('persist:perci-youtube');
   youtubeSession.webRequest.onBeforeSendHeaders(
@@ -1040,6 +1072,7 @@ function configureYouTubeWebviewSession() {
 
 app.whenReady().then(() => {
   try {
+    configureMarkItDownWebviewSession();
     configureYouTubeWebviewSession();
 
     const localhostSession = session.fromPartition('persist:perci-localhost');
@@ -1178,9 +1211,23 @@ app.whenReady().then(() => {
       // the system browser. Plain <a> links are handled by the will-navigate
       // branch below, since they navigate in place rather than opening a window.
       if (contents.getType() === 'webview') {
-        appendRendererLog(`webview-new-window-routed-to-tab url=${url}`);
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('webview:open-in-tab', url);
+        try {
+          const parsed = new URL(url);
+          const isLocalhost = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1' || parsed.hostname === '::1';
+          if (isLocalhost) {
+            appendRendererLog(`webview-new-window-routed-to-tab url=${url}`);
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('webview:open-in-tab', url);
+            }
+            return { action: 'deny' };
+          }
+          if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+            appendRendererLog(`webview-new-window-open-external url=${url}`);
+            shell.openExternal(url);
+            return { action: 'deny' };
+          }
+        } catch (err) {
+          appendRendererLog(`blocked-webview-window-open invalid-url=${url}`);
         }
         return { action: 'deny' };
       }
@@ -2844,6 +2891,14 @@ async function startMarkItDownServer() {
   const current = await getMarkItDownServerStatus();
   if (current.ok) {
     return { ...current, started: false, message: 'MarkItDownUI is already running.' };
+  }
+
+  // Clear the cache for the markitdown partition so local asset fixes apply correctly
+  try {
+    const markitdownSession = session.fromPartition('persist:perci-markitdown');
+    await markitdownSession.clearCache();
+  } catch (err) {
+    console.error('Failed to clear MarkItDownUI cache:', err);
   }
 
   if (markitdownServerProcess && !markitdownServerProcess.killed && markitdownServerProcess.exitCode == null) {
@@ -4646,12 +4701,33 @@ ipcMain.handle('run-local-command', async (event, { command, args = [], cwd } = 
 });
 
 // ── Localhost Manager: launchctl / registry wrappers ────────────────────
+
+// Autostart plists are always ~/Library/LaunchAgents/local.perci.<id>.plist,
+// where <id> is a slug. The path arrives from the renderer, so re-derive and
+// confine it here before it reaches writeFile/unlink or launchctl — otherwise
+// it is an arbitrary file write and delete. Restricting the basename as well as
+// the directory keeps a compromised renderer from touching login items that
+// belong to other apps. Returns the resolved path, or null if it does not fit.
+const LAUNCH_AGENT_BASENAME = /^local\.perci\.[a-z0-9-]+\.plist$/;
+
+function resolveLaunchAgentPath(candidate) {
+  if (!candidate || typeof candidate !== 'string') return null;
+  const root = path.join(require('os').homedir(), 'Library', 'LaunchAgents');
+  const resolved = path.resolve(candidate);
+  const relative = path.relative(root, resolved);
+  if (!relative || relative.startsWith('..') || relative.includes(path.sep)) return null;
+  if (!LAUNCH_AGENT_BASENAME.test(path.basename(resolved))) return null;
+  return resolved;
+}
+
 ipcMain.handle('localhost:enable-autostart', async (event, { label, plistContent, plistPath, command, cwd } = {}) => {
   try {
     if (process.platform === 'darwin') {
-      await fs.writeFile(plistPath, plistContent, 'utf-8');
-      const { execSync } = require('child_process');
-      execSync(`launchctl load -w "${plistPath}"`, { stdio: 'pipe', timeout: 10000 });
+      const target = resolveLaunchAgentPath(plistPath);
+      if (!target) return { ok: false, error: 'Autostart path must be a .plist directly inside ~/Library/LaunchAgents.' };
+      await fs.writeFile(target, plistContent, 'utf-8');
+      const { execFileSync } = require('child_process');
+      execFileSync('launchctl', ['load', '-w', target], { stdio: 'pipe', timeout: 10000 });
     } else if (process.platform === 'win32') {
       // Windows: write to HKCU Run registry key for autostart
       const { execSync } = require('child_process');
@@ -4686,9 +4762,11 @@ ipcMain.handle('localhost:enable-autostart', async (event, { label, plistContent
 ipcMain.handle('localhost:disable-autostart', async (event, { plistPath, label } = {}) => {
   try {
     if (process.platform === 'darwin') {
-      const { execSync } = require('child_process');
-      execSync(`launchctl unload -w "${plistPath}"`, { stdio: 'pipe', timeout: 10000, ignoreStderr: true });
-      try { await fs.unlink(plistPath); } catch (_) { /* already gone */ }
+      const target = resolveLaunchAgentPath(plistPath);
+      if (!target) return { ok: false, error: 'Autostart path must be a .plist directly inside ~/Library/LaunchAgents.' };
+      const { execFileSync } = require('child_process');
+      execFileSync('launchctl', ['unload', '-w', target], { stdio: 'pipe', timeout: 10000 });
+      try { await fs.unlink(target); } catch (_) { /* already gone */ }
     } else if (process.platform === 'win32') {
       // Windows: remove from HKCU Run registry key
       const { execSync } = require('child_process');
@@ -4808,6 +4886,55 @@ ipcMain.handle('localhost:start-now', async (event, { cwd, command } = {}) => {
       finish({ ok: true });
     });
   });
+});
+
+ipcMain.handle('localhost:check-health', async (event, { url } = {}) => {
+  return probeLocalHttp(url);
+});
+
+ipcMain.handle('localhost:stop-now', async (event, { port, id } = {}) => {
+  if (id === 'eidos') {
+    if (eidosDashboardProcess) {
+      try { eidosDashboardProcess.kill('SIGTERM'); } catch (_) {}
+      eidosDashboardProcess = null;
+    }
+    const dockerPath = eidosDockerPath();
+    if (dockerPath) {
+      try { await eidosStopCompose(dockerPath); } catch (_) {}
+    }
+  }
+
+  const portNum = Number(port);
+  if (!portNum || isNaN(portNum) || portNum <= 0 || portNum > 65535) {
+    return { ok: true };
+  }
+
+  try {
+    const { listeners } = scanSockets();
+    const matchingPids = [...new Set(listeners.filter(l => l.port === portNum && l.pid && l.pid !== process.pid).map(l => l.pid))];
+
+    if (matchingPids.length === 0 && process.platform !== 'win32') {
+      const out = execCmd(`lsof -t -iTCP:${portNum} -sTCP:LISTEN`);
+      const pids = out.split('\n').map(s => parseInt(s.trim(), 10)).filter(p => !isNaN(p) && p > 0 && p !== process.pid);
+      matchingPids.push(...pids);
+    }
+
+    const killed = [];
+    for (const pid of new Set(matchingPids)) {
+      try {
+        process.kill(pid, 'SIGTERM');
+        killed.push(pid);
+      } catch (_) {
+        try {
+          process.kill(pid, 'SIGKILL');
+          killed.push(pid);
+        } catch (_) {}
+      }
+    }
+    return { ok: true, killedPids: killed };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
 });
 
 ipcMain.handle('get-home-dir', async () => {
@@ -5810,6 +5937,32 @@ async function eidosStartCompose(dockerPath) {
   }
 }
 
+function eidosStopDashboardProcess() {
+  if (eidosDashboardProcess) {
+    try {
+      if (eidosDashboardProcess.pid) {
+        try { process.kill(-eidosDashboardProcess.pid, 'SIGKILL'); } catch (_) {}
+        try { eidosDashboardProcess.kill('SIGKILL'); } catch (_) {}
+      }
+    } catch (_) {}
+    eidosDashboardProcess = null;
+  }
+  try {
+    const { listeners } = scanSockets();
+    const pids = [...new Set(listeners.filter(l => l.port === EIDOS_DASHBOARD_PORT && l.pid && l.pid !== process.pid).map(l => l.pid))];
+    if (pids.length === 0 && process.platform !== 'win32') {
+      const out = execCmd(`lsof -t -iTCP:${EIDOS_DASHBOARD_PORT} -sTCP:LISTEN`);
+      const p = out.split('\n').map(s => parseInt(s.trim(), 10)).filter(id => !isNaN(id) && id > 0 && id !== process.pid);
+      pids.push(...p);
+    }
+    for (const pid of new Set(pids)) {
+      try { process.kill(pid, 'SIGKILL'); } catch (_) {}
+    }
+  } catch (err) {
+    console.warn('[eidos] Error stopping dashboard process:', err.message);
+  }
+}
+
 // A production build (`next start`) serves precompiled output, so the dashboard
 // paints almost immediately. `next dev` compiles each route on first request,
 // which is the main reason the embedded Eidos window is slow to first load.
@@ -5856,13 +6009,15 @@ async function eidosStartDashboard() {
     const healthy = await eidosCheckDashboardHealth();
     if (healthy) return;
     // Not healthy — kill and restart
-    try { eidosDashboardProcess.kill('SIGTERM'); } catch (_) {}
-    eidosDashboardProcess = null;
+    eidosStopDashboardProcess();
   }
 
   // Check if something is already on port 3000
   const portCheck = await requestText(EIDOS_DASHBOARD_URL, 2000);
   if (portCheck.ok) return; // Something healthy is already serving
+
+  // Clear any dead/unhealthy process on port 3000
+  eidosStopDashboardProcess();
 
   // Prefer serving a production build for fast first paint. Build once if needed;
   // if the build fails (Eidos repo may lag), fall back to `next dev` so the
@@ -5871,6 +6026,13 @@ async function eidosStartDashboard() {
   if (!built && !eidosProductionBuildFailed) {
     built = await eidosBuildDashboard();
     if (!built) eidosProductionBuildFailed = true;
+  }
+  if (!built) {
+    // If no valid production build exists, clear any partial/corrupted .next build directory
+    // so `next dev` doesn't throw ENOENT on missing routes-manifest.json and return 500 errors.
+    try {
+      fsSync.rmSync(path.join(EIDOS_DIR, '.next'), { recursive: true, force: true });
+    } catch (_) {}
   }
   const script = built ? 'start' : 'dev';
 
@@ -6057,10 +6219,7 @@ ipcMain.handle('eidos:insights', async () => {
 ipcMain.handle('eidos:stop', async () => {
   try {
     // Stop the dashboard process first
-    if (eidosDashboardProcess) {
-      try { eidosDashboardProcess.kill('SIGTERM'); } catch (_) {}
-      eidosDashboardProcess = null;
-    }
+    eidosStopDashboardProcess();
 
     // Stop the Docker Compose stack
     const dockerPath = eidosDockerPath();

@@ -109,6 +109,8 @@ contextBridge.exposeInMainWorld('electron', {
   aliasRead: () => ipcRenderer.invoke('alias:read'),
   aliasWrite: (content) => ipcRenderer.invoke('alias:write', content),
   localhostStartNow: (opts) => ipcRenderer.invoke('localhost:start-now', opts),
+  localhostCheckHealth: (url) => ipcRenderer.invoke('localhost:check-health', { url }),
+  localhostStopNow: (opts) => ipcRenderer.invoke('localhost:stop-now', opts),
   getHomeDir: () => ipcRenderer.invoke('get-home-dir'),
   // G-Dash (Google Workspace dashboard) — BYO OAuth client; tokens stay in main.
   gdashStatus: () => ipcRenderer.invoke('gdash:status'),

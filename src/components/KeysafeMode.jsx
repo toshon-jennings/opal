@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { RefreshCw, ExternalLink, ShieldAlert, Play, Loader2 } from 'lucide-react';
 import keysafeLogo from '../assets/keysafe-logo.jpeg';
+import { launchArgsFor } from '../lib/localServices';
 import './KeysafeMode.css';
 
 const KEYSAFE_ORIGIN = 'http://127.0.0.1:4100';
@@ -82,13 +83,11 @@ export default function KeysafeMode() {
     }, [frameKey, status]);
 
     const handleLaunch = useCallback(async () => {
-        if (!window.electron?.localhostStartNow) return;
+        const launch = launchArgsFor('keysafe');
+        if (!launch || !window.electron?.localhostStartNow) return;
         setStatus('starting');
         try {
-            const result = await window.electron.localhostStartNow({
-                cwd: '~/keysafe',
-                command: 'npm run dev',
-            });
+            const result = await window.electron.localhostStartNow(launch);
             if (!result?.ok) throw new Error(result?.error || 'KeySafe did not start.');
             startPolling();
         } catch (err) {
