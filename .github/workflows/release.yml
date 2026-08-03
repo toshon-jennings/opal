@@ -70,7 +70,14 @@ jobs:
           # `if` rather than `[ -f ... ] &&` so a glob that matches nothing is
           # unambiguously a skip, not a loop body whose exit status depends on
           # the shell's `set -e` treatment of `&&` lists.
+          #
+          # The mac .zip is what actually updates the app: electron-updater's
+          # MacUpdater looks for a zip and explicitly refuses dmg/pkg, so a
+          # dmg-only release parses fine and then dies with
+          # ERR_UPDATER_ZIP_FILE_NOT_FOUND on download. The dmg stays for
+          # first-time installs and manual downloads.
           for f in artifacts/perci-mac/*.dmg artifacts/perci-mac/*.dmg.blockmap \
+                   artifacts/perci-mac/*.zip artifacts/perci-mac/*.zip.blockmap \
                    artifacts/perci-mac/latest-mac.yml \
                    artifacts/perci-win/*.exe artifacts/perci-win/*.exe.blockmap \
                    artifacts/perci-win/latest.yml; do

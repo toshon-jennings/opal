@@ -1110,12 +1110,34 @@ app.whenReady().then(() => {
   if (!isDev) {
     autoUpdater.autoDownload = false;
 
+    // electron-updater is silent by default: with no logger and no 'error'
+    // listener every failure disappears, which is how v0.43.0–v0.45.8 shipped
+    // with a broken updater for weeks without a single visible symptom.
+    // Route it into the same log file the rest of the main process uses.
+    autoUpdater.logger = {
+      info: (m) => appendRendererLog(`[updater] ${m}`),
+      warn: (m) => appendRendererLog(`[updater:warn] ${m}`),
+      error: (m) => appendRendererLog(`[updater:error] ${m}`),
+      debug: (m) => appendRendererLog(`[updater:debug] ${m}`),
+    };
+
     // Helper to send state to renderer once mainWindow is ready
     function sendUpdaterState(state) {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('updater:state', state);
       }
     }
+
+    // An EventEmitter with no 'error' listener rethrows, so this handler is
+    // what keeps a failed update check from taking down the main process.
+    autoUpdater.on('error', (err) => {
+      appendRendererLog(`[updater:error] ${err && err.stack || err}`);
+      sendUpdaterState('error');
+    });
+
+    autoUpdater.on('update-not-available', (info) => {
+      appendRendererLog(`[updater] up to date (v${info && info.version})`);
+    });
 
     autoUpdater.on('update-available', (info) => {
       sendUpdaterState('available');

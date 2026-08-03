@@ -1039,6 +1039,15 @@ function AppContent() {
                             Downloading...
                         </div>
                     )}
+                    {updaterState === 'error' && (
+                        <div
+                            className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 bg-red-500/10 text-red-600 dark:text-red-400 text-sm font-medium border border-red-500/20"
+                            title="Update failed — see renderer.log in the Perci user data folder"
+                        >
+                            <AlertCircle size={16} />
+                            Update Failed
+                        </div>
+                    )}
                     {updaterState === 'downloaded' && (
                         <button
                             onClick={() => window.electron?.triggerUpdaterAction('install')}
