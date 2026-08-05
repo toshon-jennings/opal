@@ -65,6 +65,15 @@ describe('voice transcription boundary', () => {
         expect(hookSource).toContain('onChangeRef.current');
     });
 
+    it('wires dictation into the native Hermes and OpenClaw composers', () => {
+        const root = path.resolve(import.meta.dirname, '..');
+        const hermesSource = fs.readFileSync(path.join(root, 'src/components/ChatTab.jsx'), 'utf8');
+        const openClawSource = fs.readFileSync(path.join(root, 'src/components/OpenClawChatPanel.jsx'), 'utf8');
+
+        expect(hermesSource).toContain('<VoiceInputButton value={text} onChange={setText}');
+        expect(openClawSource).toContain('<VoiceInputButton value={text} onChange={setText}');
+    });
+
     it('bounds transcription API responses', async () => {
         await expect(readBoundedResponseText(new Response('{"text":"hello"}')))
             .resolves.toBe('{"text":"hello"}');

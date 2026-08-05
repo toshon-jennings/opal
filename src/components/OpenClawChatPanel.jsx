@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, ArrowUp, Plus, RefreshCw } from 'lucide-react';
 import { ChatMessage } from './ChatMessage';
+import { VoiceInputButton } from './VoiceInputButton';
 import { readJsonStorage, writeJsonStorage } from '../lib/persistentStore';
 import openClawLogo from '../assets/openclaw-color.png';
 import ocChatBg from '../assets/openclaw-chat-bg.jpeg';
@@ -183,6 +184,12 @@ function OpenClawComposer({ onSend, isRunning, disabled }) {
     }
   }, [isRunning, disabled]);
 
+  useEffect(() => {
+    if (!textareaRef.current) return;
+    textareaRef.current.style.height = 'auto';
+    textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
+  }, [text]);
+
   const submit = useCallback(() => {
     const message = text.trim();
     if (!message || disabled || isRunning) return;
@@ -222,16 +229,19 @@ function OpenClawComposer({ onSend, isRunning, disabled }) {
         <span className="truncate text-xs text-[var(--text-tertiary)]">
           Enter to send · Shift+Enter for a new line
         </span>
-        <button
-          type="button"
-          onClick={submit}
-          disabled={!canSend}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-white transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
-          title="Send"
-          aria-label="Send message to OpenClaw"
-        >
-          <ArrowUp size={18} />
-        </button>
+        <div className="flex items-center gap-2">
+          <VoiceInputButton value={text} onChange={setText} disabled={disabled || isRunning} />
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!canSend}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-white transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+            title="Send"
+            aria-label="Send message to OpenClaw"
+          >
+            <ArrowUp size={18} />
+          </button>
+        </div>
       </div>
     </div>
   );

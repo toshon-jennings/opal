@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowUp, Plus, X } from 'lucide-react';
 import { ChatMessage } from './ChatMessage';
 import NousBadge from './NousBadge';
+import { VoiceInputButton } from './VoiceInputButton';
 import { useTheme } from '../context/ThemeContext';
 import {
   getHermesChatState, resetHermesChatState, setHermesChatMessages, setHermesChatSessionId
@@ -102,6 +103,12 @@ function ChatComposer({ onSend, onCancel, isRunning }) {
     }
   }, [isRunning]);
 
+  useEffect(() => {
+    if (!textareaRef.current) return;
+    textareaRef.current.style.height = 'auto';
+    textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
+  }, [text]);
+
   const resetHeight = useCallback(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
@@ -147,28 +154,31 @@ function ChatComposer({ onSend, onCancel, isRunning }) {
             {isRunning ? 'Hermes is working' : 'Hermes CLI'}
           </span>
         </div>
-        {isRunning ? (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--bg-primary)] text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
-            title="Cancel Hermes turn"
-            aria-label="Cancel Hermes turn"
-          >
-            <X size={18} />
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={submit}
-            disabled={!canSend}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--accent)] text-white transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
-            title="Send"
-            aria-label="Send message to Hermes"
-          >
-            <ArrowUp size={18} />
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          <VoiceInputButton value={text} onChange={setText} disabled={isRunning} />
+          {isRunning ? (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--bg-primary)] text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+              title="Cancel Hermes turn"
+              aria-label="Cancel Hermes turn"
+            >
+              <X size={18} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={submit}
+              disabled={!canSend}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--accent)] text-white transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+              title="Send"
+              aria-label="Send message to Hermes"
+            >
+              <ArrowUp size={18} />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
