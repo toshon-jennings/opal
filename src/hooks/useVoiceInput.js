@@ -22,7 +22,7 @@ function cleanIpcError(error) {
     return message.replace(/^Error invoking remote method '[^']+': Error:\s*/, '');
 }
 
-export function useVoiceInput(value, onChange) {
+export function useVoiceInput(value, onChange, disabled = false) {
     const [status, setStatus] = useState('idle');
     const [error, setError] = useState('');
     const [permissionBlocked, setPermissionBlocked] = useState(false);
@@ -31,6 +31,7 @@ export function useVoiceInput(value, onChange) {
     const chunksRef = useRef([]);
     const timerRef = useRef(null);
     const mountedRef = useRef(true);
+    const runIdRef = useRef(0);
     const valueRef = useRef(value);
     const onChangeRef = useRef(onChange);
     valueRef.current = value;
@@ -47,18 +48,31 @@ export function useVoiceInput(value, onChange) {
         streamRef.current = null;
     }, []);
 
+    const cancel = useCallback(() => {
+        runIdRef.current += 1;
+        window.clearTimeout(timerRef.current);
+        const recorder = recorderRef.current;
+        if (recorder && recorder.state !== 'inactive') {
+            recorder.onstop = null;
+            recorder.stop();
+        }
+        recorderRef.current = null;
+        chunksRef.current = [];
+        releaseStream();
+        if (mountedRef.current) setStatus('idle');
+    }, [releaseStream]);
+
     useEffect(() => {
         mountedRef.current = true;
         return () => {
             mountedRef.current = false;
-            window.clearTimeout(timerRef.current);
-            if (recorderRef.current?.state !== 'inactive') {
-                recorderRef.current.onstop = null;
-                recorderRef.current.stop();
-            }
-            releaseStream();
+            cancel();
         };
-    }, [releaseStream]);
+    }, [cancel]);
+
+    useEffect(() => {
+        if (disabled) cancel();
+    }, [cancel, disabled]);
 
     const stop = useCallback(() => {
         window.clearTimeout(timerRef.current);
@@ -66,7 +80,7 @@ export function useVoiceInput(value, onChange) {
     }, []);
 
     const start = useCallback(async () => {
-        if (!supported || status !== 'idle') return;
+        if (disabled || !supported || status !== 'idle') return;
         if (permissionBlocked) {
             await window.electron.openMicrophoneSettings?.();
             setPermissionBlocked(false);
@@ -76,22 +90,29 @@ export function useVoiceInput(value, onChange) {
 
         setError('');
         setStatus('requesting');
+        const runId = runIdRef.current + 1;
+        runIdRef.current = runId;
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: { autoGainControl: true, echoCancellation: true, noiseSuppression: true },
             });
+            if (runId !== runIdRef.current) {
+                stream.getTracks().forEach(track => track.stop());
+                return;
+            }
+            streamRef.current = stream;
             const mimeType = supportedRecorderType();
             const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
             chunksRef.current = [];
             recorderRef.current = recorder;
-            streamRef.current = stream;
 
             recorder.ondataavailable = event => {
                 if (event.data.size > 0) chunksRef.current.push(event.data);
             };
             recorder.onerror = () => {
                 recorder.onstop = null;
-                if (mountedRef.current) {
+                recorderRef.current = null;
+                if (mountedRef.current && runId === runIdRef.current) {
                     setError('The microphone recording stopped unexpectedly.');
                     setStatus('idle');
                 }
@@ -101,7 +122,7 @@ export function useVoiceInput(value, onChange) {
                 window.clearTimeout(timerRef.current);
                 recorderRef.current = null;
                 releaseStream();
-                if (!mountedRef.current) return;
+                if (!mountedRef.current || runId !== runIdRef.current) return;
                 setStatus('transcribing');
                 try {
                     const blob = new Blob(chunksRef.current, { type: recorder.mimeType || mimeType || 'audio/webm' });
@@ -112,13 +133,16 @@ export function useVoiceInput(value, onChange) {
                     });
                     const transcript = String(result?.text || '').trim();
                     if (!transcript) throw new Error('The transcription service returned no text.');
+                    if (!mountedRef.current || runId !== runIdRef.current) return;
                     const current = String(valueRef.current || '');
                     onChangeRef.current(`${current}${current && !/\s$/.test(current) ? ' ' : ''}${transcript}`);
                     setError('');
                 } catch (transcriptionError) {
-                    setError(cleanIpcError(transcriptionError));
+                    if (mountedRef.current && runId === runIdRef.current) {
+                        setError(cleanIpcError(transcriptionError));
+                    }
                 } finally {
-                    if (mountedRef.current) setStatus('idle');
+                    if (mountedRef.current && runId === runIdRef.current) setStatus('idle');
                 }
             };
 
@@ -126,6 +150,7 @@ export function useVoiceInput(value, onChange) {
             setStatus('recording');
             timerRef.current = window.setTimeout(stop, MAX_RECORDING_MS);
         } catch (microphoneError) {
+            if (runId !== runIdRef.current) return;
             const blocked = microphoneError?.name === 'NotAllowedError' || microphoneError?.name === 'SecurityError';
             setPermissionBlocked(blocked);
             setError(blocked
@@ -134,8 +159,8 @@ export function useVoiceInput(value, onChange) {
             releaseStream();
             setStatus('idle');
         }
-    }, [permissionBlocked, releaseStream, status, stop, supported]);
+    }, [disabled, permissionBlocked, releaseStream, status, stop, supported]);
 
     const toggle = status === 'recording' ? stop : start;
-    return { error, status, supported, toggle };
+    return { cancel, error, status, supported, toggle };
 }

@@ -8,7 +8,7 @@ export function VoiceInputButton({
     onChange,
     value,
 }) {
-    const { error, status, supported, toggle } = useVoiceInput(value, onChange);
+    const { error, status, supported, toggle } = useVoiceInput(value, onChange, disabled);
     if (!supported) return null;
 
     const recording = status === 'recording';
@@ -33,7 +33,7 @@ export function VoiceInputButton({
                 aria-pressed={recording}
                 title={label}
                 className={`inline-flex items-center justify-center rounded-lg p-2 transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${recording
-                    ? 'bg-[var(--accent)] text-white'
+                    ? 'bg-[var(--accent)] text-[var(--text-on-accent)]'
                     : error
                         ? 'text-[var(--accent)] bg-[var(--accent-subtle)]'
                         : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'

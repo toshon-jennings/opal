@@ -35,6 +35,7 @@
   --text-primary:   #0A0A12;
   --text-secondary: #50505E;
   --text-tertiary:  #8E8EA0;
+  --text-on-accent: #17171c;
 
   /* Brand accents — sunset: warm and energetic */
   --accent:         #f97316;          /* orange 500 — primary brand */
@@ -73,6 +74,7 @@
   --text-primary:   #F5F5F7;
   --text-secondary: #A1A1AA;
   --text-tertiary:  #71717A;
+  --text-on-accent: #17171c;
 
   /* Brand accents — primary brand orange unified across modes */
   --accent:         #f97316;

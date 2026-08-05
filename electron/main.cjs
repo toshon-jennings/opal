@@ -11,7 +11,11 @@ const {
   trustedCodexAuthUrl,
 } = require('./codex-account.cjs');
 const { probeLocalHttp } = require('./localhost-health.cjs');
-const { prepareVoiceTranscription } = require('./voice-transcription.cjs');
+const {
+  MAX_VOICE_RESPONSE_BYTES,
+  prepareVoiceTranscription,
+  readBoundedResponseText,
+} = require('./voice-transcription.cjs');
 const supermemoryProcess = require('./lib/supermemory-process.cjs');
 const path = require('path');
 const fsSync = require('fs');
@@ -2526,10 +2530,13 @@ const BARS_CLOUD_PROVIDERS = [
 
 async function fetchJsonStrict(url, options = {}) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), options.timeoutMs || 90000);
+  const { maxResponseBytes = 0, timeoutMs = 90000, ...requestOptions } = options;
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(url, { ...options, signal: controller.signal });
-    const text = await response.text();
+    const response = await fetch(url, { ...requestOptions, signal: controller.signal });
+    const text = maxResponseBytes
+      ? await readBoundedResponseText(response, maxResponseBytes)
+      : await response.text();
     let payload = null;
     try {
       payload = text ? JSON.parse(text) : null;
@@ -2798,22 +2805,32 @@ async function askBars(payload = {}) {
 
 async function transcribeVoice(payload = {}) {
   const keys = await getBarsApiKeys();
-  const { buffer, endpoint, extension, key, mimeType, model, providerId } = prepareVoiceTranscription(payload, keys);
+  const { buffer, extension, mimeType, providers } = prepareVoiceTranscription(payload, keys);
+  let lastError = null;
 
-  const formData = new FormData();
-  formData.append('model', model);
-  const blob = new Blob([buffer], { type: mimeType });
-  formData.append('file', blob, `recording.${extension}`);
+  for (const { endpoint, key, model, providerId } of providers) {
+    const formData = new FormData();
+    formData.append('model', model);
+    const blob = new Blob([buffer], { type: mimeType });
+    formData.append('file', blob, `recording.${extension}`);
 
-  const response = await fetchJsonStrict(endpoint, {
-    method: 'POST',
-    timeoutMs: 60000,
-    headers: { Authorization: `Bearer ${key}` },
-    body: formData,
-  });
-  const text = typeof response?.text === 'string' ? response.text.trim() : '';
-  if (!text) throw new Error('The transcription service returned no text.');
-  return { providerId, text };
+    try {
+      const response = await fetchJsonStrict(endpoint, {
+        method: 'POST',
+        timeoutMs: 60000,
+        maxResponseBytes: MAX_VOICE_RESPONSE_BYTES,
+        headers: { Authorization: `Bearer ${key}` },
+        body: formData,
+      });
+      const text = typeof response?.text === 'string' ? response.text.trim() : '';
+      if (!text) throw new Error('The transcription service returned no text.');
+      return { providerId, text };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error('Voice transcription failed.');
 }
 
 const MARKITDOWN_VISION_MODEL = 'openai/gpt-4o-mini';

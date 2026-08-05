@@ -1,10 +1,15 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import voiceTranscription from '../electron/voice-transcription.cjs';
 
 const {
     MAX_VOICE_AUDIO_BYTES,
+    MAX_VOICE_RESPONSE_BYTES,
     decodeVoiceAudio,
+    listVoiceProviders,
     prepareVoiceTranscription,
+    readBoundedResponseText,
     selectVoiceProvider,
 } = voiceTranscription;
 
@@ -21,6 +26,8 @@ describe('voice transcription boundary', () => {
             model: 'whisper-1',
         });
         expect(() => selectVoiceProvider({})).toThrow('Add a Groq or OpenAI API key');
+        expect(listVoiceProviders({ groq: 'gsk_test', openai: 'sk_test' }).map(provider => provider.providerId))
+            .toEqual(['groq', 'openai']);
     });
 
     it('accepts supported recorder output and strips codec parameters', () => {
@@ -32,7 +39,7 @@ describe('voice transcription boundary', () => {
         expect(prepareVoiceTranscription(
             { audioBase64, mimeType: 'audio/mp4' },
             { openai: 'sk_test' },
-        )).toMatchObject({ providerId: 'openai', extension: 'm4a' });
+        )).toMatchObject({ extension: 'm4a', providers: [{ providerId: 'openai' }] });
     });
 
     it('rejects malformed, unsupported, empty, and oversized input', () => {
@@ -46,5 +53,22 @@ describe('voice transcription boundary', () => {
             audioBase64: 'A'.repeat(Math.ceil(MAX_VOICE_AUDIO_BYTES / 3) * 4 + 8),
             mimeType: 'audio/webm',
         })).toThrow('empty or too large');
+    });
+
+    it('keeps dictation draft-only and makes its control non-submitting', () => {
+        const root = path.resolve(import.meta.dirname, '..');
+        const hookSource = fs.readFileSync(path.join(root, 'src/hooks/useVoiceInput.js'), 'utf8');
+        const buttonSource = fs.readFileSync(path.join(root, 'src/components/VoiceInputButton.jsx'), 'utf8');
+
+        expect(buttonSource).toContain('type="button"');
+        expect(hookSource).not.toMatch(/requestSubmit|\.submit\(|dispatchEvent/);
+        expect(hookSource).toContain('onChangeRef.current');
+    });
+
+    it('bounds transcription API responses', async () => {
+        await expect(readBoundedResponseText(new Response('{"text":"hello"}')))
+            .resolves.toBe('{"text":"hello"}');
+        await expect(readBoundedResponseText(new Response('x'.repeat(MAX_VOICE_RESPONSE_BYTES + 1))))
+            .rejects.toThrow('too much data');
     });
 });

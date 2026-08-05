@@ -1,4 +1,5 @@
 const MAX_VOICE_AUDIO_BYTES = 20 * 1024 * 1024;
+const MAX_VOICE_RESPONSE_BYTES = 256 * 1024;
 
 const AUDIO_TYPES = new Map([
   ['audio/webm', 'webm'],
@@ -9,24 +10,32 @@ const AUDIO_TYPES = new Map([
   ['audio/ogg', 'ogg'],
 ]);
 
-function selectVoiceProvider(keys = {}) {
+function listVoiceProviders(keys = {}) {
+  const providers = [];
   if (typeof keys.groq === 'string' && keys.groq.trim()) {
-    return {
+    providers.push({
       endpoint: 'https://api.groq.com/openai/v1/audio/transcriptions',
       key: keys.groq.trim(),
       model: 'whisper-large-v3',
       providerId: 'groq',
-    };
+    });
   }
   if (typeof keys.openai === 'string' && keys.openai.trim()) {
-    return {
+    providers.push({
       endpoint: 'https://api.openai.com/v1/audio/transcriptions',
       key: keys.openai.trim(),
       model: 'whisper-1',
       providerId: 'openai',
-    };
+    });
   }
-  throw new Error('Add a Groq or OpenAI API key in Settings to use voice dictation.');
+  if (providers.length === 0) {
+    throw new Error('Add a Groq or OpenAI API key in Settings to use voice dictation.');
+  }
+  return providers;
+}
+
+function selectVoiceProvider(keys = {}) {
+  return listVoiceProviders(keys)[0];
 }
 
 function decodeVoiceAudio(payload = {}) {
@@ -54,14 +63,40 @@ function decodeVoiceAudio(payload = {}) {
 
 function prepareVoiceTranscription(payload, keys) {
   return {
-    ...selectVoiceProvider(keys),
     ...decodeVoiceAudio(payload),
+    providers: listVoiceProviders(keys),
   };
+}
+
+async function readBoundedResponseText(response, maxBytes = MAX_VOICE_RESPONSE_BYTES) {
+  const contentLength = Number(response?.headers?.get?.('content-length'));
+  if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+    throw new Error('The transcription service returned too much data.');
+  }
+  const reader = response?.body?.getReader?.();
+  if (!reader) throw new Error('The transcription service returned an unreadable response.');
+
+  const chunks = [];
+  let totalBytes = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    totalBytes += value.byteLength;
+    if (totalBytes > maxBytes) {
+      await reader.cancel();
+      throw new Error('The transcription service returned too much data.');
+    }
+    chunks.push(Buffer.from(value));
+  }
+  return Buffer.concat(chunks, totalBytes).toString('utf8');
 }
 
 module.exports = {
   MAX_VOICE_AUDIO_BYTES,
+  MAX_VOICE_RESPONSE_BYTES,
   decodeVoiceAudio,
+  listVoiceProviders,
   prepareVoiceTranscription,
+  readBoundedResponseText,
   selectVoiceProvider,
 };
