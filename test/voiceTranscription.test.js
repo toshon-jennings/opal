@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import voiceTranscription from '../electron/voice-transcription.cjs';
+import { createVoiceRunGuard, stopVoiceResources } from '../src/lib/voiceRecording';
 
 const {
     MAX_VOICE_AUDIO_BYTES,
@@ -72,6 +73,23 @@ describe('voice transcription boundary', () => {
 
         expect(hermesSource).toContain('<VoiceInputButton value={text} onChange={setText}');
         expect(openClawSource).toContain('<VoiceInputButton value={text} onChange={setText}');
+    });
+
+    it('stops recording resources and rejects late transcripts after cancellation', () => {
+        const guard = createVoiceRunGuard();
+        const runId = guard.begin();
+        const onChange = vi.fn();
+        const recorder = { state: 'recording', onstop: vi.fn(), stop: vi.fn() };
+        const track = { stop: vi.fn() };
+
+        stopVoiceResources(recorder, { getTracks: () => [track] });
+        guard.invalidate();
+        if (guard.isCurrent(runId)) onChange('late transcript');
+
+        expect(recorder.onstop).toBeNull();
+        expect(recorder.stop).toHaveBeenCalledOnce();
+        expect(track.stop).toHaveBeenCalledOnce();
+        expect(onChange).not.toHaveBeenCalled();
     });
 
     it('bounds transcription API responses', async () => {

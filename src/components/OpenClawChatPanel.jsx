@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, ArrowUp, Plus, RefreshCw } from 'lucide-react';
 import { ChatMessage } from './ChatMessage';
 import { VoiceInputButton } from './VoiceInputButton';
+import { useAutoSizeTextarea } from '../hooks/useAutoSizeTextarea';
 import { readJsonStorage, writeJsonStorage } from '../lib/persistentStore';
 import openClawLogo from '../assets/openclaw-color.png';
 import ocChatBg from '../assets/openclaw-chat-bg.jpeg';
@@ -184,20 +185,13 @@ function OpenClawComposer({ onSend, isRunning, disabled }) {
     }
   }, [isRunning, disabled]);
 
-  useEffect(() => {
-    if (!textareaRef.current) return;
-    textareaRef.current.style.height = 'auto';
-    textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
-  }, [text]);
+  useAutoSizeTextarea(textareaRef, text);
 
   const submit = useCallback(() => {
     const message = text.trim();
     if (!message || disabled || isRunning) return;
     onSend(message);
     setText('');
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-    }
   }, [disabled, isRunning, onSend, text]);
 
   const handleKeyDown = useCallback((event) => {
@@ -209,8 +203,6 @@ function OpenClawComposer({ onSend, isRunning, disabled }) {
 
   const handleChange = useCallback((event) => {
     setText(event.target.value);
-    event.target.style.height = 'auto';
-    event.target.style.height = `${Math.min(event.target.scrollHeight, 200)}px`;
   }, []);
 
   return (
@@ -235,7 +227,7 @@ function OpenClawComposer({ onSend, isRunning, disabled }) {
             type="button"
             onClick={submit}
             disabled={!canSend}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-white transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--text-on-accent)] transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
             title="Send"
             aria-label="Send message to OpenClaw"
           >

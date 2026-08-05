@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createVoiceRunGuard, stopVoiceResources } from '../lib/voiceRecording';
 
 const MAX_RECORDING_MS = 2 * 60 * 1000;
 const RECORDER_TYPES = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
@@ -31,7 +32,7 @@ export function useVoiceInput(value, onChange, disabled = false) {
     const chunksRef = useRef([]);
     const timerRef = useRef(null);
     const mountedRef = useRef(true);
-    const runIdRef = useRef(0);
+    const runGuardRef = useRef(createVoiceRunGuard());
     const valueRef = useRef(value);
     const onChangeRef = useRef(onChange);
     valueRef.current = value;
@@ -49,18 +50,14 @@ export function useVoiceInput(value, onChange, disabled = false) {
     }, []);
 
     const cancel = useCallback(() => {
-        runIdRef.current += 1;
+        runGuardRef.current.invalidate();
         window.clearTimeout(timerRef.current);
-        const recorder = recorderRef.current;
-        if (recorder && recorder.state !== 'inactive') {
-            recorder.onstop = null;
-            recorder.stop();
-        }
+        stopVoiceResources(recorderRef.current, streamRef.current);
         recorderRef.current = null;
         chunksRef.current = [];
-        releaseStream();
+        streamRef.current = null;
         if (mountedRef.current) setStatus('idle');
-    }, [releaseStream]);
+    }, []);
 
     useEffect(() => {
         mountedRef.current = true;
@@ -90,13 +87,12 @@ export function useVoiceInput(value, onChange, disabled = false) {
 
         setError('');
         setStatus('requesting');
-        const runId = runIdRef.current + 1;
-        runIdRef.current = runId;
+        const runId = runGuardRef.current.begin();
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: { autoGainControl: true, echoCancellation: true, noiseSuppression: true },
             });
-            if (runId !== runIdRef.current) {
+            if (!runGuardRef.current.isCurrent(runId)) {
                 stream.getTracks().forEach(track => track.stop());
                 return;
             }
@@ -112,7 +108,7 @@ export function useVoiceInput(value, onChange, disabled = false) {
             recorder.onerror = () => {
                 recorder.onstop = null;
                 recorderRef.current = null;
-                if (mountedRef.current && runId === runIdRef.current) {
+                if (mountedRef.current && runGuardRef.current.isCurrent(runId)) {
                     setError('The microphone recording stopped unexpectedly.');
                     setStatus('idle');
                 }
@@ -122,7 +118,7 @@ export function useVoiceInput(value, onChange, disabled = false) {
                 window.clearTimeout(timerRef.current);
                 recorderRef.current = null;
                 releaseStream();
-                if (!mountedRef.current || runId !== runIdRef.current) return;
+                if (!mountedRef.current || !runGuardRef.current.isCurrent(runId)) return;
                 setStatus('transcribing');
                 try {
                     const blob = new Blob(chunksRef.current, { type: recorder.mimeType || mimeType || 'audio/webm' });
@@ -133,16 +129,16 @@ export function useVoiceInput(value, onChange, disabled = false) {
                     });
                     const transcript = String(result?.text || '').trim();
                     if (!transcript) throw new Error('The transcription service returned no text.');
-                    if (!mountedRef.current || runId !== runIdRef.current) return;
+                    if (!mountedRef.current || !runGuardRef.current.isCurrent(runId)) return;
                     const current = String(valueRef.current || '');
                     onChangeRef.current(`${current}${current && !/\s$/.test(current) ? ' ' : ''}${transcript}`);
                     setError('');
                 } catch (transcriptionError) {
-                    if (mountedRef.current && runId === runIdRef.current) {
+                    if (mountedRef.current && runGuardRef.current.isCurrent(runId)) {
                         setError(cleanIpcError(transcriptionError));
                     }
                 } finally {
-                    if (mountedRef.current && runId === runIdRef.current) setStatus('idle');
+                    if (mountedRef.current && runGuardRef.current.isCurrent(runId)) setStatus('idle');
                 }
             };
 
@@ -150,7 +146,7 @@ export function useVoiceInput(value, onChange, disabled = false) {
             setStatus('recording');
             timerRef.current = window.setTimeout(stop, MAX_RECORDING_MS);
         } catch (microphoneError) {
-            if (runId !== runIdRef.current) return;
+            if (!runGuardRef.current.isCurrent(runId)) return;
             const blocked = microphoneError?.name === 'NotAllowedError' || microphoneError?.name === 'SecurityError';
             setPermissionBlocked(blocked);
             setError(blocked

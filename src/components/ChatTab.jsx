@@ -3,6 +3,7 @@ import { ArrowUp, Plus, X } from 'lucide-react';
 import { ChatMessage } from './ChatMessage';
 import NousBadge from './NousBadge';
 import { VoiceInputButton } from './VoiceInputButton';
+import { useAutoSizeTextarea } from '../hooks/useAutoSizeTextarea';
 import { useTheme } from '../context/ThemeContext';
 import {
   getHermesChatState, resetHermesChatState, setHermesChatMessages, setHermesChatSessionId
@@ -103,25 +104,14 @@ function ChatComposer({ onSend, onCancel, isRunning }) {
     }
   }, [isRunning]);
 
-  useEffect(() => {
-    if (!textareaRef.current) return;
-    textareaRef.current.style.height = 'auto';
-    textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
-  }, [text]);
-
-  const resetHeight = useCallback(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-    }
-  }, []);
+  useAutoSizeTextarea(textareaRef, text);
 
   const submit = useCallback(() => {
     const message = text.trim();
     if (!message || isRunning) return;
     onSend(message);
     setText('');
-    resetHeight();
-  }, [isRunning, onSend, resetHeight, text]);
+  }, [isRunning, onSend, text]);
 
   const handleKeyDown = useCallback((event) => {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -132,8 +122,6 @@ function ChatComposer({ onSend, onCancel, isRunning }) {
 
   const handleChange = useCallback((event) => {
     setText(event.target.value);
-    event.target.style.height = 'auto';
-    event.target.style.height = `${Math.min(event.target.scrollHeight, 200)}px`;
   }, []);
 
   return (
@@ -171,7 +159,7 @@ function ChatComposer({ onSend, onCancel, isRunning }) {
               type="button"
               onClick={submit}
               disabled={!canSend}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--accent)] text-white transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--text-on-accent)] transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
               title="Send"
               aria-label="Send message to Hermes"
             >
