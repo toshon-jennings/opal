@@ -59,6 +59,8 @@ contextBridge.exposeInMainWorld('electron', {
   readOpenClawDiary: () => ipcRenderer.invoke('openclaw:read-diary'),
   writeOpenClawDiary: (content) => ipcRenderer.invoke('openclaw:write-diary', content),
   discoverModelProviders: () => ipcRenderer.invoke('models:discover-providers'),
+  transcribeVoice: (payload) => ipcRenderer.invoke('voice:transcribe', payload),
+  openMicrophoneSettings: () => ipcRenderer.invoke('voice:open-microphone-settings'),
   startJanServer: (options) => ipcRenderer.invoke('models:start-jan-server', options),
   detectBarsProviders: () => ipcRenderer.invoke('bars:detect-providers'),
   askBars: (payload) => ipcRenderer.invoke('bars:ask', payload),

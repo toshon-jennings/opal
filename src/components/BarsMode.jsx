@@ -12,6 +12,7 @@ import {
 } from '../lib/powerWorkspace';
 import './BarsMode.css';
 import { readStringStorage, writeStringStorage } from '../lib/persistentStore';
+import { VoiceInputButton } from './VoiceInputButton';
 
 const IDEAS_KEY = 'perci_bars_ideas:v1';
 const SETTINGS_KEY = 'perci_bars_ai_settings:v1';
@@ -458,7 +459,10 @@ export default function BarsMode() {
             </div>
 
             <form className="bars-capture" onSubmit={quickCapture}>
-                <span className="bars-rec-dot" aria-hidden="true" />
+                <div className="bars-capture-voice">
+                    <span className="bars-rec-dot" aria-hidden="true" />
+                    <VoiceInputButton value={quickText} onChange={setQuickText} iconSize={16} />
+                </div>
                 <div className="bars-capture-field">
                     <textarea
                         value={quickText}

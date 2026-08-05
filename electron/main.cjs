@@ -11,6 +11,7 @@ const {
   trustedCodexAuthUrl,
 } = require('./codex-account.cjs');
 const { probeLocalHttp } = require('./localhost-health.cjs');
+const { prepareVoiceTranscription } = require('./voice-transcription.cjs');
 const supermemoryProcess = require('./lib/supermemory-process.cjs');
 const path = require('path');
 const fsSync = require('fs');
@@ -944,13 +945,27 @@ function createWindow() {
   attachRendererDiagnostics(win);
   appendRendererLog(`createWindow: renderer log at ${getRendererLogPath()}`);
 
-  // Grant clipboard-read/write permission so navigator.clipboard works in the renderer
-  win.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
+  // Grant clipboard access as before, but only let Perci's main renderer request
+  // microphone audio. Webviews share this session and must not inherit media access.
+  win.webContents.session.setPermissionCheckHandler((webContents, permission, _origin, details) => {
+    if (permission === 'clipboard-read' || permission === 'clipboard-sanitized-write' || permission === 'deprecated-sync-clipboard-read') {
+      return true;
+    }
+    return permission === 'media'
+      && webContents === win.webContents
+      && details?.isMainFrame === true
+      && details?.mediaType === 'audio';
+  });
+  win.webContents.session.setPermissionRequestHandler((webContents, permission, callback, details) => {
     if (permission === 'clipboard-read' || permission === 'clipboard-write' || permission === 'clipboard-sanitized-write') {
       callback(true);
       return;
     }
-    callback(false);
+    callback(permission === 'media'
+      && webContents === win.webContents
+      && Array.isArray(details?.mediaTypes)
+      && details.mediaTypes.length === 1
+      && details.mediaTypes[0] === 'audio');
   });
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (isBundledAssetDocumentUrl(url)) {
@@ -2781,6 +2796,26 @@ async function askBars(payload = {}) {
   return { providerId: provider.id, model, answer };
 }
 
+async function transcribeVoice(payload = {}) {
+  const keys = await getBarsApiKeys();
+  const { buffer, endpoint, extension, key, mimeType, model, providerId } = prepareVoiceTranscription(payload, keys);
+
+  const formData = new FormData();
+  formData.append('model', model);
+  const blob = new Blob([buffer], { type: mimeType });
+  formData.append('file', blob, `recording.${extension}`);
+
+  const response = await fetchJsonStrict(endpoint, {
+    method: 'POST',
+    timeoutMs: 60000,
+    headers: { Authorization: `Bearer ${key}` },
+    body: formData,
+  });
+  const text = typeof response?.text === 'string' ? response.text.trim() : '';
+  if (!text) throw new Error('The transcription service returned no text.');
+  return { providerId, text };
+}
+
 const MARKITDOWN_VISION_MODEL = 'openai/gpt-4o-mini';
 const MARKITDOWN_VISION_MAX_DATA_URL_BYTES = 22 * 1024 * 1024;
 const MARKITDOWN_IMAGE_DATA_URL_RE = /^data:image\/(png|jpe?g|webp|gif);base64,/i;
@@ -3010,6 +3045,20 @@ ipcMain.handle('models:discover-providers', async () => {
 
 ipcMain.handle('bars:detect-providers', async () => detectBarsProviders());
 ipcMain.handle('bars:ask', async (event, payload) => askBars(payload));
+ipcMain.handle('voice:transcribe', async (event, payload) => {
+  if (event.sender !== mainWindow?.webContents) throw new Error('Voice transcription is only available in Perci.');
+  return transcribeVoice(payload);
+});
+ipcMain.handle('voice:open-microphone-settings', async () => {
+  const settingsUrl = process.platform === 'darwin'
+    ? 'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone'
+    : process.platform === 'win32'
+      ? 'ms-settings:privacy-microphone'
+      : '';
+  if (!settingsUrl) return { opened: false };
+  await shell.openExternal(settingsUrl);
+  return { opened: true };
+});
 ipcMain.handle('bars:get-api-key-status', async () => getBarsApiKeyStatus());
 ipcMain.handle('bars:save-api-keys', async (event, payload) => saveBarsApiKeys(payload));
 ipcMain.handle('bars:clear-api-keys', async () => clearBarsApiKeys());
