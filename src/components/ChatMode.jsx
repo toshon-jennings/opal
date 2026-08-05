@@ -8,6 +8,7 @@ import { ChatMessage } from './ChatMessage';
 import { ArtifactPanel } from './ArtifactPanel';
 import { ThinkingDisplay } from './ThinkingDisplay';
 import { AttachmentMenu, AttachmentPreview } from './AttachmentSystem';
+import { VoiceInputButton } from './VoiceInputButton';
 import { LLMFactory } from '../lib/llm/clients';
 import { IntelligentSearchTool } from '../lib/IntelligentSearchTool';
 import { SearchProgress } from './SearchProgress';
@@ -1474,6 +1475,7 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                         onUploadFile={() => fileInputRef.current?.click()}
                         disabled={isLoading}
                     />
+                    <VoiceInputButton value={input} onChange={setInput} disabled={isLoading} />
                 </div>
                 <div className="flex flex-wrap items-center gap-2 ml-auto">
                     <ProviderModelPicker
@@ -2033,13 +2035,14 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                             className="w-full bg-transparent border-none outline-none resize-none min-h-[40px] max-h-[200px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] leading-relaxed text-base"
                         />
                         <div className="flex flex-wrap gap-y-2 justify-between items-center mt-3">
-	                            {/* Left side toolbar */}
-	                            <div className="flex flex-wrap gap-0.5 items-center">
+                            {/* Left side toolbar */}
+                            <div className="flex flex-wrap gap-0.5 items-center">
                                     <AttachmentMenu
                                         onUploadImage={() => imageInputRef.current?.click()}
                                         onUploadFile={() => fileInputRef.current?.click()}
                                         disabled={isLoading}
                                     />
+                                <VoiceInputButton value={input} onChange={setInput} disabled={isLoading} />
                                 <PermissionsDropdown value={permissionLevel} onChange={setPermissionLevel} />
                                 <CavemanDropdown value={cavemanLevel} onChange={handleCavemanChange} />
                                 <PonytailDropdown value={ponytailLevel} onChange={handlePonytailChange} />
@@ -2146,9 +2149,9 @@ When the user asks for an "artifact", you MUST provide the complete, functional 
                                     panelClassName="absolute bottom-full right-0 mb-2 max-h-80 overflow-y-auto z-20"
                                     overlayClassName="fixed inset-0 z-10"
                                 />
-	                                <button
-	                                    onClick={isLoading ? handleCancelRequest : handleSendMessage}
-	                                    disabled={!isLoading && (!input.trim() && attachments.length === 0)}
+                                <button
+                                    onClick={isLoading ? handleCancelRequest : handleSendMessage}
+                                    disabled={!isLoading && (!input.trim() && attachments.length === 0)}
                                     className="w-8 h-8 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-full flex items-center justify-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                                     title={isLoading ? 'Cancel provider request' : 'Send'}
                                 >

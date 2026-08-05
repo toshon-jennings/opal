@@ -26,6 +26,7 @@ import { chooseModelForTask, buildRoutingPrompt } from '../lib/modelRouter';
 import DeSlopButton from './DeSlopButton';
 import { useAgentTools } from '../hooks/useAgentTools';
 import { ProviderModelPicker } from './ProviderModelPicker';
+import { VoiceInputButton } from './VoiceInputButton';
 import { buildBudgetPrompt, createBudgetRun, estimateCharsFromMessages, recordBudgetResponse } from '../lib/budgetGovernor';
 import {
     buildIntegrationToolsPrompt,
@@ -670,6 +671,7 @@ export default function CodeMode() {
                         />
                         <div className="mt-2 flex flex-wrap gap-y-2 justify-between items-center pr-12">
                             <div className="flex flex-wrap gap-1 items-center">
+                                <VoiceInputButton value={input} onChange={setInput} disabled={isLoading} />
                                 <PermissionsDropdown value={permissionLevel} onChange={setPermissionLevel} />
                                 <CavemanDropdown value={cavemanLevel} onChange={handleCavemanChange} />
                                 <PonytailDropdown value={ponytailLevel} onChange={handlePonytailChange} />

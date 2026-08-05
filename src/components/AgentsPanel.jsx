@@ -3,6 +3,7 @@ import { Bot, RefreshCw, Send, FolderOpen, CheckCircle2, AlertTriangle, XCircle,
 import { useMode, HERMES_WINDOW_ID } from '../context/ModeContext';
 import { readStringStorage, writeStringStorage } from '../lib/persistentStore';
 import { upsertMissionRun } from '../lib/missionControl';
+import { VoiceInputButton } from './VoiceInputButton';
 
 // ─── Agent definitions ─────────────────────────────────────────────────────
 
@@ -1276,7 +1277,10 @@ export default function AgentsPanel() {
 
                   {/* Prompt textarea */}
                   <div>
-                    <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Instructions</label>
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                      <label className="block text-xs font-medium text-[var(--text-secondary)]">Instructions</label>
+                      <VoiceInputButton value={prompt} onChange={setPrompt} disabled={queueing} iconSize={16} />
+                    </div>
                     <textarea
                       value={prompt}
                       onChange={(e) => setPrompt(e.target.value)}

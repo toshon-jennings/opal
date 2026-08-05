@@ -6,13 +6,12 @@ import {
     Expand,
     FolderOpen,
     Loader2,
-    Mic,
-    MicOff,
     Sparkles,
     X,
     Zap,
 } from 'lucide-react';
 import chatGptLogo from '../assets/chatgpt-logo.png';
+import { VoiceInputButton } from './VoiceInputButton';
 import { useMode } from '../context/ModeContext';
 import {
     readJsonStorage,
@@ -204,7 +203,6 @@ export default function CodexMicroMode() {
         desktop: Boolean(window.electron?.getCodexPocketStatus),
     }));
     const [signingIn, setSigningIn] = useState(false);
-    const [listening, setListening] = useState(false);
     const [shifted, setShifted] = useState(false);
     const [altActive, setAltActive] = useState(false);
     const [activeSymbolCategory, setActiveSymbolCategory] = useState(0);
@@ -213,8 +211,6 @@ export default function CodexMicroMode() {
     const [pressedKeys, setPressedKeys] = useState(() => new Set());
     const [clockTime, setClockTime] = useState(() => new Date());
     const promptRef = useRef(null);
-    const speechRef = useRef(null);
-    const dictationBaseRef = useRef('');
     const browseInputRef = useRef(null);
     const rootRef = useRef(null);
     const joystickGateRef = useRef(null);
@@ -356,14 +352,6 @@ export default function CodexMicroMode() {
         }, 1500);
         return () => window.clearInterval(interval);
     }, [loadCodexStatus, signingIn]);
-
-    useEffect(() => () => {
-        try {
-            speechRef.current?.stop();
-        } catch {
-            // Recognition may already be stopped.
-        }
-    }, []);
 
     useEffect(() => {
         if (browsingFolder && browseInputRef.current) {
@@ -605,52 +593,6 @@ export default function CodexMicroMode() {
             stageWorkflow(targetWorkflow);
         }
     }, [stageWorkflow]);
-
-    const toggleDictation = useCallback(() => {
-        if (listening) {
-            if (speechRef.current) {
-                speechRef.current.stop();
-                speechRef.current = null;
-            }
-            setListening(false);
-            return;
-        }
-
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-            setNotice('Speech recognition is not supported in this browser. Use macOS Dictation.');
-            return;
-        }
-
-        dictationBaseRef.current = prompt;
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = 'en-US';
-
-        recognition.onstart = () => {
-            setListening(true);
-            setNotice('Listening… Speak your prompt.');
-        };
-        recognition.onresult = (event) => {
-            let transcript = '';
-            for (let index = event.resultIndex; index < event.results.length; index += 1) {
-                transcript += event.results[index][0]?.transcript || '';
-            }
-            setPrompt([dictationBaseRef.current, transcript.trim()].filter(Boolean).join(' '));
-        };
-        recognition.onerror = (event) => {
-            setNotice(event.error === 'not-allowed'
-                ? 'Microphone access was denied. Use macOS Dictation.'
-                : 'Dictation stopped.');
-        };
-        recognition.onend = () => {
-            setListening(false);
-            speechRef.current = null;
-        };
-        speechRef.current = recognition;
-        recognition.start();
-    }, [listening, prompt]);
 
     const insertSymbol = useCallback((sym) => {
         if (browsingFolder) {
@@ -920,15 +862,13 @@ export default function CodexMicroMode() {
                                 >
                                     <img src={chatGptLogo} alt="" aria-hidden="true" />
                                 </button>
-                                <button
-                                    type="button"
-                                    className={`cm-top-key cm-top-dictate${listening ? ' is-listening' : ''}`}
-                                    onClick={toggleDictation}
-                                    title={listening ? 'Stop dictation' : 'Start dictation'}
-                                    aria-label={listening ? 'Stop dictation' : 'Start dictation'}
-                                >
-                                    {listening ? <MicOff size={14} /> : <Mic size={14} />}
-                                </button>
+                                <VoiceInputButton
+                                    value={prompt}
+                                    onChange={setPrompt}
+                                    disabled={queueing}
+                                    iconSize={14}
+                                    className="cm-top-key cm-top-dictate"
+                                />
                             </div>
 
                             <label className="cm-dial" title={`Reasoning: ${reasoningLevel.label}`}>

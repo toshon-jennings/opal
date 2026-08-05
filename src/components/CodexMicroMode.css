@@ -648,12 +648,6 @@
         0 2px 4px rgba(0,0,0,0.04);
 }
 
-.cm-top-dictate.is-listening {
-    border-color: var(--status-danger);
-    color: var(--status-danger);
-    background: color-mix(in srgb, var(--status-danger) 12%, #fafafc);
-}
-
 .cm-dial {
     flex: 1;
     width: 100%;

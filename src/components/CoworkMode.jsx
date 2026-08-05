@@ -7,6 +7,7 @@ import { useBuildMode } from '../context/BuildModeContext';
 import { LLMFactory } from '../lib/llm/clients';
 import { Workbench } from './Workbench/Workbench';
 import { AttachmentMenu, AttachmentPreview } from './AttachmentSystem';
+import { VoiceInputButton } from './VoiceInputButton';
 import { SecondaryModeNav } from './SecondaryModeNav';
 import { EditableTitle } from './EditableTitle';
 import { SettingsModal } from './SettingsModal';
@@ -1512,6 +1513,7 @@ export default function CoworkMode() {
                                             onUploadFile={() => fileInputRef.current?.click()}
                                             disabled={isLoading}
                                         />
+                                        <VoiceInputButton value={taskInput} onChange={setTaskInput} disabled={isLoading} />
                                         <PermissionsDropdown value={permissionLevel} onChange={setPermissionLevel} />
                                         <CoworkModelSelector
                                             selectedProvider={selectedProvider}
@@ -1763,6 +1765,7 @@ export default function CoworkMode() {
                                         onUploadFile={() => fileInputRef.current?.click()}
                                         disabled={isLoading}
                                     />
+                                    <VoiceInputButton value={taskInput} onChange={setTaskInput} disabled={isLoading} />
                                     <PermissionsDropdown value={permissionLevel} onChange={setPermissionLevel} />
                                     <CoworkModelSelector
                                         selectedProvider={selectedProvider}

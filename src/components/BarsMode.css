@@ -147,6 +147,21 @@
     animation: bars-rec-pulse 1.8s ease-out infinite;
 }
 
+.bars-capture-voice {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.bars-capture-voice button {
+    color: var(--bars-muted);
+}
+
+.bars-capture-voice button:hover {
+    color: var(--bars-ink);
+    background: var(--bars-panel-2);
+}
+
 .bars-capture textarea,
 .bars-root input,
 .bars-root select,

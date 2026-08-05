@@ -43,7 +43,10 @@
         "zip"
       ],
       "icon": "perci.icns",
-      "category": "public.app-category.developer-tools"
+      "category": "public.app-category.developer-tools",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Perci uses the microphone only when you start voice dictation."
+      }
     },
     "win": {
       "target": [
