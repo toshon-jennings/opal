@@ -34,6 +34,48 @@ jobs:
       - run: npx electron-builder --mac --${{ matrix.arch }} --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Smoke-test packaged terminal
+        shell: bash
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+        run: |
+          app_path=$(find dist_electron -maxdepth 2 -type d -name Perci.app -print -quit)
+          test -n "$app_path"
+          node_pty_path="$app_path/Contents/Resources/app.asar.unpacked/node_modules/node-pty"
+          test -x "$node_pty_path/prebuilds/darwin-$EXPECTED_ARCH/spawn-helper"
+          # ELECTRON_RUN_AS_NODE does not install Electron's asar shim. Requiring
+          # from app.asar.unpacked directly makes node-pty 1.1.0 incorrectly
+          # rewrite the helper path to app.asar.unpacked.unpacked, so exercise
+          # the exact packaged files from a neutral path instead.
+          smoke_node_pty="$(mktemp -d)/node-pty"
+          cp -R "$node_pty_path" "$smoke_node_pty"
+          EXPECTED_ARCH="$EXPECTED_ARCH" NODE_PTY_PATH="$smoke_node_pty" ELECTRON_RUN_AS_NODE=1 \
+            "$app_path/Contents/MacOS/Perci" -e '
+              const pty = require(process.env.NODE_PTY_PATH);
+              const expected = process.env.EXPECTED_ARCH;
+              if (process.arch !== expected) {
+                throw new Error(`Expected ${expected}, received ${process.arch}`);
+              }
+              const terminal = pty.spawn("/bin/zsh", ["-lc", "printf perci-pty-ok"], {
+                cols: 80,
+                rows: 24,
+              });
+              let output = "";
+              const timer = setTimeout(() => {
+                console.error("Packaged terminal smoke test timed out");
+                process.exit(1);
+              }, 5000);
+              terminal.onData((data) => { output += data; });
+              terminal.onExit(({ exitCode }) => {
+                clearTimeout(timer);
+                if (exitCode !== 0 || output !== "perci-pty-ok") {
+                  console.error(JSON.stringify({ exitCode, output }));
+                  process.exit(1);
+                }
+                console.log(JSON.stringify({ arch: process.arch, output }));
+                process.exit(0);
+              });
+            '
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
