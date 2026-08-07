@@ -28,6 +28,7 @@
     },
     "icon": "public/perci-icon.png",
     "npmRebuild": false,
+    "afterPack": "scripts/after-pack.cjs",
     "files": [
       "dist/**/*",
       "electron/**/*",
