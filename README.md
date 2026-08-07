@@ -82,7 +82,14 @@ Prebuilt apps live on the [latest release](https://github.com/toshon-jennings/pe
 | Platform | File |
 | --- | --- |
 | macOS (Apple Silicon) | `Perci-<version>-arm64.dmg` |
+| macOS (Intel) | `Perci-<version>-x64.dmg` |
 | Windows | `Perci-Setup-<version>.exe` |
+
+Not sure which Mac build you need? Open **Apple menu → About This Mac**. If it
+shows **Chip: Apple M-series**, download `arm64`. If it shows **Processor:
+Intel**, download `x64`. Both Mac builds require macOS 12 Monterey or newer.
+Intel support begins with v0.47.0; if the latest release is older, the Intel
+build is still in hardware testing and has not been published yet.
 
 The `.zip`, `.blockmap`, and `latest*.yml` files in a release are used by the
 in-app updater. You don't need to download them.

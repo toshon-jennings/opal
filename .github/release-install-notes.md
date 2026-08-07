@@ -3,7 +3,12 @@
 | Platform | Download |
 | --- | --- |
 | macOS (Apple Silicon) | `Perci-__VERSION__-arm64.dmg` |
+| macOS (Intel) | `Perci-__VERSION__-x64.dmg` |
 | Windows | `Perci-Setup-__VERSION__.exe` |
+
+Not sure which Mac build you need? Open **Apple menu → About This Mac**. If it
+shows **Chip: Apple M-series**, download `arm64`. If it shows **Processor:
+Intel**, download `x64`. Both Mac builds require macOS 12 Monterey or newer.
 
 The other assets (`.zip`, `.blockmap`, `latest-mac.yml`, `latest.yml`) are used
 by the in-app updater. You don't need to download them.

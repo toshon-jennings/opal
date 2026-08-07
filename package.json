@@ -1,7 +1,7 @@
 {
   "name": "perci",
   "private": true,
-  "version": "0.46.2",
+  "version": "0.47.0",
   "description": "A desktop AI workspace for chat, coding, coworking, and agent tools.",
   "author": "Toshon Jennings",
   "main": "electron/main.cjs",
@@ -38,6 +38,7 @@
       "electron/extensions/**/*"
     ],
     "mac": {
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
       "target": [
         "dmg",
         "zip"
@@ -110,6 +111,7 @@
     "eslint-plugin-react": "^7.34.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
+    "js-yaml": "^4.1.1",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.17",
     "vite": "^5.1.4",
