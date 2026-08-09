@@ -27,6 +27,7 @@ export const LOCAL_SERVICES = [
     { id: 'super-memory', name: 'Supermemory', port: 6768, url: 'http://localhost:6768', startCommand: '', cwd: '', autoStart: false },
     { id: 'lfm-harness', name: 'LFM Harness', port: 6270, url: 'http://localhost:6270', startCommand: 'node ~/lfm-harness/server.js', cwd: '~/lfm-harness', autoStart: false },
     { id: 'apfel-harness', name: 'Apfel Harness', port: 6271, url: 'http://localhost:6271', startCommand: 'node ~/apfel-harness/server.js', cwd: '~/apfel-harness', autoStart: false },
+    { id: 'opencode', name: 'OpenCode', port: 4096, url: 'http://127.0.0.1:4096', startCommand: 'opencode serve --port 4096', cwd: '', autoStart: false },
     { id: 'ollama', name: 'Ollama', port: 11434, url: 'http://localhost:11434', startCommand: 'ollama serve', cwd: '', autoStart: false },
     { id: 'tcs-it-dashboard', name: 'TCS IT Dashboard', port: 8788, url: 'http://localhost:8788', startCommand: 'source venv/bin/activate && python server.py', cwd: '~/it-milestone-agent', autoStart: false },
 ];

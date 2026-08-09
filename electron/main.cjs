@@ -1089,10 +1089,50 @@ function configureYouTubeWebviewSession() {
   );
 }
 
+// --- OpenCode Rig ------------------------------------------------------------
+// opencode only enforces HTTP Basic auth when OPENCODE_SERVER_PASSWORD is set
+// (packages/opencode/src/server/auth.ts). Perci mints a password per launch,
+// starts the server with it, and injects the matching credentials into the
+// webview session — so the embed authenticates without ever prompting. The
+// password lives in memory only and is passed to the child through env rather
+// than argv, keeping it out of the process table.
+const OPENCODE_PORT = 4096;
+const OPENCODE_URL = `http://127.0.0.1:${OPENCODE_PORT}`;
+const OPENCODE_USERNAME = 'opencode';
+const OPENCODE_PARTITION = 'persist:perci-opencode';
+const opencodeServerPassword = randomUUID();
+let opencodeServerProcess = null;
+
+function opencodeAuthHeader() {
+  const raw = `${OPENCODE_USERNAME}:${opencodeServerPassword}`;
+  return `Basic ${Buffer.from(raw).toString('base64')}`;
+}
+
+function configureOpencodeWebviewSession() {
+  const opencodeSession = session.fromPartition(OPENCODE_PARTITION);
+  opencodeSession.webRequest.onBeforeSendHeaders(
+    {
+      urls: [
+        `http://127.0.0.1:${OPENCODE_PORT}/*`,
+        `http://localhost:${OPENCODE_PORT}/*`,
+      ],
+    },
+    (details, callback) => {
+      callback({
+        requestHeaders: {
+          ...(details.requestHeaders || {}),
+          Authorization: opencodeAuthHeader(),
+        },
+      });
+    }
+  );
+}
+
 app.whenReady().then(() => {
   try {
     configureMarkItDownWebviewSession();
     configureYouTubeWebviewSession();
+    configureOpencodeWebviewSession();
 
     const localhostSession = session.fromPartition('persist:perci-localhost');
     const klipitSource = app.isPackaged ? 'bundled' : 'development';
@@ -1333,6 +1373,12 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   codexAccountClient.stop();
+  // Only ever the server Perci spawned itself — a pre-existing one on the port
+  // is left alone.
+  if (opencodeServerProcess) {
+    try { opencodeServerProcess.kill('SIGTERM'); } catch (_) {}
+    opencodeServerProcess = null;
+  }
 });
 
 app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
@@ -4978,6 +5024,82 @@ ipcMain.handle('localhost:start-now', async (event, { cwd, command } = {}) => {
 
 ipcMain.handle('localhost:check-health', async (event, { url } = {}) => {
   return probeLocalHttp(url);
+});
+
+// Resolved through a login shell so it picks up nvm/homebrew paths the packaged
+// app doesn't inherit.
+function resolveOpencodeBinary() {
+  const { execFileSync } = require('child_process');
+  const executable = process.platform === 'win32' ? 'cmd.exe' : '/bin/sh';
+  const args = process.platform === 'win32' ? ['/c', 'where opencode'] : ['-lc', 'command -v opencode'];
+  try {
+    const cmdPath = execFileSync(executable, args, { encoding: 'utf8' }).trim().split('\n')[0].trim();
+    return cmdPath || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+ipcMain.handle('opencode:check-install', async () => {
+  const { execFileSync } = require('child_process');
+  const cmdPath = resolveOpencodeBinary();
+  if (!cmdPath) return { installed: false };
+  let version;
+  try {
+    version = execFileSync(cmdPath, ['--version'], { encoding: 'utf8' }).trim();
+  } catch (_) {
+    // Version is cosmetic — an old build without --version still counts as installed.
+  }
+  return { installed: true, path: cmdPath, version };
+});
+
+// Probes with Perci's own credentials, so the three outcomes are distinguishable:
+// nothing listening, our server (or an unsecured one), or a server started
+// outside Perci whose password we don't hold.
+ipcMain.handle('opencode:probe', async () => {
+  const result = await probeLocalHttp(OPENCODE_URL, 2000, { Authorization: opencodeAuthHeader() });
+  if (!result.reachable) return { state: 'offline' };
+  if (result.status === 401) return { state: 'foreign' };
+  return { state: 'ready' };
+});
+
+ipcMain.handle('opencode:start', async () => {
+  if (opencodeServerProcess) return { ok: true };
+
+  const probe = await probeLocalHttp(OPENCODE_URL, 2000, { Authorization: opencodeAuthHeader() });
+  if (probe.reachable) {
+    // Something already owns the port. Never start over it, never kill it.
+    return probe.status === 401
+      ? { ok: false, error: `A server Perci didn't start is already running on port ${OPENCODE_PORT}.` }
+      : { ok: true };
+  }
+
+  const binary = resolveOpencodeBinary();
+  if (!binary) return { ok: false, error: 'The opencode CLI is not installed.' };
+
+  const child = spawn(binary, ['serve', '--port', String(OPENCODE_PORT)], {
+    cwd: app.getPath('home'),
+    env: {
+      ...process.env,
+      OPENCODE_SERVER_USERNAME: OPENCODE_USERNAME,
+      OPENCODE_SERVER_PASSWORD: opencodeServerPassword,
+    },
+    // Nothing reads these pipes, and an unread pipe stalls the child once its
+    // buffer fills — the server logs per request, so it would eventually hang.
+    stdio: 'ignore',
+  });
+  opencodeServerProcess = child;
+
+  child.on('error', (err) => {
+    console.error('[opencode] server process error:', err);
+    if (opencodeServerProcess === child) opencodeServerProcess = null;
+  });
+  child.on('exit', (code) => {
+    console.log(`[opencode] server exited with code ${code}`);
+    if (opencodeServerProcess === child) opencodeServerProcess = null;
+  });
+
+  return { ok: true };
 });
 
 ipcMain.handle('localhost:stop-now', async (event, { port, id } = {}) => {

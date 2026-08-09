@@ -16,7 +16,7 @@ function parseLocalHttpUrl(rawUrl) {
   }
 }
 
-function probeLocalHttp(rawUrl, timeoutMs = 2000) {
+function probeLocalHttp(rawUrl, timeoutMs = 2000, headers = undefined) {
   return new Promise((resolve) => {
     const parsed = parseLocalHttpUrl(rawUrl);
     if (!parsed) {
@@ -30,7 +30,7 @@ function probeLocalHttp(rawUrl, timeoutMs = 2000) {
 
     const client = parsed.protocol === 'https:' ? https : http;
     const startedAt = Date.now();
-    const req = client.get(parsed, { timeout: timeoutMs }, (res) => {
+    const req = client.get(parsed, { timeout: timeoutMs, headers }, (res) => {
       const status = Number(res.statusCode) || null;
       res.destroy();
       resolve({
