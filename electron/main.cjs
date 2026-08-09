@@ -5026,9 +5026,30 @@ ipcMain.handle('localhost:check-health', async (event, { url } = {}) => {
   return probeLocalHttp(url);
 });
 
-// Resolved through a login shell so it picks up nvm/homebrew paths the packaged
+// The OpenCode Rig fork's own build, which embeds its web UI in the binary.
+// This matters for more than branding: a build without the embedded UI proxies
+// every UI request to https://app.opencode.ai (see the fork's
+// packages/opencode/src/server/shared/ui.ts), so the stock CLI would serve
+// upstream OpenCode rather than the Rig interface. Override with
+// PERCI_OPENCODE_BIN; otherwise fall back to whatever `opencode` is on PATH.
+function opencodeRigBinary() {
+  const override = process.env.PERCI_OPENCODE_BIN;
+  if (override) return fsSync.existsSync(override) ? override : null;
+
+  const target = `opencode-${process.platform === 'win32' ? 'windows' : process.platform}-${process.arch}`;
+  const built = path.join(
+    app.getPath('home'), 'opencode', 'packages', 'opencode', 'dist', target, 'bin',
+    process.platform === 'win32' ? 'opencode.exe' : 'opencode'
+  );
+  return fsSync.existsSync(built) ? built : null;
+}
+
+// Falls back to a login shell so it picks up nvm/homebrew paths the packaged
 // app doesn't inherit.
 function resolveOpencodeBinary() {
+  const rig = opencodeRigBinary();
+  if (rig) return rig;
+
   const { execFileSync } = require('child_process');
   const executable = process.platform === 'win32' ? 'cmd.exe' : '/bin/sh';
   const args = process.platform === 'win32' ? ['/c', 'where opencode'] : ['-lc', 'command -v opencode'];
@@ -5050,7 +5071,9 @@ ipcMain.handle('opencode:check-install', async () => {
   } catch (_) {
     // Version is cosmetic — an old build without --version still counts as installed.
   }
-  return { installed: true, path: cmdPath, version };
+  // isRig distinguishes the fork build (embedded Rig UI) from a stock CLI that
+  // would proxy upstream OpenCode's interface instead.
+  return { installed: true, path: cmdPath, version, isRig: cmdPath === opencodeRigBinary() };
 });
 
 // Probes with Perci's own credentials, so the three outcomes are distinguishable:
