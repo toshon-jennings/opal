@@ -6185,6 +6185,19 @@ function eidosHasProductionBuild() {
   }
 }
 
+// An unread OS pipe stalls the writing child once its buffer fills (~64KB on
+// macOS). Both Eidos children are chatty — `next build` streams progress, and
+// `next dev`/`next start` log per request — so their pipes have to be drained
+// or they hang instead of crashing, which is far harder to diagnose. Keeps a
+// bounded tail so a failure can be reported with the output that explains it.
+function drainEidosOutput(proc) {
+  let tail = '';
+  const append = (chunk) => { tail = (tail + chunk.toString()).slice(-16000); };
+  proc.stdout?.on('data', append);
+  proc.stderr?.on('data', append);
+  return () => tail.trim();
+}
+
 // One-time production build. Uses async spawn (not spawnSync) so the Electron
 // main process event loop stays free while the build runs concurrently with the
 // container stack. Returns false on failure so the caller can fall back to dev.
@@ -6197,6 +6210,7 @@ function eidosBuildDashboard() {
       env: { ...process.env },
       stdio: 'pipe',
     });
+    const readOutput = drainEidosOutput(proc);
     proc.on('error', (err) => {
       console.warn('[eidos] Production build error; falling back to dev server:', err.message);
       resolve(false);
@@ -6207,6 +6221,8 @@ function eidosBuildDashboard() {
         resolve(true);
       } else {
         console.warn(`[eidos] Production build exited ${code}; falling back to dev server.`);
+        const output = readOutput();
+        if (output) console.warn(`[eidos] Build output tail:\n${output}`);
         resolve(false);
       }
     });
@@ -6256,6 +6272,8 @@ async function eidosStartDashboard() {
     stdio: 'pipe',
   });
 
+  const readDashboardOutput = drainEidosOutput(eidosDashboardProcess);
+
   eidosDashboardProcess.on('error', (err) => {
     console.error('[eidos] Dashboard process error:', err);
     eidosDashboardProcess = null;
@@ -6263,6 +6281,8 @@ async function eidosStartDashboard() {
 
   eidosDashboardProcess.on('exit', (code) => {
     console.log(`[eidos] Dashboard process exited with code ${code}`);
+    const output = readDashboardOutput();
+    if (code !== 0 && output) console.warn(`[eidos] Dashboard output tail:\n${output}`);
     eidosDashboardProcess = null;
   });
 
@@ -6273,7 +6293,10 @@ async function eidosStartDashboard() {
     if (check) return;
     await new Promise(r => setTimeout(r, 1500));
   }
-  throw new Error('Timed out waiting for Eidos dashboard to start');
+  const output = readDashboardOutput();
+  throw new Error(
+    `Timed out waiting for Eidos dashboard to start${output ? `:\n${output}` : ''}`
+  );
 }
 
 async function eidosStopCompose(dockerPath) {
