@@ -293,6 +293,14 @@ export default function OpencodeMode() {
                                 github.com/toshon-jennings/opencode-rig
                             </a>
                         </p>
+                        <p className="mt-4 border-t border-[var(--border)] pt-3 text-left text-xs leading-6 text-[var(--text-tertiary)]">
+                            Perci looks for a Rig build in <code className="text-[var(--text-secondary)]">~/opencode</code>,
+                            which embeds the Rig interface. Without one it falls back to the{' '}
+                            <code className="text-[var(--text-secondary)]">opencode</code> CLI on your PATH, which
+                            serves the upstream interface instead. If your checkout lives elsewhere, set{' '}
+                            <code className="text-[var(--text-secondary)]">PERCI_OPENCODE_DIR</code>, or point{' '}
+                            <code className="text-[var(--text-secondary)]">PERCI_OPENCODE_BIN</code> straight at a binary.
+                        </p>
                     </div>
                 </div>
             ) : status === 'foreign' ? (

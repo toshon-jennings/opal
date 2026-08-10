@@ -5030,7 +5030,12 @@ ipcMain.handle('localhost:check-health', async (event, { url } = {}) => {
   return probeLocalHttp(url);
 });
 
-const OPENCODE_RIG_DIR = path.join(require('os').homedir(), 'opencode');
+// Follows the MARKITDOWN_UI_WEBUI_DIR convention: env override, else a sibling
+// checkout in the home directory. PERCI_OPENCODE_BIN overrides only the binary,
+// so the source dir needs its own knob — otherwise a fork checked out elsewhere
+// resolves the right binary but silently loses staleness detection and rebuild.
+const OPENCODE_RIG_DIR = process.env.PERCI_OPENCODE_DIR
+  || path.join(require('os').homedir(), 'opencode');
 // The binary embeds a build of these trees, so anything newer than the binary
 // means the window would serve an interface that no longer matches the source.
 const OPENCODE_RIG_UI_SOURCES = ['packages/app/src', 'packages/ui/src'];
