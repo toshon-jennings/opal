@@ -19,6 +19,7 @@ export default function OpencodeMode() {
     const [rebuild, setRebuild] = useState(null); // null | { line } while building
     const [rebuildError, setRebuildError] = useState(null);
     const [staleDismissed, setStaleDismissed] = useState(false);
+    const [installInfo, setInstallInfo] = useState(null);
     const webviewRef = useRef(null);
     const pollIntervalRef = useRef(null);
 
@@ -32,6 +33,7 @@ export default function OpencodeMode() {
                 const result = await window.electron.opencodeProbe();
                 if (result?.state === 'ready') return 'running';
                 if (result?.state === 'foreign') return 'foreign';
+                if (result?.state === 'stock') return 'stock';
                 return 'offline';
             } catch {
                 return 'offline';
@@ -61,15 +63,17 @@ export default function OpencodeMode() {
         const deadline = Date.now() + START_TIMEOUT_MS;
         pollIntervalRef.current = setInterval(async () => {
             const next = await probe();
-            if (next === 'running') {
+            // Only 'offline' is worth waiting on — the others are answers, not
+            // a server still coming up.
+            if (next !== 'offline') {
                 stopPolling();
-                setStatus('running');
+                setStatus(next);
                 return;
             }
             if (Date.now() > deadline) {
                 stopPolling();
                 setStatus(next);
-                if (next !== 'foreign') setLoadError('OpenCode did not come up in time.');
+                setLoadError('OpenCode did not come up in time.');
             }
         }, 1500);
     }, [probe, stopPolling]);
@@ -138,6 +142,14 @@ export default function OpencodeMode() {
     useEffect(() => {
         refreshBuildInfo();
     }, [refreshBuildInfo, frameKey]);
+
+    useEffect(() => {
+        let active = true;
+        window.electron?.opencodeInstallInfo?.()
+            .then((info) => { if (active) setInstallInfo(info); })
+            .catch(() => {});
+        return () => { active = false; };
+    }, []);
 
     useEffect(() => {
         if (!window.electron?.onOpencodeRebuildProgress) return;
@@ -211,20 +223,15 @@ export default function OpencodeMode() {
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${
                         status === 'running' ? 'bg-emerald-500/10 text-emerald-400'
                         : status === 'starting' || status === 'checking' ? 'bg-[var(--bg-tertiary)] text-[var(--text-tertiary)]'
-                        : status === 'foreign' ? 'bg-amber-500/10 text-amber-500'
+                        : status === 'foreign' || status === 'stock' ? 'bg-amber-500/10 text-amber-500'
                         : 'bg-red-500/10 text-red-400'
                     }`}>
                         {status === 'running' ? 'online'
                             : status === 'no-cli' ? 'not installed'
                             : status === 'foreign' ? 'locked'
+                            : status === 'stock' ? 'not rig'
                             : status}
                     </span>
-                    {buildInfo && buildInfo.isRig === false && (
-                        <span title="Perci fell back to the opencode CLI on PATH, which proxies its interface from app.opencode.ai"
-                            className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-500">
-                            stock build
-                        </span>
-                    )}
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
                     <button type="button" onClick={reload} title="Reload"
@@ -277,30 +284,65 @@ export default function OpencodeMode() {
                 </div>
             ) : null}
 
-            {status === 'no-cli' ? (
-                <div className="flex flex-1 items-center justify-center p-8">
-                    <div className="max-w-md text-center">
-                        <h2 className="text-lg font-semibold text-[var(--text-primary)]">OpenCode is not installed</h2>
-                        <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
-                            Install the opencode CLI to embed it in Perci.
+            {status === 'no-cli' || status === 'stock' ? (
+                <div className="flex flex-1 items-center justify-center overflow-y-auto p-8">
+                    <div className="max-w-lg">
+                        <h2 className="text-center text-lg font-semibold text-[var(--text-primary)]">
+                            {status === 'stock' ? 'That server is running stock OpenCode' : 'OpenCode Rig is not installed'}
+                        </h2>
+                        <p className="mt-2 text-center text-sm leading-6 text-[var(--text-secondary)]">
+                            {status === 'stock'
+                                ? 'It is serving upstream’s interface rather than the Rig, so Perci won’t embed it. Install a Rig build to use this window.'
+                                : 'This window runs OpenCode Rig. Install a Rig build to get started.'}
                         </p>
-                        <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2 font-mono text-xs text-[var(--text-secondary)]">
-                            npm install -g opencode-ai
+
+                        <ol className="mt-5 space-y-4 text-sm leading-6 text-[var(--text-secondary)]">
+                            <li>
+                                <span className="font-medium text-[var(--text-primary)]">1. Download the Rig CLI</span>
+                                {installInfo?.asset ? (
+                                    <>
+                                        <div className="mt-1.5 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2 font-mono text-xs text-[var(--text-secondary)]">
+                                            {installInfo.asset}
+                                        </div>
+                                        <p className="mt-1.5 text-xs text-[var(--text-tertiary)]">
+                                            from{' '}
+                                            <a href={installInfo.releasesUrl} target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] underline">
+                                                the latest Rig release
+                                            </a>
+                                            , then unpack it and put <code>opencode</code> on your PATH.
+                                        </p>
+                                    </>
+                                ) : (
+                                    <p className="mt-1.5 text-xs text-[var(--text-tertiary)]">
+                                        No Rig CLI is published for your platform yet. Build it from source instead — step 2.
+                                    </p>
+                                )}
+                            </li>
+                            <li>
+                                <span className="font-medium text-[var(--text-primary)]">2. Or build it from source</span>
+                                <div className="mt-1.5 overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2 font-mono text-xs whitespace-pre text-[var(--text-secondary)]">
+                                    {`git clone https://github.com/toshon-jennings/opencode-rig ${installInfo?.rigDir || '~/opencode'}\ncd ${installInfo?.rigDir || '~/opencode'} && bun install\ncd packages/opencode && bun run script/build.ts --single`}
+                                </div>
+                                <p className="mt-1.5 text-xs text-[var(--text-tertiary)]">
+                                    Perci finds that build automatically and can rebuild it for you from this window.
+                                </p>
+                            </li>
+                            <li>
+                                <span className="font-medium text-[var(--text-primary)]">3. Somewhere else?</span>
+                                <p className="mt-1 text-xs leading-6 text-[var(--text-tertiary)]">
+                                    Set <code className="text-[var(--text-secondary)]">PERCI_OPENCODE_DIR</code> to your
+                                    checkout, or <code className="text-[var(--text-secondary)]">PERCI_OPENCODE_BIN</code>{' '}
+                                    straight at a binary.
+                                </p>
+                            </li>
+                        </ol>
+
+                        <div className="mt-6 flex justify-center gap-2">
+                            <button type="button" onClick={reload}
+                                className="inline-flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]">
+                                <RefreshCw size={14} /> Check again
+                            </button>
                         </div>
-                        <p className="mt-3 text-xs text-[var(--text-tertiary)]">
-                            Or download the desktop app from{' '}
-                            <a href="https://github.com/toshon-jennings/opencode-rig/releases" target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] underline">
-                                github.com/toshon-jennings/opencode-rig
-                            </a>
-                        </p>
-                        <p className="mt-4 border-t border-[var(--border)] pt-3 text-left text-xs leading-6 text-[var(--text-tertiary)]">
-                            Perci looks for a Rig build in <code className="text-[var(--text-secondary)]">~/opencode</code>,
-                            which embeds the Rig interface. Without one it falls back to the{' '}
-                            <code className="text-[var(--text-secondary)]">opencode</code> CLI on your PATH, which
-                            serves the upstream interface instead. If your checkout lives elsewhere, set{' '}
-                            <code className="text-[var(--text-secondary)]">PERCI_OPENCODE_DIR</code>, or point{' '}
-                            <code className="text-[var(--text-secondary)]">PERCI_OPENCODE_BIN</code> straight at a binary.
-                        </p>
                     </div>
                 </div>
             ) : status === 'foreign' ? (

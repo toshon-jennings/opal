@@ -5105,6 +5105,23 @@ function resolveOpencodeBinary() {
   }
 }
 
+// Asset names published by the Rig's release workflow. No Windows CLI is built,
+// so that case gets told the truth rather than a download that doesn't exist.
+const OPENCODE_RIG_RELEASES = 'https://github.com/toshon-jennings/opencode-rig/releases/latest';
+function opencodeRigAsset() {
+  const arch = process.arch === 'arm64' ? 'arm64' : 'x64';
+  if (process.platform === 'darwin') return `opencode-darwin-${arch}.zip`;
+  if (process.platform === 'linux') return `opencode-linux-${arch}.tar.gz`;
+  return null;
+}
+
+ipcMain.handle('opencode:install-info', async () => ({
+  asset: opencodeRigAsset(),
+  releasesUrl: OPENCODE_RIG_RELEASES,
+  rigDir: OPENCODE_RIG_DIR,
+  platform: process.platform,
+}));
+
 ipcMain.handle('opencode:check-install', async () => {
   const { execFileSync } = require('child_process');
   const cmdPath = resolveOpencodeBinary();
@@ -5221,14 +5238,49 @@ ipcMain.handle('opencode:rebuild', async (event) => {
   });
 });
 
-// Probes with Perci's own credentials, so the three outcomes are distinguishable:
-// nothing listening, our server (or an unsecured one), or a server started
-// outside Perci whose password we don't hold.
+// The fork brands its own favicons with a cache-busting stamp (see the Rig's
+// "brand the favicon for this fork" commit), which upstream's UI does not carry.
+// Matched without the trailing counter so a re-bust doesn't break detection.
+const OPENCODE_RIG_UI_MARKER = '?v=workbench';
+
+function fetchOpencodeRoot() {
+  return new Promise((resolve) => {
+    const req = http.get(
+      {
+        host: '127.0.0.1',
+        port: OPENCODE_PORT,
+        path: '/',
+        headers: { Authorization: opencodeAuthHeader() },
+        timeout: 4000,
+      },
+      (res) => {
+        let body = '';
+        res.setEncoding('utf8');
+        res.on('data', (chunk) => {
+          // The shell document is a couple of KB; never buffer a stream.
+          if (body.length < 64 * 1024) body += chunk;
+        });
+        res.on('end', () => resolve({ status: res.statusCode, body }));
+      }
+    );
+    req.on('timeout', () => req.destroy(new Error('timeout')));
+    req.on('error', () => resolve({ status: null, body: '' }));
+  });
+}
+
+// Distinguishes what is actually being served, not merely which file was
+// launched. A build without an embedded UI proxies upstream's interface from
+// app.opencode.ai, so a path check alone would happily front stock OpenCode.
 ipcMain.handle('opencode:probe', async () => {
   const result = await probeLocalHttp(OPENCODE_URL, 2000, { Authorization: opencodeAuthHeader() });
   if (!result.reachable) return { state: 'offline' };
   if (result.status === 401) return { state: 'foreign' };
-  return { state: 'ready' };
+
+  const page = await fetchOpencodeRoot();
+  if (!page.body) return { state: 'ready' }; // reachable but unreadable — don't block on a flake
+  return page.body.includes(OPENCODE_RIG_UI_MARKER)
+    ? { state: 'ready' }
+    : { state: 'stock' };
 });
 
 ipcMain.handle('opencode:start', async () => {

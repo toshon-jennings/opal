@@ -117,6 +117,7 @@ contextBridge.exposeInMainWorld('electron', {
   opencodeProbe: () => ipcRenderer.invoke('opencode:probe'),
   opencodeStart: () => ipcRenderer.invoke('opencode:start'),
   opencodeBuildInfo: () => ipcRenderer.invoke('opencode:build-info'),
+  opencodeInstallInfo: () => ipcRenderer.invoke('opencode:install-info'),
   opencodeRebuild: () => ipcRenderer.invoke('opencode:rebuild'),
   onOpencodeRebuildProgress: (callback) => {
     const listener = (event, line) => callback(line);
