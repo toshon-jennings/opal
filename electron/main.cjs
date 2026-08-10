@@ -5159,7 +5159,15 @@ ipcMain.handle('opencode:rebuild', async (event) => {
   const args = process.platform === 'win32' ? ['/c', command] : ['-lc', command];
 
   return new Promise((resolve) => {
-    const child = spawn(executable, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(executable, args, {
+      cwd,
+      // Without this the fork's script derives its channel from the current git
+      // branch, so building off `dev` stamps the binary 0.0.0-dev-<timestamp>
+      // and the app renders a DEV badge. Perci builds for daily use, not a
+      // preview, so it asks for the release channel explicitly.
+      env: { ...process.env, OPENCODE_CHANNEL: 'latest' },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
     opencodeRebuildProcess = child;
 
     const tail = [];
