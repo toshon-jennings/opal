@@ -5159,15 +5159,14 @@ ipcMain.handle('opencode:rebuild', async (event) => {
   const args = process.platform === 'win32' ? ['/c', command] : ['-lc', command];
 
   return new Promise((resolve) => {
-    const child = spawn(executable, args, {
-      cwd,
-      // Without this the fork's script derives its channel from the current git
-      // branch, so building off `dev` stamps the binary 0.0.0-dev-<timestamp>
-      // and the app renders a DEV badge. Perci builds for daily use, not a
-      // preview, so it asks for the release channel explicitly.
-      env: { ...process.env, OPENCODE_CHANNEL: 'latest' },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
+    // Deliberately no OPENCODE_CHANNEL here. The fork derives it from the
+    // current git branch, so a `dev` checkout builds the preview channel: the
+    // app shows a DEV badge and stamps 0.0.0-dev-<timestamp>. Forcing `latest`
+    // removes the badge but also compiles out everything gated on
+    // `channel !== "prod"` — most importantly the worktree/branch picker on the
+    // New Session screen. The badge is cosmetic; the picker is not. Keep the
+    // branch-derived channel.
+    const child = spawn(executable, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
     opencodeRebuildProcess = child;
 
     const tail = [];
