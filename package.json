@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "vite --no-open",
     "build": "vite build",
+    "postinstall": "node scripts/fix-node-pty-perms.cjs",
     "lint": "eslint . --ext .js,.jsx,.cjs",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -118,5 +119,8 @@
     "vite": "^5.1.4",
     "vitest": "^1.6.1",
     "wait-on": "^9.0.5"
+  },
+  "allowScripts": {
+    "node-pty@1.1.0": true
   }
 }
