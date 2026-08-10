@@ -116,6 +116,13 @@ contextBridge.exposeInMainWorld('electron', {
   opencodeCheckInstall: () => ipcRenderer.invoke('opencode:check-install'),
   opencodeProbe: () => ipcRenderer.invoke('opencode:probe'),
   opencodeStart: () => ipcRenderer.invoke('opencode:start'),
+  opencodeBuildInfo: () => ipcRenderer.invoke('opencode:build-info'),
+  opencodeRebuild: () => ipcRenderer.invoke('opencode:rebuild'),
+  onOpencodeRebuildProgress: (callback) => {
+    const listener = (event, line) => callback(line);
+    ipcRenderer.on('opencode:rebuild-progress', listener);
+    return () => ipcRenderer.removeListener('opencode:rebuild-progress', listener);
+  },
   getHomeDir: () => ipcRenderer.invoke('get-home-dir'),
   // G-Dash (Google Workspace dashboard) — BYO OAuth client; tokens stay in main.
   gdashStatus: () => ipcRenderer.invoke('gdash:status'),

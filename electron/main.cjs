@@ -1379,6 +1379,10 @@ app.on('before-quit', () => {
     try { opencodeServerProcess.kill('SIGTERM'); } catch (_) {}
     opencodeServerProcess = null;
   }
+  if (opencodeRebuildProcess) {
+    try { opencodeRebuildProcess.kill('SIGTERM'); } catch (_) {}
+    opencodeRebuildProcess = null;
+  }
 });
 
 app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
@@ -5026,6 +5030,41 @@ ipcMain.handle('localhost:check-health', async (event, { url } = {}) => {
   return probeLocalHttp(url);
 });
 
+const OPENCODE_RIG_DIR = path.join(require('os').homedir(), 'opencode');
+// The binary embeds a build of these trees, so anything newer than the binary
+// means the window would serve an interface that no longer matches the source.
+const OPENCODE_RIG_UI_SOURCES = ['packages/app/src', 'packages/ui/src'];
+const OPENCODE_SCAN_SKIP = new Set(['node_modules', 'dist', '.git', '.turbo']);
+let opencodeRebuildProcess = null;
+
+function newestSourceMtime(root) {
+  let newest = 0;
+  const walk = (dir) => {
+    let entries;
+    try {
+      entries = fsSync.readdirSync(dir, { withFileTypes: true });
+    } catch (_) {
+      return;
+    }
+    for (const entry of entries) {
+      if (OPENCODE_SCAN_SKIP.has(entry.name)) continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+        continue;
+      }
+      try {
+        const { mtimeMs } = fsSync.statSync(full);
+        if (mtimeMs > newest) newest = mtimeMs;
+      } catch (_) {
+        // A file that vanished mid-scan (editor swap file) tells us nothing.
+      }
+    }
+  };
+  walk(root);
+  return newest;
+}
+
 // The OpenCode Rig fork's own build, which embeds its web UI in the binary.
 // This matters for more than branding: a build without the embedded UI proxies
 // every UI request to https://app.opencode.ai (see the fork's
@@ -5038,7 +5077,7 @@ function opencodeRigBinary() {
 
   const target = `opencode-${process.platform === 'win32' ? 'windows' : process.platform}-${process.arch}`;
   const built = path.join(
-    app.getPath('home'), 'opencode', 'packages', 'opencode', 'dist', target, 'bin',
+    OPENCODE_RIG_DIR, 'packages', 'opencode', 'dist', target, 'bin',
     process.platform === 'win32' ? 'opencode.exe' : 'opencode'
   );
   return fsSync.existsSync(built) ? built : null;
@@ -5074,6 +5113,100 @@ ipcMain.handle('opencode:check-install', async () => {
   // isRig distinguishes the fork build (embedded Rig UI) from a stock CLI that
   // would proxy upstream OpenCode's interface instead.
   return { installed: true, path: cmdPath, version, isRig: cmdPath === opencodeRigBinary() };
+});
+
+// The embedded UI is baked in at compile time, so edits to the fork's UI sources
+// don't reach the window until the binary is rebuilt.
+ipcMain.handle('opencode:build-info', async () => {
+  const binary = opencodeRigBinary();
+  const hasSource = fsSync.existsSync(path.join(OPENCODE_RIG_DIR, 'packages', 'opencode', 'script', 'build.ts'));
+  if (!binary) return { isRig: false, stale: false, canRebuild: hasSource };
+
+  let builtAt = 0;
+  try {
+    builtAt = fsSync.statSync(binary).mtimeMs;
+  } catch (_) {
+    return { isRig: true, binaryPath: binary, stale: false, canRebuild: hasSource };
+  }
+
+  let newestSourceAt = 0;
+  for (const rel of OPENCODE_RIG_UI_SOURCES) {
+    const found = newestSourceMtime(path.join(OPENCODE_RIG_DIR, rel));
+    if (found > newestSourceAt) newestSourceAt = found;
+  }
+
+  return {
+    isRig: true,
+    binaryPath: binary,
+    builtAt,
+    newestSourceAt,
+    stale: newestSourceAt > 0 && newestSourceAt > builtAt,
+    canRebuild: hasSource,
+    building: Boolean(opencodeRebuildProcess),
+  };
+});
+
+ipcMain.handle('opencode:rebuild', async (event) => {
+  if (opencodeRebuildProcess) return { ok: false, error: 'A rebuild is already running.' };
+  const cwd = path.join(OPENCODE_RIG_DIR, 'packages', 'opencode');
+  if (!fsSync.existsSync(path.join(cwd, 'script', 'build.ts'))) {
+    return { ok: false, error: `OpenCode Rig source not found at ${OPENCODE_RIG_DIR}.` };
+  }
+
+  const command = 'bun run script/build.ts --single --skip-install';
+  const executable = process.platform === 'win32' ? 'cmd.exe' : '/bin/sh';
+  // Login shell so bun resolves the same way it does in a terminal.
+  const args = process.platform === 'win32' ? ['/c', command] : ['-lc', command];
+
+  return new Promise((resolve) => {
+    const child = spawn(executable, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+    opencodeRebuildProcess = child;
+
+    const tail = [];
+    let lastLine = '';
+    const onChunk = (buf) => {
+      const text = buf.toString();
+      tail.push(text);
+      if (tail.length > 60) tail.shift();
+      const line = text.split('\n').map((s) => s.trim()).filter(Boolean).pop();
+      if (!line) return;
+      lastLine = line;
+      if (!event.sender.isDestroyed()) event.sender.send('opencode:rebuild-progress', line);
+    };
+    child.stdout.on('data', onChunk);
+    child.stderr.on('data', onChunk);
+
+    child.on('error', (err) => {
+      opencodeRebuildProcess = null;
+      resolve({ ok: false, error: err.message });
+    });
+
+    child.on('exit', (code) => {
+      opencodeRebuildProcess = null;
+      if (code !== 0) {
+        // Carry the last build output into the message — "exit 1" alone leaves
+        // the user with nothing to act on, and the cause is usually right here
+        // (a missing dependency, a broken symlink, a type error).
+        resolve({
+          ok: false,
+          error: lastLine ? `Build failed (exit ${code}): ${lastLine}` : `Build failed (exit ${code}).`,
+          log: tail.join('').slice(-2000),
+        });
+        return;
+      }
+      // The live server is still the old binary. Stop ours so the next start
+      // picks up the rebuild — never a server Perci didn't spawn.
+      if (opencodeServerProcess) {
+        try {
+          opencodeServerProcess.kill('SIGTERM');
+        } catch (_) {
+          // Already gone — the restart below is what matters.
+        }
+        opencodeServerProcess = null;
+      }
+      resolve({ ok: true });
+    });
+  });
 });
 
 // Probes with Perci's own credentials, so the three outcomes are distinguishable:

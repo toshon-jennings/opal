@@ -1,6 +1,6 @@
 /* eslint-disable react/no-unknown-property */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertCircle, ExternalLink, RefreshCw, Play, Loader2 } from 'lucide-react';
+import { AlertCircle, ExternalLink, RefreshCw, Play, Loader2, Hammer, X } from 'lucide-react';
 import opencodeIcon from '../assets/opencode-icon.png';
 
 const OPENCODE_URL = 'http://127.0.0.1:4096';
@@ -15,6 +15,10 @@ export default function OpencodeMode() {
     const [status, setStatus] = useState('checking'); // checking | no-cli | starting | running | offline | foreign
     const [contentReady, setContentReady] = useState(false);
     const [loadError, setLoadError] = useState(null);
+    const [buildInfo, setBuildInfo] = useState(null);
+    const [rebuild, setRebuild] = useState(null); // null | { line } while building
+    const [rebuildError, setRebuildError] = useState(null);
+    const [staleDismissed, setStaleDismissed] = useState(false);
     const webviewRef = useRef(null);
     const pollIntervalRef = useRef(null);
 
@@ -118,6 +122,30 @@ export default function OpencodeMode() {
         };
     }, [canUseWebview, frameKey, status]);
 
+    const refreshBuildInfo = useCallback(async () => {
+        if (!window.electron?.opencodeBuildInfo) return null;
+        try {
+            const info = await window.electron.opencodeBuildInfo();
+            setBuildInfo(info);
+            return info;
+        } catch {
+            return null;
+        }
+    }, []);
+
+    // The embedded UI is compiled into the binary, so a source edit doesn't reach
+    // the window until it's rebuilt. Checked on open and after each reload.
+    useEffect(() => {
+        refreshBuildInfo();
+    }, [refreshBuildInfo, frameKey]);
+
+    useEffect(() => {
+        if (!window.electron?.onOpencodeRebuildProgress) return;
+        return window.electron.onOpencodeRebuildProgress((line) => {
+            setRebuild((current) => (current ? { line } : current));
+        });
+    }, []);
+
     const handleLaunch = useCallback(async () => {
         if (!window.electron?.opencodeStart) return;
         setLoadError(null);
@@ -132,6 +160,31 @@ export default function OpencodeMode() {
             setStatus('offline');
         }
     }, [startPolling]);
+
+    // Main stops Perci's server once the build lands, so restarting here is what
+    // swaps the running server over to the freshly built binary.
+    const handleRebuild = useCallback(async () => {
+        if (!window.electron?.opencodeRebuild) return;
+        setRebuildError(null);
+        setRebuild({ line: 'Starting build…' });
+        try {
+            const result = await window.electron.opencodeRebuild();
+            if (!result?.ok) throw new Error(result?.error || 'Rebuild failed.');
+            setRebuild(null);
+            await refreshBuildInfo();
+            setContentReady(false);
+            setFrameKey((k) => k + 1);
+            setStatus('starting');
+            const started = await window.electron.opencodeStart();
+            if (!started?.ok) throw new Error(started?.error || 'OpenCode did not restart.');
+            startPolling();
+        } catch (err) {
+            console.error('[OpenCode] Rebuild failed:', err);
+            setRebuild(null);
+            setRebuildError(err.message);
+            setStatus('offline');
+        }
+    }, [refreshBuildInfo, startPolling]);
 
     const reload = () => { setLoadError(null); setContentReady(false); setFrameKey((k) => k + 1); };
     const openExternal = () => {
@@ -166,6 +219,12 @@ export default function OpencodeMode() {
                             : status === 'foreign' ? 'locked'
                             : status}
                     </span>
+                    {buildInfo && buildInfo.isRig === false && (
+                        <span title="Perci fell back to the opencode CLI on PATH, which proxies its interface from app.opencode.ai"
+                            className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-500">
+                            stock build
+                        </span>
+                    )}
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
                     <button type="button" onClick={reload} title="Reload"
@@ -178,6 +237,45 @@ export default function OpencodeMode() {
                     </button>
                 </div>
             </div>
+
+            {rebuild ? (
+                <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--bg-tertiary)] px-4 py-2.5">
+                    <Loader2 size={14} className="shrink-0 animate-spin text-[var(--accent)]" />
+                    <div className="min-w-0 flex-1">
+                        <div className="text-xs font-medium text-[var(--text-primary)]">Rebuilding OpenCode Rig…</div>
+                        <div className="truncate font-mono text-[11px] text-[var(--text-tertiary)]">{rebuild.line}</div>
+                    </div>
+                </div>
+            ) : rebuildError ? (
+                <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] bg-red-500/10 px-4 py-2.5">
+                    <AlertCircle size={14} className="shrink-0 text-red-400" />
+                    <div className="min-w-0 flex-1 text-xs text-red-400">{rebuildError}</div>
+                    <button type="button" onClick={handleRebuild}
+                        className="shrink-0 rounded-md border border-[var(--border)] px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]">
+                        Try again
+                    </button>
+                    <button type="button" onClick={() => setRebuildError(null)} title="Dismiss"
+                        className="shrink-0 rounded-md p-1 text-[var(--text-tertiary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]">
+                        <X size={13} />
+                    </button>
+                </div>
+            ) : buildInfo?.stale && buildInfo?.canRebuild && !staleDismissed ? (
+                <div className="flex shrink-0 items-center gap-3 border-b border-[var(--border)] bg-amber-500/10 px-4 py-2.5">
+                    <Hammer size={14} className="shrink-0 text-amber-500" />
+                    <div className="min-w-0 flex-1 text-xs text-[var(--text-secondary)]">
+                        <span className="font-medium text-amber-500">Rig UI is out of date.</span>{' '}
+                        The interface is compiled into the binary, and your source has changed since it was built.
+                    </div>
+                    <button type="button" onClick={handleRebuild}
+                        className="shrink-0 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-500 transition-colors hover:bg-amber-500/20">
+                        Rebuild
+                    </button>
+                    <button type="button" onClick={() => setStaleDismissed(true)} title="Dismiss"
+                        className="shrink-0 rounded-md p-1 text-[var(--text-tertiary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]">
+                        <X size={13} />
+                    </button>
+                </div>
+            ) : null}
 
             {status === 'no-cli' ? (
                 <div className="flex flex-1 items-center justify-center p-8">
