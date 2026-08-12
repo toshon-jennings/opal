@@ -1,9 +1,10 @@
 # Perci
 
-<div align="center">
 <p align="center">
   <img src="https://raw.githubusercontent.com/toshon-jennings/perci/site/assets/perci-og.png" alt="perci developer workspace" width="900">
 </p>
+
+<div align="center">
 
 **The open-source AI workspace for serious work**
 
