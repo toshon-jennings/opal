@@ -6,6 +6,8 @@
   <span style="color: #9CA3AF;">open</span><span style="color: #6B7280;">Code</span> <span style="color: #D97757;">RIG_</span>
 </p>
 
+<img src="site/assets/perci-og.png" alt="Perci — The open-source AI workspace for serious work" width="600">
+
 **The open-source AI workspace for serious work**
 
 [![React](https://img.shields.io/badge/React-18-2361AB.svg)](https://reactjs.org/)
