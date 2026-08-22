@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Search, BookOpen } from 'lucide-react';
+import { Search, BookOpen, AppWindow } from 'lucide-react';
 import PerciMascot from '../PerciMascot';
 import { useMode } from '../../context/ModeContext';
 import { useChat } from '../../context/ChatContext';
+import { usePerciOS } from '../../hooks/usePerciOS';
 import { NATIVE_TILES, SYSTEM_TILES, LOGO_WHITE_BOX_IDS, LOGO_FILL_COVER_IDS } from '../../lib/appCatalog.jsx';
 import { getPwaRegistry, pwaToTile } from '../../lib/pwaRegistry';
 import { useFlipPosition } from '../../lib/useFlipPosition';
@@ -45,10 +46,17 @@ function CatalogItem({ id, icon: Icon, logo, title, desc, onClick, isPwa }) {
 export default function SirPerciLauncher({ onOpenSettings, autoHide, onToggleAutoHide, onOpenChange }) {
     const { openWindow } = useMode();
     const { updateProvider } = useChat();
+    const isPerciOS = usePerciOS();
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState('');
     const [anchor, setAnchor] = useState(null);
     const [activeGuide, setActiveGuide] = useState(null);
+    // Real installed Linux apps (Tier 2 — see perci-os/README.md). Fetched
+    // fresh each time the panel opens rather than once on mount, so newly
+    // apt-installed apps show up without restarting Perci. Empty and
+    // never fetched at all when isPerciOS is false — no IPC call happens
+    // on macOS/Windows or a plain Linux desktop install.
+    const [installedApps, setInstalledApps] = useState([]);
     const triggerRef = useRef(null);
     const panelRef = useRef(null);
     const inputRef = useRef(null);
@@ -67,10 +75,17 @@ export default function SirPerciLauncher({ onOpenSettings, autoHide, onToggleAut
 
     const openApp = (id) => { openWindow(id); close(); };
     const openGuide = (key) => { setActiveGuide(key); close(); };
+    const launchInstalledApp = (appId) => { window.electron.perciOS.launchApp(appId).catch(() => {}); close(); };
 
     useEffect(() => {
         if (open) inputRef.current?.focus();
     }, [open]);
+
+    useEffect(() => {
+        if (open && isPerciOS) {
+            window.electron.perciOS.listInstalledApps().then(setInstalledApps).catch(() => setInstalledApps([]));
+        }
+    }, [open, isPerciOS]);
 
     useEffect(() => {
         if (!open) return undefined;
@@ -92,7 +107,11 @@ export default function SirPerciLauncher({ onOpenSettings, autoHide, onToggleAut
     const nativeResults = useMemo(() => NATIVE_TILES.filter((it) => matches(it, q)), [q]);
     const systemResults = useMemo(() => [...SYSTEM_TILES, ...getPwaRegistry().map(pwaToTile)].filter((it) => matches(it, q)).sort((a, b) => a.title.localeCompare(b.title)), [q]);
     const guideResults = useMemo(() => GUIDES.filter((it) => matches(it, q)), [q]);
-    const noResults = !nativeResults.length && !systemResults.length && !guideResults.length;
+    const installedAppResults = useMemo(
+        () => installedApps.map((app) => ({ id: app.id, title: app.name, desc: 'Installed app' })).filter((it) => matches(it, q)),
+        [installedApps, q],
+    );
+    const noResults = !nativeResults.length && !systemResults.length && !guideResults.length && !installedAppResults.length;
 
     return (
         <>
@@ -151,6 +170,14 @@ export default function SirPerciLauncher({ onOpenSettings, autoHide, onToggleAut
                                         <div className="perci-sirperci-section-label">System & External</div>
                                         {systemResults.map((item) => (
                                             <CatalogItem key={item.id} id={item.id} icon={item.icon} logo={item.logo} title={item.title} desc={item.desc} isPwa={item.isPwa} onClick={() => openApp(item.id)} />
+                                        ))}
+                                    </div>
+                                )}
+                                {installedAppResults.length > 0 && (
+                                    <div className="perci-sirperci-section">
+                                        <div className="perci-sirperci-section-label">Installed Apps</div>
+                                        {installedAppResults.map((item) => (
+                                            <CatalogItem key={item.id} id={item.id} icon={AppWindow} title={item.title} desc={item.desc} onClick={() => launchInstalledApp(item.id)} />
                                         ))}
                                     </div>
                                 )}

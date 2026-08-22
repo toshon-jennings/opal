@@ -11,7 +11,12 @@ const {
   trustedCodexAuthUrl,
 } = require('./codex-account.cjs');
 const { probeLocalHttp } = require('./localhost-health.cjs');
-const { isPerciOSShell, listWifiNetworks, getWifiStatus, connectToWifi } = require('./perci-os.cjs');
+const {
+  isPerciOSShell, listWifiNetworks, getWifiStatus, connectToWifi,
+  getBatteryStatus, getPowerActions, suspend, powerOff, reboot,
+  getBrightness, setBrightness, getVolume, setVolume, toggleMute,
+  listInstalledApps, launchApp,
+} = require('./perci-os.cjs');
 const {
   MAX_VOICE_RESPONSE_BYTES,
   prepareVoiceTranscription,
@@ -5059,6 +5064,78 @@ ipcMain.handle('perci-os:wifi:connect', async (event, { ssid, password } = {}) =
   if (!isPerciOSShell()) throw new Error('Not running as Perci OS');
   if (typeof ssid !== 'string' || !ssid) throw new Error('ssid is required');
   await connectToWifi(ssid, password);
+  return { ok: true };
+});
+
+ipcMain.handle('perci-os:power:battery', async () => {
+  if (!isPerciOSShell()) return { supported: false, present: false };
+  return getBatteryStatus();
+});
+
+ipcMain.handle('perci-os:power:actions', async () => {
+  if (!isPerciOSShell()) return { supported: false, canSuspend: false, canPowerOff: false, canReboot: false };
+  return getPowerActions();
+});
+
+ipcMain.handle('perci-os:power:suspend', async () => {
+  if (!isPerciOSShell()) throw new Error('Not running as Perci OS');
+  await suspend();
+  return { ok: true };
+});
+
+ipcMain.handle('perci-os:power:power-off', async () => {
+  if (!isPerciOSShell()) throw new Error('Not running as Perci OS');
+  await powerOff();
+  return { ok: true };
+});
+
+ipcMain.handle('perci-os:power:reboot', async () => {
+  if (!isPerciOSShell()) throw new Error('Not running as Perci OS');
+  await reboot();
+  return { ok: true };
+});
+
+ipcMain.handle('perci-os:display:get-brightness', async () => {
+  if (!isPerciOSShell()) return { supported: false, percentage: null };
+  return getBrightness();
+});
+
+ipcMain.handle('perci-os:display:set-brightness', async (event, { percent } = {}) => {
+  if (!isPerciOSShell()) throw new Error('Not running as Perci OS');
+  setBrightness(percent);
+  return { ok: true };
+});
+
+ipcMain.handle('perci-os:volume:get', async () => {
+  if (!isPerciOSShell()) return { supported: false, percentage: null, muted: false };
+  return getVolume();
+});
+
+ipcMain.handle('perci-os:volume:set', async (event, { percent } = {}) => {
+  if (!isPerciOSShell()) throw new Error('Not running as Perci OS');
+  await setVolume(percent);
+  return { ok: true };
+});
+
+ipcMain.handle('perci-os:volume:toggle-mute', async () => {
+  if (!isPerciOSShell()) throw new Error('Not running as Perci OS');
+  await toggleMute();
+  return { ok: true };
+});
+
+ipcMain.handle('perci-os:apps:list', async () => {
+  if (!isPerciOSShell()) return [];
+  try {
+    return listInstalledApps();
+  } catch {
+    return [];
+  }
+});
+
+ipcMain.handle('perci-os:apps:launch', async (event, { appId } = {}) => {
+  if (!isPerciOSShell()) throw new Error('Not running as Perci OS');
+  if (typeof appId !== 'string' || !appId) throw new Error('appId is required');
+  launchApp(appId);
   return { ok: true };
 });
 
