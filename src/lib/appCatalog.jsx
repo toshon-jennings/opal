@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-    Server, Radar, Layers, Globe, TerminalSquare, Container, Database, Ship, Rocket,
+    Server, Radar, Layers, Globe, TerminalSquare, Container, Database, Ship, Rocket, Settings,
 } from 'lucide-react';
 import {
     ChatIcon, CoworkIcon, CodeIcon, NotesIcon, EnsembleIcon, AgentsIcon, CodexMicroIcon, ResearchIcon,
@@ -167,3 +167,10 @@ export const SYSTEM_TILES = [
     { id: GITHUB_OVERVIEW_WINDOW_ID, icon: null, logo: githubOverviewLogo, title: 'GitHub Overview', desc: 'Commits, CI, alerts, & PRs for your repos', hue: '#6e5494', artwork: true, bgImage: githubOverviewBg },
     { id: DOCKER_WINDOW_ID, icon: Container, title: 'Containers', desc: 'Containers, images, & volumes with backup-gated removal', hue: '#2496ed', artwork: true, bgImage: dockerBg },
 ];
+
+// Not part of SYSTEM_TILES — only shown when running as the Perci OS
+// shell (see usePerciOS/DashboardMode.jsx), same conditional-tile pattern
+// already used for user-added PWAs.
+export const PERCI_OS_SETTINGS_TILE = {
+    id: MODES.SYSTEM, icon: Settings, title: 'Settings', desc: 'WiFi, display, power, & volume', hue: '#71717a',
+};

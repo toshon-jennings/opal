@@ -36,6 +36,7 @@ export const MODES = {
     ENSEMBLE: 'ensemble', // Multi-model deliberation (panel → judge → synthesis)
     SHIPYARD: 'shipyard', // AI project manager — kanban board with GitHub rail + Jules
     DOCKET: 'docket', // Intake queue + device fleet ledger, stored as Notes
+    SYSTEM: 'system', // Perci OS Settings — WiFi/display/power/volume. Perci-OS-only, see usePerciOS.
 };
 
 // Non-mode windows (surfaces that open as windows but aren't in the MODES enum).
@@ -91,6 +92,7 @@ export const WINDOW_TITLES = {
     [MODES.ENSEMBLE]: 'Ensemble',
     [MODES.SHIPYARD]: 'Shipyard',
     [MODES.DOCKET]: 'Docket',
+    [MODES.SYSTEM]: 'Settings',
     [OPENCLAW_WINDOW_ID]: 'OpenClaw',
     [HERMES_WINDOW_ID]: 'Hermes',
     [YOUTUBE_WINDOW_ID]: 'YouTube',

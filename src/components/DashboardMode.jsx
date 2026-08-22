@@ -13,7 +13,8 @@ import UsageLimitsGlance from './UsageLimitsGlance';
 import { AGENT_DEFINITIONS, ACTIVE_JOB_STATUSES, ATTENTION_JOB_STATUSES } from './AgentsPanel';
 import OnboardingCard, { hasOnboardingBeenSeen } from './OnboardingCard';
 import { BeginnerGuideModal } from './BeginnerGuideModal';
-import { NATIVE_TILES, SYSTEM_TILES, LOGO_WHITE_BOX_IDS, LOGO_FILL_COVER_IDS } from '../lib/appCatalog.jsx';
+import { NATIVE_TILES, SYSTEM_TILES, PERCI_OS_SETTINGS_TILE, LOGO_WHITE_BOX_IDS, LOGO_FILL_COVER_IDS } from '../lib/appCatalog.jsx';
+import { usePerciOS } from '../hooks/usePerciOS';
 import { getPwaRegistry, removePwa, pwaToTile } from '../lib/pwaRegistry';
 import AddPwaModal from './windows/AddPwaModal';
 import { readJsonStorage, writeStringStorage } from '../lib/persistentStore';
@@ -305,6 +306,10 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
     // ── PWA shortcut tiles ──────────────────────────────────────────────────
     const [pwaTiles, setPwaTiles] = useState(() => getPwaRegistry().map(pwaToTile));
     const [showAddPwa, setShowAddPwa] = useState(false);
+
+    // ── Perci OS Settings tile — only on the OS shell, never a normal install ──
+    const isPerciOS = usePerciOS();
+    const perciOSTiles = useMemo(() => (isPerciOS ? [PERCI_OS_SETTINGS_TILE] : []), [isPerciOS]);
 
     const refreshPwaTiles = useCallback(() => {
         setPwaTiles(getPwaRegistry().map(pwaToTile));
@@ -650,7 +655,7 @@ export default function DashboardMode({ openClawStatus, onOpenSettings }) {
                                 onToggleAlphabetical={() => toggleAlphabeticalSection('system')}
                             />
                             <div className="dash-tiles dash-tiles-system">
-                                {[...orderedSystemTiles, ...pwaTiles].map(({ id, icon: Icon, logo, title, desc, hue, artwork, bgImage, iconSize, isPwa }, i) => {
+                                {[...orderedSystemTiles, ...pwaTiles, ...perciOSTiles].map(({ id, icon: Icon, logo, title, desc, hue, artwork, bgImage, iconSize, isPwa }, i) => {
                                     const isWhiteBox = isPwa || LOGO_WHITE_BOX_IDS.has(id);
                                     const isFillCover = LOGO_FILL_COVER_IDS.has(id);
                                     let logoStyle;

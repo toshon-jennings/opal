@@ -12,6 +12,12 @@ const {
 } = require('./codex-account.cjs');
 const { probeLocalHttp } = require('./localhost-health.cjs');
 const {
+  isPerciOSShell, listWifiNetworks, getWifiStatus, connectToWifi,
+  getBatteryStatus, getPowerActions, suspend, powerOff, reboot,
+  getBrightness, setBrightness, getVolume, setVolume, toggleMute,
+  listInstalledApps, launchApp,
+} = require('./perci-os.cjs');
+const {
   MAX_VOICE_RESPONSE_BYTES,
   prepareVoiceTranscription,
   readBoundedResponseText,
@@ -5028,6 +5034,109 @@ ipcMain.handle('localhost:start-now', async (event, { cwd, command } = {}) => {
 
 ipcMain.handle('localhost:check-health', async (event, { url } = {}) => {
   return probeLocalHttp(url);
+});
+
+// Perci OS (Phase 2) — inert everywhere except the Linux OS-shell image.
+// isPerciOS itself is always safe to answer (it's how the renderer decides
+// whether to show OS-only surfaces at all); the rest gate on it explicitly
+// so they never touch D-Bus on a normal desktop install.
+ipcMain.handle('perci-os:is-perci-os', async () => isPerciOSShell());
+
+ipcMain.handle('perci-os:wifi:list', async () => {
+  if (!isPerciOSShell()) return { supported: false, networks: [] };
+  try {
+    return await listWifiNetworks();
+  } catch (err) {
+    return { supported: false, networks: [], error: err.message };
+  }
+});
+
+ipcMain.handle('perci-os:wifi:status', async () => {
+  if (!isPerciOSShell()) return { supported: false, connected: false, ssid: null };
+  try {
+    return await getWifiStatus();
+  } catch (err) {
+    return { supported: false, connected: false, ssid: null, error: err.message };
+  }
+});
+
+ipcMain.handle('perci-os:wifi:connect', async (event, { ssid, password } = {}) => {
+  if (!isPerciOSShell()) throw new Error('Not running as Perci OS');
+  if (typeof ssid !== 'string' || !ssid) throw new Error('ssid is required');
+  await connectToWifi(ssid, password);
+  return { ok: true };
+});
+
+ipcMain.handle('perci-os:power:battery', async () => {
+  if (!isPerciOSShell()) return { supported: false, present: false };
+  return getBatteryStatus();
+});
+
+ipcMain.handle('perci-os:power:actions', async () => {
+  if (!isPerciOSShell()) return { supported: false, canSuspend: false, canPowerOff: false, canReboot: false };
+  return getPowerActions();
+});
+
+ipcMain.handle('perci-os:power:suspend', async () => {
+  if (!isPerciOSShell()) throw new Error('Not running as Perci OS');
+  await suspend();
+  return { ok: true };
+});
+
+ipcMain.handle('perci-os:power:power-off', async () => {
+  if (!isPerciOSShell()) throw new Error('Not running as Perci OS');
+  await powerOff();
+  return { ok: true };
+});
+
+ipcMain.handle('perci-os:power:reboot', async () => {
+  if (!isPerciOSShell()) throw new Error('Not running as Perci OS');
+  await reboot();
+  return { ok: true };
+});
+
+ipcMain.handle('perci-os:display:get-brightness', async () => {
+  if (!isPerciOSShell()) return { supported: false, percentage: null };
+  return getBrightness();
+});
+
+ipcMain.handle('perci-os:display:set-brightness', async (event, { percent } = {}) => {
+  if (!isPerciOSShell()) throw new Error('Not running as Perci OS');
+  setBrightness(percent);
+  return { ok: true };
+});
+
+ipcMain.handle('perci-os:volume:get', async () => {
+  if (!isPerciOSShell()) return { supported: false, percentage: null, muted: false };
+  return getVolume();
+});
+
+ipcMain.handle('perci-os:volume:set', async (event, { percent } = {}) => {
+  if (!isPerciOSShell()) throw new Error('Not running as Perci OS');
+  await setVolume(percent);
+  return { ok: true };
+});
+
+ipcMain.handle('perci-os:volume:toggle-mute', async () => {
+  if (!isPerciOSShell()) throw new Error('Not running as Perci OS');
+  await toggleMute();
+  return { ok: true };
+});
+
+ipcMain.handle('perci-os:apps:list', async () => {
+  if (!isPerciOSShell()) return [];
+  try {
+    return listInstalledApps();
+  } catch {
+    return [];
+  }
+});
+
+ipcMain.handle('perci-os:apps:launch', async (event, { appId } = {}) => {
+  if (!isPerciOSShell()) throw new Error('Not running as Perci OS');
+  if (typeof appId !== 'string' || !appId) throw new Error('appId is required');
+  launchApp(appId);
+  return { ok: true };
 });
 
 // Follows the MARKITDOWN_UI_WEBUI_DIR convention: env override, else a sibling

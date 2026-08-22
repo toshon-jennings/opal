@@ -31,6 +31,27 @@ contextBridge.exposeInMainWorld('electron', {
     fetch: ({ apiBase, apiKey, path, method, body }) =>
       ipcRenderer.invoke('studioos:fetch', { apiBase, apiKey, path, method, body })
   },
+  // Perci OS (Phase 2) — isPerciOS resolves false on every platform except
+  // the Linux OS-shell image, and OS-only surfaces stay hidden until it
+  // resolves true. See electron/perci-os.cjs.
+  isPerciOS: () => ipcRenderer.invoke('perci-os:is-perci-os'),
+  perciOS: {
+    listWifiNetworks: () => ipcRenderer.invoke('perci-os:wifi:list'),
+    getWifiStatus: () => ipcRenderer.invoke('perci-os:wifi:status'),
+    connectToWifi: (ssid, password) => ipcRenderer.invoke('perci-os:wifi:connect', { ssid, password }),
+    getBatteryStatus: () => ipcRenderer.invoke('perci-os:power:battery'),
+    getPowerActions: () => ipcRenderer.invoke('perci-os:power:actions'),
+    suspend: () => ipcRenderer.invoke('perci-os:power:suspend'),
+    powerOff: () => ipcRenderer.invoke('perci-os:power:power-off'),
+    reboot: () => ipcRenderer.invoke('perci-os:power:reboot'),
+    getBrightness: () => ipcRenderer.invoke('perci-os:display:get-brightness'),
+    setBrightness: (percent) => ipcRenderer.invoke('perci-os:display:set-brightness', { percent }),
+    getVolume: () => ipcRenderer.invoke('perci-os:volume:get'),
+    setVolume: (percent) => ipcRenderer.invoke('perci-os:volume:set', { percent }),
+    toggleMute: () => ipcRenderer.invoke('perci-os:volume:toggle-mute'),
+    listInstalledApps: () => ipcRenderer.invoke('perci-os:apps:list'),
+    launchApp: (appId) => ipcRenderer.invoke('perci-os:apps:launch', { appId }),
+  },
   listAgentJobs: (options) => ipcRenderer.invoke('agent-jobs:list', options),
   getAgentJob: (id) => ipcRenderer.invoke('agent-jobs:get', id),
   queueAgentJob: (job) => ipcRenderer.invoke('agent-jobs:queue', job),
