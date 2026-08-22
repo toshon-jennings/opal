@@ -11,6 +11,7 @@ const {
   trustedCodexAuthUrl,
 } = require('./codex-account.cjs');
 const { probeLocalHttp } = require('./localhost-health.cjs');
+const { isPerciOSShell, listWifiNetworks, getWifiStatus, connectToWifi } = require('./perci-os.cjs');
 const {
   MAX_VOICE_RESPONSE_BYTES,
   prepareVoiceTranscription,
@@ -5028,6 +5029,37 @@ ipcMain.handle('localhost:start-now', async (event, { cwd, command } = {}) => {
 
 ipcMain.handle('localhost:check-health', async (event, { url } = {}) => {
   return probeLocalHttp(url);
+});
+
+// Perci OS (Phase 2) — inert everywhere except the Linux OS-shell image.
+// isPerciOS itself is always safe to answer (it's how the renderer decides
+// whether to show OS-only surfaces at all); the rest gate on it explicitly
+// so they never touch D-Bus on a normal desktop install.
+ipcMain.handle('perci-os:is-perci-os', async () => isPerciOSShell());
+
+ipcMain.handle('perci-os:wifi:list', async () => {
+  if (!isPerciOSShell()) return { supported: false, networks: [] };
+  try {
+    return await listWifiNetworks();
+  } catch (err) {
+    return { supported: false, networks: [], error: err.message };
+  }
+});
+
+ipcMain.handle('perci-os:wifi:status', async () => {
+  if (!isPerciOSShell()) return { supported: false, connected: false, ssid: null };
+  try {
+    return await getWifiStatus();
+  } catch (err) {
+    return { supported: false, connected: false, ssid: null, error: err.message };
+  }
+});
+
+ipcMain.handle('perci-os:wifi:connect', async (event, { ssid, password } = {}) => {
+  if (!isPerciOSShell()) throw new Error('Not running as Perci OS');
+  if (typeof ssid !== 'string' || !ssid) throw new Error('ssid is required');
+  await connectToWifi(ssid, password);
+  return { ok: true };
 });
 
 // Follows the MARKITDOWN_UI_WEBUI_DIR convention: env override, else a sibling

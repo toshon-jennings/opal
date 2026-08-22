@@ -1,8 +1,9 @@
 {
   "name": "perci",
   "private": true,
-  "version": "0.47.1",
+  "version": "0.48.0",
   "description": "A desktop AI workspace for chat, coding, coworking, and agent tools.",
+  "homepage": "https://github.com/toshon-jennings/perci",
   "author": "Toshon Jennings",
   "main": "electron/main.cjs",
   "type": "module",
@@ -19,7 +20,8 @@
     "preview": "vite preview",
     "electron:dev": "NODE_ENV=development concurrently \"npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
     "electron:build": "npm run build && electron-builder",
-    "dist": "npm run build && electron-builder"
+    "dist": "npm run build && electron-builder",
+    "dist:linux": "npm run build && electron-builder --linux"
   },
   "build": {
     "appId": "com.perci.ai",
@@ -59,10 +61,15 @@
       "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "linux": {
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
       "target": [
-        "AppImage"
+        "AppImage",
+        "deb"
       ],
-      "icon": "public/perci-icon.png"
+      "icon": "public/perci-icon.png",
+      "category": "Development",
+      "maintainer": "Toshon Jennings <toshonjennings@gmail.com>",
+      "synopsis": "A desktop AI workspace for chat, coding, coworking, and agent tools."
     },
     "publish": [
       {
@@ -80,6 +87,7 @@
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
     "clsx": "^2.1.0",
+    "dbus-next": "^0.10.2",
     "electron-updater": "^6.8.9",
     "framer-motion": "^11.0.8",
     "html2canvas": "^1.4.1",

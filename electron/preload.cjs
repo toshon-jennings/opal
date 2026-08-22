@@ -31,6 +31,15 @@ contextBridge.exposeInMainWorld('electron', {
     fetch: ({ apiBase, apiKey, path, method, body }) =>
       ipcRenderer.invoke('studioos:fetch', { apiBase, apiKey, path, method, body })
   },
+  // Perci OS (Phase 2) — isPerciOS resolves false on every platform except
+  // the Linux OS-shell image, and OS-only surfaces stay hidden until it
+  // resolves true. See electron/perci-os.cjs.
+  isPerciOS: () => ipcRenderer.invoke('perci-os:is-perci-os'),
+  perciOS: {
+    listWifiNetworks: () => ipcRenderer.invoke('perci-os:wifi:list'),
+    getWifiStatus: () => ipcRenderer.invoke('perci-os:wifi:status'),
+    connectToWifi: (ssid, password) => ipcRenderer.invoke('perci-os:wifi:connect', { ssid, password }),
+  },
   listAgentJobs: (options) => ipcRenderer.invoke('agent-jobs:list', options),
   getAgentJob: (id) => ipcRenderer.invoke('agent-jobs:get', id),
   queueAgentJob: (job) => ipcRenderer.invoke('agent-jobs:queue', job),

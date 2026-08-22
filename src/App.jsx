@@ -46,6 +46,7 @@ import GithubOverviewMode from './components/GithubOverviewMode';
 import AliasManagerMode from './components/AliasManagerMode';
 import ShipyardMode from './components/ShipyardMode';
 import DocketMode from './components/DocketMode';
+import SystemSettingsMode from './components/SystemSettingsMode';
 import PerciPet from './components/PerciPet';
 import { SettingsModal } from './components/SettingsModal';
 import DesktopHost from './components/windows/DesktopHost';
@@ -619,6 +620,7 @@ function AppContent() {
             case MODES.ENSEMBLE: return <EnsembleMode />;
             case MODES.SHIPYARD: return <ShipyardMode openClawStatus={openClawStatus} />;
             case MODES.DOCKET: return <DocketMode />;
+            case MODES.SYSTEM: return <SystemSettingsMode />;
             case MODES.MISSION:
                 return (
                     <MissionControl
