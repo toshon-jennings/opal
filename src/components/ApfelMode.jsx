@@ -10,9 +10,10 @@
 // It does NOT need the postMessage vision bridge MarkItDownMode uses; apfel runs
 // fully on-device and the harness talks to its own supervised apfel --serve.
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, ExternalLink, RefreshCw } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertCircle, ExternalLink, Play, RefreshCw } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { launchArgsFor } from '../lib/localServices';
 
 const APFEL_URL = 'http://127.0.0.1:6271';
 
@@ -29,8 +30,10 @@ export default function ApfelMode() {
     const [status, setStatus] = useState({ state: 'loading' });
     const [contentReady, setContentReady] = useState(false);
     const [loadError, setLoadError] = useState(null);
+    const [starting, setStarting] = useState(false);
     const webviewRef = useRef(null);
     const themedUrl = useMemo(() => `${APFEL_URL}/?theme=${resolvedTheme}&perci=1`, [resolvedTheme]);
+    const canStart = Boolean(window.electron?.localhostStartNow) && Boolean(launchArgsFor('apfel-harness'));
 
     useEffect(() => {
         let active = true;
@@ -70,13 +73,51 @@ export default function ApfelMode() {
         };
     }, [canUseWebview, frameKey, themedUrl]);
 
-    const reload = () => { setLoadError(null); setContentReady(false); setFrameKey((k) => k + 1); };
-    const openExternal = () => {
+    const reload = useCallback(() => { setLoadError(null); setContentReady(false); setFrameKey((k) => k + 1); }, []);
+    const openExternal = useCallback(() => {
         if (window.electron?.openExternal) window.electron.openExternal(themedUrl);
         else window.open(themedUrl, '_blank', 'noopener,noreferrer');
-    };
+    }, [themedUrl]);
+
+    const startServer = useCallback(async () => {
+        const launch = launchArgsFor('apfel-harness');
+        if (!launch || !window.electron?.localhostStartNow) return;
+        setStarting(true);
+        setLoadError(null);
+        try {
+            const result = await window.electron.localhostStartNow(launch);
+            if (!result?.ok) throw new Error(result?.error || 'Apfel Harness did not start.');
+            const canProbe = Boolean(window.electron.localhostCheckHealth);
+            for (let attempt = 0; attempt < 10; attempt += 1) {
+                await new Promise((r) => setTimeout(r, 500));
+                if (!canProbe) {
+                    if (attempt >= 4) break;
+                    continue;
+                }
+                const probe = await window.electron.localhostCheckHealth(APFEL_URL);
+                if (probe?.ok) break;
+            }
+            reload();
+        } catch (err) {
+            setLoadError(err.message || 'Apfel Harness did not start.');
+            setStatus({ state: 'offline' });
+        } finally {
+            setStarting(false);
+        }
+    }, [reload]);
+
+    // Opening the Apfel window auto-starts its harness — one attempt per mount,
+    // mirroring GithubOverviewMode. If the harness is missing (e.g. non-Mac or no checkout)
+    // the error surfaces as the normal offline screen with a manual fallback.
+    const autoStartedRef = useRef(false);
+    useEffect(() => {
+        if (status.state !== 'offline' || autoStartedRef.current || !canStart) return;
+        autoStartedRef.current = true;
+        startServer();
+    }, [status.state, canStart, startServer]);
 
     const isOffline = status.state === 'offline' || Boolean(loadError);
+    const isStarting = starting || status.state === 'loading';
 
     return (
         <div className="flex h-full flex-col bg-[var(--bg-primary)]">
@@ -132,19 +173,38 @@ export default function ApfelMode() {
             {isOffline ? (
                 <div className="flex flex-1 items-center justify-center p-8">
                     <div className="max-w-md text-center">
-                        <h2 className="text-lg font-semibold text-[var(--text-primary)]">Apfel Harness is not reachable</h2>
+                        <h2 className="text-lg font-semibold text-[var(--text-primary)]">
+                            {isStarting ? 'Starting Apfel Harness…' : 'Apfel Harness is not running'}
+                        </h2>
                         <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
-                            Start it from <code>~/apfel-harness</code>, then reload this window.
+                            {canStart
+                                ? 'Perci can launch the local harness (Apple Intelligence via apfel) for you. No terminal needed — just press Start.'
+                                : 'The local harness wraps the apfel CLI (Apple Intelligence, on-device). Start it from ~/apfel-harness, then reload this window.'}
                         </p>
-                        <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2 font-mono text-xs text-[var(--text-secondary)]">
-                            npm start
-                        </div>
+                        {!canStart && (
+                            <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2 font-mono text-xs text-[var(--text-secondary)]">
+                                npm start
+                            </div>
+                        )}
+                        <p className="mt-3 text-xs text-[var(--text-tertiary)]">
+                            {canStart
+                                ? 'Runs ~6271 locally; apfel --serve on 6272 is supervised automatically.'
+                                : 'Requires macOS on Apple Silicon with Apple Intelligence enabled. Fallback is manual: cd ~/apfel-harness && npm start.'}
+                        </p>
                         {loadError && (
                             <p className="mt-3 inline-flex items-center gap-1.5 text-xs text-red-400">
                                 <AlertCircle size={13} /> {loadError}
                             </p>
                         )}
                         <div className="mt-5 flex justify-center gap-2">
+                            {canStart && (
+                                <button type="button" onClick={startServer} disabled={starting}
+                                    className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--accent-hover)] disabled:opacity-60">
+                                    {starting
+                                        ? <><RefreshCw size={14} className="animate-spin" /> Starting…</>
+                                        : <><Play size={14} /> Start Apfel Harness</>}
+                                </button>
+                            )}
                             <button type="button" onClick={reload}
                                 className="inline-flex items-center gap-2 rounded-lg border border-[var(--border)] px-3 py-2 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]">
                                 <RefreshCw size={14} /> Reload

@@ -10,7 +10,8 @@ always-mounted desktop; the Dock opens them.
 2. **`AGENTS.md`** — repo rules: this codebase is a fork, security constraints,
    mode-aware colour contrast, and the embedded-app integrations (Eidos,
    KeySafe, Apfel, the wiki).
-3. **`HANDOFF.md`** — what the last session did and what is still open. Keep it
+3. **`ROADMAP.md`** — parked intent (e.g. Perci Cloud sync subscription). Don't build it, but check it before touching persistence/auth/billing/`perci-data.json`.
+4. **`HANDOFF.md`** — what the last session did and what is still open. Keep it
    updated as you work, and before you finish.
 
 Global rules in `~/.config/agent-rules/GLOBAL.md` apply on top of all of these.
