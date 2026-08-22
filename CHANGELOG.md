@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.49.0] - 2026-08-22
+### Added
+- **Apfel Harness auto-start** — opening the Apfel window now auto-launches `node ~/apfel-harness/server.js` via `localhost:start-now` (`src/components/ApfelMode.jsx:82`, `src/lib/localServices.js:29`, `electron/main.cjs:4993`) and polls `localhostCheckHealth` before reloading, mirroring `GithubOverviewMode`. Offline screen shows a **Start Apfel Harness** button on Electron with a starting spinner; browser/non-Mac falls back to manual `cd ~/apfel-harness && npm start`. No terminal workaround needed for Apple Silicon users — the harness supervises `apfel --serve` on `:6272` and reports `on-device` vs `ui only` correctly. Change kept in sync with `~/apfel-harness/perci/ApfelMode.jsx` per `AGENTS.md`.
+- **Perci OS Settings — Power, Display, Volume and real-app launcher** — `SystemSettingsMode` (`src/components/SystemSettingsMode.jsx`) with D-Bus/sysfs-backed controls gated by `usePerciOS()` (`src/hooks/usePerciOS.js`), which resolves false outside the Linux OS-shell image (`/etc/perci-os-release`). Power via `logind` + `UPower`, Display via backlight sysfs, Volume via `wpctl`, WiFi via NetworkManager D-Bus (`electron/perci-os.cjs:1`). Launcher now shows installed `.desktop` apps via `SirPerciLauncher.jsx`. Mac app unaffected.
+- **Perci OS Settings — WiFi** — NetworkManager D-Bus integration for scan, status, and connect (`electron/perci-os.cjs`).
+- **Perci Cloud roadmap** — `ROADMAP.md` parks the paid sync intent (allowlist, E2EE for keys, `perci-data.json` forward-compat) so future persistence/auth work checks it first (`CLAUDE.md`).
+- **Automated backup helper** — `scripts/backup-perci.sh` for `perci-data.json`, notes, and related state.
+
+### Fixed
+- **Apfel offline UX** — replaced static "Start it from ~/apfel-harness" notice with an actionable launch path; `canStart` is gated by `window.electron.localhostStartNow` so Linux/Windows or missing checkout degrades gracefully rather than showing a broken button.
+
 ## [0.37.0] - 2026-07-12
 ### Added
 - **Apfel Harness mode** — embedded Apfel Harness window with health monitoring and node server lifecycle management.
